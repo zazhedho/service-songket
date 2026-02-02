@@ -51,6 +51,7 @@ func seedDefaults(db *gorm.DB) error {
 		{Id: utils.CreateUUID(), Name: utils.RoleSuperAdmin, DisplayName: "Superadmin", IsSystem: true},
 		{Id: utils.CreateUUID(), Name: utils.RoleMainDealer, DisplayName: "Main Dealer", IsSystem: true},
 		{Id: utils.CreateUUID(), Name: utils.RoleDealer, DisplayName: "Dealer", IsSystem: true},
+		{Id: utils.CreateUUID(), Name: utils.RoleAdmin, DisplayName: "Admin", IsSystem: true},
 	}
 	for _, r := range defaultRoles {
 		_ = db.Where("name = ?", r.Name).FirstOrCreate(&r).Error
@@ -90,9 +91,20 @@ func seedDefaults(db *gorm.DB) error {
 	motors := []songket.MotorType{
 		{Id: utils.CreateUUID(), Name: "Scoopy", OTR: 23000000},
 		{Id: utils.CreateUUID(), Name: "Beat", OTR: 19000000},
+		{Id: utils.CreateUUID(), Name: "Vario 160", OTR: 29000000},
 	}
 	for _, m := range motors {
 		_ = db.Where("name = ?", m.Name).FirstOrCreate(&m).Error
+	}
+
+	// Dealers sample with coordinates (NTB area)
+	dealers := []songket.Dealer{
+		{Id: utils.CreateUUID(), Name: "Dealer Mataram", Regency: "Kota Mataram", Province: "NTB", Latitude: -8.5833, Longitude: 116.1167, Address: "Jl. Pejanggik"},
+		{Id: utils.CreateUUID(), Name: "Dealer Lombok Barat", Regency: "Lombok Barat", Province: "NTB", Latitude: -8.652, Longitude: 116.105, Address: "Jl. Raya Gerung"},
+		{Id: utils.CreateUUID(), Name: "Dealer Bima", Regency: "Bima", Province: "NTB", Latitude: -8.460, Longitude: 118.726, Address: "Jl. Soekarno Hatta"},
+	}
+	for _, d := range dealers {
+		_ = db.Where("name = ?", d.Name).FirstOrCreate(&d).Error
 	}
 
 	return nil

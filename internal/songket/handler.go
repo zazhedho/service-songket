@@ -317,6 +317,20 @@ func (h *Handler) LatestPrices(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/lookups
+func (h *Handler) Lookups(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.Lookups()
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // POST /api/songket/commodities/prices/scrape
 func (h *Handler) ScrapePrices(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

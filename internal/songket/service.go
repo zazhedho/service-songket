@@ -800,3 +800,44 @@ func firstFloat(m map[string]interface{}, keys ...string) float64 {
 	}
 	return 0
 }
+
+// Lookups for dropdowns
+func (s *Service) Lookups() (map[string]interface{}, error) {
+	var fcs []FinanceCompany
+	var motors []MotorType
+	var jobs []Job
+	var dealers []Dealer
+
+	if err := s.db.Find(&fcs).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.Find(&motors).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.Find(&jobs).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.Find(&dealers).Error; err != nil {
+		return nil, err
+	}
+
+	// distinct regency from dealers
+	regencyMap := map[string]struct{}{}
+	for _, d := range dealers {
+		if d.Regency != "" {
+			regencyMap[d.Regency] = struct{}{}
+		}
+	}
+	regencies := make([]string, 0, len(regencyMap))
+	for k := range regencyMap {
+		regencies = append(regencies, k)
+	}
+
+	return map[string]interface{}{
+		"finance_companies": fcs,
+		"motor_types":       motors,
+		"jobs":              jobs,
+		"dealers":           dealers,
+		"regencies":         regencies,
+	}, nil
+}
