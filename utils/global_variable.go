@@ -16,4 +16,6 @@ const (
 	RoleStaff      = "staff"
 	RoleMember     = "member"
 	RoleViewer     = "viewer"
+	RoleMainDealer = "main_dealer"
+	RoleDealer     = "dealer"
 )

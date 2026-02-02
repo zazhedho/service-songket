@@ -48,8 +48,12 @@ func ValidateError(err error, reflectType reflect.Type, tagName string) []Valida
 		out := make([]ValidateMessage, len(ve))
 		for i, fe := range ve {
 			field := fe.Field()
-			if structField, ok := reflectType.FieldByName(fe.Field()); ok {
-				field = structField.Tag.Get(tagName)
+			if reflectType != nil {
+				if structField, ok := reflectType.FieldByName(fe.Field()); ok {
+					if tag := structField.Tag.Get(tagName); tag != "" {
+						field = tag
+					}
+				}
 			}
 			out[i] = ValidateMessage{field, mapValidateMessage(fe)}
 		}

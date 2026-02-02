@@ -1,0 +1,543 @@
+openapi: 3.0.3
+info:
+  title: SONGKET Backend API
+  description: >
+    API untuk portal SONGKET (dealer/main dealer/superadmin) mencakup login,
+    order in, analitik finance, harga pangan, berita, dan credit capabilities.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+security:
+  - bearerAuth: []
+paths:
+  /api/user/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+  /api/user/register:
+    post:
+      summary: Register user (role default viewer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /api/songket/orders:
+    post:
+      summary: Buat Order In
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    get:
+      summary: List/Search Order In
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: dealer_id
+          schema:
+            type: string
+        - in: query
+          name: finance_company_id
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+  /api/songket/orders/{id}:
+    put:
+      summary: Update Order In
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: Order updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /api/songket/finance/dealers:
+    get:
+      summary: Daftar dealer (untuk peta)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dealers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dealer'
+  /api/songket/finance/dealers/{id}/metrics:
+    get:
+      summary: Performa finance per dealer
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: finance_company_id
+          schema:
+            type: string
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealerMetrics'
+  /api/songket/credit:
+    get:
+      summary: List credit capabilities
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Credit capabilities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CreditCapability'
+    post:
+      summary: Upsert credit capability
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditCapabilityRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditCapability'
+  /api/songket/quadrants:
+    get:
+      summary: List quadrants
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Quadrant results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Quadrant'
+  /api/songket/quadrants/recompute:
+    post:
+      summary: Recompute quadrants
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuadrantComputeRequest'
+      responses:
+        '200':
+          description: Recomputed quadrants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Quadrant'
+  /api/songket/news/sources:
+    post:
+      summary: Upsert portal berita
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsSourceRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsSource'
+  /api/songket/news/latest:
+    get:
+      summary: Headline per portal
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [pariwisata, agri, pns]
+      responses:
+        '200':
+          description: Latest headline map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/NewsItem'
+  /api/songket/commodities:
+    post:
+      summary: Upsert komoditas
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommodityRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commodity'
+  /api/songket/commodities/price:
+    post:
+      summary: Tambah harga komoditas manual
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommodityPriceRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommodityPrice'
+  /api/songket/commodities/prices/latest:
+    get:
+      summary: Harga terbaru per komoditas
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Latest prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommodityPrice'
+  /api/songket/commodities/prices/scrape:
+    post:
+      summary: Scrape harga pangan dari panel harga
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scraped and stored prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommodityPrice'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, phone, password]
+      properties:
+        name: {type: string}
+        email: {type: string}
+        phone: {type: string}
+        password: {type: string, format: password}
+    User:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        email: {type: string}
+        phone: {type: string}
+        role: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+    CreateOrderRequest:
+      type: object
+      required: [pooling_number, pooling_at, finance_company_id, consumer_name, consumer_phone, regency, address, job_id, motor_type_id, dp_gross, dp_paid, tenor, result_status]
+      properties:
+        pooling_number: {type: string}
+        pooling_at: {type: string, format: date-time}
+        result_at: {type: string, format: date-time}
+        dealer_id: {type: string}
+        finance_company_id: {type: string}
+        consumer_name: {type: string}
+        consumer_phone: {type: string}
+        regency: {type: string}
+        address: {type: string}
+        job_id: {type: string}
+        motor_type_id: {type: string}
+        dp_gross: {type: number}
+        dp_paid: {type: number}
+        tenor: {type: integer, minimum: 1, maximum: 60}
+        result_status: {type: string, enum: [approve, pending, reject]}
+        result_notes: {type: string}
+        finance_company2_id: {type: string}
+        result_status2: {type: string}
+        result_notes2: {type: string}
+    UpdateOrderRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateOrderRequest'
+    OrderFinanceAttempt:
+      type: object
+      properties:
+        finance_company_id: {type: string}
+        attempt_no: {type: integer}
+        status: {type: string}
+        notes: {type: string}
+    Order:
+      type: object
+      properties:
+        id: {type: string}
+        pooling_number: {type: string}
+        pooling_at: {type: string, format: date-time}
+        result_at: {type: string, format: date-time}
+        dealer_id: {type: string}
+        consumer_name: {type: string}
+        consumer_phone: {type: string}
+        regency: {type: string}
+        address: {type: string}
+        job_id: {type: string}
+        motor_type_id: {type: string}
+        otr: {type: number}
+        dp_gross: {type: number}
+        dp_paid: {type: number}
+        dp_pct: {type: number}
+        tenor: {type: integer}
+        result_status: {type: string}
+        result_notes: {type: string}
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderFinanceAttempt'
+    OrderListResponse:
+      type: object
+      properties:
+        total_data: {type: integer}
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+    Dealer:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        regency: {type: string}
+        province: {type: string}
+        lat: {type: number}
+        lng: {type: number}
+    DealerMetrics:
+      type: object
+      properties:
+        total_orders: {type: integer}
+        lead_time_seconds_avg: {type: number, nullable: true}
+        approval_rate: {type: number}
+        rescue_approved_fc2: {type: integer}
+        finance_company_filter: {type: string, nullable: true}
+        date_from: {type: string, format: date-time}
+        date_to: {type: string, format: date-time}
+    CreditCapabilityRequest:
+      type: object
+      required: [regency, job_id, score]
+      properties:
+        regency: {type: string}
+        job_id: {type: string}
+        score: {type: number}
+    CreditCapability:
+      allOf:
+        - $ref: '#/components/schemas/CreditCapabilityRequest'
+        - type: object
+          properties:
+            id: {type: string}
+            updated_at: {type: string, format: date-time}
+    QuadrantComputeRequest:
+      type: object
+      required: [order_threshold, score_threshold]
+      properties:
+        order_threshold: {type: integer}
+        score_threshold: {type: number}
+        from: {type: string, format: date}
+        to: {type: string, format: date}
+    Quadrant:
+      type: object
+      properties:
+        id: {type: string}
+        regency: {type: string}
+        job_id: {type: string}
+        quadrant: {type: integer, enum: [1,2,3,4]}
+        order_count: {type: integer}
+        credit_score: {type: number}
+        computed_at: {type: string, format: date-time}
+    NewsSourceRequest:
+      type: object
+      required: [name, url]
+      properties:
+        name: {type: string}
+        url: {type: string}
+        category: {type: string}
+    NewsSource:
+      allOf:
+        - $ref: '#/components/schemas/NewsSourceRequest'
+        - type: object
+          properties:
+            id: {type: string}
+    NewsItem:
+      type: object
+      properties:
+        id: {type: string}
+        source_id: {type: string}
+        title: {type: string}
+        url: {type: string}
+        category: {type: string}
+        published_at: {type: string, format: date-time}
+    CommodityRequest:
+      type: object
+      required: [name, unit]
+      properties:
+        name: {type: string}
+        unit: {type: string}
+    Commodity:
+      allOf:
+        - $ref: '#/components/schemas/CommodityRequest'
+        - type: object
+          properties:
+            id: {type: string}
+    CommodityPriceRequest:
+      type: object
+      required: [commodity_id, price]
+      properties:
+        commodity_id: {type: string}
+        price: {type: number}
+        collected_at: {type: string, format: date-time}
+        source_url: {type: string}
+    CommodityPrice:
+      type: object
+      properties:
+        id: {type: string}
+        commodity_id: {type: string}
+        price: {type: number}
+        collected_at: {type: string, format: date-time}
+        source_url: {type: string}
+        commodity:
+          $ref: '#/components/schemas/Commodity'

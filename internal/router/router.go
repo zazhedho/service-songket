@@ -24,6 +24,7 @@ import (
 	roleSvc "starter-kit/internal/services/role"
 	sessionSvc "starter-kit/internal/services/session"
 	userSvc "starter-kit/internal/services/user"
+	"starter-kit/internal/songket"
 	"starter-kit/middlewares"
 	"starter-kit/pkg/logger"
 	"starter-kit/pkg/security"
@@ -36,6 +37,7 @@ type Routes struct {
 }
 
 func NewRoutes() *Routes {
+	gin.SetMode(gin.ReleaseMode)
 	app := gin.Default()
 
 	app.Use(middlewares.CORS())
@@ -48,6 +50,13 @@ func NewRoutes() *Routes {
 		ctx.JSON(http.StatusOK, gin.H{
 			"message": "OK!!",
 		})
+	})
+
+	// Swagger (serves existing docs/swagger.yaml and a lightweight UI)
+	app.StaticFile("/swagger.yaml", "docs/swagger.yaml")
+	app.GET("/swagger", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusOK, swaggerHTML)
 	})
 
 	return &Routes{
@@ -214,3 +223,77 @@ func (r *Routes) SessionRoutes() {
 
 	logger.WriteLog(logger.LogLevelInfo, "Session management routes registered")
 }
+
+// SongketRoutes registers business endpoints for SONGKET.
+func (r *Routes) SongketRoutes() {
+	svc := songket.NewService(r.DB)
+	h := songket.NewHandler(svc)
+
+	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
+	pRepo := permissionRepo.NewPermissionRepo(r.DB)
+	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
+
+	g := r.App.Group("/api/songket").Use(mdw.AuthMiddleware())
+
+	// Orders
+	g.POST("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.CreateOrder)
+	g.GET("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ListOrders)
+	g.PUT("/orders/:id", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpdateOrder)
+
+	// Finance performance
+	g.GET("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.Dealers)
+	g.GET("/finance/dealers/:id/metrics", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.DealerMetrics)
+
+	// Credit capability & quadrants
+	g.POST("/credit", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpsertCredit)
+	g.GET("/credit", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ListCredit)
+	g.POST("/quadrants/recompute", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.RecomputeQuadrants)
+	g.GET("/quadrants", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ListQuadrants)
+
+	// News
+	g.POST("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpsertNewsSource)
+	g.GET("/news/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.LatestNews)
+
+	// Commodity prices
+	g.POST("/commodities", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpsertCommodity)
+	g.POST("/commodities/price", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.AddPrice)
+	g.GET("/commodities/prices/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.LatestPrices)
+	g.POST("/commodities/prices/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ScrapePrices)
+
+	logger.WriteLog(logger.LogLevelInfo, "Songket routes registered")
+}
+
+// Minimal Swagger UI that pulls swagger.yaml from the same server.
+const swaggerHTML = `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SONGKET API Docs</title>
+  <style>
+    body { margin:0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    #fallback { padding:16px; display:none; }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" onerror="document.getElementById('fallback').style.display='block'">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <div id="fallback">
+    <h3>Swagger UI gagal dimuat</h3>
+    <p>CDN <code>unpkg.com</code> diblok/putus. Ambil spesifikasi mentah di <a href="/swagger.yaml">/swagger.yaml</a> atau jalankan swagger-ui lokal.</p>
+  </div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" onerror="document.getElementById('fallback').style.display='block'"></script>
+  <script>
+    window.onload = () => {
+      try {
+        SwaggerUIBundle({
+          url: '/swagger.yaml',
+          dom_id: '#swagger-ui',
+          presets: [SwaggerUIBundle.presets.apis],
+        });
+      } catch(e) {
+        document.getElementById('fallback').style.display='block';
+      }
+    };
+  </script>
+</body>
+</html>`

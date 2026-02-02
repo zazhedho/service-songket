@@ -66,7 +66,7 @@ func main() {
 	confID := config.GetAppConf("CONFIG_ID", "", nil)
 	logger.WriteLog(logger.LogLevelDebug, fmt.Sprintf("ConfigID: %s", confID))
 
-	runMigration()
+	//runMigration()
 
 	// Initialize Redis for session management (optional)
 	redisClient, err := database.InitRedis()
@@ -83,10 +83,15 @@ func main() {
 	FailOnError(err, "Failed to open db")
 	defer sqlDb.Close()
 
+	if err := database.AutoMigrate(routes.DB); err != nil {
+		FailOnError(err, "Failed to automigrate")
+	}
+
 	routes.UserRoutes()
 	routes.RoleRoutes()
 	routes.PermissionRoutes()
 	routes.MenuRoutes()
+	routes.SongketRoutes()
 
 	// Register session routes if Redis is available
 	if redisClient != nil {
