@@ -86,10 +86,10 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 
 	// SECURITY: Public registration always uses vendor role
 	// This prevents privilege escalation through request manipulation
-	roleName := utils.RoleViewer
+	//roleName := utils.RoleViewer
 
 	var roleId *string
-	roleEntity, err := s.RoleRepo.GetByName(roleName)
+	roleEntity, err := s.RoleRepo.GetByName(req.Role)
 	if err == nil && roleEntity.Id != "" {
 		roleId = &roleEntity.Id
 	}
@@ -100,7 +100,7 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 		Phone:     phone,
 		Email:     req.Email,
 		Password:  string(hashedPwd),
-		Role:      roleName,
+		Role:      req.Role,
 		RoleId:    roleId,
 		CreatedAt: time.Now(),
 	}

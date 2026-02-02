@@ -343,12 +343,15 @@ components:
   schemas:
     RegisterRequest:
       type: object
-      required: [name, email, phone, password]
+      required: [name, email, phone, password, role]
       properties:
         name: {type: string}
         email: {type: string}
         phone: {type: string}
         password: {type: string, format: password}
+        role:
+          type: string
+          description: role user (dealer, main_dealer, superadmin hanya oleh superadmin)
     User:
       type: object
       properties:
