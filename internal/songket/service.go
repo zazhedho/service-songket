@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -670,67 +671,49 @@ func (s *Service) LatestCommodityPrices() ([]CommodityPrice, error) {
 	return result, nil
 }
 
-// ScrapePanelHarga fetches commodity prices from configured panel harga URL (expects JSON array/object).
-// Supported fields: name|nama|komoditas, price|harga, unit|satuan.
+// ScrapePanelHarga fetches commodity prices; if urls empty, use active sources.
 func (s *Service) ScrapePanelHarga(ctx context.Context, url string) ([]CommodityPrice, error) {
-	if url == "" {
-		return nil, fmt.Errorf("SCRAPE_PANGAN_URL is empty")
+	urls := []string{}
+	if url != "" {
+		urls = append(urls, url)
+	}
+	return s.scrapeViaPython(ctx, urls)
+}
+
+// ScrapeFromSources uses active scrape_sources or provided urls.
+func (s *Service) ScrapeFromSources(ctx context.Context, urls []string) ([]CommodityPrice, error) {
+	if len(urls) == 0 {
+		var sources []ScrapeSource
+		if err := s.db.Where("is_active = ?", true).Find(&sources).Error; err == nil {
+			for _, src := range sources {
+				urls = append(urls, src.URL)
+			}
+		}
+	}
+	return s.scrapeViaPython(ctx, urls)
+}
+
+// call python script to scrape and return stored prices
+func (s *Service) scrapeViaPython(ctx context.Context, urls []string) ([]CommodityPrice, error) {
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("no urls to scrape")
 	}
 
-	client := http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	args := []string{"/home/shago/go/src/shago/service-songket/python/songket-scraping/scrape.py"}
+	args = append(args, urls...)
+	cmd := exec.CommandContext(ctx, "python3", args...)
+	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("scrape source status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Try to decode into slice or wrapped object.
-	var raw interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		return nil, fmt.Errorf("python scrape error: %w", err)
 	}
 
 	var items []map[string]interface{}
-	switch v := raw.(type) {
-	case []interface{}:
-		for _, it := range v {
-			if m, ok := it.(map[string]interface{}); ok {
-				items = append(items, m)
-			}
-		}
-	case map[string]interface{}:
-		// try find data key
-		for _, key := range []string{"data", "items", "rows"} {
-			if arr, ok := v[key].([]interface{}); ok {
-				for _, it := range arr {
-					if m, ok := it.(map[string]interface{}); ok {
-						items = append(items, m)
-					}
-				}
-				break
-			}
-		}
-	}
-
-	if len(items) == 0 {
-		return nil, fmt.Errorf("no commodity data found in source")
+	if err := json.Unmarshal(output, &items); err != nil {
+		return nil, fmt.Errorf("parse python output: %w", err)
 	}
 
 	collected := time.Now()
 	result := make([]CommodityPrice, 0, len(items))
-
 	for _, m := range items {
 		name := firstString(m, "name", "nama", "komoditas", "commodity")
 		if name == "" {
@@ -738,8 +721,11 @@ func (s *Service) ScrapePanelHarga(ctx context.Context, url string) ([]Commodity
 		}
 		unit := firstString(m, "unit", "satuan")
 		price := firstFloat(m, "price", "harga")
+		source := firstString(m, "source_url", "url")
+		if source == "" && len(urls) == 1 {
+			source = urls[0]
+		}
 
-		// Ensure commodity exists
 		var c Commodity
 		err := s.db.Where("name = ?", name).First(&c).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -752,14 +738,13 @@ func (s *Service) ScrapePanelHarga(ctx context.Context, url string) ([]Commodity
 			CommodityID: c.Id,
 			Price:       price,
 			CollectedAt: collected,
-			SourceURL:   url,
+			SourceURL:   source,
 		}
 		if err := s.db.Create(&cp).Error; err == nil {
 			cp.Commodity = &c
 			result = append(result, cp)
 		}
 	}
-
 	return result, nil
 }
 

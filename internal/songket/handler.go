@@ -334,8 +334,15 @@ func (h *Handler) Lookups(ctx *gin.Context) {
 // POST /api/songket/commodities/prices/scrape
 func (h *Handler) ScrapePrices(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	var req struct {
+		Urls []string `json:"urls"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
 	url := os.Getenv("SCRAPE_PANGAN_URL")
-	data, err := h.svc.ScrapePanelHarga(context.Background(), url)
+	if len(req.Urls) == 0 && url != "" {
+		req.Urls = []string{url}
+	}
+	data, err := h.svc.ScrapeFromSources(context.Background(), req.Urls)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -343,6 +350,74 @@ func (h *Handler) ScrapePrices(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "scraped", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// CRUD scrape sources
+func (h *Handler) ListScrapeSources(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var sources []ScrapeSource
+	if err := h.svc.db.Find(&sources).Error; err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, sources)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) CreateScrapeSource(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req ScrapeSource
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	req.Id = utils.CreateUUID()
+	if err := h.svc.db.Create(&req).Error; err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, req)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+func (h *Handler) UpdateScrapeSource(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	var req ScrapeSource
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	req.Id = id
+	if err := h.svc.db.Model(&ScrapeSource{}).Where("id = ?", id).Updates(req).Error; err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, req)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) DeleteScrapeSource(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if err := h.svc.db.Delete(&ScrapeSource{}, "id = ?", id).Error; err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, nil)
 	ctx.JSON(http.StatusOK, res)
 }
 

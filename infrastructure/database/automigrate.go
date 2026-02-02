@@ -32,6 +32,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.CommodityPrice{},
 		&songket.NewsSource{},
 		&songket.NewsItem{},
+		&songket.ScrapeSource{},
 	}
 
 	if err := db.AutoMigrate(models...); err != nil {

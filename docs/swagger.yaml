@@ -325,6 +325,16 @@ paths:
       summary: Scrape harga pangan dari panel harga
       security:
         - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  items: { type: string }
       responses:
         '200':
           description: Scraped and stored prices
@@ -334,6 +344,53 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CommodityPrice'
+  /api/songket/scrape-sources:
+    get:
+      summary: List scrape sources
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sources
+    post:
+      summary: Create scrape source
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScrapeSource' }
+      responses:
+        '201': { description: Created }
+  /api/songket/scrape-sources/{id}:
+    put:
+      summary: Update scrape source
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScrapeSource' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete scrape source
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
   /api/users:
     get:
       summary: List users (superadmin/admin)
@@ -973,6 +1030,14 @@ components:
         source_url: {type: string}
         commodity:
           $ref: '#/components/schemas/Commodity'
+    ScrapeSource:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        url: { type: string }
+        category: { type: string }
+        is_active: { type: boolean }
     Role:
       type: object
       properties:

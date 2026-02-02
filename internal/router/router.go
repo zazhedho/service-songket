@@ -260,6 +260,10 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/commodities/prices/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.LatestPrices)
 	g.POST("/commodities/prices/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ScrapePrices)
 	g.GET("/lookups", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.Lookups)
+	g.GET("/scrape-sources", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.ListScrapeSources)
+	g.POST("/scrape-sources", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.CreateScrapeSource)
+	g.PUT("/scrape-sources/:id", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.UpdateScrapeSource)
+	g.DELETE("/scrape-sources/:id", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.DeleteScrapeSource)
 
 	logger.WriteLog(logger.LogLevelInfo, "Songket routes registered")
 }
