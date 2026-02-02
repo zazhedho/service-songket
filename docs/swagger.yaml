@@ -334,6 +334,411 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CommodityPrice'
+  /api/users:
+    get:
+      summary: List users (superadmin/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: role
+          schema: { type: string }
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+  /api/user:
+    get:
+      summary: Get user by auth token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+    put:
+      summary: Update own profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserUpdate' }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete own account
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted
+  /api/user/logout:
+    post:
+      summary: Logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out
+  /api/user/forgot-password:
+    post:
+      summary: Forgot password (send reset token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotPassword' }
+      responses:
+        '200':
+          description: Token issued
+  /api/user/reset-password:
+    post:
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPassword' }
+      responses:
+        '200':
+          description: Password reset
+  /api/user/change/password:
+    put:
+      summary: Change own password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePassword' }
+      responses:
+        '200':
+          description: Password changed
+  /api/roles:
+    get:
+      summary: List roles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Role' }
+  /api/role:
+    post:
+      summary: Create role
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Role' }
+      responses:
+        '201': { description: Created }
+  /api/role/{id}:
+    get:
+      summary: Get role
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Role
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+    put:
+      summary: Update role
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Role' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete role
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
+  /api/role/{id}/permissions:
+    post:
+      summary: Assign permissions to role
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permission_ids:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200': { description: Saved }
+  /api/role/{id}/menus:
+    post:
+      summary: Assign menus to role
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                menu_ids:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200': { description: Saved }
+  /api/permissions:
+    get:
+      summary: List permissions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Permission' }
+  /api/permission:
+    post:
+      summary: Create permission
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Permission' }
+      responses:
+        '201': { description: Created }
+  /api/permission/{id}:
+    get:
+      summary: Get permission
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Permission
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+    put:
+      summary: Update permission
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Permission' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete permission
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
+  /api/menus:
+    get:
+      summary: List menus
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Menus
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MenuItem' }
+  /api/menus/active:
+    get:
+      summary: List active menus for all
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Menus
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MenuItem' }
+  /api/menus/me:
+    get:
+      summary: Menus for current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Menus
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MenuItem' }
+  /api/menu:
+    post:
+      summary: Create menu item
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MenuItem' }
+      responses:
+        '201': { description: Created }
+  /api/menu/{id}:
+    get:
+      summary: Get menu item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Menu item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MenuItem' }
+    put:
+      summary: Update menu item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MenuItem' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete menu item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
+  /api/user/sessions:
+    get:
+      summary: List active sessions (if Redis enabled)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sessions
+    delete:
+      summary: Revoke all other sessions
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Revoked }
+  /api/user/session/{session_id}:
+    delete:
+      summary: Revoke session by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Revoked }
+  /healthcheck:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
 components:
   securitySchemes:
     bearerAuth:
@@ -375,6 +780,30 @@ components:
       properties:
         token:
           type: string
+    ForgotPassword:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+    ResetPassword:
+      type: object
+      required: [token, new_password]
+      properties:
+        token: { type: string }
+        new_password: { type: string }
+    ChangePassword:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string }
+        new_password: { type: string }
+    UserUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        role: { type: string }
     CreateOrderRequest:
       type: object
       required: [pooling_number, pooling_at, finance_company_id, consumer_name, consumer_phone, regency, address, job_id, motor_type_id, dp_gross, dp_paid, tenor, result_status]
@@ -544,3 +973,29 @@ components:
         source_url: {type: string}
         commodity:
           $ref: '#/components/schemas/Commodity'
+    Role:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        display_name: { type: string }
+        description: { type: string }
+    Permission:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        display_name: { type: string }
+        resource: { type: string }
+        action: { type: string }
+    MenuItem:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        display_name: { type: string }
+        path: { type: string }
+        icon: { type: string }
+        parent_id: { type: string }
+        order_index: { type: integer }
+        is_active: { type: boolean }
