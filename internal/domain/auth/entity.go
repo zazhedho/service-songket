@@ -7,7 +7,7 @@ func (Blacklist) TableName() string {
 }
 
 type Blacklist struct {
-	ID        string    `gorm:"primaryKey" json:"id"`
-	Token     string    `gorm:"not null; unique" json:"token"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string    `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Token     string    `gorm:"column:token;type:text;not null;uniqueIndex" json:"token"`
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
