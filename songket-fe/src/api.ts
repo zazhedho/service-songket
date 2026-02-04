@@ -1,0 +1,76 @@
+import axios from 'axios'
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+})
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+export interface Pagination<T> {
+  data: T
+  total_data: number
+  total_pages: number
+  current_page: number
+}
+
+export const login = (email: string, password: string) =>
+  api.post('/api/user/login', { email, password })
+
+export const register = (body: Record<string, unknown>) => api.post('/api/user/register', body)
+
+export const fetchOrders = (params: Record<string, unknown>) => api.get('/api/songket/orders', { params })
+export const createOrder = (body: Record<string, unknown>) => api.post('/api/songket/orders', body)
+export const updateOrder = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/orders/${id}`, body)
+
+export const fetchDealers = () => api.get('/api/songket/finance/dealers')
+export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>
+  api.get(`/api/songket/finance/dealers/${id}/metrics`, { params })
+
+export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
+export const fetchPrices = () => api.get('/api/songket/commodities/prices/latest')
+export const scrapePrices = (body?: Record<string, unknown>) =>
+  api.post('/api/songket/commodities/prices/scrape', body)
+
+export const fetchCredit = () => api.get('/api/songket/credit')
+export const upsertCredit = (body: Record<string, unknown>) => api.post('/api/songket/credit', body)
+
+export const recomputeQuadrant = (body: Record<string, unknown>) => api.post('/api/songket/quadrants/recompute', body)
+export const fetchQuadrants = () => api.get('/api/songket/quadrants')
+
+export const getMe = () => api.get('/api/user')
+export const fetchLookups = () => api.get('/api/songket/lookups')
+
+// Admin / Superadmin
+export const listUsers = (params?: Record<string, unknown>) => api.get('/api/users', { params })
+export const adminCreateUser = (body: Record<string, unknown>) => api.post('/api/user', body)
+export const updateUserById = (id: string, body: Record<string, unknown>) => api.put(`/api/user/${id}`, body)
+export const deleteUserById = (id: string) => api.delete(`/api/user/${id}`)
+
+export const listRoles = () => api.get('/api/roles')
+export const createRole = (body: Record<string, unknown>) => api.post('/api/role', body)
+export const updateRole = (id: string, body: Record<string, unknown>) => api.put(`/api/role/${id}`, body)
+export const deleteRole = (id: string) => api.delete(`/api/role/${id}`)
+export const assignRolePermissions = (id: string, permission_ids: string[]) =>
+  api.post(`/api/role/${id}/permissions`, { permission_ids })
+export const assignRoleMenus = (id: string, menu_ids: string[]) =>
+  api.post(`/api/role/${id}/menus`, { menu_ids })
+
+export const listMenus = () => api.get('/api/menus')
+export const createMenu = (body: Record<string, unknown>) => api.post('/api/menu', body)
+export const updateMenu = (id: string, body: Record<string, unknown>) => api.put(`/api/menu/${id}`, body)
+export const deleteMenu = (id: string) => api.delete(`/api/menu/${id}`)
+
+export const listPermissions = () => api.get('/api/permissions')
+
+// Scrape sources
+export const listScrapeSources = () => api.get('/api/songket/scrape-sources')
+export const createScrapeSource = (body: Record<string, unknown>) => api.post('/api/songket/scrape-sources', body)
+export const updateScrapeSource = (id: string, body: Record<string, unknown>) =>
+  api.put(`/api/songket/scrape-sources/${id}`, body)
+export const deleteScrapeSource = (id: string) => api.delete(`/api/songket/scrape-sources/${id}`)
+
+export default api

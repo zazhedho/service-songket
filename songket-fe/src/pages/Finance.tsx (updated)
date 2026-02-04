@@ -1,0 +1,61 @@
+import { useEffect, useState } from 'react'
+import { fetchDealers, fetchDealerMetrics } from '../api'
+
+export default function FinancePage() {
+  const [dealers, setDealers] = useState<any[]>([])
+  const [selected, setSelected] = useState<string>('')
+  const [metrics, setMetrics] = useState<any>(null)
+
+  useEffect(() => {
+    fetchDealers().then((r) => setDealers(r.data.data || r.data))
+  }, [])
+
+  useEffect(() => {
+    if (selected) fetchDealerMetrics(selected).then((r) => setMetrics(r.data.data || r.data))
+  }, [selected])
+
+  return (
+    <div>
+      <div className="header">
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Finance Performance</div>
+          <div style={{ color: '#9ca3af' }}>Klik dealer untuk lihat metrik</div>
+        </div>
+      </div>
+      <div className="page grid lg:grid-cols-[1fr_1.3fr]">
+        <div className="card">
+          <h3>Dealer</h3>
+          <div className="grid" style={{ gridTemplateColumns: '1fr', gap: 10 }}>
+            {dealers.map((d) => (
+              <button key={d.id} className="btn-ghost" onClick={() => setSelected(d.id)} style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600 }}>{d.name}</div>
+                <div style={{ color: '#9ca3af', fontSize: 13 }}>{d.regency}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <h3>Detail</h3>
+          {!metrics && <div>Pilih dealer untuk melihat metrik</div>}
+          {metrics && (
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))' }}>
+              <Metric label="Total Order" value={metrics.total_orders} />
+              <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg?.toFixed?.(1) || '-'} />
+              <Metric label="Approval Rate" value={(metrics.approval_rate * 100).toFixed(1) + '%'} />
+              <Metric label="Reject FC1 -> Approve FC2" value={metrics.rescue_approved_fc2} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: any }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.04)', padding: 12, borderRadius: 12 }}>
+      <div style={{ color: '#9ca3af', fontSize: 13 }}>{label}</div>
+      <div style={{ fontWeight: 700, fontSize: 20 }}>{value}</div>
+    </div>
+  )
+}
