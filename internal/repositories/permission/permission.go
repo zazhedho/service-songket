@@ -181,6 +181,21 @@ func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permiss
 	return ret, nil
 }
 
+// GetUserDirectPermissions returns only permissions assigned directly to the user (user_permissions table).
+func (r *repo) GetUserDirectPermissions(userId string) (ret []domainpermission.Permission, err error) {
+	query := `
+		SELECT DISTINCT p.*
+		FROM permissions p
+		INNER JOIN user_permissions up ON up.permission_id = p.id
+		WHERE up.user_id = ? AND p.deleted_at IS NULL
+		ORDER BY resource, action
+	`
+	if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (r *repo) SetUserPermissions(userId string, permissionIDs []string) error {
 	tx := r.DB.Begin()
 	if err := tx.Where("user_id = ?", userId).Delete(&domainpermission.UserPermission{}).Error; err != nil {

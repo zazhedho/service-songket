@@ -572,6 +572,18 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 
+	// main dealer: dashboard, orders, finance, credit, quadrants, prices, news
+	mainDealerMenus := []string{"dashboard", "orders", "finance", "credit", "quadrants", "prices", "news"}
+	if err := assign(utils.RoleMainDealer, mainDealerMenus); err != nil {
+		return err
+	}
+
+	// dealer: Form Order In saja (plus dashboard agar konsisten dengan perms view_dashboard)
+	dealerMenus := []string{"dashboard", "orders"}
+	if err := assign(utils.RoleDealer, dealerMenus); err != nil {
+		return err
+	}
+
 	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access"})
 	if err := assign(utils.RoleStaff, staffMenus); err != nil {
 		return err

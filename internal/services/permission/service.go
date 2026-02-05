@@ -59,6 +59,10 @@ func (s *PermissionService) GetUserPermissions(userId string) ([]domainpermissio
 	return s.PermissionRepo.GetUserPermissions(userId)
 }
 
+func (s *PermissionService) GetUserDirectPermissions(userId string) ([]domainpermission.Permission, error) {
+	return s.PermissionRepo.GetUserDirectPermissions(userId)
+}
+
 func (s *PermissionService) SetUserPermissions(userId string, permissionIDs []string) error {
 	return s.PermissionRepo.SetUserPermissions(userId, permissionIDs)
 }

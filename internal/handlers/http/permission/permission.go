@@ -231,7 +231,8 @@ func (h *PermissionHandler) GetUserPermissionsByAdmin(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.GetUserPermissions(userId)
+	// Admin wants to see only direct user permissions (not inherited from role)
+	data, err := h.Service.GetUserDirectPermissions(userId)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetUserPermissions; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
