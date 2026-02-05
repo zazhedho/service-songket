@@ -33,20 +33,23 @@ export default function UsersPage() {
   const [permChecked, setPermChecked] = useState<string[]>([])
   const [permLoading, setPermLoading] = useState(false)
   const [permDraft, setPermDraft] = useState<string[]>([]) // for create/edit form
-  const crudActions = ['list', 'view', 'create', 'update', 'delete']
 
-  const groupPerms = (permsArr: any[]) => {
-    const grouped: Record<string, Record<string, string>> = {}
+  type Perm = { id: string; name?: string; display_name?: string; resource?: string; action?: string }
+  const groupPerms = (permsArr: Perm[]) => {
+    const grouped: Record<string, Perm[]> = {}
     permsArr.forEach((p) => {
-      if (!crudActions.includes(p.action)) return
       const res = p.resource || 'other'
-      grouped[res] = grouped[res] || {}
-      grouped[res][p.action] = p.id
+      grouped[res] = grouped[res] || []
+      grouped[res].push(p)
     })
+    Object.values(grouped).forEach((list) =>
+      list.sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),
+    )
     return grouped
   }
+
   const groupedAll = groupPerms(allPerms)
-  const filterResourcesByRole = (grouped: Record<string, Record<string, string>>) => {
+  const filterResourcesByRole = (grouped: Record<string, Perm[]>) => {
     if (role === 'superadmin') return grouped
     if (role === 'main_dealer') {
       const allow = ['orders', 'finance', 'credit', 'quadrants', 'commodities', 'news', 'scrape_sources', 'menus']
@@ -135,6 +138,49 @@ export default function UsersPage() {
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
 
+  const renderPermTable = (selected: string[], toggle: (id: string) => void) => {
+    const resources = Object.keys(groupedByRole).sort((a, b) => a.localeCompare(b))
+    if (!resources.length) return <div style={{ color: '#9ca3af', fontSize: 12 }}>Permission belum tersedia.</div>
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {resources.map((res) => (
+          <div key={res} style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 8 }}>
+            <div className="perm-resource" style={{ marginBottom: 6 }}>
+              {res.replace(/_/g, ' ')}
+            </div>
+            <div className="perm-table">
+              <div className="perm-row perm-head">
+                <div>Permission</div>
+                <div>Action</div>
+                <div className="perm-cell">Allow</div>
+              </div>
+              {groupedByRole[res].map((p) => {
+                const checked = selected.includes(p.id)
+                return (
+                  <div key={p.id} className="perm-row">
+                    <div className="perm-title">{p.display_name || p.name}</div>
+                    <div className="perm-meta">{p.action}</div>
+                    <div className="perm-cell">
+                      <input
+                        type="checkbox"
+                        className="perm-checkbox"
+                        checked={checked}
+                        onChange={() => toggle(p.id)}
+                        title={p.display_name || p.name}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+        <div style={{ color: '#9ca3af', fontSize: 11 }}>Checkbox diperkecil agar tabel tidak melebar.</div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="header">
@@ -209,41 +255,9 @@ export default function UsersPage() {
             {canSetUserPerm && !editing && (
               <div>
                 <label>Permission (opsional, hanya superadmin)</label>
-                <div className="perm-table">
-                  <div className="perm-row perm-head">
-                    <div>Resource</div>
-                    {crudActions.map((a) => (
-                      <div key={a}>{a}</div>
-                    ))}
-                  </div>
-                  {Object.entries(groupedByRole).map(([res, actions]) => (
-                    <div className="perm-row" key={res}>
-                      <div className="perm-resource">{res}</div>
-                      {crudActions.map((a) => {
-                        const id = actions[a]
-                        const checked = id ? permDraft.includes(id) : false
-                        return (
-                          <div key={a} className="perm-cell">
-                            {id ? (
-                              <input
-                                type="checkbox"
-                                className="perm-checkbox"
-                                checked={checked}
-                                onChange={() =>
-                                  setPermDraft((prev) =>
-                                    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-                                  )
-                                }
-                              />
-                            ) : (
-                              <span className="perm-dash">-</span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </div>
+                {renderPermTable(permDraft, (id) =>
+                  setPermDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
+                )}
               </div>
             )}
             {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
@@ -265,37 +279,7 @@ export default function UsersPage() {
               {permLoading && <div>Loading permissions...</div>}
               {!permLoading && (
                 <>
-                  <div className="perm-table">
-                    <div className="perm-row perm-head">
-                      <div>Resource</div>
-                      {crudActions.map((a) => (
-                        <div key={a}>{a}</div>
-                      ))}
-                    </div>
-                    {Object.entries(groupedByRole).map(([res, actions]) => (
-                      <div className="perm-row" key={res}>
-                        <div className="perm-resource">{res}</div>
-                        {crudActions.map((a) => {
-                          const id = actions[a]
-                          const checked = id ? permChecked.includes(id) : false
-                          return (
-                            <div key={a} className="perm-cell">
-                              {id ? (
-                                <input
-                                  type="checkbox"
-                                  className="perm-checkbox"
-                                  checked={checked}
-                                  onChange={() => togglePerm(id)}
-                                />
-                              ) : (
-                                <span className="perm-dash">-</span>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
-                  </div>
+                  {renderPermTable(permChecked, togglePerm)}
                   <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                     <button className="btn" onClick={saveUserPerms} disabled={permLoading}>{permLoading ? 'Saving...' : 'Save Permissions'}</button>
                     <button className="btn-ghost" onClick={() => { setPermUserId(null); setPermChecked([]) }}>Tutup</button>

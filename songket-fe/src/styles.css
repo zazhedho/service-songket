@@ -94,7 +94,9 @@
   }
   .perm-checkbox {
     margin-top: 1px;
-    transform: scale(0.8);
+    transform: scale(0.82);
+    width: 14px;
+    height: 14px;
   }
   .perm-text { line-height: 1.1; }
   .perm-title { font-weight: 600; font-size: 11px; }
@@ -109,13 +111,13 @@
   }
   .perm-row {
     display: grid;
-    grid-template-columns: 1.5fr repeat(5, 0.6fr);
+    grid-template-columns: 1.4fr 1fr 0.5fr;
     gap: 2px;
     align-items: center;
   }
   .perm-head { background: rgba(255,255,255,0.04); font-weight: 600; font-size: 12px; }
   .perm-row > div { padding: 6px 8px; font-size: 11px; }
-  .perm-resource { text-transform: capitalize; }
+  .perm-resource { text-transform: capitalize; font-weight: 600; letter-spacing: 0.01em; }
   .perm-cell { display: flex; justify-content: center; }
   .perm-dash { color: #555; font-size: 12px; }
 }
