@@ -103,6 +103,31 @@ func (h *Handler) UpdateOrder(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// DELETE /api/songket/orders/:id
+func (h *Handler) DeleteOrder(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	auth := utils.GetAuthData(ctx)
+	userId := utils.InterfaceString(auth["user_id"])
+	role := utils.InterfaceString(auth["role"])
+
+	if err := h.svc.DeleteOrder(id, role, userId); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "order deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/finance/dealers
 func (h *Handler) Dealers(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

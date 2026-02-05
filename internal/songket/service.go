@@ -302,6 +302,26 @@ func (s *Service) hasAttempt(atts []OrderFinanceAttempt, num int) bool {
 	return false
 }
 
+// DeleteOrder enforces role-based access.
+func (s *Service) DeleteOrder(id string, role, userId string) error {
+	var order Order
+	if err := s.db.First(&order, "id = ?", id).Error; err != nil {
+		return err
+	}
+
+	// Dealer can only delete own orders
+	if role == utils.RoleDealer && order.CreatedBy != userId {
+		return fmt.Errorf("not allowed")
+	}
+
+	// Main dealer/admin/superadmin allowed; others deny
+	if role != utils.RoleDealer && role != utils.RoleMainDealer && role != utils.RoleAdmin && role != utils.RoleSuperAdmin {
+		return fmt.Errorf("not allowed")
+	}
+
+	return s.db.Delete(&order).Error
+}
+
 // ListOrders with pagination and filters.
 func (s *Service) ListOrders(params filter.BaseParams, role, userId string) ([]Order, int64, error) {
 	query := s.db.Model(&Order{}).Preload("MotorType").Preload("Job").Preload("Attempts")

@@ -30,6 +30,7 @@ export default function UsersPage() {
   const load = () => listUsers().then((r) => setUsers(r.data.data || r.data))
   const [allPerms, setAllPerms] = useState<any[]>([])
   const [permUserId, setPermUserId] = useState<string | null>(null)
+  const [permTargetRole, setPermTargetRole] = useState<string | null>(null)
   const [permChecked, setPermChecked] = useState<string[]>([])
   const [permLoading, setPermLoading] = useState(false)
   const [permDraft, setPermDraft] = useState<string[]>([]) // for create/edit form
@@ -103,6 +104,7 @@ export default function UsersPage() {
       load()
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Gagal')
+      alert(e?.response?.data?.error || 'Gagal')
     } finally {
       setLoading(false)
     }
@@ -115,12 +117,13 @@ export default function UsersPage() {
     load()
   }
 
-  const openPermModal = async (userId: string) => {
+  const openPermModal = async (user: any) => {
     if (!canSetUserPerm) return
     setPermLoading(true)
-    setPermUserId(userId)
+    setPermUserId(user.id)
+    setPermTargetRole(user.role)
     try {
-      const res = await getUserPermissions(userId)
+      const res = await getUserPermissions(user.id)
       const ids = (res.data?.data || res.data || []).map((p: any) => p.id)
       setPermChecked(ids)
     } finally {
@@ -137,6 +140,8 @@ export default function UsersPage() {
     setPermLoading(true)
     try {
       await setUserPermissions(permUserId, permChecked)
+    } catch (err: any) {
+      alert(err?.response?.data?.error || err?.message || 'Gagal menyimpan permissions')
     } finally {
       setPermLoading(false)
     }
@@ -231,7 +236,7 @@ export default function UsersPage() {
                   <td style={{ display: 'flex', gap: 8 }}>
                     {canUpdate && <button className="btn-ghost" onClick={() => startEdit(u)}>Edit</button>}
                     {canDelete && <button className="btn-ghost" onClick={() => remove(u.id)}>Delete</button>}
-                    {canSetUserPerm && <button className="btn-ghost" onClick={() => openPermModal(u.id)}>Permissions</button>}
+                    {canSetUserPerm && <button className="btn-ghost" onClick={() => openPermModal(u)}>Permissions</button>}
                     {!canUpdate && !canDelete && !canSetUserPerm && '-'}
                   </td>
                 </tr>
@@ -318,10 +323,14 @@ export default function UsersPage() {
               {permLoading && <div>Loading permissions...</div>}
               {!permLoading && (
                 <>
-                  {renderPermTable(permChecked, togglePerm)}
+                  {renderPermTable(
+                    permChecked,
+                    togglePerm,
+                    permTargetRole ? filterResourcesByTargetRole(permTargetRole, groupedAll) : groupedByRole,
+                  )}
                   <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                     <button className="btn" onClick={saveUserPerms} disabled={permLoading}>{permLoading ? 'Saving...' : 'Save Permissions'}</button>
-                    <button className="btn-ghost" onClick={() => { setPermUserId(null); setPermChecked([]) }}>Tutup</button>
+                    <button className="btn-ghost" onClick={() => { setPermUserId(null); setPermTargetRole(null); setPermChecked([]) }}>Tutup</button>
                   </div>
                 </>
               )}

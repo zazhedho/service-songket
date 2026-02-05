@@ -60,6 +60,10 @@
   input, select, textarea {
     @apply w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent;
   }
+  select option {
+    background: #0f172a;
+    color: #e5e7eb;
+  }
   .table {
     @apply w-full border-collapse text-sm;
   }

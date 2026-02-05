@@ -260,6 +260,7 @@ func (r *Routes) SongketRoutes() {
 	g.POST("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "create"), h.CreateOrder)
 	g.GET("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "list"), h.ListOrders)
 	g.PUT("/orders/:id", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "update"), h.UpdateOrder)
+	g.DELETE("/orders/:id", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "delete"), h.DeleteOrder)
 
 	// Finance performance
 	g.GET("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)

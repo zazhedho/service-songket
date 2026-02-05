@@ -25,6 +25,7 @@ export const register = (body: Record<string, unknown>) => api.post('/api/user/r
 export const fetchOrders = (params: Record<string, unknown>) => api.get('/api/songket/orders', { params })
 export const createOrder = (body: Record<string, unknown>) => api.post('/api/songket/orders', body)
 export const updateOrder = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/orders/${id}`, body)
+export const deleteOrder = (id: string) => api.delete(`/api/songket/orders/${id}`)
 
 export const fetchDealers = () => api.get('/api/songket/finance/dealers')
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>

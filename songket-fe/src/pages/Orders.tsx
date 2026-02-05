@@ -1,11 +1,13 @@
 import { useEffect, useState, FormEvent } from 'react'
 import {
   createOrder,
+  updateOrder,
   fetchOrders,
   fetchLookups,
   fetchProvinces,
   fetchKabupaten,
   fetchKecamatan,
+  deleteOrder,
 } from '../api'
 import dayjs from 'dayjs'
 import { useAuth } from '../store'
@@ -46,6 +48,7 @@ export default function OrdersPage() {
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({ search: '', status: '' })
   const permissions = useAuth((s) => s.permissions)
+  const role = useAuth((s) => s.role)
 
   const load = () =>
     fetchOrders({ limit: 50, search: filters.search || undefined, status: filters.status || undefined }).then((r) =>
@@ -56,6 +59,12 @@ export default function OrdersPage() {
     fetchLookups().then((r) => setLookups(r.data.data || r.data))
     fetchProvinces().then((r) => setProvinces(r.data.data || r.data || []))
   }, [])
+
+  useEffect(() => {
+    if (role === 'dealer' && lookups?.dealers?.length === 1) {
+      setForm((f) => ({ ...f, dealer_id: lookups.dealers[0].id }))
+    }
+  }, [role, lookups.dealers])
 
   useEffect(() => {
     load()
@@ -83,7 +92,10 @@ export default function OrdersPage() {
 
   const canCreate = permissions.includes('create_orders')
   const canUpdate = permissions.includes('update_orders')
+  const canView = permissions.includes('view_orders')
   const canList = permissions.includes('list_orders')
+  const canDelete = permissions.includes('delete_orders')
+  const showTable = canList && canView
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -91,12 +103,18 @@ export default function OrdersPage() {
     setLoading(true)
     setError('')
     try {
-      await createOrder(form)
+      if (editingId) {
+        await updateOrder(editingId, form)
+      } else {
+        await createOrder(form)
+      }
       setForm(defaultForm)
+      setEditingId(null)
       load()
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.message || 'Gagal membuat order'
       setError(msg)
+      alert(msg)
     } finally {
       setLoading(false)
     }
@@ -105,6 +123,53 @@ export default function OrdersPage() {
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
   const selectedMotor = lookups?.motor_types?.find((m: any) => m.id === form.motor_type_id)
   const dpPct = selectedMotor?.otr ? ((form.dp_paid / selectedMotor.otr) * 100).toFixed(1) : '0'
+  const formatRupiah = (n: number) =>
+    (isNaN(n) ? 0 : n).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
+  const parseNumber = (val: string) => Number(val.replace(/[^0-9]/g, '')) || 0
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const startEdit = (order: any) => {
+    setEditingId(order.id)
+    setForm({
+      pooling_number: order.pooling_number,
+      pooling_at: order.pooling_at,
+      result_at: order.result_at || '',
+      dealer_id: order.dealer_id || form.dealer_id,
+      finance_company_id: order.attempts?.[0]?.finance_company_id || '',
+      consumer_name: order.consumer_name,
+      consumer_phone: order.consumer_phone,
+      province: order.province || '',
+      regency: order.regency || '',
+      district: order.district || '',
+      village: order.village || '',
+      address: order.address || '',
+      job_id: order.job_id || '',
+      motor_type_id: order.motor_type_id || '',
+      dp_gross: order.dp_gross || 0,
+      dp_paid: order.dp_paid || 0,
+      tenor: order.tenor || 12,
+      result_status: order.result_status || 'pending',
+      result_notes: order.result_notes || '',
+      finance_company2_id: order.attempts?.[1]?.finance_company_id || '',
+      result_status2: order.attempts?.[1]?.status || '',
+      result_notes2: order.attempts?.[1]?.notes || '',
+    })
+  }
+
+  const removeOrder = async (id: string) => {
+    if (!canDelete) return
+    if (!confirm('Hapus order ini?')) return
+    setLoading(true)
+    try {
+      await deleteOrder(id)
+      load()
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Gagal menghapus order'
+      alert(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div>
@@ -120,6 +185,22 @@ export default function OrdersPage() {
           {!canCreate && <div className="alert">Anda tidak punya izin membuat order.</div>}
           {error && <div className="alert" style={{ marginTop: 8, color: '#f97316' }}>{error}</div>}
           <form className="grid" style={{ gap: 12 }} onSubmit={submit}>
+            <div>
+              <label>Dealer</label>
+              <select
+                value={form.dealer_id}
+                onChange={(e) => set('dealer_id', e.target.value)}
+                required
+                disabled={role === 'dealer' && lookups?.dealers?.length === 1}
+              >
+                <option value="">Pilih</option>
+                {lookups?.dealers?.map((d: any) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label>Nomor Pooling</label>
               <input value={form.pooling_number} onChange={(e) => set('pooling_number', e.target.value)} required />
@@ -235,11 +316,21 @@ export default function OrdersPage() {
             </div>
             <div>
               <label>DP Gross</label>
-              <input type="number" value={form.dp_gross} onChange={(e) => set('dp_gross', Number(e.target.value))} />
+              <input
+                type="text"
+                value={formatRupiah(form.dp_gross)}
+                onChange={(e) => set('dp_gross', parseNumber(e.target.value))}
+                inputMode="numeric"
+              />
             </div>
             <div>
               <label>DP Setor</label>
-              <input type="number" value={form.dp_paid} onChange={(e) => set('dp_paid', Number(e.target.value))} />
+              <input
+                type="text"
+                value={formatRupiah(form.dp_paid)}
+                onChange={(e) => set('dp_paid', parseNumber(e.target.value))}
+                inputMode="numeric"
+              />
             </div>
             <div>
               <label>%DP (auto)</label>
@@ -291,7 +382,16 @@ export default function OrdersPage() {
             )}
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
               <button className="btn" type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
-              <button type="button" className="btn-ghost" onClick={() => setForm(defaultForm)}>Reset</button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setForm(defaultForm)
+                  setEditingId(null)
+                }}
+              >
+                Reset
+              </button>
             </div>
           </form>
         </div>
@@ -316,8 +416,8 @@ export default function OrdersPage() {
 
         <div className="card">
           <h3>Order Tersimpan</h3>
-          {!canList && <div className="alert">Anda tidak punya izin melihat order.</div>}
-          {canList && (
+          {!showTable && <div className="alert">Anda tidak punya izin melihat order.</div>}
+          {showTable && (
             <table className="table">
               <thead>
                 <tr>
@@ -346,8 +446,18 @@ export default function OrdersPage() {
                       <span className={`badge ${o.result_status}`}>{o.result_status}</span>
                     </td>
                     <td>{o.tenor} bln</td>
-                    <td>
-                      {canUpdate ? <button className="btn-ghost" disabled> Edit (TODO) </button> : '-'}
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      {canUpdate && (
+                        <button className="btn-ghost" onClick={() => startEdit(o)}>
+                          Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button className="btn-ghost" onClick={() => removeOrder(o.id)}>
+                          Delete
+                        </button>
+                      )}
+                      {!canUpdate && !canDelete && '-'}
                     </td>
                   </tr>
                 ))}
