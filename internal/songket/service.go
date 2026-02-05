@@ -1083,6 +1083,15 @@ func (s *Service) ListCommodityPrices(limit int) ([]CommodityPrice, error) {
 	return prices, nil
 }
 
+// ListCommodities returns all commodities.
+func (s *Service) ListCommodities() ([]Commodity, error) {
+	var list []Commodity
+	if err := s.db.Order("name ASC").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 // DeleteCommodityPrice removes a row.
 func (s *Service) DeleteCommodityPrice(id string) error {
 	return s.db.Delete(&CommodityPrice{}, "id = ?", id).Error

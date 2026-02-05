@@ -6,6 +6,9 @@ import {
   fetchScrapeResults,
   commitScrapeResults,
   deletePrice,
+  listCommodities,
+  upsertCommodity,
+  addCommodityPrice,
 } from '../api'
 import { useAuth } from '../store'
 
@@ -33,10 +36,20 @@ export default function PricesPage() {
 
   const [prices, setPrices] = useState<any[]>([])
   const [loadingPrices, setLoadingPrices] = useState(false)
+  const [commodities, setCommodities] = useState<any[]>([])
 
   const [showModal, setShowModal] = useState(false)
   const [urls, setUrls] = useState<string[]>([''])
   const [startingJob, setStartingJob] = useState(false)
+
+  const [showManual, setShowManual] = useState(false)
+  const [manual, setManual] = useState<{ commodity_id: string; name: string; unit: string; price: string; source_url: string }>({
+    commodity_id: '',
+    name: '',
+    unit: '',
+    price: '',
+    source_url: '',
+  })
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobsOpen, setJobsOpen] = useState(true)
@@ -60,6 +73,13 @@ export default function PricesPage() {
       .catch(() => {})
   }
 
+  const loadCommodities = () => {
+    if (!canImport) return
+    listCommodities()
+      .then((r) => setCommodities(r.data.data || r.data || []))
+      .catch(() => {})
+  }
+
   const loadResults = (jobId: string) => {
     setSelectedJob(jobId)
     setLoadingResults(true)
@@ -74,14 +94,40 @@ export default function PricesPage() {
 
   useEffect(() => {
     loadPrices()
+    loadCommodities()
   }, [canList])
 
   useEffect(() => {
     if (!canScrape) return
-    loadJobs()
+      loadJobs()
     const t = setInterval(loadJobs, 3000)
     return () => clearInterval(t)
   }, [canScrape])
+
+  const submitManual = async () => {
+    if (!canImport) return
+    try {
+      let commodityId = manual.commodity_id
+      if (!commodityId) {
+        if (!manual.name) {
+          alert('Pilih komoditas atau isi nama baru')
+          return
+        }
+        const res = await upsertCommodity({ name: manual.name, unit: manual.unit })
+        commodityId = res.data.data?.id || res.data.id
+      }
+      await addCommodityPrice({
+        commodity_id: commodityId,
+        price: Number(manual.price),
+        source_url: manual.source_url,
+      })
+      setShowManual(false)
+      setManual({ commodity_id: '', name: '', unit: '', price: '', source_url: '' })
+      loadPrices()
+    } catch (e: any) {
+      alert(e?.response?.data?.error || 'Gagal menyimpan harga')
+    }
+  }
 
   const startJob = async () => {
     const payload = urls.map((u) => u.trim()).filter(Boolean)
@@ -152,9 +198,16 @@ export default function PricesPage() {
           <div style={{ color: '#9ca3af' }}>Scrape harga kemudian pilih data yang mau disimpan</div>
         </div>
         {canScrape && (
-          <button className="btn" onClick={() => setShowModal(true)}>
-            Jalankan Scrape
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={() => setShowModal(true)}>
+              Jalankan Scrape
+            </button>
+            {canImport && (
+              <button className="btn-ghost" onClick={() => setShowManual(true)}>
+                Input Manual
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -288,6 +341,49 @@ export default function PricesPage() {
               <button className="btn" onClick={startJob} disabled={startingJob}>
                 {startingJob ? 'Memulai...' : 'Proses'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showManual && canImport && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>Input Manual Harga Pangan</h3>
+            <div className="grid" style={{ gap: 10 }}>
+              <div>
+                <label>Pilih Komoditas</label>
+                <select
+                  value={manual.commodity_id}
+                  onChange={(e) => setManual((m) => ({ ...m, commodity_id: e.target.value }))}
+                >
+                  <option value="">-- pilih --</option>
+                  {commodities.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="muted" style={{ fontSize: 12 }}>Atau isi komoditas baru di bawah</div>
+              <div>
+                <label>Nama komoditas baru</label>
+                <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Contoh: Beras Medium" />
+              </div>
+              <div>
+                <label>Satuan</label>
+                <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/ikat" />
+              </div>
+              <div>
+                <label>Harga (Rp)</label>
+                <input type="number" value={manual.price} onChange={(e) => setManual((m) => ({ ...m, price: e.target.value }))} />
+              </div>
+              <div>
+                <label>Sumber URL</label>
+                <input value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button className="btn-ghost" onClick={() => setShowManual(false)}>Batal</button>
+              <button className="btn" onClick={submitManual}>Simpan</button>
             </div>
           </div>
         </div>

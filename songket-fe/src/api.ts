@@ -37,6 +37,9 @@ export const scrapeNews = (body?: Record<string, unknown>) => api.post('/api/son
 export const fetchPricesLatest = () => api.get('/api/songket/commodities/prices/latest')
 export const fetchPriceList = (params?: Record<string, unknown>) =>
   api.get('/api/songket/commodities/prices', { params })
+export const listCommodities = () => api.get('/api/songket/commodities')
+export const upsertCommodity = (body: Record<string, unknown>) => api.post('/api/songket/commodities', body)
+export const addCommodityPrice = (body: Record<string, unknown>) => api.post('/api/songket/commodities/price', body)
 export const deletePrice = (id: string) => api.delete(`/api/songket/commodities/prices/${id}`)
 export const scrapePrices = (body?: Record<string, unknown>) =>
   api.post('/api/songket/commodities/prices/scrape', body)

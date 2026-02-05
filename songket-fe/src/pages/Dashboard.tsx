@@ -73,15 +73,19 @@ export default function DashboardPage() {
         </div>
 
         <div className="card">
-          <h3>Headline NTB</h3>
+          <h3>Headline NTB (5 terbaru)</h3>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))' }}>
-            {Object.entries(news).map(([source, item]) => (
-              <div key={source} style={{ padding: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 10 }}>
-                <div style={{ fontWeight: 600 }}>{source}</div>
-                <div style={{ fontSize: 13, color: '#9ca3af' }}>{dayjs(item.published_at).format('DD MMM, HH:mm')}</div>
-                <div style={{ marginTop: 6 }}>{item.title}</div>
-              </div>
-            ))}
+            {Object.entries(news)
+              .map(([source, item]) => ({ source, ...item }))
+              .sort((a, b) => dayjs(b.published_at).valueOf() - dayjs(a.published_at).valueOf())
+              .slice(0, 5)
+              .map((item) => (
+                <div key={item.source} style={{ padding: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 10 }}>
+                  <div style={{ fontWeight: 600 }}>{item.source}</div>
+                  <div style={{ fontSize: 13, color: '#9ca3af' }}>{dayjs(item.published_at).format('DD MMM, HH:mm')}</div>
+                  <div style={{ marginTop: 6 }}>{item.title}</div>
+                </div>
+              ))}
           </div>
         </div>
       </div>

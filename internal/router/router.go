@@ -284,6 +284,7 @@ func (r *Routes) SongketRoutes() {
 	g.POST("/commodities", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "upsert"), h.UpsertCommodity)
 	g.POST("/commodities/price", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "add_price"), h.AddPrice)
 	g.GET("/commodities/prices/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "list_prices"), h.LatestPrices)
+	g.GET("/commodities", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "list_prices"), h.ListCommodities)
 	g.GET("/commodities/prices", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "list_prices"), h.ListPrices)
 	g.DELETE("/commodities/prices/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.DeletePrice)
 	g.POST("/commodities/prices/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ScrapePrices)
