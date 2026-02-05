@@ -572,6 +572,87 @@ func (s *Service) ListCreditCapabilities() ([]CreditCapability, error) {
 	return data, nil
 }
 
+type CreditSummary struct {
+	Province     string `json:"province"`
+	Regency      string `json:"regency"`
+	District     string `json:"district"`
+	Village      string `json:"village"`
+	TotalOrders  int64  `json:"total_orders"`
+	ApproveCount int64  `json:"approve_count"`
+	RejectCount  int64  `json:"reject_count"`
+	PendingCount int64  `json:"pending_count"`
+	Score        int    `json:"score"`
+}
+
+// Compute credit score per wilayah based on order status distribution.
+func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary, error) {
+	if orderThreshold <= 0 {
+		orderThreshold = 5
+	}
+
+	type row struct {
+		Province string
+		Regency  string
+		District string
+		Village  string
+		Total    int64
+		Approve  int64
+		Reject   int64
+		Pending  int64
+	}
+
+	var rows []row
+	if err := s.db.
+		Table("orders").
+		Select(`
+			COALESCE(province,'') AS province,
+			COALESCE(regency,'') AS regency,
+			COALESCE(district,'') AS district,
+			COALESCE(village,'') AS village,
+			COUNT(*) AS total,
+			SUM(CASE WHEN result_status = 'approve' THEN 1 ELSE 0 END) AS approve,
+			SUM(CASE WHEN result_status = 'reject' THEN 1 ELSE 0 END) AS reject,
+			SUM(CASE WHEN result_status = 'pending' THEN 1 ELSE 0 END) AS pending
+		`).
+		Group("province, regency, district, village").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	summaries := make([]CreditSummary, 0, len(rows))
+	for _, r := range rows {
+		score := 4
+		approveMore := r.Approve > r.Reject
+		rejectMore := r.Reject > r.Approve
+		manyOrders := r.Total >= orderThreshold
+
+		switch {
+		case manyOrders && approveMore:
+			score = 1
+		case manyOrders && rejectMore:
+			score = 3
+		case !manyOrders && approveMore:
+			score = 2
+		default:
+			score = 4
+		}
+
+		summaries = append(summaries, CreditSummary{
+			Province:     r.Province,
+			Regency:      r.Regency,
+			District:     r.District,
+			Village:      r.Village,
+			TotalOrders:  r.Total,
+			ApproveCount: r.Approve,
+			RejectCount:  r.Reject,
+			PendingCount: r.Pending,
+			Score:        score,
+		})
+	}
+
+	return summaries, nil
+}
+
 // RecomputeQuadrants recalculates and stores quadrant results.
 func (s *Service) RecomputeQuadrants(req QuadrantComputeRequest) ([]QuadrantResult, error) {
 	orderThreshold := req.OrderThreshold

@@ -98,19 +98,23 @@ export default function CreditPage() {
                       {canUpsert ? (
                         <button
                           className="btn-ghost"
-                          onClick={() => setForm({
-                            province: c.province || '',
-                            regency: c.regency || '',
-                            district: c.district || '',
-                            village: c.village || '',
-                            address: c.address || '',
-                            job_id: c.job_id,
-                            score: c.score,
-                          })}
+                          onClick={() =>
+                            setForm({
+                              province: c.province || '',
+                              regency: c.regency || '',
+                              district: c.district || '',
+                              village: c.village || '',
+                              address: c.address || '',
+                              job_id: c.job_id,
+                              score: c.score,
+                            })
+                          }
                         >
                           Edit
                         </button>
-                      ) : '-'}
+                      ) : (
+                        '-'
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -127,7 +131,9 @@ export default function CreditPage() {
               <select value={form.province} onChange={(e) => set('province', e.target.value)} required>
                 <option value="">Pilih</option>
                 {provinces.map((p: any) => (
-                  <option key={p.code} value={p.code}>{p.name}</option>
+                  <option key={p.code} value={p.code}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -136,7 +142,9 @@ export default function CreditPage() {
               <select value={form.regency} onChange={(e) => set('regency', e.target.value)} required disabled={!form.province}>
                 <option value="">Pilih</option>
                 {kabupaten.map((k: any) => (
-                  <option key={k.code} value={k.code}>{k.name}</option>
+                  <option key={k.code} value={k.code}>
+                    {k.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -145,7 +153,9 @@ export default function CreditPage() {
               <select value={form.district} onChange={(e) => set('district', e.target.value)} required disabled={!form.regency}>
                 <option value="">Pilih</option>
                 {kecamatan.map((k: any) => (
-                  <option key={k.code} value={k.code}>{k.name}</option>
+                  <option key={k.code} value={k.code}>
+                    {k.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -162,7 +172,9 @@ export default function CreditPage() {
               <select value={form.job_id} onChange={(e) => set('job_id', e.target.value)} required>
                 <option value="">Pilih</option>
                 {jobs.map((j: any) => (
-                  <option key={j.id} value={j.id}>{j.name}</option>
+                  <option key={j.id} value={j.id}>
+                    {j.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -170,7 +182,9 @@ export default function CreditPage() {
               <label>Score</label>
               <input type="number" value={form.score} onChange={(e) => set('score', Number(e.target.value))} required />
             </div>
-            <button className="btn" type="submit" disabled={loading || !canUpsert}>{loading ? 'Saving...' : 'Save'}</button>
+            <button className="btn" type="submit" disabled={loading || !canUpsert}>
+              {loading ? 'Saving...' : 'Save'}
+            </button>
           </form>
         </div>
       </div>

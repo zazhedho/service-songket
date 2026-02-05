@@ -269,8 +269,10 @@ func (r *Routes) SongketRoutes() {
 	// Credit capability & quadrants
 	g.POST("/credit", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)
 	g.GET("/credit", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "list"), h.ListCredit)
+	g.GET("/credit/summary", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "list"), h.CreditSummary)
 	g.POST("/quadrants/recompute", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("quadrants", "recompute"), h.RecomputeQuadrants)
 	g.GET("/quadrants", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("quadrants", "list"), h.ListQuadrants)
+	g.GET("/quadrants/summary", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("quadrants", "list"), h.QuadrantSummary)
 
 	// News
 	g.POST("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "upsert_source"), h.UpsertNewsSource)

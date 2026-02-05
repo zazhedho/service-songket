@@ -215,6 +215,36 @@ func (h *Handler) ListCredit(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/quadrants/summary (score by wilayah)
+func (h *Handler) QuadrantSummary(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	threshold := utils.GetEnv("CREDIT_ORDER_THRESHOLD", 5).(int)
+	data, err := h.svc.CreditCapabilitySummary(int64(threshold))
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/credit/summary
+func (h *Handler) CreditSummary(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	threshold := utils.GetEnv("CREDIT_ORDER_THRESHOLD", 5).(int)
+	data, err := h.svc.CreditCapabilitySummary(int64(threshold))
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // POST /api/songket/quadrants/recompute
 func (h *Handler) RecomputeQuadrants(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

@@ -39,10 +39,12 @@ export const scrapePrices = (body?: Record<string, unknown>) =>
   api.post('/api/songket/commodities/prices/scrape', body)
 
 export const fetchCredit = () => api.get('/api/songket/credit')
+export const fetchCreditSummary = () => api.get('/api/songket/credit/summary')
 export const upsertCredit = (body: Record<string, unknown>) => api.post('/api/songket/credit', body)
 
 export const recomputeQuadrant = (body: Record<string, unknown>) => api.post('/api/songket/quadrants/recompute', body)
 export const fetchQuadrants = () => api.get('/api/songket/quadrants')
+export const fetchQuadrantSummary = () => api.get('/api/songket/quadrants/summary')
 
 export const getMe = () => api.get('/api/user')
 export const fetchLookups = () => api.get('/api/songket/lookups')
