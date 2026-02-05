@@ -13,6 +13,7 @@ import UsersPage from './pages/Users'
 import RolesPage from './pages/Roles'
 import MenusPage from './pages/Menus'
 import ScrapeSourcesPage from './pages/ScrapeSources'
+import RoleMenuAccessPage from './pages/RoleMenuAccess'
 
 function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
@@ -94,6 +95,14 @@ export default function App() {
           element={
             <Protected>
               <RolesPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/role-menu-access"
+          element={
+            <Protected>
+              <RoleMenuAccessPage />
             </Protected>
           }
         />

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -66,6 +67,7 @@ func main() {
 	confID := config.GetAppConf("CONFIG_ID", "", nil)
 	logger.WriteLog(logger.LogLevelDebug, fmt.Sprintf("ConfigID: %s", confID))
 
+	// Jalankan migrasi otomatis saat service start
 	//runMigration()
 
 	// Initialize Redis for session management (optional)
@@ -123,7 +125,19 @@ func runMigration() {
 	}
 
 	if err := m.Up(); err != nil && err.Error() != "no change" {
-		log.Fatal(err)
+		var derr migrate.ErrDirty
+		if errors.As(err, &derr) {
+			v, _, _ := m.Version()
+			log.Printf("migration dirty at version %d, forcing clean and retrying", v)
+			if err := m.Force(int(v)); err != nil {
+				log.Fatal(err)
+			}
+			if err := m.Up(); err != nil && err.Error() != "no change" {
+				log.Fatal(err)
+			}
+		} else {
+			log.Fatal(err)
+		}
 	}
 	logger.WriteLog(logger.LogLevelInfo, "Migration Success")
 }

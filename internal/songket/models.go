@@ -9,7 +9,7 @@ import (
 // Dealer represents a dealer location.
 type Dealer struct {
 	Id        string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Name      string         `gorm:"column:name;not null" json:"name"`
+	Name      string         `gorm:"column:name;unique;not null" json:"name"`
 	Regency   string         `gorm:"column:regency" json:"regency"`
 	Province  string         `gorm:"column:province" json:"province"`
 	Address   string         `gorm:"column:address" json:"address"`

@@ -401,10 +401,17 @@ func seedPermissions(db *gorm.DB) (map[string]string, error) {
 func seedMenus(db *gorm.DB) (map[string]string, error) {
 	menus := []domainmenu.MenuItem{
 		{Name: "dashboard", DisplayName: "Dashboard", Path: "/dashboard", Icon: "bi-speedometer2", OrderIndex: 1},
-		{Name: "profile", DisplayName: "Profile", Path: "/profile", Icon: "bi-person-circle", OrderIndex: 2},
-		{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 900},
-		{Name: "roles", DisplayName: "Roles", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 901},
-		{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 902},
+		{Name: "orders", DisplayName: "Form Order In", Path: "/orders", Icon: "bi-journal-text", OrderIndex: 2},
+		{Name: "finance", DisplayName: "Peta & Finance", Path: "/finance", Icon: "bi-geo-alt", OrderIndex: 3},
+		{Name: "credit", DisplayName: "Credit Capability", Path: "/credit", Icon: "bi-credit-card", OrderIndex: 4},
+		{Name: "quadrants", DisplayName: "Kuadran", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5},
+		{Name: "prices", DisplayName: "Harga Pangan", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6},
+		{Name: "news", DisplayName: "Portal Berita", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7},
+		{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 90},
+		{Name: "roles", DisplayName: "Roles & Access", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 91},
+		{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92},
+		{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 93},
+		{Name: "scrape_sources", DisplayName: "Scrape URL", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94},
 	}
 
 	result := make(map[string]string)
@@ -508,12 +515,13 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		return err
 	}
 
-	// main dealer: orders CRUD, finance metrics, credit/quadrants view, prices/news view
+	// main dealer: order, finance, credit/quadrants, prices, news, dashboard
 	mainDealerPerms := []string{
+		"view_dashboard",
 		"list_orders", "view_orders", "create_orders", "update_orders",
 		"list_finance_dealers", "view_finance_metrics",
 		"list_credit", "list_quadrants",
-		"list_prices", "view_news", "scrape_news",
+		"list_prices", "view_news",
 	}
 	if err := assign(utils.RoleMainDealer, mainDealerPerms); err != nil {
 		return err
@@ -521,6 +529,7 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 
 	// dealer: orders list/create/update/view, view prices/news
 	dealerPerms := []string{
+		"view_dashboard",
 		"list_orders", "view_orders", "create_orders", "update_orders",
 		"list_prices", "view_news",
 	}
@@ -557,16 +566,18 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 	if err := assign(utils.RoleSuperAdmin, allMenus); err != nil {
 		return err
 	}
-	if err := assign(utils.RoleAdmin, allMenus); err != nil {
+	// admin: semua kecuali role_menu_access (khusus superadmin)
+	adminMenus := excludeMenus(allMenus, []string{"role_menu_access"})
+	if err := assign(utils.RoleAdmin, adminMenus); err != nil {
 		return err
 	}
 
-	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus"})
+	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access"})
 	if err := assign(utils.RoleStaff, staffMenus); err != nil {
 		return err
 	}
 
-	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus"})
+	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access"})
 	return assign(utils.RoleViewer, viewerMenus)
 }
 

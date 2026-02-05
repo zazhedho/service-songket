@@ -53,6 +53,7 @@ export const updateUserById = (id: string, body: Record<string, unknown>) => api
 export const deleteUserById = (id: string) => api.delete(`/api/user/${id}`)
 
 export const listRoles = () => api.get('/api/roles')
+export const getRoleById = (id: string) => api.get(`/api/role/${id}`)
 export const createRole = (body: Record<string, unknown>) => api.post('/api/role', body)
 export const updateRole = (id: string, body: Record<string, unknown>) => api.put(`/api/role/${id}`, body)
 export const deleteRole = (id: string) => api.delete(`/api/role/${id}`)
@@ -62,6 +63,7 @@ export const assignRoleMenus = (id: string, menu_ids: string[]) =>
   api.post(`/api/role/${id}/menus`, { menu_ids })
 
 export const listMenus = () => api.get('/api/menus')
+export const listMyMenus = () => api.get('/api/menus/me')
 export const createMenu = (body: Record<string, unknown>) => api.post('/api/menu', body)
 export const updateMenu = (id: string, body: Record<string, unknown>) => api.put(`/api/menu/${id}`, body)
 export const deleteMenu = (id: string) => api.delete(`/api/menu/${id}`)
