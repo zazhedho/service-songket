@@ -30,6 +30,16 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+// ScrapedItem holds parsed data from python scraper.
+type ScrapedItem struct {
+	Name      string
+	Price     float64
+	Unit      string
+	SourceURL string
+	ScrapedAt time.Time
+	Raw       map[string]interface{}
+}
+
 // parseTime safely parses RFC3339; returns zero time on empty string.
 func parseTime(val *string) (time.Time, error) {
 	if val == nil || strings.TrimSpace(*val) == "" {
@@ -856,6 +866,41 @@ func (s *Service) ScrapeNews(ctx context.Context) ([]NewsItem, error) {
 	return items, nil
 }
 
+// ScrapeNewsFromUrls scrapes arbitrary urls (not necessarily stored as sources) and persists as NewsItem.
+func (s *Service) ScrapeNewsFromUrls(ctx context.Context, urls []string) ([]NewsItem, error) {
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("urls is required")
+	}
+	client := resty.New().SetTimeout(8 * time.Second)
+	titleRe := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
+
+	items := make([]NewsItem, 0, len(urls))
+	for _, u := range urls {
+		resp, err := client.R().SetContext(ctx).Get(u)
+		if err != nil || resp.IsError() {
+			continue
+		}
+		body := string(resp.Body())
+		title := ""
+		if m := titleRe.FindStringSubmatch(body); len(m) > 1 {
+			title = strings.TrimSpace(stripTags(m[1]))
+		}
+		if title == "" {
+			title = u
+		}
+		item := NewsItem{
+			Id:          utils.CreateUUID(),
+			Title:       title,
+			URL:         u,
+			PublishedAt: time.Now(),
+		}
+		if err := s.db.Create(&item).Error; err == nil {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
 func (s *Service) UpsertCommodity(req CommodityRequest) (Commodity, error) {
 	var c Commodity
 	err := s.db.Where("name = ?", req.Name).First(&c).Error
@@ -948,6 +993,42 @@ func (s *Service) ScrapeFromSources(ctx context.Context, urls []string) ([]Commo
 
 // call python script to scrape and return stored prices
 func (s *Service) scrapeViaPython(ctx context.Context, urls []string) ([]CommodityPrice, error) {
+	items, err := s.fetchScrapedItems(ctx, urls)
+	if err != nil {
+		return nil, err
+	}
+
+	collected := time.Now()
+	result := make([]CommodityPrice, 0, len(items))
+	for _, it := range items {
+		if it.Name == "" {
+			continue
+		}
+
+		var c Commodity
+		err := s.db.Where("name = ?", it.Name).First(&c).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c = Commodity{Id: utils.CreateUUID(), Name: it.Name, Unit: it.Unit}
+			_ = s.db.Create(&c).Error
+		}
+
+		cp := CommodityPrice{
+			Id:          utils.CreateUUID(),
+			CommodityID: c.Id,
+			Price:       it.Price,
+			CollectedAt: collected,
+			SourceURL:   it.SourceURL,
+		}
+		if err := s.db.Create(&cp).Error; err == nil {
+			cp.Commodity = &c
+			result = append(result, cp)
+		}
+	}
+	return result, nil
+}
+
+// fetchScrapedItems runs the python scraper and returns parsed rows without persisting.
+func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]ScrapedItem, error) {
 	if len(urls) == 0 {
 		return nil, fmt.Errorf("no urls to scrape")
 	}
@@ -966,7 +1047,7 @@ func (s *Service) scrapeViaPython(ctx context.Context, urls []string) ([]Commodi
 	}
 
 	collected := time.Now()
-	result := make([]CommodityPrice, 0, len(items))
+	result := make([]ScrapedItem, 0, len(items))
 	for _, m := range items {
 		name := firstString(m, "name", "nama", "komoditas", "commodity")
 		if name == "" {
@@ -978,27 +1059,162 @@ func (s *Service) scrapeViaPython(ctx context.Context, urls []string) ([]Commodi
 		if source == "" && len(urls) == 1 {
 			source = urls[0]
 		}
-
-		var c Commodity
-		err := s.db.Where("name = ?", name).First(&c).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c = Commodity{Id: utils.CreateUUID(), Name: name, Unit: unit}
-			_ = s.db.Create(&c).Error
-		}
-
-		cp := CommodityPrice{
-			Id:          utils.CreateUUID(),
-			CommodityID: c.Id,
-			Price:       price,
-			CollectedAt: collected,
-			SourceURL:   source,
-		}
-		if err := s.db.Create(&cp).Error; err == nil {
-			cp.Commodity = &c
-			result = append(result, cp)
-		}
+		result = append(result, ScrapedItem{
+			Name:      name,
+			Price:     price,
+			Unit:      unit,
+			SourceURL: source,
+			ScrapedAt: collected,
+			Raw:       m,
+		})
 	}
 	return result, nil
+}
+
+// ListCommodityPrices returns raw price rows ordered by collected_at desc.
+func (s *Service) ListCommodityPrices(limit int) ([]CommodityPrice, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	var prices []CommodityPrice
+	if err := s.db.Preload("Commodity").Order("collected_at DESC").Limit(limit).Find(&prices).Error; err != nil {
+		return nil, err
+	}
+	return prices, nil
+}
+
+// DeleteCommodityPrice removes a row.
+func (s *Service) DeleteCommodityPrice(id string) error {
+	return s.db.Delete(&CommodityPrice{}, "id = ?", id).Error
+}
+
+// StartScrapeJob persists a job and runs scraper in background.
+func (s *Service) StartScrapeJob(urls []string) (ScrapeJob, error) {
+	if len(urls) == 0 {
+		return ScrapeJob{}, fmt.Errorf("urls is required")
+	}
+	raw, _ := json.Marshal(urls)
+	job := ScrapeJob{
+		Id:         utils.CreateUUID(),
+		Status:     "pending",
+		SourceUrls: raw,
+	}
+	if err := s.db.Create(&job).Error; err != nil {
+		return ScrapeJob{}, err
+	}
+
+	go s.runScrapeJob(job.Id, urls)
+	return job, nil
+}
+
+func (s *Service) runScrapeJob(jobId string, urls []string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	start := time.Now()
+	_ = s.db.Model(&ScrapeJob{}).Where("id = ?", jobId).Updates(map[string]interface{}{
+		"status":     "running",
+		"started_at": start,
+	})
+
+	items, err := s.fetchScrapedItems(ctx, urls)
+	if err != nil {
+		_ = s.db.Model(&ScrapeJob{}).Where("id = ?", jobId).Updates(map[string]interface{}{
+			"status":      "error",
+			"message":     err.Error(),
+			"finished_at": time.Now(),
+		})
+		return
+	}
+
+	for _, it := range items {
+		raw, _ := json.Marshal(it.Raw)
+		res := ScrapeResult{
+			Id:            utils.CreateUUID(),
+			JobID:         jobId,
+			CommodityName: it.Name,
+			Price:         it.Price,
+			Unit:          it.Unit,
+			SourceURL:     it.SourceURL,
+			ScrapedAt:     it.ScrapedAt,
+			Raw:           raw,
+		}
+		_ = s.db.Create(&res).Error
+	}
+
+	_ = s.db.Model(&ScrapeJob{}).Where("id = ?", jobId).Updates(map[string]interface{}{
+		"status":      "success",
+		"message":     fmt.Sprintf("found %d rows", len(items)),
+		"finished_at": time.Now(),
+	})
+}
+
+// ListScrapeJobs returns recent jobs.
+func (s *Service) ListScrapeJobs(limit int) ([]ScrapeJob, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 30
+	}
+	var jobs []ScrapeJob
+	if err := s.db.Order("created_at DESC").Limit(limit).Find(&jobs).Error; err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
+
+func (s *Service) ListScrapeResults(jobId string) ([]ScrapeResult, error) {
+	var res []ScrapeResult
+	if err := s.db.Where("job_id = ?", jobId).Order("scraped_at DESC").Find(&res).Error; err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// Import selected scrape results into commodity_prices (and commodities).
+func (s *Service) CommitScrapeResults(jobId string, resultIds []string) ([]CommodityPrice, error) {
+	if len(resultIds) == 0 {
+		return nil, fmt.Errorf("result_ids is required")
+	}
+	var rows []ScrapeResult
+	if err := s.db.Where("job_id = ? AND id IN ?", jobId, resultIds).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	collected := time.Now()
+	saved := make([]CommodityPrice, 0, len(rows))
+
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, r := range rows {
+			if r.CommodityName == "" {
+				continue
+			}
+			var c Commodity
+			err := tx.Where("name = ?", r.CommodityName).First(&c).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c = Commodity{Id: utils.CreateUUID(), Name: r.CommodityName, Unit: r.Unit}
+				if err := tx.Create(&c).Error; err != nil {
+					return err
+				}
+			} else if err != nil {
+				return err
+			}
+
+			cp := CommodityPrice{
+				Id:          utils.CreateUUID(),
+				CommodityID: c.Id,
+				Price:       r.Price,
+				CollectedAt: collected,
+				SourceURL:   r.SourceURL,
+			}
+			if err := tx.Create(&cp).Error; err != nil {
+				return err
+			}
+			cp.Commodity = &c
+			saved = append(saved, cp)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return saved, nil
 }
 
 func firstString(m map[string]interface{}, keys ...string) string {

@@ -33,10 +33,20 @@ export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>)
 
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
 export const listNewsSources = () => api.get('/api/songket/news/sources')
-export const scrapeNews = () => api.post('/api/songket/news/scrape')
-export const fetchPrices = () => api.get('/api/songket/commodities/prices/latest')
+export const scrapeNews = (body?: Record<string, unknown>) => api.post('/api/songket/news/scrape', body)
+export const fetchPricesLatest = () => api.get('/api/songket/commodities/prices/latest')
+export const fetchPriceList = (params?: Record<string, unknown>) =>
+  api.get('/api/songket/commodities/prices', { params })
+export const deletePrice = (id: string) => api.delete(`/api/songket/commodities/prices/${id}`)
 export const scrapePrices = (body?: Record<string, unknown>) =>
   api.post('/api/songket/commodities/prices/scrape', body)
+export const createScrapeJob = (body: Record<string, unknown>) =>
+  api.post('/api/songket/commodities/prices/scrape-jobs', body)
+export const listScrapeJobs = () => api.get('/api/songket/commodities/prices/jobs')
+export const fetchScrapeResults = (jobId: string) =>
+  api.get(`/api/songket/commodities/prices/jobs/${jobId}/results`)
+export const commitScrapeResults = (jobId: string, result_ids: string[]) =>
+  api.post(`/api/songket/commodities/prices/jobs/${jobId}/commit`, { result_ids })
 
 export const fetchCredit = () => api.get('/api/songket/credit')
 export const fetchCreditSummary = () => api.get('/api/songket/credit/summary')

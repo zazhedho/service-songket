@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"starter-kit/pkg/filter"
@@ -333,7 +334,20 @@ func (h *Handler) LatestNews(ctx *gin.Context) {
 // POST /api/songket/news/scrape
 func (h *Handler) ScrapeNews(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ScrapeNews(ctx.Request.Context())
+	var req struct {
+		Urls []string `json:"urls"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+
+	var (
+		data []NewsItem
+		err  error
+	)
+	if len(req.Urls) > 0 {
+		data, err = h.svc.ScrapeNewsFromUrls(ctx.Request.Context(), req.Urls)
+	} else {
+		data, err = h.svc.ScrapeNews(ctx.Request.Context())
+	}
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -400,6 +414,36 @@ func (h *Handler) LatestPrices(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/commodities/prices
+func (h *Handler) ListPrices(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	limitStr := ctx.DefaultQuery("limit", "200")
+	limit, _ := strconv.Atoi(limitStr)
+	data, err := h.svc.ListCommodityPrices(limit)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/commodities/prices/:id
+func (h *Handler) DeletePrice(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if err := h.svc.DeleteCommodityPrice(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, nil)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/lookups
 func (h *Handler) Lookups(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -433,6 +477,84 @@ func (h *Handler) ScrapePrices(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "scraped", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/commodities/prices/scrape-jobs
+func (h *Handler) CreateScrapeJob(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req struct {
+		Urls []string `json:"urls" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	job, err := h.svc.StartScrapeJob(req.Urls)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "job created", logId, job)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// GET /api/songket/commodities/prices/jobs
+func (h *Handler) ListScrapeJobs(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "30"))
+	data, err := h.svc.ListScrapeJobs(limit)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/commodities/prices/jobs/:id/results
+func (h *Handler) ListScrapeResults(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	data, err := h.svc.ListScrapeResults(id)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/commodities/prices/jobs/:id/commit
+func (h *Handler) CommitScrapeResults(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	var req struct {
+		ResultIDs []string `json:"result_ids" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	data, err := h.svc.CommitScrapeResults(id, req.ResultIDs)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "imported", logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 

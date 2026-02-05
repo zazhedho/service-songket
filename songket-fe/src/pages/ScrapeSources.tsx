@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
-import { fetchPrices, scrapePrices, listScrapeSources, createScrapeSource, updateScrapeSource, deleteScrapeSource } from '../api'
+import {
+  fetchPriceList,
+  scrapePrices,
+  listScrapeSources,
+  createScrapeSource,
+  updateScrapeSource,
+  deleteScrapeSource,
+} from '../api'
 import { useAuth } from '../store'
 
 const empty = { name: '', url: '', category: '', is_active: true }
@@ -21,7 +28,7 @@ export default function ScrapeSourcesPage() {
   const canScrape = perms.includes('scrape_prices')
 
   const load = () => listScrapeSources().then((r) => setSources(r.data.data || r.data))
-  const loadPrices = () => fetchPrices().then((r) => setPrices(r.data.data || r.data))
+  const loadPrices = () => fetchPriceList({ limit: 10 }).then((r) => setPrices(r.data.data || r.data))
 
   useEffect(() => {
     if (canList) load()

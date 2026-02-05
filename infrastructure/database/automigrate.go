@@ -58,6 +58,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.NewsSource{},
 		&songket.NewsItem{},
 		&songket.ScrapeSource{},
+		&songket.ScrapeJob{},
+		&songket.ScrapeResult{},
 		//&provinsi.Provinsi{},
 	}
 

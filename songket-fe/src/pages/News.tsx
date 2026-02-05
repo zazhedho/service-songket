@@ -8,6 +8,8 @@ export default function NewsPage() {
   const [items, setItems] = useState<Record<string, any>>({})
   const [sources, setSources] = useState<any[]>([])
   const [scraping, setScraping] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [urls, setUrls] = useState<string[]>([''])
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('view_news')
   const canScrape = perms.includes('scrape_news')
@@ -22,12 +24,29 @@ export default function NewsPage() {
     if (canScrape) listNewsSources().then((r) => setSources(r.data.data || r.data || []))
   }, [canScrape])
 
-  const doScrape = async () => {
+  const doScrape = async (customUrls?: string[]) => {
     if (!canScrape) return
     setScraping(true)
-    await scrapeNews()
-    await load()
-    setScraping(false)
+    try {
+      const clean = (customUrls || []).map((u) => u.trim()).filter(Boolean)
+      await scrapeNews(clean.length ? { urls: clean } : undefined)
+      await load()
+    } finally {
+      setScraping(false)
+      setShowModal(false)
+      setUrls([''])
+    }
+  }
+
+  const addRow = () => setUrls((prev) => [...prev, ''])
+  const removeRow = (idx: number) => setUrls((prev) => prev.filter((_, i) => i !== idx))
+  const startScrape = () => {
+    const clean = urls.map((u) => u.trim()).filter(Boolean)
+    if (clean.length === 0) {
+      alert('Minimal 1 URL')
+      return
+    }
+    doScrape(clean)
   }
 
   return (
@@ -45,7 +64,7 @@ export default function NewsPage() {
             <option value="pns">PNS/Gov</option>
           </select>
           {canScrape && (
-            <button className="btn" onClick={doScrape} disabled={scraping}>
+            <button className="btn" onClick={() => setShowModal(true)} disabled={scraping}>
               {scraping ? 'Scraping...' : 'Scrape Sekarang'}
             </button>
           )}
@@ -85,11 +104,44 @@ export default function NewsPage() {
                     <td>{s.name}</td>
                     <td style={{ maxWidth: 240, wordBreak: 'break-word' }}>{s.url}</td>
                     <td>{s.category || '-'}</td>
-                    <td><button className="btn-ghost" onClick={doScrape} disabled={scraping}>Scrape</button></td>
+                    <td><button className="btn-ghost" onClick={() => doScrape([s.url])} disabled={scraping}>Scrape</button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {showModal && canScrape && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>Scrape Portal Berita</h3>
+            <div className="muted">Masukkan 1 atau lebih URL portal berita, tambahkan baris jika perlu.</div>
+            <div className="grid" style={{ gap: 10, marginTop: 10 }}>
+              {urls.map((u, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={u}
+                    placeholder="https://"
+                    onChange={(e) => {
+                      const next = [...urls]
+                      next[idx] = e.target.value
+                      setUrls(next)
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  {urls.length > 1 && (
+                    <button className="btn-ghost" onClick={() => removeRow(idx)}>Hapus</button>
+                  )}
+                </div>
+              ))}
+              <button className="btn-ghost" onClick={addRow}>+ Tambah baris</button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button className="btn-ghost" onClick={() => setShowModal(false)}>Batal</button>
+              <button className="btn" onClick={startScrape} disabled={scraping}>{scraping ? 'Memulai...' : 'Proses'}</button>
+            </div>
           </div>
         </div>
       )}

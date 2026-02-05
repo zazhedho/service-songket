@@ -1,62 +1,56 @@
-import { useEffect, useState, FormEvent } from 'react'
-import { fetchCredit, upsertCredit, fetchProvinces, fetchKabupaten, fetchKecamatan, fetchLookups } from '../api'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchQuadrantSummary, fetchProvinces, fetchKabupaten, fetchKecamatan } from '../api'
 import { useAuth } from '../store'
 
 export default function CreditPage() {
   const [items, setItems] = useState<any[]>([])
-  const [form, setForm] = useState({ province: '', regency: '', district: '', village: '', address: '', job_id: '', score: 0 })
-  const [loading, setLoading] = useState(false)
+  const [filter, setFilter] = useState({ province: '', regency: '', district: '' })
   const [provinces, setProvinces] = useState<any[]>([])
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
-  const [jobs, setJobs] = useState<any[]>([])
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_credit')
-  const canUpsert = perms.includes('upsert_credit')
 
-  const load = () => fetchCredit().then((r) => setItems(r.data.data || r.data))
+  const load = () => fetchQuadrantSummary().then((r) => setItems(r.data.data || r.data))
   useEffect(() => {
     if (canList) load()
   }, [canList])
 
   useEffect(() => {
     fetchProvinces().then((r) => setProvinces(r.data.data || r.data || []))
-    fetchLookups().then((r) => setJobs(r.data.data?.jobs || r.data?.jobs || []))
   }, [])
 
   useEffect(() => {
-    if (form.province) {
-      fetchKabupaten(form.province).then((r) => setKabupaten(r.data.data || r.data || []))
+    if (filter.province) {
+      fetchKabupaten(filter.province).then((r) => setKabupaten(r.data.data || r.data || []))
     } else {
       setKabupaten([])
     }
-    setForm((f) => ({ ...f, regency: '', district: '' }))
+    setFilter((f) => ({ ...f, regency: '', district: '' }))
     setKecamatan([])
-  }, [form.province])
+  }, [filter.province])
 
   useEffect(() => {
-    if (form.regency) {
-      fetchKecamatan(form.province, form.regency).then((r) => setKecamatan(r.data.data || r.data || []))
+    if (filter.regency) {
+      fetchKecamatan(filter.province, filter.regency).then((r) => setKecamatan(r.data.data || r.data || []))
     } else {
       setKecamatan([])
     }
-    setForm((f) => ({ ...f, district: '' }))
-  }, [form.regency])
+    setFilter((f) => ({ ...f, district: '' }))
+  }, [filter.regency])
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!canUpsert) return
-    setLoading(true)
-    try {
-      await upsertCredit(form)
-      setForm({ province: '', regency: '', district: '', village: '', address: '', job_id: '', score: 0 })
-      load()
-    } finally {
-      setLoading(false)
-    }
-  }
+  const nameFrom = (id: string, list: any[]) => list.find((x) => x.code === id)?.name || id
 
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
+  const filtered = useMemo(
+    () =>
+      items.filter((i) => {
+        if (filter.province && i.province !== filter.province) return false
+        if (filter.regency && i.regency !== filter.regency) return false
+        if (filter.district && i.district !== filter.district) return false
+        return true
+      }),
+    [items, filter],
+  )
 
   return (
     <div>
@@ -78,44 +72,21 @@ export default function CreditPage() {
                   <th>Kab/Kota</th>
                   <th>Kecamatan</th>
                   <th>Kelurahan</th>
-                  <th>Alamat</th>
-                  <th>Job</th>
+                  <th>Total Order</th>
+                  <th>Approval Rate</th>
                   <th>Score</th>
-                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.province}</td>
-                    <td>{c.regency}</td>
-                    <td>{c.district}</td>
-                    <td>{c.village}</td>
-                    <td>{c.address}</td>
-                    <td>{c.job?.name || c.job_id}</td>
+                {filtered.map((c, idx) => (
+                  <tr key={idx}>
+                    <td>{nameFrom(c.province, provinces)}</td>
+                    <td>{nameFrom(c.regency, kabupaten)}</td>
+                    <td>{nameFrom(c.district, kecamatan)}</td>
+                    <td>{c.village || '-'}</td>
+                    <td>{c.total_orders ?? '-'}</td>
+                    <td>{c.region_rate ? (c.region_rate * 100).toFixed(1) + '%' : '-'}</td>
                     <td>{c.score}</td>
-                    <td>
-                      {canUpsert ? (
-                        <button
-                          className="btn-ghost"
-                          onClick={() =>
-                            setForm({
-                              province: c.province || '',
-                              regency: c.regency || '',
-                              district: c.district || '',
-                              village: c.village || '',
-                              address: c.address || '',
-                              job_id: c.job_id,
-                              score: c.score,
-                            })
-                          }
-                        >
-                          Edit
-                        </button>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -123,12 +94,11 @@ export default function CreditPage() {
           )}
         </div>
         <div className="card">
-          <h3>Update/Set Score</h3>
-          {!canUpsert && <div className="alert">Tidak ada izin mengubah credit.</div>}
-          <form className="grid" style={{ gap: 10 }} onSubmit={submit}>
+          <h3>Filter</h3>
+          <form className="grid" style={{ gap: 10 }}>
             <div>
               <label>Provinsi</label>
-              <select value={form.province} onChange={(e) => set('province', e.target.value)} required>
+              <select value={filter.province} onChange={(e) => setFilter((f) => ({ ...f, province: e.target.value, regency: '', district: '' }))}>
                 <option value="">Pilih</option>
                 {provinces.map((p: any) => (
                   <option key={p.code} value={p.code}>
@@ -139,7 +109,7 @@ export default function CreditPage() {
             </div>
             <div>
               <label>Kabupaten/Kota</label>
-              <select value={form.regency} onChange={(e) => set('regency', e.target.value)} required disabled={!form.province}>
+              <select value={filter.regency} onChange={(e) => setFilter((f) => ({ ...f, regency: e.target.value, district: '' }))} disabled={!filter.province}>
                 <option value="">Pilih</option>
                 {kabupaten.map((k: any) => (
                   <option key={k.code} value={k.code}>
@@ -150,7 +120,7 @@ export default function CreditPage() {
             </div>
             <div>
               <label>Kecamatan</label>
-              <select value={form.district} onChange={(e) => set('district', e.target.value)} required disabled={!form.regency}>
+              <select value={filter.district} onChange={(e) => setFilter((f) => ({ ...f, district: e.target.value }))} disabled={!filter.regency}>
                 <option value="">Pilih</option>
                 {kecamatan.map((k: any) => (
                   <option key={k.code} value={k.code}>
@@ -159,31 +129,12 @@ export default function CreditPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label>Kelurahan</label>
-              <input value={form.village} onChange={(e) => set('village', e.target.value)} />
-            </div>
-            <div>
-              <label>Alamat</label>
-              <input value={form.address} onChange={(e) => set('address', e.target.value)} />
-            </div>
-            <div>
-              <label>Job</label>
-              <select value={form.job_id} onChange={(e) => set('job_id', e.target.value)} required>
-                <option value="">Pilih</option>
-                {jobs.map((j: any) => (
-                  <option key={j.id} value={j.id}>
-                    {j.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label>Score</label>
-              <input type="number" value={form.score} onChange={(e) => set('score', Number(e.target.value))} required />
-            </div>
-            <button className="btn" type="submit" disabled={loading || !canUpsert}>
-              {loading ? 'Saving...' : 'Save'}
+            <button
+              className="btn-ghost"
+              type="button"
+              onClick={() => setFilter({ province: '', regency: '', district: '' })}
+            >
+              Reset
             </button>
           </form>
         </div>

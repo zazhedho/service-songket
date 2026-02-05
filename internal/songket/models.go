@@ -3,6 +3,7 @@ package songket
 import (
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -160,6 +161,33 @@ type CommodityPrice struct {
 }
 
 func (CommodityPrice) TableName() string { return "commodity_prices" }
+
+// ScrapeJob tracks background scraping execution.
+type ScrapeJob struct {
+	Id         string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Status     string         `gorm:"column:status;type:varchar(20);index" json:"status"` // pending,running,success,error
+	Message    string         `gorm:"column:message" json:"message"`
+	SourceUrls datatypes.JSON `gorm:"column:source_urls" json:"source_urls"`
+	CreatedAt  time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	StartedAt  *time.Time     `gorm:"column:started_at" json:"started_at"`
+	FinishedAt *time.Time     `gorm:"column:finished_at" json:"finished_at"`
+}
+
+func (ScrapeJob) TableName() string { return "scrape_jobs" }
+
+// ScrapeResult holds raw scraped rows before user selects to import.
+type ScrapeResult struct {
+	Id            string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	JobID         string         `gorm:"column:job_id;type:uuid;index" json:"job_id"`
+	CommodityName string         `gorm:"column:commodity_name" json:"commodity_name"`
+	Price         float64        `gorm:"column:price" json:"price"`
+	Unit          string         `gorm:"column:unit" json:"unit"`
+	SourceURL     string         `gorm:"column:source_url" json:"source_url"`
+	ScrapedAt     time.Time      `gorm:"column:scraped_at" json:"scraped_at"`
+	Raw           datatypes.JSON `gorm:"column:raw" json:"raw"`
+}
+
+func (ScrapeResult) TableName() string { return "scrape_results" }
 
 // NewsSource keeps configured portals.
 type NewsSource struct {

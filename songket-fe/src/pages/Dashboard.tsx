@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchOrders, fetchPrices, fetchNews } from '../api'
+import { fetchOrders, fetchPriceList, fetchNews } from '../api'
 import dayjs from 'dayjs'
 
 export default function DashboardPage() {
@@ -9,7 +9,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchOrders({ limit: 5 }).then((res) => setOrders(res.data.data || res.data))
-    fetchPrices().then((res) => setPrices(res.data.data || res.data))
+    fetchPriceList({ limit: 5 }).then((res) => setPrices(res.data.data || res.data))
     fetchNews().then((res) => setNews(res.data.data || res.data))
   }, [])
 
