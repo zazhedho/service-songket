@@ -62,6 +62,18 @@ export default function UsersPage() {
     return grouped
   }
   const groupedByRole = filterResourcesByRole(groupedAll)
+  const filterResourcesByTargetRole = (targetRole: string, grouped: Record<string, Perm[]>) => {
+    if (targetRole === 'superadmin' || targetRole === 'admin') return grouped
+    if (targetRole === 'main_dealer') {
+      const allow = ['orders', 'finance', 'credit', 'quadrants', 'commodities', 'news', 'dashboard', 'prices']
+      return Object.fromEntries(Object.entries(grouped).filter(([res]) => allow.includes(res)))
+    }
+    if (targetRole === 'dealer') {
+      const allow = ['orders', 'dashboard']
+      return Object.fromEntries(Object.entries(grouped).filter(([res]) => allow.includes(res)))
+    }
+    return grouped
+  }
 
   useEffect(() => {
     if (canList) load()
@@ -138,8 +150,13 @@ export default function UsersPage() {
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
 
-  const renderPermTable = (selected: string[], toggle: (id: string) => void) => {
-    const resources = Object.keys(groupedByRole).sort((a, b) => a.localeCompare(b))
+  const renderPermTable = (
+    selected: string[],
+    toggle: (id: string) => void,
+    customGrouped?: Record<string, Perm[]>,
+  ) => {
+    const sourceGrouped = customGrouped || groupedByRole
+    const resources = Object.keys(sourceGrouped).sort((a, b) => a.localeCompare(b))
     if (!resources.length) return <div style={{ color: '#9ca3af', fontSize: 12 }}>Permission belum tersedia.</div>
 
     return (
@@ -155,7 +172,7 @@ export default function UsersPage() {
                 <div>Action</div>
                 <div className="perm-cell">Allow</div>
               </div>
-              {groupedByRole[res].map((p) => {
+              {sourceGrouped[res].map((p) => {
                 const checked = selected.includes(p.id)
                 return (
                   <div key={p.id} className="perm-row">
@@ -255,8 +272,30 @@ export default function UsersPage() {
             {canSetUserPerm && !editing && (
               <div>
                 <label>Permission (opsional, hanya superadmin)</label>
+                {renderPermTable(
+                  permDraft,
+                  (id) => setPermDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
+                  filterResourcesByTargetRole(form.role, groupedAll),
+                )}
+              </div>
+            )}
+            {canSetUserPerm && editing && (
+              <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                Ubah permission user via tombol Permissions di tabel user.
+              </div>
+            )}
+            {canSetUserPerm && !editing && permDraft.length === 0 && (
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>Checklist sesuai role, opsional.</div>
+            )}
+            {!canSetUserPerm && editing && (
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>Permission hanya dapat diatur oleh superadmin.</div>
+            )}
+            {canSetUserPerm && editing && (
+              <div>
+                <label>Permission (opsional, hanya superadmin)</label>
                 {renderPermTable(permDraft, (id) =>
                   setPermDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
+                  filterResourcesByTargetRole(form.role, groupedAll),
                 )}
               </div>
             )}

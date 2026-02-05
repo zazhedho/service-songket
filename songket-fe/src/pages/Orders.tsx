@@ -43,6 +43,7 @@ export default function OrdersPage() {
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [filters, setFilters] = useState({ search: '', status: '' })
   const permissions = useAuth((s) => s.permissions)
 
@@ -88,10 +89,14 @@ export default function OrdersPage() {
     e.preventDefault()
     if (!canCreate) return
     setLoading(true)
+    setError('')
     try {
       await createOrder(form)
       setForm(defaultForm)
       load()
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Gagal membuat order'
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -113,6 +118,7 @@ export default function OrdersPage() {
         <div className="card">
           <h3>Tambah Order</h3>
           {!canCreate && <div className="alert">Anda tidak punya izin membuat order.</div>}
+          {error && <div className="alert" style={{ marginTop: 8, color: '#f97316' }}>{error}</div>}
           <form className="grid" style={{ gap: 12 }} onSubmit={submit}>
             <div>
               <label>Nomor Pooling</label>
