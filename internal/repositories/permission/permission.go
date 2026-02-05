@@ -2,6 +2,7 @@ package repositorypermission
 
 import (
 	"fmt"
+	"log"
 	domainpermission "starter-kit/internal/domain/permission"
 	interfacepermission "starter-kit/internal/interfaces/permission"
 	"starter-kit/pkg/filter"
@@ -115,6 +116,16 @@ func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permiss
 	}
 
 	if user.RoleId != nil && *user.RoleId != "" {
+		//query := `
+		//	SELECT DISTINCT p.*
+		//	FROM permissions p
+		//	INNER JOIN user_permissions up ON up.permission_id = p.id
+		//	WHERE up.user_id = ? AND p.deleted_at IS NULL
+		//	ORDER BY resource, action
+		//`
+		//if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
+		//	return nil, err
+		//}
 		query := `
 			SELECT DISTINCT p.*
 			FROM permissions p
@@ -176,18 +187,23 @@ func (r *repo) SetUserPermissions(userId string, permissionIDs []string) error {
 		tx.Rollback()
 		return err
 	}
-	for _, pid := range permissionIDs {
-		up := domainpermission.UserPermission{
-			UserId:       userId,
-			PermissionId: pid,
+	if len(permissionIDs) > 0 {
+		log.Println("Setting permissions:", permissionIDs)
+		for _, pid := range permissionIDs {
+			up := domainpermission.UserPermission{
+				UserId:       userId,
+				PermissionId: pid,
+			}
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "user_id"}, {Name: "permission_id"}},
+				DoNothing: true,
+			}).Create(&up).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
 		}
-		if err := tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "user_id"}, {Name: "permission_id"}},
-			DoNothing: true,
-		}).Create(&up).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
+	} else {
+		log.Println("No permission ids provided")
 	}
 	return tx.Commit().Error
 }

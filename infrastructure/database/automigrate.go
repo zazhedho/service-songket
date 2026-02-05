@@ -247,12 +247,12 @@ func seedDefaults(db *gorm.DB) error {
 func seedRoles(db *gorm.DB) (map[string]string, error) {
 	roles := []domainrole.Role{
 		{Id: utils.CreateUUID(), Name: utils.RoleSuperAdmin, DisplayName: "Superadmin", IsSystem: true},
-		{Id: utils.CreateUUID(), Name: utils.RoleAdmin, DisplayName: "Admin", IsSystem: true},
-		{Id: utils.CreateUUID(), Name: utils.RoleStaff, DisplayName: "Staff", IsSystem: true},
-		{Id: utils.CreateUUID(), Name: utils.RoleViewer, DisplayName: "Viewer", IsSystem: true},
+		//{Id: utils.CreateUUID(), Name: utils.RoleAdmin, DisplayName: "Admin", IsSystem: true},
+		//{Id: utils.CreateUUID(), Name: utils.RoleStaff, DisplayName: "Staff", IsSystem: true},
+		//{Id: utils.CreateUUID(), Name: utils.RoleViewer, DisplayName: "Viewer", IsSystem: true},
 		{Id: utils.CreateUUID(), Name: utils.RoleMainDealer, DisplayName: "Main Dealer", IsSystem: true},
 		{Id: utils.CreateUUID(), Name: utils.RoleDealer, DisplayName: "Dealer", IsSystem: true},
-		{Id: utils.CreateUUID(), Name: utils.RoleMember, DisplayName: "Member", IsSystem: false},
+		//{Id: utils.CreateUUID(), Name: utils.RoleMember, DisplayName: "Member", IsSystem: false},
 	}
 
 	result := make(map[string]string)
