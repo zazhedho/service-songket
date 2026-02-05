@@ -91,6 +91,7 @@ func main() {
 	routes.RoleRoutes()
 	routes.PermissionRoutes()
 	routes.MenuRoutes()
+	routes.MasterRoutes()
 	routes.SongketRoutes()
 
 	// Register session routes if Redis is available

@@ -9,11 +9,12 @@ type UserRegister struct {
 }
 
 type AdminCreateUser struct {
-	Name     string `json:"name" binding:"required,min=3,max=100"`
-	Email    string `json:"email" binding:"required,email"`
-	Phone    string `json:"phone" binding:"omitempty,min=9,max=15"`
-	Password string `json:"password" binding:"required,min=8,max=64"`
-	Role     string `json:"role" binding:"required"`
+	Name          string   `json:"name" binding:"required,min=3,max=100"`
+	Email         string   `json:"email" binding:"required,email"`
+	Phone         string   `json:"phone" binding:"omitempty,min=9,max=15"`
+	Password      string   `json:"password" binding:"required,min=8,max=64"`
+	Role          string   `json:"role" binding:"required"`
+	PermissionIDs []string `json:"permission_ids" binding:"omitempty"`
 }
 
 type Login struct {

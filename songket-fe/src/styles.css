@@ -74,4 +74,48 @@
   .hero { @apply grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center; }
   .hero .big { @apply text-2xl font-bold mb-2; }
   .hero .muted { @apply text-gray-400; }
+
+  /* compact permission grid */
+  .perm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 4px;
+    max-height: 220px;
+    overflow: auto;
+    padding: 2px;
+  }
+  .perm-item {
+    display: flex;
+    gap: 4px;
+    align-items: flex-start;
+    padding: 4px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .perm-checkbox {
+    margin-top: 1px;
+    transform: scale(0.8);
+  }
+  .perm-text { line-height: 1.1; }
+  .perm-title { font-weight: 600; font-size: 11px; }
+  .perm-meta { color: #9ca3af; font-size: 10px; }
+
+  .perm-table {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.02);
+  }
+  .perm-row {
+    display: grid;
+    grid-template-columns: 1.5fr repeat(5, 0.6fr);
+    gap: 2px;
+    align-items: center;
+  }
+  .perm-head { background: rgba(255,255,255,0.04); font-weight: 600; font-size: 12px; }
+  .perm-row > div { padding: 6px 8px; font-size: 11px; }
+  .perm-resource { text-transform: capitalize; }
+  .perm-cell { display: flex; justify-content: center; }
+  .perm-dash { color: #555; font-size: 12px; }
 }

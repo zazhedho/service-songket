@@ -13,6 +13,7 @@ import (
 	roleHandler "starter-kit/internal/handlers/http/role"
 	sessionHandler "starter-kit/internal/handlers/http/session"
 	userHandler "starter-kit/internal/handlers/http/user"
+	"starter-kit/internal/master"
 	authRepo "starter-kit/internal/repositories/auth"
 	menuRepo "starter-kit/internal/repositories/menu"
 	permissionRepo "starter-kit/internal/repositories/permission"
@@ -146,8 +147,8 @@ func (r *Routes) RoleRoutes() {
 		role.DELETE("/:id", mdw.PermissionMiddleware("roles", "delete"), h.Delete)
 
 		// Permission and menu assignment
-		role.POST("/:id/permissions", mdw.PermissionMiddleware("roles", "assign_permissions"), h.AssignPermissions)
-		role.POST("/:id/menus", mdw.PermissionMiddleware("roles", "assign_menus"), h.AssignMenus)
+		role.POST("/:id/permissions", mdw.RoleMiddleware(utils.RoleSuperAdmin), mdw.PermissionMiddleware("roles", "assign_permissions"), h.AssignPermissions)
+		role.POST("/:id/menus", mdw.RoleMiddleware(utils.RoleSuperAdmin), mdw.PermissionMiddleware("roles", "assign_menus"), h.AssignMenus)
 	}
 }
 
@@ -163,14 +164,34 @@ func (r *Routes) PermissionRoutes() {
 
 	// Get current user's permissions
 	r.App.GET("/api/permissions/me", mdw.AuthMiddleware(), h.GetUserPermissions)
+	// Manage user-specific permissions (superadmin only)
+	r.App.GET("/api/user/:id/permissions", mdw.AuthMiddleware(), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetUserPermissionsByAdmin)
+	r.App.POST("/api/user/:id/permissions", mdw.AuthMiddleware(), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.SetUserPermissions)
 
 	// CRUD endpoints
-	permission := r.App.Group("/api/permission").Use(mdw.AuthMiddleware())
+	permission := r.App.Group("/api/permission").Use(mdw.AuthMiddleware(), mdw.RoleMiddleware(utils.RoleSuperAdmin))
 	{
 		permission.POST("", mdw.PermissionMiddleware("permissions", "create"), h.Create)
 		permission.GET("/:id", mdw.PermissionMiddleware("permissions", "view"), h.GetByID)
 		permission.PUT("/:id", mdw.PermissionMiddleware("permissions", "update"), h.Update)
 		permission.DELETE("/:id", mdw.PermissionMiddleware("permissions", "delete"), h.Delete)
+	}
+}
+
+// MasterRoutes serves master data (wilayah) from Sipedas.
+func (r *Routes) MasterRoutes() {
+	svc := master.NewWilayahService()
+	h := master.NewHandler(svc)
+
+	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
+	pRepo := permissionRepo.NewPermissionRepo(r.DB)
+	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
+
+	g := r.App.Group("/api/master").Use(mdw.AuthMiddleware())
+	{
+		g.GET("/provinsi", h.GetProvinsi)
+		g.GET("/kabupaten", h.GetKabupaten)
+		g.GET("/kecamatan", h.GetKecamatan)
 	}
 }
 
@@ -236,34 +257,36 @@ func (r *Routes) SongketRoutes() {
 	g := r.App.Group("/api/songket").Use(mdw.AuthMiddleware())
 
 	// Orders
-	g.POST("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.CreateOrder)
-	g.GET("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ListOrders)
-	g.PUT("/orders/:id", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpdateOrder)
+	g.POST("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "create"), h.CreateOrder)
+	g.GET("/orders", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "list"), h.ListOrders)
+	g.PUT("/orders/:id", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("orders", "update"), h.UpdateOrder)
 
 	// Finance performance
-	g.GET("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.Dealers)
-	g.GET("/finance/dealers/:id/metrics", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.DealerMetrics)
+	g.GET("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
+	g.GET("/finance/dealers/:id/metrics", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "view_metrics"), h.DealerMetrics)
 
 	// Credit capability & quadrants
-	g.POST("/credit", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpsertCredit)
-	g.GET("/credit", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ListCredit)
-	g.POST("/quadrants/recompute", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.RecomputeQuadrants)
-	g.GET("/quadrants", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ListQuadrants)
+	g.POST("/credit", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)
+	g.GET("/credit", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "list"), h.ListCredit)
+	g.POST("/quadrants/recompute", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("quadrants", "recompute"), h.RecomputeQuadrants)
+	g.GET("/quadrants", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("quadrants", "list"), h.ListQuadrants)
 
 	// News
-	g.POST("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpsertNewsSource)
-	g.GET("/news/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.LatestNews)
+	g.POST("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "upsert_source"), h.UpsertNewsSource)
+	g.GET("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "upsert_source"), h.ListNewsSources)
+	g.POST("/news/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "scrape"), h.ScrapeNews)
+	g.GET("/news/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "view"), h.LatestNews)
 
 	// Commodity prices
-	g.POST("/commodities", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.UpsertCommodity)
-	g.POST("/commodities/price", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.AddPrice)
-	g.GET("/commodities/prices/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.LatestPrices)
-	g.POST("/commodities/prices/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.ScrapePrices)
+	g.POST("/commodities", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "upsert"), h.UpsertCommodity)
+	g.POST("/commodities/price", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "add_price"), h.AddPrice)
+	g.GET("/commodities/prices/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "list_prices"), h.LatestPrices)
+	g.POST("/commodities/prices/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ScrapePrices)
 	g.GET("/lookups", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), h.Lookups)
-	g.GET("/scrape-sources", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.ListScrapeSources)
-	g.POST("/scrape-sources", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.CreateScrapeSource)
-	g.PUT("/scrape-sources/:id", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.UpdateScrapeSource)
-	g.DELETE("/scrape-sources/:id", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), h.DeleteScrapeSource)
+	g.GET("/scrape-sources", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("scrape_sources", "list"), h.ListScrapeSources)
+	g.POST("/scrape-sources", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("scrape_sources", "create"), h.CreateScrapeSource)
+	g.PUT("/scrape-sources/:id", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("scrape_sources", "update"), h.UpdateScrapeSource)
+	g.DELETE("/scrape-sources/:id", mdw.RoleMiddleware(utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("scrape_sources", "delete"), h.DeleteScrapeSource)
 
 	logger.WriteLog(logger.LogLevelInfo, "Songket routes registered")
 }

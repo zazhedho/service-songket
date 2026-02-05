@@ -183,3 +183,64 @@ func (h *PermissionHandler) GetUserPermissions(ctx *gin.Context) {
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Response: %+v;", logPrefix, utils.JsonEncode(data)))
 	ctx.JSON(http.StatusOK, res)
 }
+
+// Admin: set specific user's permissions (superadmin only via middleware).
+func (h *PermissionHandler) SetUserPermissions(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	logPrefix := "[PermissionHandler][SetUserPermissions]"
+
+	userId := ctx.Param("id")
+	if userId == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "user id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	var req dto.AssignUserPermissionsRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	if err := h.Service.SetUserPermissions(userId, req.PermissionIDs); err != nil {
+		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.SetUserPermissions; Error: %+v", logPrefix, err))
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "User permissions updated", logId, gin.H{"user_id": userId, "permission_ids": req.PermissionIDs})
+	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Response: %+v;", logPrefix, utils.JsonEncode(res)))
+	ctx.JSON(http.StatusOK, res)
+}
+
+// Admin: get permissions of arbitrary user (superadmin only).
+func (h *PermissionHandler) GetUserPermissionsByAdmin(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	logPrefix := "[PermissionHandler][GetUserPermissionsByAdmin]"
+	userId := ctx.Param("id")
+	if userId == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "user id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	data, err := h.Service.GetUserPermissions(userId)
+	if err != nil {
+		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetUserPermissions; Error: %+v", logPrefix, err))
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "Get user permissions successfully", logId, data)
+	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Response: %+v;", logPrefix, utils.JsonEncode(data)))
+	ctx.JSON(http.StatusOK, res)
+}

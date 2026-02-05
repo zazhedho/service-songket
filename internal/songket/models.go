@@ -66,7 +66,10 @@ type Order struct {
 	Dealer        *Dealer               `gorm:"foreignKey:DealerID" json:"dealer,omitempty"`
 	ConsumerName  string                `gorm:"column:consumer_name;not null" json:"consumer_name"`
 	ConsumerPhone string                `gorm:"column:consumer_phone;not null" json:"consumer_phone"`
+	Province      string                `gorm:"column:province" json:"province"`
 	Regency       string                `gorm:"column:regency" json:"regency"`
+	District      string                `gorm:"column:district" json:"district"`
+	Village       string                `gorm:"column:village" json:"village"`
 	Address       string                `gorm:"column:address" json:"address"`
 	JobID         string                `gorm:"column:job_id;type:uuid" json:"job_id"`
 	Job           *Job                  `gorm:"foreignKey:JobID" json:"job,omitempty"`
@@ -105,7 +108,11 @@ func (OrderFinanceAttempt) TableName() string { return "order_finance_attempts" 
 // CreditCapability records risk score per job and regency.
 type CreditCapability struct {
 	Id        string    `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Province  string    `gorm:"column:province" json:"province"`
 	Regency   string    `gorm:"column:regency;index:idx_credit_regency_job,unique" json:"regency"`
+	District  string    `gorm:"column:district" json:"district"`
+	Village   string    `gorm:"column:village" json:"village"`
+	Address   string    `gorm:"column:address" json:"address"`
 	JobID     string    `gorm:"column:job_id;type:uuid;index:idx_credit_regency_job,unique" json:"job_id"`
 	Job       *Job      `gorm:"foreignKey:JobID" json:"job,omitempty"`
 	Score     float64   `gorm:"column:score" json:"score"`

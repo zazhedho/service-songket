@@ -79,19 +79,19 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 		return domainuser.Users{}, err
 	}
 
+	roleName := normalizeRoleName(req.Role)
+	if roleName == "" {
+		roleName = utils.RoleMember
+	}
+	roleEntity, err := s.RoleRepo.GetByName(roleName)
+	if err != nil || roleEntity.Id == "" {
+		return domainuser.Users{}, errors.New("invalid role: " + roleName)
+	}
+	roleId := roleEntity.Id
+
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return domainuser.Users{}, err
-	}
-
-	// SECURITY: Public registration always uses vendor role
-	// This prevents privilege escalation through request manipulation
-	//roleName := utils.RoleViewer
-
-	var roleId *string
-	roleEntity, err := s.RoleRepo.GetByName(req.Role)
-	if err == nil && roleEntity.Id != "" {
-		roleId = &roleEntity.Id
 	}
 
 	data = domainuser.Users{
@@ -100,8 +100,8 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 		Phone:     phone,
 		Email:     req.Email,
 		Password:  string(hashedPwd),
-		Role:      req.Role,
-		RoleId:    roleId,
+		Role:      roleName,
+		RoleId:    &roleId,
 		CreatedAt: time.Now(),
 	}
 
@@ -136,7 +136,7 @@ func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorRole strin
 		return domainuser.Users{}, err
 	}
 
-	roleName := strings.ToLower(strings.TrimSpace(req.Role))
+	roleName := normalizeRoleName(req.Role)
 
 	// SECURITY: Validate role assignment based on creator's role
 	// Only superadmin can create superadmin users
@@ -165,6 +165,13 @@ func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorRole strin
 
 	if err = s.UserRepo.Store(data); err != nil {
 		return domainuser.Users{}, err
+	}
+
+	// Apply user-specific permissions if provided
+	if len(req.PermissionIDs) > 0 {
+		if err := s.PermissionRepo.SetUserPermissions(data.Id, req.PermissionIDs); err != nil {
+			return domainuser.Users{}, err
+		}
 	}
 
 	return data, nil
@@ -201,6 +208,13 @@ func (s *ServiceUser) LogoutUser(token string) error {
 	}
 
 	return nil
+}
+
+func normalizeRoleName(r string) string {
+	role := strings.ToLower(strings.TrimSpace(r))
+	role = strings.ReplaceAll(role, " ", "_")
+	role = strings.ReplaceAll(role, "-", "_")
+	return role
 }
 
 func (s *ServiceUser) GetUserById(id string) (domainuser.Users, error) {

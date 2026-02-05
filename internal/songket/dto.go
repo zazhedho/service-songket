@@ -11,7 +11,10 @@ type CreateOrderRequest struct {
 	FinanceCompanyID  string  `json:"finance_company_id" binding:"required"`
 	ConsumerName      string  `json:"consumer_name" binding:"required"`
 	ConsumerPhone     string  `json:"consumer_phone" binding:"required"`
+	Province          string  `json:"province" binding:"required"`
 	Regency           string  `json:"regency" binding:"required"`
+	District          string  `json:"district" binding:"required"` // kecamatan
+	Village           string  `json:"village"`                     // kelurahan
 	Address           string  `json:"address" binding:"required"`
 	JobID             string  `json:"job_id" binding:"required"`
 	MotorTypeID       string  `json:"motor_type_id" binding:"required"`
@@ -33,7 +36,10 @@ type UpdateOrderRequest struct {
 	FinanceCompanyID  *string  `json:"finance_company_id"`
 	ConsumerName      *string  `json:"consumer_name"`
 	ConsumerPhone     *string  `json:"consumer_phone"`
+	Province          *string  `json:"province"`
 	Regency           *string  `json:"regency"`
+	District          *string  `json:"district"`
+	Village           *string  `json:"village"`
 	Address           *string  `json:"address"`
 	JobID             *string  `json:"job_id"`
 	MotorTypeID       *string  `json:"motor_type_id"`
@@ -48,9 +54,13 @@ type UpdateOrderRequest struct {
 }
 
 type CreditCapabilityRequest struct {
-	Regency string  `json:"regency" binding:"required"`
-	JobID   string  `json:"job_id" binding:"required"`
-	Score   float64 `json:"score" binding:"required"`
+	Province string  `json:"province" binding:"required"`
+	Regency  string  `json:"regency" binding:"required"`
+	District string  `json:"district" binding:"required"`
+	Village  string  `json:"village"`
+	Address  string  `json:"address"`
+	JobID    string  `json:"job_id" binding:"required"`
+	Score    float64 `json:"score" binding:"required"`
 }
 
 type QuadrantComputeRequest struct {

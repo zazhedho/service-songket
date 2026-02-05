@@ -1,6 +1,12 @@
 package database
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"starter-kit/internal/domain/master/provinsi"
+	"strconv"
 	"strings"
 
 	domainauth "starter-kit/internal/domain/auth"
@@ -12,7 +18,9 @@ import (
 	"starter-kit/pkg/logger"
 	"starter-kit/utils"
 
+	"github.com/go-resty/resty/v2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // AutoMigrate runs gorm automigrate for all core and SONGKET tables.
@@ -31,6 +39,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&domainuser.Users{},
 		&domainrole.Role{},
 		&domainpermission.Permission{},
+		&domainpermission.UserPermission{},
 		&domainmenu.MenuItem{},
 		&domainrole.RolePermission{},
 		&domainrole.RoleMenu{},
@@ -49,6 +58,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.NewsSource{},
 		&songket.NewsItem{},
 		&songket.ScrapeSource{},
+		//&provinsi.Provinsi{},
 	}
 
 	if err := db.AutoMigrate(models...); err != nil {
@@ -92,7 +102,24 @@ func seedDefaults(db *gorm.DB) error {
 		{Id: utils.CreateUUID(), Name: "BCA Finance"},
 	}
 	for _, fc := range fcs {
-		_ = db.Where("name = ?", fc.Name).FirstOrCreate(&fc).Error
+		var existing songket.FinanceCompany
+		err := db.Unscoped().Where("name = ?", fc.Name).First(&existing).Error
+		if err == nil {
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoNothing: true,
+		}).Create(&fc).Error; err != nil {
+			return err
+		}
 	}
 
 	// Jobs
@@ -102,7 +129,24 @@ func seedDefaults(db *gorm.DB) error {
 		{Id: utils.CreateUUID(), Name: "Wiraswasta"},
 	}
 	for _, j := range jobs {
-		_ = db.Where("name = ?", j.Name).FirstOrCreate(&j).Error
+		var existing songket.Job
+		err := db.Unscoped().Where("name = ?", j.Name).First(&existing).Error
+		if err == nil {
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoNothing: true,
+		}).Create(&j).Error; err != nil {
+			return err
+		}
 	}
 
 	// Commodities baseline
@@ -112,7 +156,25 @@ func seedDefaults(db *gorm.DB) error {
 		{Id: utils.CreateUUID(), Name: "Bawang Merah", Unit: "kg"},
 	}
 	for _, c := range comms {
-		_ = db.Where("name = ?", c.Name).FirstOrCreate(&c).Error
+		var existing songket.Commodity
+		err := db.Unscoped().Where("name = ?", c.Name).First(&existing).Error
+		if err == nil {
+			existing.Unit = c.Unit
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"unit", "deleted_at"}),
+		}).Create(&c).Error; err != nil {
+			return err
+		}
 	}
 
 	// Motor types placeholder with OTR
@@ -122,7 +184,25 @@ func seedDefaults(db *gorm.DB) error {
 		{Id: utils.CreateUUID(), Name: "Vario 160", OTR: 29000000},
 	}
 	for _, m := range motors {
-		_ = db.Where("name = ?", m.Name).FirstOrCreate(&m).Error
+		var existing songket.MotorType
+		err := db.Unscoped().Where("name = ?", m.Name).First(&existing).Error
+		if err == nil {
+			existing.OTR = m.OTR
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"otr", "deleted_at"}),
+		}).Create(&m).Error; err != nil {
+			return err
+		}
 	}
 
 	// Dealers sample with coordinates (NTB area)
@@ -132,8 +212,34 @@ func seedDefaults(db *gorm.DB) error {
 		{Id: utils.CreateUUID(), Name: "Dealer Bima", Regency: "Bima", Province: "NTB", Latitude: -8.460, Longitude: 118.726, Address: "Jl. Soekarno Hatta"},
 	}
 	for _, d := range dealers {
-		_ = db.Where("name = ?", d.Name).FirstOrCreate(&d).Error
+		var existing songket.Dealer
+		err := db.Unscoped().Where("name = ?", d.Name).First(&existing).Error
+		if err == nil {
+			existing.Regency = d.Regency
+			existing.Province = d.Province
+			existing.Address = d.Address
+			existing.Latitude = d.Latitude
+			existing.Longitude = d.Longitude
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"regency", "province", "address", "lat", "lng", "deleted_at"}),
+		}).Create(&d).Error; err != nil {
+			return err
+		}
 	}
+
+	//if err := seedProvinsiFromAPI(context.Background(), db, "2024"); err != nil {
+	//	return err
+	//}
 
 	return nil
 }
@@ -151,10 +257,34 @@ func seedRoles(db *gorm.DB) (map[string]string, error) {
 
 	result := make(map[string]string)
 	for _, r := range roles {
-		if err := db.Where("name = ?", r.Name).FirstOrCreate(&r).Error; err != nil {
+		// Idempotent upsert by name; if exists, refresh fields and reactivate soft-deleted rows.
+		var existing domainrole.Role
+		err := db.Unscoped().Where("name = ?", r.Name).First(&existing).Error
+		if err == nil {
+			existing.DisplayName = r.DisplayName
+			existing.Description = r.Description
+			existing.IsSystem = r.IsSystem
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return nil, err
+			}
+			result[r.Name] = existing.Id
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
-		result[r.Name] = r.Id
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"display_name", "description", "is_system", "deleted_at"}),
+		}).Create(&r).Error; err != nil {
+			return nil, err
+		}
+		// re-fetch to get actual ID when conflict happened
+		if err := db.Where("name = ?", r.Name).First(&existing).Error; err != nil {
+			return nil, err
+		}
+		result[r.Name] = existing.Id
 	}
 	return result, nil
 }
@@ -200,14 +330,70 @@ func seedPermissions(db *gorm.DB) (map[string]string, error) {
 		{Name: "update_profile", DisplayName: "Update Profile", Resource: "profile", Action: "update"},
 		{Name: "update_password_profile", DisplayName: "Update Password Profile", Resource: "profile", Action: "update_password"},
 		{Name: "delete_profile", DisplayName: "Delete Profile", Resource: "profile", Action: "delete"},
+
+		// Orders
+		{Name: "list_orders", DisplayName: "List Orders", Resource: "orders", Action: "list"},
+		{Name: "view_orders", DisplayName: "View Order Detail", Resource: "orders", Action: "view"},
+		{Name: "create_orders", DisplayName: "Create Orders", Resource: "orders", Action: "create"},
+		{Name: "update_orders", DisplayName: "Update Orders", Resource: "orders", Action: "update"},
+		{Name: "delete_orders", DisplayName: "Delete Orders", Resource: "orders", Action: "delete"},
+
+		// Finance
+		{Name: "list_finance_dealers", DisplayName: "List Finance Dealers", Resource: "finance", Action: "list_dealers"},
+		{Name: "view_finance_metrics", DisplayName: "View Finance Metrics", Resource: "finance", Action: "view_metrics"},
+
+		// Credit & Quadrants
+		{Name: "list_credit", DisplayName: "List Credit Capability", Resource: "credit", Action: "list"},
+		{Name: "upsert_credit", DisplayName: "Upsert Credit Capability", Resource: "credit", Action: "upsert"},
+		{Name: "list_quadrants", DisplayName: "List Quadrants", Resource: "quadrants", Action: "list"},
+		{Name: "recompute_quadrants", DisplayName: "Recompute Quadrants", Resource: "quadrants", Action: "recompute"},
+
+		// News
+		{Name: "view_news", DisplayName: "View Latest News", Resource: "news", Action: "view"},
+		{Name: "upsert_news_source", DisplayName: "Upsert News Source", Resource: "news", Action: "upsert_source"},
+		{Name: "scrape_news", DisplayName: "Scrape News", Resource: "news", Action: "scrape"},
+
+		// Commodities & Prices
+		{Name: "upsert_commodities", DisplayName: "Upsert Commodities", Resource: "commodities", Action: "upsert"},
+		{Name: "add_commodity_price", DisplayName: "Add Commodity Price", Resource: "commodities", Action: "add_price"},
+		{Name: "list_prices", DisplayName: "List Latest Prices", Resource: "commodities", Action: "list_prices"},
+		{Name: "scrape_prices", DisplayName: "Scrape Prices", Resource: "commodities", Action: "scrape_prices"},
+
+		// Scrape sources
+		{Name: "list_scrape_sources", DisplayName: "List Scrape Sources", Resource: "scrape_sources", Action: "list"},
+		{Name: "create_scrape_source", DisplayName: "Create Scrape Source", Resource: "scrape_sources", Action: "create"},
+		{Name: "update_scrape_source", DisplayName: "Update Scrape Source", Resource: "scrape_sources", Action: "update"},
+		{Name: "delete_scrape_source", DisplayName: "Delete Scrape Source", Resource: "scrape_sources", Action: "delete"},
 	}
 
 	result := make(map[string]string)
 	for _, p := range perms {
-		if err := db.Where("name = ?", p.Name).FirstOrCreate(&p).Error; err != nil {
+		var existing domainpermission.Permission
+		err := db.Unscoped().Where("name = ?", p.Name).First(&existing).Error
+		if err == nil {
+			existing.DisplayName = p.DisplayName
+			existing.Resource = p.Resource
+			existing.Action = p.Action
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return nil, err
+			}
+			result[p.Name] = existing.Id
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
-		result[p.Name] = p.Id
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"display_name", "resource", "action", "deleted_at"}),
+		}).Create(&p).Error; err != nil {
+			return nil, err
+		}
+		if err := db.Where("name = ?", p.Name).First(&existing).Error; err != nil {
+			return nil, err
+		}
+		result[p.Name] = existing.Id
 	}
 	return result, nil
 }
@@ -223,10 +409,34 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 
 	result := make(map[string]string)
 	for _, m := range menus {
-		if err := db.Where("name = ?", m.Name).FirstOrCreate(&m).Error; err != nil {
+		var existing domainmenu.MenuItem
+		err := db.Unscoped().Where("name = ?", m.Name).First(&existing).Error
+		if err == nil {
+			existing.DisplayName = m.DisplayName
+			existing.Path = m.Path
+			existing.Icon = m.Icon
+			existing.OrderIndex = m.OrderIndex
+			existing.ParentId = m.ParentId
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return nil, err
+			}
+			result[m.Name] = existing.Id
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
-		result[m.Name] = m.Id
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"display_name", "path", "icon", "order_index", "parent_id", "deleted_at"}),
+		}).Create(&m).Error; err != nil {
+			return nil, err
+		}
+		if err := db.Where("name = ?", m.Name).First(&existing).Error; err != nil {
+			return nil, err
+		}
+		result[m.Name] = existing.Id
 	}
 	return result, nil
 }
@@ -247,7 +457,10 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 				RoleId:       roleId,
 				PermissionId: pid,
 			}
-			if err := db.Where("role_id = ? AND permission_id = ?", roleId, pid).FirstOrCreate(&rp).Error; err != nil {
+			if err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "role_id"}, {Name: "permission_id"}},
+				DoNothing: true,
+			}).Create(&rp).Error; err != nil {
 				return err
 			}
 		}
@@ -291,7 +504,27 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		}
 		return strings.HasPrefix(name, "list_") || strings.HasPrefix(name, "view_")
 	})
-	return assign(utils.RoleViewer, viewerPerms)
+	if err := assign(utils.RoleViewer, viewerPerms); err != nil {
+		return err
+	}
+
+	// main dealer: orders CRUD, finance metrics, credit/quadrants view, prices/news view
+	mainDealerPerms := []string{
+		"list_orders", "view_orders", "create_orders", "update_orders",
+		"list_finance_dealers", "view_finance_metrics",
+		"list_credit", "list_quadrants",
+		"list_prices", "view_news", "scrape_news",
+	}
+	if err := assign(utils.RoleMainDealer, mainDealerPerms); err != nil {
+		return err
+	}
+
+	// dealer: orders list/create/update/view, view prices/news
+	dealerPerms := []string{
+		"list_orders", "view_orders", "create_orders", "update_orders",
+		"list_prices", "view_news",
+	}
+	return assign(utils.RoleDealer, dealerPerms)
 }
 
 func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
@@ -310,7 +543,10 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 				RoleId:     roleId,
 				MenuItemId: mid,
 			}
-			if err := db.Where("role_id = ? AND menu_item_id = ?", roleId, mid).FirstOrCreate(&rm).Error; err != nil {
+			if err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "role_id"}, {Name: "menu_item_id"}},
+				DoNothing: true,
+			}).Create(&rm).Error; err != nil {
 				return err
 			}
 		}
@@ -332,6 +568,82 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 
 	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus"})
 	return assign(utils.RoleViewer, viewerMenus)
+}
+
+func fetchProvinsiFromSipedas(ctx context.Context, thn string) (map[string]string, error) {
+	url := "https://sipedas.pertanian.go.id/api/wilayah/list_pro"
+	client := resty.New()
+
+	result := map[string]string{}
+	resp, err := client.R().
+		SetContext(ctx).
+		SetQueryParam("thn", thn).
+		SetResult(&result).
+		Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.IsError() {
+		return nil, fmt.Errorf("sipedas error: status=%d body=%s", resp.StatusCode(), string(resp.Body()))
+	}
+	return result, nil
+}
+
+func seedProvinsiFromAPI(ctx context.Context, db *gorm.DB, thn string) error {
+	data, err := fetchProvinsiFromSipedas(ctx, thn)
+	if err != nil {
+		return err
+	}
+
+	// urutkan berdasarkan kode numerik: 11,12,13,...,97
+	codes := make([]string, 0, len(data))
+	for c := range data {
+		codes = append(codes, c)
+	}
+	sort.Slice(codes, func(i, j int) bool {
+		ai, _ := strconv.Atoi(codes[i])
+		aj, _ := strconv.Atoi(codes[j])
+		return ai < aj
+	})
+
+	rows := make([]provinsi.Provinsi, 0, len(codes))
+	for idx, code := range codes {
+		name := strings.TrimSpace(data[code])
+		rows = append(rows, provinsi.Provinsi{
+			// Id UUID akan keisi otomatis lewat default gen_random_uuid()/BeforeCreate
+			Code:        code,
+			Name:        name,
+			DisplayName: toTitleID(name),
+			Path:        "/provinsi/" + code,
+			Icon:        "",
+			ParentId:    nil,
+			OrderIndex:  idx + 1,
+			IsActive:    true,
+		})
+	}
+
+	// Upsert by unique key: code
+	return db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "code"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"name", "display_name", "path", "icon", "parent_id", "order_index", "is_active",
+			}),
+		}).
+		CreateInBatches(rows, 200).
+		Error
+}
+
+// Title Case sederhana (cukup untuk seed)
+func toTitleID(s string) string {
+	parts := strings.Fields(strings.ToLower(s))
+	for i := range parts {
+		if len(parts[i]) == 0 {
+			continue
+		}
+		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+	}
+	return strings.Join(parts, " ")
 }
 
 func keysFromMap(m map[string]string) []string {

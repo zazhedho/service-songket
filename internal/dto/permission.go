@@ -14,3 +14,7 @@ type PermissionUpdate struct {
 	Resource    string `json:"resource" binding:"omitempty,min=2,max=50"`
 	Action      string `json:"action" binding:"omitempty,min=2,max=50"`
 }
+
+type AssignUserPermissionsRequest struct {
+	PermissionIDs []string `json:"permission_ids" binding:"required"`
+}

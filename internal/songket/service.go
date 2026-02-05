@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	//"io"
 	//"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 
 	"starter-kit/pkg/filter"
 	"starter-kit/utils"
@@ -78,7 +81,10 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		DealerID:      req.DealerID,
 		ConsumerName:  req.ConsumerName,
 		ConsumerPhone: req.ConsumerPhone,
+		Province:      req.Province,
 		Regency:       req.Regency,
+		District:      req.District,
+		Village:       req.Village,
 		Address:       req.Address,
 		JobID:         req.JobID,
 		MotorTypeID:   req.MotorTypeID,
@@ -177,11 +183,20 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.ConsumerPhone != nil {
 		order.ConsumerPhone = *req.ConsumerPhone
 	}
+	if req.Province != nil {
+		order.Province = *req.Province
+	}
 	if req.DealerID != nil {
 		order.DealerID = *req.DealerID
 	}
 	if req.Regency != nil {
 		order.Regency = *req.Regency
+	}
+	if req.District != nil {
+		order.District = *req.District
+	}
+	if req.Village != nil {
+		order.Village = *req.Village
 	}
 	if req.Address != nil {
 		order.Address = *req.Address
@@ -422,10 +437,14 @@ func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCap
 	err := s.db.Where("regency = ? AND job_id = ?", req.Regency, req.JobID).First(&cc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		cc = CreditCapability{
-			Id:      utils.CreateUUID(),
-			Regency: req.Regency,
-			JobID:   req.JobID,
-			Score:   req.Score,
+			Id:       utils.CreateUUID(),
+			Province: req.Province,
+			Regency:  req.Regency,
+			District: req.District,
+			Village:  req.Village,
+			Address:  req.Address,
+			JobID:    req.JobID,
+			Score:    req.Score,
 		}
 		if err := s.db.Create(&cc).Error; err != nil {
 			return CreditCapability{}, err
@@ -435,6 +454,11 @@ func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCap
 		return CreditCapability{}, err
 	}
 
+	cc.Province = req.Province
+	cc.Regency = req.Regency
+	cc.District = req.District
+	cc.Village = req.Village
+	cc.Address = req.Address
 	cc.Score = req.Score
 	if err := s.db.Save(&cc).Error; err != nil {
 		return CreditCapability{}, err
@@ -579,6 +603,14 @@ func (s *Service) UpsertNewsSource(req NewsSourceRequest) (NewsSource, error) {
 	return ns, nil
 }
 
+func (s *Service) ListNewsSources() ([]NewsSource, error) {
+	var list []NewsSource
+	if err := s.db.Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 	var sources []NewsSource
 	q := s.db.Model(&NewsSource{})
@@ -601,6 +633,48 @@ func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 		}
 	}
 	return result, nil
+}
+
+// ScrapeNews fetches each active news source URL and stores a single headline (title tag) per source.
+func (s *Service) ScrapeNews(ctx context.Context) ([]NewsItem, error) {
+	var sources []NewsSource
+	if err := s.db.Find(&sources).Error; err != nil {
+		return nil, err
+	}
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no news sources configured")
+	}
+
+	client := resty.New().SetTimeout(8 * time.Second)
+	titleRe := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
+
+	items := make([]NewsItem, 0, len(sources))
+	for _, src := range sources {
+		resp, err := client.R().SetContext(ctx).Get(src.URL)
+		if err != nil || resp.IsError() {
+			continue
+		}
+		body := string(resp.Body())
+		title := ""
+		if m := titleRe.FindStringSubmatch(body); len(m) > 1 {
+			title = strings.TrimSpace(stripTags(m[1]))
+		}
+		if title == "" {
+			title = src.Name
+		}
+		item := NewsItem{
+			Id:          utils.CreateUUID(),
+			SourceID:    src.Id,
+			Title:       title,
+			URL:         src.URL,
+			Category:    src.Category,
+			PublishedAt: time.Now(),
+		}
+		if err := s.db.Create(&item).Error; err == nil {
+			items = append(items, item)
+		}
+	}
+	return items, nil
 }
 
 func (s *Service) UpsertCommodity(req CommodityRequest) (Commodity, error) {
@@ -760,6 +834,26 @@ func firstString(m map[string]interface{}, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// stripTags removes HTML tags (very basic).
+func stripTags(s string) string {
+	var b strings.Builder
+	inTag := false
+	for _, r := range s {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func firstFloat(m map[string]interface{}, keys ...string) float64 {

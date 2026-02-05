@@ -1,23 +1,27 @@
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store'
 import React, { useEffect, useState } from 'react'
-import { getMe } from '../api'
+import { getMe, getMyPermissions } from '../api'
 
 export default function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuth((s) => s.token)
   const role = useAuth((s) => s.role)
+  const permissions = useAuth((s) => s.permissions)
   const setRole = useAuth((s) => s.setRole)
+  const setPermissions = useAuth((s) => s.setPermissions)
   const logout = useAuth((s) => s.logout)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (token && !role && !loading) {
+    if (token && !loading && (role == null || permissions.length === 0)) {
       setLoading(true)
-      getMe()
-        .then((res) => {
-          const r = res.data?.data?.role || res.data?.role
+      Promise.all([getMe(), getMyPermissions()])
+        .then(([meRes, permRes]) => {
+          const r = meRes.data?.data?.role || meRes.data?.role
           if (r) setRole(r)
+          const perms = (permRes.data?.data || permRes.data || []).map((p: any) => p.name)
+          setPermissions(perms)
         })
         .catch(() => {
           logout()
@@ -25,7 +29,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
         })
         .finally(() => setLoading(false))
     }
-  }, [token, role, setRole, logout, navigate, loading])
+  }, [token, role, permissions.length, setRole, setPermissions, logout, navigate, loading])
 
   if (!token) return <Navigate to="/login" replace />
   if (loading) return null

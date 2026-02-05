@@ -246,6 +246,20 @@ func (h *Handler) UpsertNewsSource(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/news/sources
+func (h *Handler) ListNewsSources(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.ListNewsSources()
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/news/latest
 func (h *Handler) LatestNews(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -258,6 +272,20 @@ func (h *Handler) LatestNews(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/news/scrape
+func (h *Handler) ScrapeNews(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.ScrapeNews(ctx.Request.Context())
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "scraped", logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 

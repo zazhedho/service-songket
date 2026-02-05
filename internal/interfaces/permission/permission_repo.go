@@ -15,4 +15,6 @@ type RepoPermissionInterface interface {
 
 	GetByResource(resource string) ([]domainpermission.Permission, error)
 	GetUserPermissions(userId string) ([]domainpermission.Permission, error)
+	SetUserPermissions(userId string, permissionIDs []string) error
+	ListUserPermissionIDs(userId string) ([]string, error)
 }

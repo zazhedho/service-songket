@@ -2,33 +2,41 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store'
 import React from 'react'
 
-type MenuItem = { to: string; label: string; roles: string[] }
+type MenuItem = { to: string; label: string; roles?: string[]; perms?: string[] }
 
 const menuItems: MenuItem[] = [
   { to: '/dashboard', label: 'Dashboard', roles: ['superadmin', 'admin', 'main_dealer'] },
-  { to: '/orders', label: 'Form Order In', roles: ['superadmin', 'admin', 'main_dealer', 'dealer'] },
-  { to: '/finance', label: 'Peta & Finance', roles: ['superadmin', 'admin', 'main_dealer'] },
-  { to: '/credit', label: 'Credit Capability', roles: ['superadmin', 'admin', 'main_dealer'] },
-  { to: '/quadrants', label: 'Kuadran', roles: ['superadmin', 'admin', 'main_dealer'] },
-  { to: '/prices', label: 'Harga Pangan', roles: ['superadmin', 'admin', 'main_dealer'] },
-  { to: '/news', label: 'Portal Berita', roles: ['superadmin', 'admin', 'main_dealer'] },
-  { to: '/users', label: 'Users', roles: ['superadmin', 'admin'] },
-  { to: '/roles', label: 'Roles & Access', roles: ['superadmin', 'admin'] },
-  { to: '/menus', label: 'Menus', roles: ['superadmin', 'admin'] },
-  { to: '/scrape-sources', label: 'Scrape URL', roles: ['superadmin', 'admin'] },
+  { to: '/orders', label: 'Form Order In', perms: ['list_orders', 'create_orders'] },
+  { to: '/finance', label: 'Peta & Finance', perms: ['list_finance_dealers'] },
+  { to: '/credit', label: 'Credit Capability', perms: ['list_credit'] },
+  { to: '/quadrants', label: 'Kuadran', perms: ['list_quadrants'] },
+  { to: '/prices', label: 'Harga Pangan', perms: ['list_prices'] },
+  { to: '/news', label: 'Portal Berita', perms: ['view_news'] },
+  { to: '/users', label: 'Users', perms: ['list_users'] },
+  { to: '/roles', label: 'Roles & Access', perms: ['list_roles'] },
+  { to: '/menus', label: 'Menus', perms: ['list_menus'] },
+  { to: '/scrape-sources', label: 'Scrape URL', perms: ['list_scrape_sources'] },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const logout = useAuth((s) => s.logout)
   const role = useAuth((s) => s.role)
+  const permissions = useAuth((s) => s.permissions)
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
-  const filtered = menuItems.filter((m) => (role ? m.roles.includes(role) : false))
+  const hasPerm = (p?: string[]) => {
+    if (!p || p.length === 0) return true
+    return p.some((perm) => permissions.includes(perm))
+  }
+  const filtered = menuItems.filter((m) => {
+    const roleOk = !m.roles || (role ? m.roles.includes(role) : false)
+    return roleOk && hasPerm(m.perms)
+  })
 
   return (
     <div className="app-shell">

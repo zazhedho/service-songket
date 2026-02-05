@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createMenu, deleteMenu, listMenus, updateMenu } from '../api'
+import { useAuth } from '../store'
 
 const empty = { name: '', display_name: '', path: '', icon: '', parent_id: '', order_index: 0, is_active: true }
 
@@ -7,11 +8,17 @@ export default function MenusPage() {
   const [items, setItems] = useState<any[]>([])
   const [form, setForm] = useState(empty)
   const [editing, setEditing] = useState<string>('')
+  const perms = useAuth((s) => s.permissions)
+  const canList = perms.includes('list_menus')
+  const canCreate = perms.includes('create_menu')
+  const canUpdate = perms.includes('update_menu')
+  const canDelete = perms.includes('delete_menu')
 
   const load = () => listMenus().then((r) => setItems(r.data.data || r.data))
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (canList) load() }, [canList])
 
   const save = async () => {
+    if (!canCreate && !canUpdate) return
     const body = { ...form, order_index: Number(form.order_index) }
     if (editing) await updateMenu(editing, body)
     else await createMenu(body)
@@ -21,6 +28,7 @@ export default function MenusPage() {
   }
 
   const remove = async (id: string) => {
+    if (!canDelete) return
     if (!confirm('Hapus menu?')) return
     await deleteMenu(id)
     load()
@@ -39,25 +47,30 @@ export default function MenusPage() {
       <div className="page grid lg:grid-cols-[1.2fr_1fr]">
         <div className="card">
           <h3>Daftar Menu</h3>
-          <table className="table">
-            <thead><tr><th>Nama</th><th>Path</th><th>Active</th><th></th></tr></thead>
-            <tbody>
-              {items.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.display_name || m.name}</td>
-                  <td>{m.path}</td>
-                  <td>{m.is_active ? 'Ya' : 'Tidak'}</td>
-                  <td style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn-ghost" onClick={() => { setEditing(m.id); setForm({ ...m, parent_id: m.parent_id || '' }) }}>Edit</button>
-                    <button className="btn-ghost" onClick={() => remove(m.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {!canList && <div className="alert">Tidak ada izin melihat menu.</div>}
+          {canList && (
+            <table className="table">
+              <thead><tr><th>Nama</th><th>Path</th><th>Active</th><th>Action</th></tr></thead>
+              <tbody>
+                {items.map((m) => (
+                  <tr key={m.id}>
+                    <td>{m.display_name || m.name}</td>
+                    <td>{m.path}</td>
+                    <td>{m.is_active ? 'Ya' : 'Tidak'}</td>
+                    <td style={{ display: 'flex', gap: 8 }}>
+                      {canUpdate && <button className="btn-ghost" onClick={() => { setEditing(m.id); setForm({ ...m, parent_id: m.parent_id || '' }) }}>Edit</button>}
+                      {canDelete && <button className="btn-ghost" onClick={() => remove(m.id)}>Delete</button>}
+                      {!canUpdate && !canDelete && '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
         <div className="card">
           <h3>{editing ? 'Edit Menu' : 'Tambah Menu'}</h3>
+          {!canCreate && !canUpdate && <div className="alert">Tidak ada izin membuat/ubah menu.</div>}
           <div className="grid" style={{ gap: 10 }}>
             <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
             <div><label>Display Name</label><input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} /></div>

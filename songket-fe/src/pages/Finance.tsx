@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { fetchDealers, fetchDealerMetrics } from '../api'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { useAuth } from '../store'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -15,10 +16,12 @@ export default function FinancePage() {
   const [selected, setSelected] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
   const [fcFilter, setFcFilter] = useState('')
+  const perms = useAuth((s) => s.permissions)
+  const canView = perms.includes('list_finance_dealers')
 
   useEffect(() => {
-    fetchDealers().then((r) => setDealers(r.data.data || r.data))
-  }, [])
+    if (canView) fetchDealers().then((r) => setDealers(r.data.data || r.data))
+  }, [canView])
 
   useEffect(() => {
     if (selected) fetchDealerMetrics(selected, fcFilter ? { finance_company_id: fcFilter } : undefined).then((r) => setMetrics(r.data.data || r.data))
@@ -35,6 +38,8 @@ export default function FinancePage() {
           <div style={{ color: '#9ca3af' }}>Klik dealer di peta atau daftar</div>
         </div>
       </div>
+      {!canView && <div className="page"><div className="alert">Tidak ada izin melihat finance.</div></div>}
+      {canView && (
       <div className="page grid lg:grid-cols-[1fr_1.3fr]" style={{ alignItems: 'start' }}>
         <div className="card">
           <h3>Dealer</h3>
@@ -51,6 +56,7 @@ export default function FinancePage() {
           <div className="card" style={{ height: 360 }}>
             <h3>Peta Dealer</h3>
             <MapContainer center={center as any} zoom={8} style={{ height: 300, borderRadius: 12 }} scrollWheelZoom={false}>
+              <MapFly center={center as any} />
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
               {dealers.map((d) => (
                 <Marker key={d.id} position={[d.lat || d.latitude, d.lng || d.longitude]} icon={markerIcon} eventHandlers={{ click: () => setSelected(d.id) }}>
@@ -80,8 +86,19 @@ export default function FinancePage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
+}
+
+function MapFly({ center }: { center: [number, number] }) {
+  const map = useMap()
+  useEffect(() => {
+    if (center?.length === 2) {
+      map.flyTo(center, map.getZoom(), { duration: 0.5 })
+    }
+  }, [center, map])
+  return null
 }
 
 function Metric({ label, value }: { label: string; value: any }) {

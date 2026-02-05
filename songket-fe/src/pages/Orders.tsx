@@ -1,6 +1,14 @@
 import { useEffect, useState, FormEvent } from 'react'
-import { createOrder, fetchOrders, fetchLookups } from '../api'
+import {
+  createOrder,
+  fetchOrders,
+  fetchLookups,
+  fetchProvinces,
+  fetchKabupaten,
+  fetchKecamatan,
+} from '../api'
 import dayjs from 'dayjs'
+import { useAuth } from '../store'
 
 const defaultForm = {
   pooling_number: '',
@@ -10,7 +18,10 @@ const defaultForm = {
   finance_company_id: '',
   consumer_name: '',
   consumer_phone: '',
+  province: '',
   regency: '',
+  district: '',
+  village: '',
   address: '',
   job_id: '',
   motor_type_id: '',
@@ -28,8 +39,12 @@ export default function OrdersPage() {
   const [list, setList] = useState<any[]>([])
   const [form, setForm] = useState(defaultForm)
   const [lookups, setLookups] = useState<any>({})
+  const [provinces, setProvinces] = useState<any[]>([])
+  const [kabupaten, setKabupaten] = useState<any[]>([])
+  const [kecamatan, setKecamatan] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState({ search: '', status: '' })
+  const permissions = useAuth((s) => s.permissions)
 
   const load = () =>
     fetchOrders({ limit: 50, search: filters.search || undefined, status: filters.status || undefined }).then((r) =>
@@ -38,6 +53,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchLookups().then((r) => setLookups(r.data.data || r.data))
+    fetchProvinces().then((r) => setProvinces(r.data.data || r.data || []))
   }, [])
 
   useEffect(() => {
@@ -45,8 +61,32 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters])
 
+  useEffect(() => {
+    if (form.province) {
+      fetchKabupaten(form.province).then((r) => setKabupaten(r.data.data || r.data || []))
+    } else {
+      setKabupaten([])
+    }
+    setForm((f) => ({ ...f, regency: '', district: '' }))
+    setKecamatan([])
+  }, [form.province])
+
+  useEffect(() => {
+    if (form.regency) {
+      fetchKecamatan(form.province, form.regency).then((r) => setKecamatan(r.data.data || r.data || []))
+    } else {
+      setKecamatan([])
+    }
+    setForm((f) => ({ ...f, district: '' }))
+  }, [form.regency])
+
+  const canCreate = permissions.includes('create_orders')
+  const canUpdate = permissions.includes('update_orders')
+  const canList = permissions.includes('list_orders')
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (!canCreate) return
     setLoading(true)
     try {
       await createOrder(form)
@@ -72,6 +112,7 @@ export default function OrdersPage() {
       <div className="page">
         <div className="card">
           <h3>Tambah Order</h3>
+          {!canCreate && <div className="alert">Anda tidak punya izin membuat order.</div>}
           <form className="grid" style={{ gap: 12 }} onSubmit={submit}>
             <div>
               <label>Nomor Pooling</label>
@@ -114,15 +155,41 @@ export default function OrdersPage() {
               <input value={form.consumer_phone} onChange={(e) => set('consumer_phone', e.target.value)} required />
             </div>
             <div>
-              <label>Kabupaten</label>
-              <select value={form.regency} onChange={(e) => set('regency', e.target.value)}>
+              <label>Provinsi</label>
+              <select value={form.province} onChange={(e) => set('province', e.target.value)}>
                 <option value="">Pilih</option>
-                {lookups?.regencies?.map((r: string) => (
-                  <option key={r} value={r}>
-                    {r}
+                {provinces.map((p: any) => (
+                  <option key={p.code} value={p.code}>
+                    {p.name}
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label>Kabupaten/Kota</label>
+              <select value={form.regency} onChange={(e) => set('regency', e.target.value)} disabled={!form.province}>
+                <option value="">Pilih</option>
+                {kabupaten.map((r: any) => (
+                  <option key={r.code} value={r.code}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Kecamatan</label>
+              <select value={form.district} onChange={(e) => set('district', e.target.value)} disabled={!form.regency}>
+                <option value="">Pilih</option>
+                {kecamatan.map((r: any) => (
+                  <option key={r.code} value={r.code}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Kelurahan</label>
+              <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Tulis kelurahan" />
             </div>
             <div>
               <label>Alamat</label>
@@ -243,31 +310,44 @@ export default function OrdersPage() {
 
         <div className="card">
           <h3>Order Tersimpan</h3>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Pooling</th>
-                <th>Konsumen</th>
-                <th>Finance</th>
-                <th>Status</th>
-                <th>Tenor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((o) => (
-                <tr key={o.id}>
-                  <td>{o.pooling_number}</td>
-                  <td>{o.consumer_name}</td>
-                  <td>
-                    {lookups?.finance_companies?.find((f: any) => f.id === o.attempts?.[0]?.finance_company_id)?.name ||
-                      o.attempts?.[0]?.finance_company_id}
-                  </td>
-                  <td><span className={`badge ${o.result_status}`}>{o.result_status}</span></td>
-                  <td>{o.tenor} bln</td>
+          {!canList && <div className="alert">Anda tidak punya izin melihat order.</div>}
+          {canList && (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Pooling</th>
+                  <th>Konsumen</th>
+                  <th>Lokasi</th>
+                  <th>Finance</th>
+                  <th>Status</th>
+                  <th>Tenor</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {list.map((o) => (
+                  <tr key={o.id}>
+                    <td>{o.pooling_number}</td>
+                    <td>{o.consumer_name}</td>
+                    <td>
+                      {[o.province, o.regency, o.district, o.village].filter(Boolean).join(' / ')}
+                    </td>
+                    <td>
+                      {lookups?.finance_companies?.find((f: any) => f.id === o.attempts?.[0]?.finance_company_id)?.name ||
+                        o.attempts?.[0]?.finance_company_id}
+                    </td>
+                    <td>
+                      <span className={`badge ${o.result_status}`}>{o.result_status}</span>
+                    </td>
+                    <td>{o.tenor} bln</td>
+                    <td>
+                      {canUpdate ? <button className="btn-ghost" disabled> Edit (TODO) </button> : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

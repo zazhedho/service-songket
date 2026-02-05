@@ -59,6 +59,14 @@ func (s *PermissionService) GetUserPermissions(userId string) ([]domainpermissio
 	return s.PermissionRepo.GetUserPermissions(userId)
 }
 
+func (s *PermissionService) SetUserPermissions(userId string, permissionIDs []string) error {
+	return s.PermissionRepo.SetUserPermissions(userId, permissionIDs)
+}
+
+func (s *PermissionService) ListUserPermissionIDs(userId string) ([]string, error) {
+	return s.PermissionRepo.ListUserPermissionIDs(userId)
+}
+
 func (s *PermissionService) Update(id string, req dto.PermissionUpdate) (domainpermission.Permission, error) {
 	permission, err := s.PermissionRepo.GetByID(id)
 	if err != nil {

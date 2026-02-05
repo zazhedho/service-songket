@@ -21,3 +21,13 @@ type Permission struct {
 	UpdatedAt   *time.Time     `json:"updated_at,omitempty" gorm:"column:updated_at;autoUpdateTime"`
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
 }
+
+func (UserPermission) TableName() string { return "user_permissions" }
+
+// UserPermission enables per-user permission overrides/additions.
+type UserPermission struct {
+	Id           string    `json:"id" gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey"`
+	UserId       string    `json:"user_id" gorm:"column:user_id;type:uuid;not null;index:idx_user_permission,unique"`
+	PermissionId string    `json:"permission_id" gorm:"column:permission_id;type:uuid;not null;index:idx_user_permission,unique"`
+	CreatedAt    time.Time `json:"created_at,omitempty" gorm:"column:created_at;autoCreateTime"`
+}

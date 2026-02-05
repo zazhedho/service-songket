@@ -7,6 +7,7 @@ import (
 	"starter-kit/pkg/filter"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type repo struct {
@@ -121,24 +122,80 @@ func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permiss
 			INNER JOIN roles r ON rp.role_id = r.id
 			INNER JOIN users u ON u.role_id = r.id
 			WHERE u.id = ? AND p.deleted_at IS NULL
-			ORDER BY p.resource, p.action
+			UNION
+			SELECT DISTINCT p.*
+			FROM permissions p
+			INNER JOIN user_permissions up ON up.permission_id = p.id
+			WHERE up.user_id = ? AND p.deleted_at IS NULL
+			ORDER BY resource, action
 		`
-		if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
+		if err = r.DB.Raw(query, userId, userId).Scan(&ret).Error; err != nil {
 			return nil, err
 		}
-	} else if user.Role != "" {
+		return ret, nil
+	}
+
+	if user.Role != "" {
 		query := `
 			SELECT DISTINCT p.*
 			FROM permissions p
 			INNER JOIN role_permissions rp ON p.id = rp.permission_id
 			INNER JOIN roles r ON rp.role_id = r.id
 			WHERE r.name = ? AND p.deleted_at IS NULL
-			ORDER BY p.resource, p.action
+			UNION
+			SELECT DISTINCT p.*
+			FROM permissions p
+			INNER JOIN user_permissions up ON up.permission_id = p.id
+			WHERE up.user_id = ? AND p.deleted_at IS NULL
+			ORDER BY resource, action
 		`
-		if err = r.DB.Raw(query, user.Role).Scan(&ret).Error; err != nil {
+		if err = r.DB.Raw(query, user.Role, userId).Scan(&ret).Error; err != nil {
 			return nil, err
 		}
+		return ret, nil
+	}
+
+	// fallback only direct user permissions
+	query := `
+		SELECT DISTINCT p.*
+		FROM permissions p
+		INNER JOIN user_permissions up ON up.permission_id = p.id
+		WHERE up.user_id = ? AND p.deleted_at IS NULL
+		ORDER BY resource, action
+	`
+	if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
+		return nil, err
 	}
 
 	return ret, nil
+}
+
+func (r *repo) SetUserPermissions(userId string, permissionIDs []string) error {
+	tx := r.DB.Begin()
+	if err := tx.Where("user_id = ?", userId).Delete(&domainpermission.UserPermission{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, pid := range permissionIDs {
+		up := domainpermission.UserPermission{
+			UserId:       userId,
+			PermissionId: pid,
+		}
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "user_id"}, {Name: "permission_id"}},
+			DoNothing: true,
+		}).Create(&up).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit().Error
+}
+
+func (r *repo) ListUserPermissionIDs(userId string) ([]string, error) {
+	var ids []string
+	if err := r.DB.Table("user_permissions").Where("user_id = ?", userId).Pluck("permission_id", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
 }

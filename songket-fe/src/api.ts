@@ -31,6 +31,8 @@ export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>)
   api.get(`/api/songket/finance/dealers/${id}/metrics`, { params })
 
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
+export const listNewsSources = () => api.get('/api/songket/news/sources')
+export const scrapeNews = () => api.post('/api/songket/news/scrape')
 export const fetchPrices = () => api.get('/api/songket/commodities/prices/latest')
 export const scrapePrices = (body?: Record<string, unknown>) =>
   api.post('/api/songket/commodities/prices/scrape', body)
@@ -64,7 +66,11 @@ export const createMenu = (body: Record<string, unknown>) => api.post('/api/menu
 export const updateMenu = (id: string, body: Record<string, unknown>) => api.put(`/api/menu/${id}`, body)
 export const deleteMenu = (id: string) => api.delete(`/api/menu/${id}`)
 
-export const listPermissions = () => api.get('/api/permissions')
+export const listPermissions = (params?: Record<string, unknown>) => api.get('/api/permissions', { params })
+export const getMyPermissions = () => api.get('/api/permissions/me')
+export const getUserPermissions = (userId: string) => api.get(`/api/user/${userId}/permissions`)
+export const setUserPermissions = (userId: string, permission_ids: string[]) =>
+  api.post(`/api/user/${userId}/permissions`, { permission_ids })
 
 // Scrape sources
 export const listScrapeSources = () => api.get('/api/songket/scrape-sources')
@@ -72,5 +78,10 @@ export const createScrapeSource = (body: Record<string, unknown>) => api.post('/
 export const updateScrapeSource = (id: string, body: Record<string, unknown>) =>
   api.put(`/api/songket/scrape-sources/${id}`, body)
 export const deleteScrapeSource = (id: string) => api.delete(`/api/songket/scrape-sources/${id}`)
+
+// Master wilayah
+export const fetchProvinces = () => api.get('/api/master/provinsi')
+export const fetchKabupaten = (pro: string) => api.get('/api/master/kabupaten', { params: { pro } })
+export const fetchKecamatan = (pro: string, kab: string) => api.get('/api/master/kecamatan', { params: { pro, kab } })
 
 export default api
