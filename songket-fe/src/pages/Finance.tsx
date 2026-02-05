@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchDealers, fetchDealerMetrics } from '../api'
+import { fetchDealers, fetchDealerMetrics, fetchLookups } from '../api'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -16,11 +16,15 @@ export default function FinancePage() {
   const [selected, setSelected] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
   const [fcFilter, setFcFilter] = useState('')
+  const [financeCompanies, setFinanceCompanies] = useState<any[]>([])
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('list_finance_dealers')
 
   useEffect(() => {
-    if (canView) fetchDealers().then((r) => setDealers(r.data.data || r.data))
+    if (canView) {
+      fetchDealers().then((r) => setDealers(r.data.data || r.data))
+      fetchLookups().then((r) => setFinanceCompanies(r.data.data?.finance_companies || r.data?.finance_companies || []))
+    }
   }, [canView])
 
   useEffect(() => {
@@ -72,16 +76,50 @@ export default function FinancePage() {
             <h3>Detail</h3>
             {!metrics && <div>Pilih dealer untuk melihat metrik</div>}
             {metrics && (
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))' }}>
-                <Metric label="Total Order" value={metrics.total_orders} />
-                <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg?.toFixed?.(1) || '-'} />
-                <Metric label="Approval Rate" value={(metrics.approval_rate * 100).toFixed(1) + '%'} />
-                <Metric label="Reject FC1 -> Approve FC2" value={metrics.rescue_approved_fc2} />
-              </div>
+              <>
+                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))' }}>
+                  <Metric label="Total Order" value={metrics.total_orders} />
+                  <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                  <Metric label="Approval Rate" value={(metrics.approval_rate * 100).toFixed(1) + '%'} />
+                  <Metric label="Reject FC1 -> Approve FC2" value={metrics.rescue_approved_fc2} />
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ marginBottom: 6 }}>Per Finance Company</h4>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Finance Company</th>
+                        <th>Total Order</th>
+                        <th>Lead Time Avg (s)</th>
+                        <th>Approval Rate</th>
+                        <th>Rescue (FC2)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.finance_companies?.map((fc: any) => (
+                        <tr key={fc.finance_company_id}>
+                          <td>{fc.finance_company_name}</td>
+                          <td>{fc.total_orders}</td>
+                          <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                          <td>{(fc.approval_rate * 100).toFixed(1)}%</td>
+                          <td>{fc.rescue_approved_fc2}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
             <div style={{ marginTop: 10 }}>
-              <label>Filter Finance Company ID</label>
-              <input value={fcFilter} onChange={(e) => setFcFilter(e.target.value)} placeholder="opsional" />
+              <label>Filter Finance Company</label>
+              <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
+                <option value="">Semua</option>
+                {financeCompanies.map((f: any) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

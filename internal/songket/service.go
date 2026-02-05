@@ -363,31 +363,30 @@ func (s *Service) ListOrders(params filter.BaseParams, role, userId string) ([]O
 
 // DealerMetrics computes finance performance for a dealer (optionally filtered by finance company).
 func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr DateRange) (map[string]interface{}, error) {
-	// Base order filter
-	qOrders := s.db.Model(&Order{}).Where("dealer_id = ?", dealerId)
-	if !dr.From.IsZero() {
-		qOrders = qOrders.Where("pooling_at >= ?", dr.From)
-	}
-	if !dr.To.IsZero() {
-		qOrders = qOrders.Where("pooling_at <= ?", dr.To)
+	// helper to build base order query with date range
+	baseOrders := func(tx *gorm.DB) *gorm.DB {
+		q := tx.Model(&Order{}).Where("dealer_id = ?", dealerId)
+		if !dr.From.IsZero() {
+			q = q.Where("pooling_at >= ?", dr.From)
+		}
+		if !dr.To.IsZero() {
+			q = q.Where("pooling_at <= ?", dr.To)
+		}
+		return q
 	}
 
+	// overall summary (optionally filtered by financeCompanyID for approval/rescue)
+	qOrders := baseOrders(s.db)
 	var totalOrders int64
 	if err := qOrders.Count(&totalOrders).Error; err != nil {
 		return nil, err
 	}
 
-	// Lead time avg
 	var leadSeconds *float64
-	err := qOrders.
-		Select("avg(extract(epoch from result_at - pooling_at))").
-		Where("result_at IS NOT NULL").
-		Scan(&leadSeconds).Error
-	if err != nil {
+	if err := qOrders.Select("avg(extract(epoch from result_at - pooling_at))").Where("result_at IS NOT NULL").Scan(&leadSeconds).Error; err != nil {
 		return nil, err
 	}
 
-	// Approval rate (any approve attempt)
 	qApprove := s.db.Model(&OrderFinanceAttempt{}).
 		Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
 		Where("o.dealer_id = ?", dealerId).
@@ -405,13 +404,11 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 	if err := qApprove.Distinct("o.id").Count(&approvedOrders).Error; err != nil {
 		return nil, err
 	}
-
 	approvalRate := 0.0
 	if totalOrders > 0 {
 		approvalRate = float64(approvedOrders) / float64(totalOrders)
 	}
 
-	// Reject FC1 but approve FC2
 	qRescue := s.db.Model(&Order{}).
 		Joins("JOIN order_finance_attempts a1 ON a1.order_id = orders.id AND a1.attempt_no = 1").
 		Joins("JOIN order_finance_attempts a2 ON a2.order_id = orders.id AND a2.attempt_no = 2").
@@ -432,6 +429,86 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 		return nil, err
 	}
 
+	// per finance company breakdown
+	var financeCompanies []FinanceCompany
+	if err := s.db.Find(&financeCompanies).Error; err != nil {
+		return nil, err
+	}
+	type FcMetric struct {
+		FinanceCompanyID   string   `json:"finance_company_id"`
+		FinanceCompanyName string   `json:"finance_company_name"`
+		TotalOrders        int64    `json:"total_orders"`
+		LeadTimeSecondsAvg *float64 `json:"lead_time_seconds_avg"`
+		ApprovalRate       float64  `json:"approval_rate"`
+		RescueApprovedFc2  int64    `json:"rescue_approved_fc2"`
+	}
+	fcMetrics := make([]FcMetric, 0, len(financeCompanies))
+
+	for _, fc := range financeCompanies {
+		qOrdersFc := baseOrders(s.db)
+		qOrdersFc = qOrdersFc.Joins("JOIN order_finance_attempts oa ON oa.order_id = orders.id AND oa.attempt_no = 1").
+			Where("oa.finance_company_id = ?", fc.Id)
+
+		var fcTotal int64
+		if err := qOrdersFc.Count(&fcTotal).Error; err != nil {
+			return nil, err
+		}
+
+		var fcLead *float64
+		if err := qOrdersFc.Select("avg(extract(epoch from orders.result_at - orders.pooling_at))").
+			Where("orders.result_at IS NOT NULL").
+			Scan(&fcLead).Error; err != nil {
+			return nil, err
+		}
+
+		qApproveFc := s.db.Model(&OrderFinanceAttempt{}).
+			Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
+			Where("o.dealer_id = ?", dealerId).
+			Where("order_finance_attempts.status = ?", "approve").
+			Where("order_finance_attempts.finance_company_id = ?", fc.Id)
+		if !dr.From.IsZero() {
+			qApproveFc = qApproveFc.Where("o.pooling_at >= ?", dr.From)
+		}
+		if !dr.To.IsZero() {
+			qApproveFc = qApproveFc.Where("o.pooling_at <= ?", dr.To)
+		}
+		var fcApproved int64
+		if err := qApproveFc.Distinct("o.id").Count(&fcApproved).Error; err != nil {
+			return nil, err
+		}
+		fcApproval := 0.0
+		if fcTotal > 0 {
+			fcApproval = float64(fcApproved) / float64(fcTotal)
+		}
+
+		qRescueFc := s.db.Model(&Order{}).
+			Joins("JOIN order_finance_attempts a1 ON a1.order_id = orders.id AND a1.attempt_no = 1").
+			Joins("JOIN order_finance_attempts a2 ON a2.order_id = orders.id AND a2.attempt_no = 2").
+			Where("orders.dealer_id = ?", dealerId).
+			Where("a1.status = ?", "reject").
+			Where("a2.status = ?", "approve").
+			Where("a2.finance_company_id = ?", fc.Id)
+		if !dr.From.IsZero() {
+			qRescueFc = qRescueFc.Where("orders.pooling_at >= ?", dr.From)
+		}
+		if !dr.To.IsZero() {
+			qRescueFc = qRescueFc.Where("orders.pooling_at <= ?", dr.To)
+		}
+		var fcRescued int64
+		if err := qRescueFc.Count(&fcRescued).Error; err != nil {
+			return nil, err
+		}
+
+		fcMetrics = append(fcMetrics, FcMetric{
+			FinanceCompanyID:   fc.Id,
+			FinanceCompanyName: fc.Name,
+			TotalOrders:        fcTotal,
+			LeadTimeSecondsAvg: fcLead,
+			ApprovalRate:       fcApproval,
+			RescueApprovedFc2:  fcRescued,
+		})
+	}
+
 	return map[string]interface{}{
 		"total_orders":           totalOrders,
 		"lead_time_seconds_avg":  leadSeconds,
@@ -440,6 +517,7 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 		"date_from":              dr.From,
 		"date_to":                dr.To,
 		"finance_company_filter": financeCompanyID,
+		"finance_companies":      fcMetrics,
 	}, nil
 }
 
