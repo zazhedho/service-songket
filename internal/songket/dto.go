@@ -70,6 +70,28 @@ type QuadrantComputeRequest struct {
 	To             string  `json:"to"`
 }
 
+type DealerRequest struct {
+	Name      string  `json:"name" binding:"required"`
+	Regency   string  `json:"regency" binding:"required"`
+	Province  string  `json:"province" binding:"required"`
+	District  string  `json:"district" binding:"required"`
+	Village   string  `json:"village"`
+	Phone     string  `json:"phone" binding:"required"`
+	Address   string  `json:"address"`
+	Latitude  float64 `json:"lat" binding:"required"`
+	Longitude float64 `json:"lng" binding:"required"`
+}
+
+type FinanceCompanyRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Province string `json:"province" binding:"required"`
+	Regency  string `json:"regency" binding:"required"`
+	District string `json:"district" binding:"required"`
+	Village  string `json:"village"`
+	Address  string `json:"address"`
+	Phone    string `json:"phone" binding:"required"`
+}
+
 type NewsSourceRequest struct {
 	Name     string `json:"name" binding:"required"`
 	URL      string `json:"url" binding:"required"`
@@ -82,9 +104,9 @@ type CommodityRequest struct {
 }
 
 type CommodityPriceRequest struct {
-	CommodityID   string  `json:"commodity_id"`                // optional if commodity_name provided
-	CommodityName string  `json:"commodity_name" binding:"-"`  // optional free text
-	Unit          string  `json:"unit"`                        // optional when commodity_id provided
+	CommodityID   string  `json:"commodity_id"`               // optional if commodity_name provided
+	CommodityName string  `json:"commodity_name" binding:"-"` // optional free text
+	Unit          string  `json:"unit"`                       // optional when commodity_id provided
 	Price         float64 `json:"price" binding:"required"`
 	CollectedAt   string  `json:"collected_at"` // RFC3339 optional, default now
 	SourceURL     string  `json:"source_url"`

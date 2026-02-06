@@ -568,6 +568,90 @@ func (s *Service) ListDealers() ([]Dealer, error) {
 	return dealers, nil
 }
 
+func (s *Service) CreateDealer(req DealerRequest) (Dealer, error) {
+	dealer := Dealer{
+		Id:        utils.CreateUUID(),
+		Name:      strings.TrimSpace(req.Name),
+		Regency:   strings.TrimSpace(req.Regency),
+		Province:  strings.TrimSpace(req.Province),
+		District:  strings.TrimSpace(req.District),
+		Village:   strings.TrimSpace(req.Village),
+		Phone:     strings.TrimSpace(req.Phone),
+		Address:   strings.TrimSpace(req.Address),
+		Latitude:  req.Latitude,
+		Longitude: req.Longitude,
+	}
+	if err := s.db.Create(&dealer).Error; err != nil {
+		return Dealer{}, err
+	}
+	return dealer, nil
+}
+
+func (s *Service) UpdateDealer(id string, req DealerRequest) (Dealer, error) {
+	var dealer Dealer
+	if err := s.db.First(&dealer, "id = ?", id).Error; err != nil {
+		return Dealer{}, err
+	}
+
+	dealer.Name = strings.TrimSpace(req.Name)
+	dealer.Regency = strings.TrimSpace(req.Regency)
+	dealer.Province = strings.TrimSpace(req.Province)
+	dealer.District = strings.TrimSpace(req.District)
+	dealer.Village = strings.TrimSpace(req.Village)
+	dealer.Phone = strings.TrimSpace(req.Phone)
+	dealer.Address = strings.TrimSpace(req.Address)
+	dealer.Latitude = req.Latitude
+	dealer.Longitude = req.Longitude
+
+	if err := s.db.Save(&dealer).Error; err != nil {
+		return Dealer{}, err
+	}
+	return dealer, nil
+}
+
+func (s *Service) CreateFinanceCompany(req FinanceCompanyRequest) (FinanceCompany, error) {
+	fc := FinanceCompany{
+		Id:       utils.CreateUUID(),
+		Name:     strings.TrimSpace(req.Name),
+		Province: strings.TrimSpace(req.Province),
+		Regency:  strings.TrimSpace(req.Regency),
+		District: strings.TrimSpace(req.District),
+		Village:  strings.TrimSpace(req.Village),
+		Address:  strings.TrimSpace(req.Address),
+		Phone:    strings.TrimSpace(req.Phone),
+	}
+	if err := s.db.Create(&fc).Error; err != nil {
+		return FinanceCompany{}, err
+	}
+	return fc, nil
+}
+
+func (s *Service) UpdateFinanceCompany(id string, req FinanceCompanyRequest) (FinanceCompany, error) {
+	var fc FinanceCompany
+	if err := s.db.First(&fc, "id = ?", id).Error; err != nil {
+		return FinanceCompany{}, err
+	}
+	fc.Name = strings.TrimSpace(req.Name)
+	fc.Province = strings.TrimSpace(req.Province)
+	fc.Regency = strings.TrimSpace(req.Regency)
+	fc.District = strings.TrimSpace(req.District)
+	fc.Village = strings.TrimSpace(req.Village)
+	fc.Address = strings.TrimSpace(req.Address)
+	fc.Phone = strings.TrimSpace(req.Phone)
+	if err := s.db.Save(&fc).Error; err != nil {
+		return FinanceCompany{}, err
+	}
+	return fc, nil
+}
+
+func (s *Service) DeleteDealer(id string) error {
+	return s.db.Delete(&Dealer{}, "id = ?", id).Error
+}
+
+func (s *Service) DeleteFinanceCompany(id string) error {
+	return s.db.Delete(&FinanceCompany{}, "id = ?", id).Error
+}
+
 func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCapability, error) {
 	cc := CreditCapability{}
 	err := s.db.Where("regency = ? AND job_id = ?", req.Regency, req.JobID).First(&cc).Error

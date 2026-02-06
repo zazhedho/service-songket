@@ -143,6 +143,144 @@ func (h *Handler) Dealers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// POST /api/songket/finance/dealers
+func (h *Handler) CreateDealer(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req DealerRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.CreateDealer(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "created", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// PUT /api/songket/finance/dealers/:id
+func (h *Handler) UpdateDealer(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	var req DealerRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.UpdateDealer(id, req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/finance/dealers/:id
+func (h *Handler) DeleteDealer(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if err := h.svc.DeleteDealer(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/finance/companies
+func (h *Handler) CreateFinanceCompany(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req FinanceCompanyRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.CreateFinanceCompany(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "created", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// PUT /api/songket/finance/companies/:id
+func (h *Handler) UpdateFinanceCompany(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	var req FinanceCompanyRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.UpdateFinanceCompany(id, req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/finance/companies/:id
+func (h *Handler) DeleteFinanceCompany(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if err := h.svc.DeleteFinanceCompany(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/finance/dealers/:id/metrics
 func (h *Handler) DealerMetrics(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

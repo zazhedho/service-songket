@@ -265,6 +265,12 @@ func (r *Routes) SongketRoutes() {
 	// Finance performance
 	g.GET("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
 	g.GET("/finance/dealers/:id/metrics", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "view_metrics"), h.DealerMetrics)
+	g.POST("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateDealer)
+	g.PUT("/finance/dealers/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateDealer)
+	g.DELETE("/finance/dealers/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteDealer)
+	g.POST("/finance/companies", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateFinanceCompany)
+	g.PUT("/finance/companies/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateFinanceCompany)
+	g.DELETE("/finance/companies/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteFinanceCompany)
 
 	// Credit capability & quadrants
 	g.POST("/credit", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)

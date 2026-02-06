@@ -30,6 +30,12 @@ export const deleteOrder = (id: string) => api.delete(`/api/songket/orders/${id}
 export const fetchDealers = () => api.get('/api/songket/finance/dealers')
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>
   api.get(`/api/songket/finance/dealers/${id}/metrics`, { params })
+export const createDealer = (body: Record<string, unknown>) => api.post('/api/songket/finance/dealers', body)
+export const updateDealer = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/finance/dealers/${id}`, body)
+export const deleteDealer = (id: string) => api.delete(`/api/songket/finance/dealers/${id}`)
+export const createFinanceCompany = (body: Record<string, unknown>) => api.post('/api/songket/finance/companies', body)
+export const updateFinanceCompany = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/finance/companies/${id}`, body)
+export const deleteFinanceCompany = (id: string) => api.delete(`/api/songket/finance/companies/${id}`)
 
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
 export const listNewsItems = (params?: Record<string, unknown>) => api.get('/api/songket/news/items', { params })
