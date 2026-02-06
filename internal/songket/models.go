@@ -204,14 +204,17 @@ func (NewsSource) TableName() string { return "news_sources" }
 
 // NewsItem stores scraped headlines.
 type NewsItem struct {
-	Id          string      `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	SourceID    string      `gorm:"column:source_id;type:uuid;index" json:"source_id"`
-	Source      *NewsSource `gorm:"foreignKey:SourceID" json:"source,omitempty"`
-	Title       string      `gorm:"column:title" json:"title"`
-	URL         string      `gorm:"column:url" json:"url"`
-	Category    string      `gorm:"column:category" json:"category"`
-	PublishedAt time.Time   `gorm:"column:published_at;index" json:"published_at"`
-	CreatedAt   time.Time   `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	Id          string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	SourceID    *string        `gorm:"column:source_id;type:uuid;index" json:"source_id"`
+	Source      *NewsSource    `gorm:"foreignKey:SourceID" json:"source,omitempty"`
+	SourceName  string         `gorm:"column:source_name" json:"source_name"`
+	Title       string         `gorm:"column:title" json:"title"`
+	Content     string         `gorm:"column:content;type:text" json:"content"`
+	Images      datatypes.JSON `gorm:"column:images;type:jsonb" json:"images"`
+	URL         string         `gorm:"column:url" json:"url"`
+	Category    string         `gorm:"column:category" json:"category"`
+	PublishedAt time.Time      `gorm:"column:published_at;index" json:"published_at"`
+	CreatedAt   time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 
 func (NewsItem) TableName() string { return "news_items" }

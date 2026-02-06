@@ -331,6 +331,27 @@ func (h *Handler) LatestNews(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/news/items
+func (h *Handler) ListNewsItems(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	category := ctx.Query("category")
+	limit := 100
+	if raw := ctx.Query("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil {
+			limit = n
+		}
+	}
+	data, err := h.svc.ListNewsItems(category, limit)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // POST /api/songket/news/scrape
 func (h *Handler) ScrapeNews(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -340,7 +361,7 @@ func (h *Handler) ScrapeNews(ctx *gin.Context) {
 	_ = ctx.ShouldBindJSON(&req)
 
 	var (
-		data []NewsItem
+		data []NewsScrapedArticle
 		err  error
 	)
 	if len(req.Urls) > 0 {
@@ -355,6 +376,37 @@ func (h *Handler) ScrapeNews(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "scraped", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/news/import
+func (h *Handler) ImportNews(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req struct {
+		Items []NewsScrapedArticle `json:"items" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if len(req.Items) == 0 {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "items is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	data, err := h.svc.ImportScrapedNews(req.Items)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "imported", logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 

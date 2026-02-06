@@ -32,8 +32,10 @@ export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>)
   api.get(`/api/songket/finance/dealers/${id}/metrics`, { params })
 
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
+export const listNewsItems = (params?: Record<string, unknown>) => api.get('/api/songket/news/items', { params })
 export const listNewsSources = () => api.get('/api/songket/news/sources')
 export const scrapeNews = (body?: Record<string, unknown>) => api.post('/api/songket/news/scrape', body)
+export const importNews = (body: Record<string, unknown>) => api.post('/api/songket/news/import', body)
 export const fetchPricesLatest = () => api.get('/api/songket/commodities/prices/latest')
 export const fetchPriceList = (params?: Record<string, unknown>) =>
   api.get('/api/songket/commodities/prices', { params })

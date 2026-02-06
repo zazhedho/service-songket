@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
+	"net/url"
 	//"io"
 	//"net/http"
 	"os/exec"
@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-resty/resty/v2"
-
 	"starter-kit/pkg/filter"
 	"starter-kit/utils"
 
+	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -43,6 +43,29 @@ type ScrapedItem struct {
 type panganScrapePayload struct {
 	URL  string                   `json:"url"`
 	Rows []map[string]interface{} `json:"rows"`
+}
+
+type newsScrapeTarget struct {
+	URL      string
+	SourceID string
+	Category string
+}
+
+type NewsScrapedImages struct {
+	Main string   `json:"foto_utama"`
+	List []string `json:"dalam_berita"`
+}
+
+type NewsScrapedArticle struct {
+	Title     string            `json:"judul"`
+	Content   string            `json:"isi"`
+	Images    NewsScrapedImages `json:"images"`
+	CreatedAt string            `json:"created_at"`
+	Source    string            `json:"sumber"`
+	URL       string            `json:"url"`
+	SourceURL string            `json:"source_url,omitempty"`
+	SourceID  string            `json:"source_id,omitempty"`
+	Category  string            `json:"category,omitempty"`
 }
 
 // parseTime safely parses RFC3339; returns zero time on empty string.
@@ -829,88 +852,608 @@ func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 	return result, nil
 }
 
-// ScrapeNews fetches each active news source URL and stores a single headline (title tag) per source.
-func (s *Service) ScrapeNews(ctx context.Context) ([]NewsItem, error) {
-	urls := s.defaultScrapeUrls("news")
-	if len(urls) == 0 {
-		var sources []NewsSource
-		if err := s.db.Find(&sources).Error; err != nil {
-			return nil, err
-		}
-		if len(sources) == 0 {
-			return nil, fmt.Errorf("no news sources configured")
-		}
-		for _, src := range sources {
-			urls = append(urls, src.URL)
+// ListNewsItems returns persisted news rows from database (newest first).
+func (s *Service) ListNewsItems(category string, limit int) ([]NewsItem, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	var rows []NewsItem
+	q := s.db.Model(&NewsItem{}).
+		Preload("Source").
+		Order("published_at DESC").
+		Order("created_at DESC").
+		Limit(limit)
+	if category != "" {
+		q = q.Where("category = ?", category)
+	}
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	for i := range rows {
+		if strings.TrimSpace(rows[i].SourceName) == "" {
+			if rows[i].Source != nil && strings.TrimSpace(rows[i].Source.Name) != "" {
+				rows[i].SourceName = strings.TrimSpace(rows[i].Source.Name)
+			} else {
+				rows[i].SourceName = strings.TrimSpace(hostFromURL(rows[i].URL))
+			}
 		}
 	}
 
-	client := resty.New().SetTimeout(8*time.Second).SetHeader("User-Agent", "Mozilla/5.0 (compatible; SongketBot/1.0)")
-	titleRe := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
-
-	items := make([]NewsItem, 0, len(urls))
-	for _, u := range urls {
-		resp, err := client.R().SetContext(ctx).Get(u)
-		if err != nil || resp.IsError() {
-			continue
-		}
-		body := string(resp.Body())
-		title := ""
-		if m := titleRe.FindStringSubmatch(body); len(m) > 1 {
-			title = strings.TrimSpace(stripTags(m[1]))
-		}
-		if title == "" {
-			title = u
-		}
-		item := NewsItem{
-			Id:          utils.CreateUUID(),
-			Title:       title,
-			URL:         u,
-			PublishedAt: time.Now(),
-		}
-		if err := s.db.Create(&item).Error; err == nil {
-			items = append(items, item)
-		}
-	}
-	return items, nil
+	return rows, nil
 }
 
-// ScrapeNewsFromUrls scrapes arbitrary urls (not necessarily stored as sources) and persists as NewsItem.
-func (s *Service) ScrapeNewsFromUrls(ctx context.Context, urls []string) ([]NewsItem, error) {
+// ScrapeNews runs python scraper and returns scraped rows without persisting.
+func (s *Service) ScrapeNews(ctx context.Context) ([]NewsScrapedArticle, error) {
+	var sources []NewsSource
+	if err := s.db.Find(&sources).Error; err != nil {
+		return nil, err
+	}
+
+	targets := make([]newsScrapeTarget, 0, len(sources))
+	for _, src := range sources {
+		u := strings.TrimSpace(src.URL)
+		if u == "" {
+			continue
+		}
+		targets = append(targets, newsScrapeTarget{
+			URL:      u,
+			SourceID: src.Id,
+			Category: src.Category,
+		})
+	}
+
+	// Fallback if legacy news_sources belum diisi: gunakan scrape_sources(type=news)/env.
+	if len(targets) == 0 {
+		for _, u := range s.defaultScrapeUrls("news") {
+			u = strings.TrimSpace(u)
+			if u == "" {
+				continue
+			}
+			targets = append(targets, newsScrapeTarget{URL: u})
+		}
+	}
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("no news sources configured")
+	}
+
+	return s.scrapeNewsViaPython(ctx, targets)
+}
+
+// ScrapeNewsFromUrls scrapes arbitrary urls and returns rows without persisting.
+func (s *Service) ScrapeNewsFromUrls(ctx context.Context, urls []string) ([]NewsScrapedArticle, error) {
 	if len(urls) == 0 {
 		urls = s.defaultScrapeUrls("news")
 	}
 	if len(urls) == 0 {
 		return nil, fmt.Errorf("urls is required")
 	}
-	client := resty.New().SetTimeout(8*time.Second).SetHeader("User-Agent", "Mozilla/5.0 (compatible; SongketBot/1.0)")
-	titleRe := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
 
-	items := make([]NewsItem, 0, len(urls))
-	for _, u := range urls {
-		resp, err := client.R().SetContext(ctx).Get(u)
-		if err != nil || resp.IsError() {
+	sourceByURL, err := s.newsSourceLookupByURL()
+	if err != nil {
+		return nil, err
+	}
+
+	targets := make([]newsScrapeTarget, 0, len(urls))
+	for _, raw := range urls {
+		u := strings.TrimSpace(raw)
+		if u == "" {
 			continue
 		}
-		body := string(resp.Body())
-		title := ""
-		if m := titleRe.FindStringSubmatch(body); len(m) > 1 {
-			title = strings.TrimSpace(stripTags(m[1]))
+		t := newsScrapeTarget{URL: u}
+		if src, ok := sourceByURL[baseSiteURL(u)]; ok {
+			t.SourceID = src.Id
+			t.Category = src.Category
 		}
-		if title == "" {
-			title = u
-		}
-		item := NewsItem{
-			Id:          utils.CreateUUID(),
-			Title:       title,
-			URL:         u,
-			PublishedAt: time.Now(),
-		}
-		if err := s.db.Create(&item).Error; err == nil {
-			items = append(items, item)
+		targets = append(targets, t)
+	}
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("urls is required")
+	}
+
+	return s.scrapeNewsViaPython(ctx, targets)
+}
+
+func (s *Service) scrapeNewsViaPython(ctx context.Context, targets []newsScrapeTarget) ([]NewsScrapedArticle, error) {
+	scriptPath := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_SCRIPT", "").(string))
+	if scriptPath == "" {
+		scriptPath = "python/songket-scraping/scrape_berita.py"
+	}
+
+	limit := 15
+	if rawLimit := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_LIMIT", "").(string)); rawLimit != "" {
+		if v, err := strconv.Atoi(rawLimit); err == nil && v > 0 && v <= 50 {
+			limit = v
 		}
 	}
-	return items, nil
+
+	result := make([]NewsScrapedArticle, 0)
+	seenURL := make(map[string]struct{})
+	errs := make([]string, 0)
+
+	for _, t := range targets {
+		sourceID := validUUIDOrEmpty(t.SourceID)
+		if sourceID == "" {
+			resolvedSourceID, resolvedCategory, err := s.ensureNewsSourceForURL(t.URL, t.Category)
+			if err == nil {
+				sourceID = resolvedSourceID
+				if t.Category == "" {
+					t.Category = resolvedCategory
+				}
+			}
+		}
+
+		args := []string{scriptPath, t.URL, "--limit", strconv.Itoa(limit)}
+		cmd := exec.CommandContext(ctx, "python3", args...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			msg := strings.TrimSpace(string(output))
+			if msg == "" {
+				errs = append(errs, fmt.Sprintf("%s: %v", t.URL, err))
+			} else {
+				errs = append(errs, fmt.Sprintf("%s: %v: %s", t.URL, err, msg))
+			}
+			continue
+		}
+
+		articles, err := parsePythonNewsArticles(output)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", t.URL, err))
+			continue
+		}
+
+		for _, a := range articles {
+			if strings.TrimSpace(a.URL) == "" || strings.TrimSpace(a.Title) == "" {
+				continue
+			}
+
+			a.SourceID = sourceID
+			a.SourceURL = t.URL
+			if a.Category == "" {
+				a.Category = t.Category
+			}
+			if a.Source == "" {
+				a.Source = strings.TrimSpace(hostFromURL(a.URL))
+			}
+
+			key := normalizeNewsURL(a.URL)
+			if key == "" {
+				key = strings.TrimSpace(strings.ToLower(a.URL))
+			}
+			if _, ok := seenURL[key]; ok {
+				continue
+			}
+			seenURL[key] = struct{}{}
+			result = append(result, a)
+		}
+	}
+
+	if len(result) == 0 {
+		if len(errs) == 0 {
+			return nil, fmt.Errorf("no articles scraped")
+		}
+		return nil, fmt.Errorf("news scrape failed: %s", strings.Join(errs, "; "))
+	}
+	return result, nil
+}
+
+// ImportScrapedNews inserts selected scraped rows into news_items.
+func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, error) {
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("items is required")
+	}
+
+	saved := make([]NewsItem, 0, len(rows))
+	errs := make([]string, 0)
+	seenURL := make(map[string]struct{})
+
+	for _, row := range rows {
+		title := strings.TrimSpace(row.Title)
+		url := strings.TrimSpace(row.URL)
+		if title == "" || url == "" {
+			continue
+		}
+
+		key := normalizeNewsURL(url)
+		if key == "" {
+			key = strings.TrimSpace(strings.ToLower(url))
+		}
+		if _, ok := seenURL[key]; ok {
+			continue
+		}
+		seenURL[key] = struct{}{}
+
+		sourceID := validUUIDOrEmpty(row.SourceID)
+		category := strings.TrimSpace(row.Category)
+
+		sourceURL := strings.TrimSpace(row.SourceURL)
+		if sourceURL == "" {
+			sourceURL = baseSiteURL(url)
+		}
+		if sourceID == "" {
+			resolvedSourceID, resolvedCategory, err := s.ensureNewsSourceForURL(sourceURL, category)
+			if err == nil {
+				sourceID = resolvedSourceID
+				if category == "" {
+					category = resolvedCategory
+				}
+			}
+		}
+
+		published := time.Now()
+		if rawTime := strings.TrimSpace(row.CreatedAt); rawTime != "" {
+			if tNews, ok := parseNewsTime(rawTime); ok {
+				published = tNews
+			}
+		}
+
+		item, err := s.upsertNewsItem(row, sourceID, category, published)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", url, err))
+			continue
+		}
+		saved = append(saved, item)
+	}
+
+	if len(saved) == 0 {
+		if len(errs) == 0 {
+			return nil, fmt.Errorf("no valid selected news")
+		}
+		return nil, fmt.Errorf("news import failed: %s", strings.Join(errs, "; "))
+	}
+	return saved, nil
+}
+
+func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category string, publishedAt time.Time) (NewsItem, error) {
+	urlRaw := strings.TrimSpace(row.URL)
+	title := strings.TrimSpace(row.Title)
+	content := strings.TrimSpace(row.Content)
+	sourceName := strings.TrimSpace(row.Source)
+	if sourceName == "" {
+		sourceName = strings.TrimSpace(hostFromURL(urlRaw))
+	}
+	sourceID = validUUIDOrEmpty(sourceID)
+	if urlRaw == "" || title == "" {
+		return NewsItem{}, fmt.Errorf("invalid news row")
+	}
+	imagesJSON, hasImages := buildNewsImagesJSON(row.Images)
+
+	noSlash := strings.TrimRight(urlRaw, "/")
+	withSlash := noSlash + "/"
+
+	var existing NewsItem
+	q := s.db.Where("url = ?", urlRaw)
+	if noSlash != "" && noSlash != urlRaw {
+		q = q.Or("url = ?", noSlash)
+	}
+	if withSlash != urlRaw {
+		q = q.Or("url = ?", withSlash)
+	}
+	findErr := q.Order("created_at DESC").First(&existing).Error
+
+	if errors.Is(findErr, gorm.ErrRecordNotFound) {
+		item := NewsItem{
+			Id:          utils.CreateUUID(),
+			SourceName:  sourceName,
+			Title:       title,
+			Content:     content,
+			Images:      imagesJSON,
+			URL:         urlRaw,
+			Category:    category,
+			PublishedAt: publishedAt,
+		}
+		if sourceID != "" {
+			item.SourceID = stringPtr(sourceID)
+		}
+		if err := s.db.Create(&item).Error; err != nil {
+			return NewsItem{}, err
+		}
+		return item, nil
+	}
+	if findErr != nil {
+		return NewsItem{}, findErr
+	}
+
+	updates := map[string]interface{}{}
+	if title != "" && existing.Title != title {
+		updates["title"] = title
+		existing.Title = title
+	}
+	if content != "" && existing.Content != content {
+		updates["content"] = content
+		existing.Content = content
+	}
+	if sourceName != "" && existing.SourceName != sourceName {
+		updates["source_name"] = sourceName
+		existing.SourceName = sourceName
+	}
+	if (existing.SourceID == nil || strings.TrimSpace(*existing.SourceID) == "") && sourceID != "" {
+		updates["source_id"] = sourceID
+		existing.SourceID = stringPtr(sourceID)
+	}
+	if category != "" && existing.Category != category {
+		updates["category"] = category
+		existing.Category = category
+	}
+	if hasImages && string(existing.Images) != string(imagesJSON) {
+		updates["images"] = imagesJSON
+		existing.Images = imagesJSON
+	}
+	if existing.PublishedAt.IsZero() || existing.PublishedAt.Before(publishedAt) {
+		updates["published_at"] = publishedAt
+		existing.PublishedAt = publishedAt
+	}
+	if len(updates) > 0 {
+		if err := s.db.Model(&NewsItem{}).Where("id = ?", existing.Id).Updates(updates).Error; err != nil {
+			return NewsItem{}, err
+		}
+	}
+	return existing, nil
+}
+
+func buildNewsImagesJSON(images NewsScrapedImages) (datatypes.JSON, bool) {
+	main := strings.TrimSpace(images.Main)
+	seen := make(map[string]struct{})
+	list := make([]string, 0, len(images.List))
+	for _, raw := range images.List {
+		u := strings.TrimSpace(raw)
+		if u == "" {
+			continue
+		}
+		if _, ok := seen[u]; ok {
+			continue
+		}
+		seen[u] = struct{}{}
+		list = append(list, u)
+	}
+	if main == "" && len(list) > 0 {
+		main = list[0]
+	}
+	if main != "" {
+		if _, ok := seen[main]; !ok {
+			list = append([]string{main}, list...)
+		}
+	}
+
+	payload := map[string]interface{}{
+		"foto_utama":   main,
+		"dalam_berita": list,
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return datatypes.JSON([]byte(`{"foto_utama":"","dalam_berita":[]}`)), false
+	}
+	return datatypes.JSON(raw), main != "" || len(list) > 0
+}
+
+func (s *Service) ensureNewsSourceForURL(rawURL, category string) (string, string, error) {
+	normalized := baseSiteURL(rawURL)
+	if normalized == "" {
+		return "", "", fmt.Errorf("invalid source url")
+	}
+
+	noSlash := strings.TrimRight(normalized, "/")
+	withSlash := noSlash + "/"
+
+	var existing NewsSource
+	q := s.db.Where("url = ?", normalized)
+	if noSlash != "" && noSlash != normalized {
+		q = q.Or("url = ?", noSlash)
+	}
+	if withSlash != normalized {
+		q = q.Or("url = ?", withSlash)
+	}
+	if err := q.First(&existing).Error; err == nil {
+		if existing.Category == "" && strings.TrimSpace(category) != "" {
+			_ = s.db.Model(&NewsSource{}).Where("id = ?", existing.Id).Update("category", strings.TrimSpace(category)).Error
+			existing.Category = strings.TrimSpace(category)
+		}
+		return existing.Id, existing.Category, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", "", err
+	}
+
+	u, err := url.Parse(normalized)
+	if err != nil {
+		return "", "", err
+	}
+	name := strings.TrimSpace(strings.ToLower(u.Host))
+	if name == "" {
+		name = "news-source-" + utils.CreateUUID()[:8]
+	}
+
+	var byName NewsSource
+	if err := s.db.Where("name = ?", name).First(&byName).Error; err == nil {
+		updates := map[string]interface{}{}
+		if strings.TrimSpace(byName.URL) == "" {
+			updates["url"] = normalized
+			byName.URL = normalized
+		}
+		if strings.TrimSpace(byName.Category) == "" && strings.TrimSpace(category) != "" {
+			updates["category"] = strings.TrimSpace(category)
+			byName.Category = strings.TrimSpace(category)
+		}
+		if len(updates) > 0 {
+			if err := s.db.Model(&NewsSource{}).Where("id = ?", byName.Id).Updates(updates).Error; err != nil {
+				return "", "", err
+			}
+		}
+		return byName.Id, byName.Category, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", "", err
+	}
+
+	ns := NewsSource{
+		Id:       utils.CreateUUID(),
+		Name:     name,
+		URL:      normalized,
+		Category: strings.TrimSpace(category),
+	}
+	if err := s.db.Create(&ns).Error; err != nil {
+		return "", "", err
+	}
+	return ns.Id, ns.Category, nil
+}
+
+func (s *Service) newsSourceLookupByURL() (map[string]NewsSource, error) {
+	var sources []NewsSource
+	if err := s.db.Find(&sources).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]NewsSource, len(sources))
+	for _, src := range sources {
+		key := baseSiteURL(src.URL)
+		if key != "" {
+			out[key] = src
+		}
+	}
+	return out, nil
+}
+
+func parsePythonNewsArticles(output []byte) ([]NewsScrapedArticle, error) {
+	var rows []map[string]interface{}
+	if err := json.Unmarshal(output, &rows); err != nil {
+		return nil, err
+	}
+
+	out := make([]NewsScrapedArticle, 0, len(rows))
+	for _, row := range rows {
+		item := NewsScrapedArticle{
+			Title:     strings.TrimSpace(firstString(row, "judul", "title")),
+			Content:   strings.TrimSpace(firstString(row, "isi", "content", "body")),
+			CreatedAt: strings.TrimSpace(firstString(row, "created_at", "published_at", "date")),
+			Source:    strings.TrimSpace(firstString(row, "sumber", "source")),
+			URL:       strings.TrimSpace(firstString(row, "url", "link")),
+			Category:  strings.TrimSpace(firstString(row, "category", "kategori")),
+		}
+
+		if v, ok := row["images"].(map[string]interface{}); ok {
+			item.Images = NewsScrapedImages{
+				Main: strings.TrimSpace(firstString(v, "foto_utama", "main", "thumbnail")),
+				List: parseStringSlice(v["dalam_berita"]),
+			}
+		}
+		if item.Images.Main == "" && len(item.Images.List) > 0 {
+			item.Images.Main = item.Images.List[0]
+		}
+
+		if item.Title == "" || item.URL == "" {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func parseNewsTime(raw string) (time.Time, bool) {
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05-0700",
+		"2006-01-02 15:04:05",
+		time.RFC1123Z,
+		time.RFC1123,
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func normalizeNewsURL(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return strings.TrimRight(strings.ToLower(s), "/")
+	}
+	u.Scheme = strings.ToLower(u.Scheme)
+	u.Host = strings.ToLower(u.Host)
+	u.Fragment = ""
+	u.RawQuery = ""
+	u.Path = strings.TrimRight(u.Path, "/")
+	if u.Path == "" {
+		u.Path = "/"
+	}
+	return u.String()
+}
+
+func baseSiteURL(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	u, err := url.Parse(s)
+	if err != nil || strings.TrimSpace(u.Host) == "" {
+		return s
+	}
+	scheme := strings.ToLower(strings.TrimSpace(u.Scheme))
+	if scheme == "" {
+		scheme = "https"
+	}
+	return scheme + "://" + strings.ToLower(strings.TrimSpace(u.Host)) + "/"
+}
+
+func hostFromURL(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(u.Host))
+}
+
+func parseStringSlice(v interface{}) []string {
+	switch t := v.(type) {
+	case []interface{}:
+		out := make([]string, 0, len(t))
+		for _, raw := range t {
+			if s, ok := raw.(string); ok {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					out = append(out, s)
+				}
+			}
+		}
+		return out
+	case []string:
+		out := make([]string, 0, len(t))
+		for _, s := range t {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func validUUIDOrEmpty(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	if _, err := uuid.Parse(s); err != nil {
+		return ""
+	}
+	return s
+}
+
+func stringPtr(s string) *string {
+	v := s
+	return &v
 }
 
 func (s *Service) UpsertCommodity(req CommodityRequest) (Commodity, error) {

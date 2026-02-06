@@ -278,7 +278,9 @@ func (r *Routes) SongketRoutes() {
 	g.POST("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "upsert_source"), h.UpsertNewsSource)
 	g.GET("/news/sources", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "upsert_source"), h.ListNewsSources)
 	g.POST("/news/scrape", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "scrape"), h.ScrapeNews)
+	g.POST("/news/import", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "scrape"), h.ImportNews)
 	g.GET("/news/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "view"), h.LatestNews)
+	g.GET("/news/items", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "view"), h.ListNewsItems)
 
 	// Commodity prices
 	g.POST("/commodities", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "upsert"), h.UpsertCommodity)
