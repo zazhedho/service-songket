@@ -8,6 +8,7 @@ import (
 	"net/url"
 	//"io"
 	//"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -1043,11 +1044,6 @@ func (s *Service) ScrapeNewsFromUrls(ctx context.Context, urls []string) ([]News
 }
 
 func (s *Service) scrapeNewsViaPython(ctx context.Context, targets []newsScrapeTarget) ([]NewsScrapedArticle, error) {
-	scriptPath := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_SCRIPT", "").(string))
-	if scriptPath == "" {
-		scriptPath = "python/songket-scraping/scrape_berita.py"
-	}
-
 	limit := 15
 	if rawLimit := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_LIMIT", "").(string)); rawLimit != "" {
 		if v, err := strconv.Atoi(rawLimit); err == nil && v > 0 && v <= 50 {
@@ -1071,16 +1067,9 @@ func (s *Service) scrapeNewsViaPython(ctx context.Context, targets []newsScrapeT
 			}
 		}
 
-		args := []string{scriptPath, t.URL, "--limit", strconv.Itoa(limit)}
-		cmd := exec.CommandContext(ctx, "python3", args...)
-		output, err := cmd.CombinedOutput()
+		output, err := s.runNewsScraper(ctx, t.URL, limit)
 		if err != nil {
-			msg := strings.TrimSpace(string(output))
-			if msg == "" {
-				errs = append(errs, fmt.Sprintf("%s: %v", t.URL, err))
-			} else {
-				errs = append(errs, fmt.Sprintf("%s: %v: %s", t.URL, err, msg))
-			}
+			errs = append(errs, fmt.Sprintf("%s: %v", t.URL, err))
 			continue
 		}
 
@@ -1123,6 +1112,99 @@ func (s *Service) scrapeNewsViaPython(ctx context.Context, targets []newsScrapeT
 		return nil, fmt.Errorf("news scrape failed: %s", strings.Join(errs, "; "))
 	}
 	return result, nil
+}
+
+type newsScraperCommand struct {
+	Bin  string
+	Args []string
+}
+
+func (c newsScraperCommand) display() string {
+	if len(c.Args) == 0 {
+		return c.Bin
+	}
+	return c.Bin + " " + strings.Join(c.Args, " ")
+}
+
+func (s *Service) runNewsScraper(ctx context.Context, homeURL string, limit int) ([]byte, error) {
+	commands := s.newsScraperCommands(homeURL, limit)
+	if len(commands) == 0 {
+		return nil, fmt.Errorf("news scraper command is not configured")
+	}
+
+	for i, c := range commands {
+		cmd := exec.CommandContext(ctx, c.Bin, c.Args...)
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			return output, nil
+		}
+
+		if isExecNotFound(err) && i < len(commands)-1 {
+			continue
+		}
+
+		msg := strings.TrimSpace(string(output))
+		if msg == "" {
+			return nil, fmt.Errorf("%s: %w", c.display(), err)
+		}
+		return nil, fmt.Errorf("%s: %w: %s", c.display(), err, msg)
+	}
+
+	return nil, fmt.Errorf("unable to execute news scraper command")
+}
+
+func (s *Service) newsScraperCommands(homeURL string, limit int) []newsScraperCommand {
+	out := make([]newsScraperCommand, 0, 3)
+	seen := make(map[string]struct{})
+	push := func(bin string, args ...string) {
+		bin = strings.TrimSpace(bin)
+		if bin == "" {
+			return
+		}
+		key := bin + "\x00" + strings.Join(args, "\x00")
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, newsScraperCommand{Bin: bin, Args: args})
+	}
+
+	binPath := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_BIN", "").(string))
+	if binPath == "" {
+		defaultBin := "python/songket-scraping/bin/scrape_berita"
+		if st, err := os.Stat(defaultBin); err == nil && !st.IsDir() {
+			binPath = defaultBin
+		}
+	}
+	push(binPath, homeURL, "--limit", strconv.Itoa(limit))
+
+	scriptPath := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_SCRIPT", "").(string))
+	if scriptPath == "" {
+		scriptPath = "python/songket-scraping/scrape_berita.py"
+	}
+	if strings.HasSuffix(strings.ToLower(scriptPath), ".py") {
+		pyRunner := strings.TrimSpace(utils.GetEnv("SCRAPE_BERITA_PYTHON", "").(string))
+		if pyRunner == "" {
+			pyRunner = "python3"
+		}
+		push(pyRunner, scriptPath, homeURL, "--limit", strconv.Itoa(limit))
+	} else {
+		push(scriptPath, homeURL, "--limit", strconv.Itoa(limit))
+	}
+
+	return out
+}
+
+func isExecNotFound(err error) bool {
+	var execErr *exec.Error
+	if errors.As(err, &execErr) {
+		return errors.Is(execErr.Err, exec.ErrNotFound)
+	}
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return errors.Is(pathErr.Err, os.ErrNotExist)
+	}
+	return false
 }
 
 // ImportScrapedNews inserts selected scraped rows into news_items.

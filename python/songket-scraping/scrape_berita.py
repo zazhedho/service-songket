@@ -1,9 +1,33 @@
 #!/usr/bin/env python3
-import sys, json, re, ssl, time, argparse
-import urllib.request, urllib.parse
+import os, sys, json, re, ssl, time, argparse
+import urllib.request, urllib.parse, urllib.error
 from html.parser import HTMLParser
 
-CTX = ssl.create_default_context()
+try:
+    import certifi
+except Exception:
+    certifi = None
+
+
+def env_true(name: str, default=False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def build_ssl_context():
+    if env_true("SCRAPE_BERITA_INSECURE_SSL", False):
+        return ssl._create_unverified_context()
+    if certifi is not None:
+        try:
+            return ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            pass
+    return ssl.create_default_context()
+
+
+CTX = build_ssl_context()
 
 HEADERS = {
     "User-Agent": (
@@ -41,8 +65,22 @@ def fetch(url: str, timeout=25, max_retries=2, sleep_base=0.6):
                 data, ct = _read_response(resp)
                 return resp.geturl(), data, ct, getattr(resp, "status", 200)
         except Exception as e:
+            if (
+                env_true("SCRAPE_BERITA_SSL_FALLBACK_INSECURE", False)
+                and isinstance(e, urllib.error.URLError)
+                and isinstance(getattr(e, "reason", None), ssl.SSLCertVerificationError)
+            ):
+                req = urllib.request.Request(url, headers=HEADERS, method="GET")
+                with urllib.request.urlopen(req, context=ssl._create_unverified_context(), timeout=timeout) as resp:
+                    data, ct = _read_response(resp)
+                    return resp.geturl(), data, ct, getattr(resp, "status", 200)
             last = e
             time.sleep(sleep_base * (2 ** i))
+    if isinstance(last, urllib.error.URLError) and isinstance(getattr(last, "reason", None), ssl.SSLCertVerificationError):
+        raise RuntimeError(
+            "SSL verify failed. Install certifi or set SCRAPE_BERITA_INSECURE_SSL=true "
+            "(or SCRAPE_BERITA_SSL_FALLBACK_INSECURE=true)."
+        ) from last
     raise last
 
 def base_from_url(url: str) -> str:
