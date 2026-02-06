@@ -40,6 +40,11 @@ type ScrapedItem struct {
 	Raw       map[string]interface{}
 }
 
+type panganScrapePayload struct {
+	URL  string                   `json:"url"`
+	Rows []map[string]interface{} `json:"rows"`
+}
+
 // parseTime safely parses RFC3339; returns zero time on empty string.
 func parseTime(val *string) (time.Time, error) {
 	if val == nil || strings.TrimSpace(*val) == "" {
@@ -826,20 +831,26 @@ func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 
 // ScrapeNews fetches each active news source URL and stores a single headline (title tag) per source.
 func (s *Service) ScrapeNews(ctx context.Context) ([]NewsItem, error) {
-	var sources []NewsSource
-	if err := s.db.Find(&sources).Error; err != nil {
-		return nil, err
-	}
-	if len(sources) == 0 {
-		return nil, fmt.Errorf("no news sources configured")
+	urls := s.defaultScrapeUrls("news")
+	if len(urls) == 0 {
+		var sources []NewsSource
+		if err := s.db.Find(&sources).Error; err != nil {
+			return nil, err
+		}
+		if len(sources) == 0 {
+			return nil, fmt.Errorf("no news sources configured")
+		}
+		for _, src := range sources {
+			urls = append(urls, src.URL)
+		}
 	}
 
-	client := resty.New().SetTimeout(8 * time.Second)
+	client := resty.New().SetTimeout(8*time.Second).SetHeader("User-Agent", "Mozilla/5.0 (compatible; SongketBot/1.0)")
 	titleRe := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
 
-	items := make([]NewsItem, 0, len(sources))
-	for _, src := range sources {
-		resp, err := client.R().SetContext(ctx).Get(src.URL)
+	items := make([]NewsItem, 0, len(urls))
+	for _, u := range urls {
+		resp, err := client.R().SetContext(ctx).Get(u)
 		if err != nil || resp.IsError() {
 			continue
 		}
@@ -849,14 +860,12 @@ func (s *Service) ScrapeNews(ctx context.Context) ([]NewsItem, error) {
 			title = strings.TrimSpace(stripTags(m[1]))
 		}
 		if title == "" {
-			title = src.Name
+			title = u
 		}
 		item := NewsItem{
 			Id:          utils.CreateUUID(),
-			SourceID:    src.Id,
 			Title:       title,
-			URL:         src.URL,
-			Category:    src.Category,
+			URL:         u,
 			PublishedAt: time.Now(),
 		}
 		if err := s.db.Create(&item).Error; err == nil {
@@ -869,9 +878,12 @@ func (s *Service) ScrapeNews(ctx context.Context) ([]NewsItem, error) {
 // ScrapeNewsFromUrls scrapes arbitrary urls (not necessarily stored as sources) and persists as NewsItem.
 func (s *Service) ScrapeNewsFromUrls(ctx context.Context, urls []string) ([]NewsItem, error) {
 	if len(urls) == 0 {
+		urls = s.defaultScrapeUrls("news")
+	}
+	if len(urls) == 0 {
 		return nil, fmt.Errorf("urls is required")
 	}
-	client := resty.New().SetTimeout(8 * time.Second)
+	client := resty.New().SetTimeout(8*time.Second).SetHeader("User-Agent", "Mozilla/5.0 (compatible; SongketBot/1.0)")
 	titleRe := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
 
 	items := make([]NewsItem, 0, len(urls))
@@ -926,8 +938,27 @@ func (s *Service) UpsertCommodity(req CommodityRequest) (Commodity, error) {
 
 func (s *Service) AddCommodityPrice(req CommodityPriceRequest) (CommodityPrice, error) {
 	var c Commodity
-	if err := s.db.First(&c, "id = ?", req.CommodityID).Error; err != nil {
-		return CommodityPrice{}, fmt.Errorf("commodity not found")
+	if req.CommodityID != "" {
+		if err := s.db.First(&c, "id = ?", req.CommodityID).Error; err != nil {
+			return CommodityPrice{}, fmt.Errorf("commodity not found")
+		}
+	} else {
+		name := strings.TrimSpace(req.CommodityName)
+		if name == "" {
+			return CommodityPrice{}, fmt.Errorf("commodity_name is required")
+		}
+		err := s.db.Where("name = ?", name).First(&c).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c = Commodity{Id: utils.CreateUUID(), Name: name, Unit: req.Unit}
+			if c.Unit == "" {
+				c.Unit = "unit"
+			}
+			if err := s.db.Create(&c).Error; err != nil {
+				return CommodityPrice{}, err
+			}
+		} else if err != nil {
+			return CommodityPrice{}, err
+		}
 	}
 	collected := time.Now()
 	if req.CollectedAt != "" {
@@ -941,6 +972,9 @@ func (s *Service) AddCommodityPrice(req CommodityPriceRequest) (CommodityPrice, 
 		Price:       req.Price,
 		CollectedAt: collected,
 		SourceURL:   req.SourceURL,
+	}
+	if price.CommodityID == "" {
+		price.CommodityID = c.Id
 	}
 	if err := s.db.Create(&price).Error; err != nil {
 		return CommodityPrice{}, err
@@ -978,15 +1012,10 @@ func (s *Service) ScrapePanelHarga(ctx context.Context, url string) ([]Commodity
 	return s.scrapeViaPython(ctx, urls)
 }
 
-// ScrapeFromSources uses active scrape_sources or provided urls.
+// ScrapeFromSources uses active scrape_sources(type=prices) or provided urls.
 func (s *Service) ScrapeFromSources(ctx context.Context, urls []string) ([]CommodityPrice, error) {
 	if len(urls) == 0 {
-		var sources []ScrapeSource
-		if err := s.db.Where("is_active = ?", true).Find(&sources).Error; err == nil {
-			for _, src := range sources {
-				urls = append(urls, src.URL)
-			}
-		}
+		urls = s.defaultScrapeUrls("prices")
 	}
 	return s.scrapeViaPython(ctx, urls)
 }
@@ -1033,41 +1062,67 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 		return nil, fmt.Errorf("no urls to scrape")
 	}
 
-	args := []string{"/home/shago/go/src/shago/service-songket/python/songket-scraping/scrape.py"}
-	args = append(args, urls...)
-	cmd := exec.CommandContext(ctx, "python3", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("python scrape error: %w", err)
-	}
-
-	var items []map[string]interface{}
-	if err := json.Unmarshal(output, &items); err != nil {
-		return nil, fmt.Errorf("parse python output: %w", err)
-	}
-
 	collected := time.Now()
-	result := make([]ScrapedItem, 0, len(items))
-	for _, m := range items {
-		name := firstString(m, "name", "nama", "komoditas", "commodity")
-		if name == "" {
+	result := make([]ScrapedItem, 0)
+
+	scriptPath := strings.TrimSpace(utils.GetEnv("SCRAPE_PANGAN_SCRIPT", "").(string))
+	if scriptPath == "" {
+		scriptPath = "python/songket-scraping/scrape_pangan_html.py"
+	}
+
+	for _, rawURL := range urls {
+		sourceURL := strings.TrimSpace(rawURL)
+		if sourceURL == "" {
 			continue
 		}
-		unit := firstString(m, "unit", "satuan")
-		price := firstFloat(m, "price", "harga")
-		source := firstString(m, "source_url", "url")
-		if source == "" && len(urls) == 1 {
-			source = urls[0]
+
+		cmd := exec.CommandContext(ctx, "python3", scriptPath, sourceURL)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			msg := strings.TrimSpace(string(output))
+			if msg == "" {
+				return nil, fmt.Errorf("python scrape error (%s): %w", sourceURL, err)
+			}
+			return nil, fmt.Errorf("python scrape error (%s): %w: %s", sourceURL, err, msg)
 		}
-		result = append(result, ScrapedItem{
-			Name:      name,
-			Price:     price,
-			Unit:      unit,
-			SourceURL: source,
-			ScrapedAt: collected,
-			Raw:       m,
-		})
+
+		rows, err := parsePythonScrapeRows(output)
+		if err != nil {
+			return nil, fmt.Errorf("parse python output (%s): %w", sourceURL, err)
+		}
+
+		for _, m := range rows {
+			name := strings.TrimSpace(firstString(m, "name", "nama", "komoditas", "commodity", "wilayah"))
+			if !isLikelyCommodityName(name) {
+				continue
+			}
+
+			price := firstFloat(m, "price", "harga")
+			if price <= 0 || price > 1000000 {
+				continue
+			}
+
+			unit := firstString(m, "unit", "satuan")
+			source := firstString(m, "source_url", "url")
+			if source == "" {
+				source = sourceURL
+			}
+
+			result = append(result, ScrapedItem{
+				Name:      name,
+				Price:     price,
+				Unit:      unit,
+				SourceURL: source,
+				ScrapedAt: collected,
+				Raw:       m,
+			})
+		}
 	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no valid commodity rows found")
+	}
+
 	return result, nil
 }
 
@@ -1098,9 +1153,12 @@ func (s *Service) DeleteCommodityPrice(id string) error {
 }
 
 // StartScrapeJob persists a job and runs scraper in background.
-func (s *Service) StartScrapeJob(urls []string) (ScrapeJob, error) {
+func (s *Service) StartScrapeJob(urls []string, sourceType string) (ScrapeJob, error) {
 	if len(urls) == 0 {
-		return ScrapeJob{}, fmt.Errorf("urls is required")
+		urls = s.defaultScrapeUrls(sourceType)
+	}
+	if len(urls) == 0 {
+		return ScrapeJob{}, fmt.Errorf("no urls to scrape")
 	}
 	raw, _ := json.Marshal(urls)
 	job := ScrapeJob{
@@ -1226,6 +1284,31 @@ func (s *Service) CommitScrapeResults(jobId string, resultIds []string) ([]Commo
 	return saved, nil
 }
 
+// defaultScrapeUrls returns active scrape_source urls filtered by type, or env fallback.
+func (s *Service) defaultScrapeUrls(sourceType string) []string {
+	urls := []string{}
+	if sourceType == "" {
+		sourceType = "prices"
+	}
+	var sources []ScrapeSource
+	if err := s.db.Where("is_active = ? AND type = ?", true, sourceType).Find(&sources).Error; err == nil {
+		for _, src := range sources {
+			urls = append(urls, src.URL)
+		}
+	}
+	if len(urls) > 0 {
+		return urls
+	}
+	envKey := "SCRAPE_PANGAN_URL"
+	if sourceType == "news" {
+		envKey = "SCRAPE_NEWS_URL"
+	}
+	if def := utils.GetEnv(envKey, "").(string); def != "" {
+		urls = append(urls, def)
+	}
+	return urls
+}
+
 func firstString(m map[string]interface{}, keys ...string) string {
 	for _, k := range keys {
 		if v, ok := m[k]; ok {
@@ -1238,6 +1321,62 @@ func firstString(m map[string]interface{}, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func parsePythonScrapeRows(output []byte) ([]map[string]interface{}, error) {
+	var payload panganScrapePayload
+	if err := json.Unmarshal(output, &payload); err == nil && payload.Rows != nil {
+		return payload.Rows, nil
+	}
+
+	var rows []map[string]interface{}
+	if err := json.Unmarshal(output, &rows); err == nil {
+		return rows, nil
+	}
+
+	if err := json.Unmarshal(output, &payload); err != nil {
+		return nil, err
+	}
+	return payload.Rows, nil
+}
+
+func isLikelyCommodityName(name string) bool {
+	n := strings.TrimSpace(name)
+	if n == "" || len(n) < 3 || len(n) > 80 {
+		return false
+	}
+	if strings.Contains(n, "\t") {
+		return false
+	}
+
+	lower := strings.ToLower(n)
+	reject := []string{
+		"beranda",
+		"regulasi",
+		"profil",
+		"peta status harga pangan",
+		"grafik perkembangan harga pangan",
+		"informasi harga pangan",
+		"jenis data panel",
+		"pilih wilayah",
+		"tampilkan",
+		"harga rata-rata komoditas",
+		"hari ini",
+		"harga dibandingkan",
+		"peta harga nasional",
+		"periode",
+		"intervensi",
+		"het",
+		"provinsi",
+		"zona",
+	}
+	for _, kw := range reject {
+		if strings.Contains(lower, kw) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // stripTags removes HTML tags (very basic).

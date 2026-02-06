@@ -498,15 +498,10 @@ func (h *Handler) ScrapePrices(ctx *gin.Context) {
 func (h *Handler) CreateScrapeJob(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	var req struct {
-		Urls []string `json:"urls" binding:"required"`
+		Urls []string `json:"urls"`
 	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = utils.ValidateError(err, nil, "json")
-		ctx.JSON(http.StatusBadRequest, res)
-		return
-	}
-	job, err := h.svc.StartScrapeJob(req.Urls)
+	_ = ctx.ShouldBindJSON(&req)
+	job, err := h.svc.StartScrapeJob(req.Urls, "prices")
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -595,7 +590,13 @@ func (h *Handler) CreateScrapeSource(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, res)
 		return
 	}
+	if req.Type == "" {
+		req.Type = "prices"
+	}
 	req.Id = utils.CreateUUID()
+	if req.IsActive {
+		_ = h.svc.db.Model(&ScrapeSource{}).Where("type = ?", req.Type).Update("is_active", false)
+	}
 	if err := h.svc.db.Create(&req).Error; err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -617,6 +618,12 @@ func (h *Handler) UpdateScrapeSource(ctx *gin.Context) {
 		return
 	}
 	req.Id = id
+	if req.Type == "" {
+		req.Type = "prices"
+	}
+	if req.IsActive {
+		_ = h.svc.db.Model(&ScrapeSource{}).Where("type = ? AND id <> ?", req.Type, id).Update("is_active", false)
+	}
 	if err := h.svc.db.Model(&ScrapeSource{}).Where("id = ?", id).Updates(req).Error; err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()

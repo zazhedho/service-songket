@@ -9,7 +9,7 @@ import {
 } from '../api'
 import { useAuth } from '../store'
 
-const empty = { name: '', url: '', category: '', is_active: true }
+const empty = { name: '', url: '', category: '', type: 'prices', is_active: true }
 
 export default function ScrapeSourcesPage() {
   const [sources, setSources] = useState<any[]>([])
@@ -88,16 +88,17 @@ export default function ScrapeSourcesPage() {
           {canList && (
             <table className="table">
               <thead>
-                <tr><th>Nama</th><th>URL</th><th>Aktif</th><th>Action</th></tr>
+                <tr><th>Nama</th><th>URL</th><th>Type</th><th>Aktif</th><th>Action</th></tr>
               </thead>
               <tbody>
                 {sources.map((s) => (
                   <tr key={s.id}>
                     <td>{s.name}</td>
                     <td style={{ maxWidth: 260, wordBreak: 'break-word' }}>{s.url}</td>
+                    <td>{s.type || '-'}</td>
                     <td>{s.is_active ? 'Ya' : 'Tidak'}</td>
                     <td style={{ display: 'flex', gap: 8 }}>
-                      {canUpdate && <button className="btn-ghost" onClick={() => { setEditing(s.id); setForm({ name: s.name, url: s.url, category: s.category, is_active: s.is_active }) }}>Edit</button>}
+                      {canUpdate && <button className="btn-ghost" onClick={() => { setEditing(s.id); setForm({ name: s.name, url: s.url, category: s.category, type: s.type || 'prices', is_active: s.is_active }) }}>Edit</button>}
                       {canDelete && <button className="btn-ghost" onClick={() => remove(s.id)}>Delete</button>}
                       {!canUpdate && !canDelete && '-'}
                     </td>
@@ -113,6 +114,13 @@ export default function ScrapeSourcesPage() {
           <div className="grid" style={{ gap: 10 }}>
             <div><label>Nama</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
             <div><label>URL</label><input value={form.url} onChange={(e) => set('url', e.target.value)} /></div>
+            <div>
+              <label>Type</label>
+              <select value={form.type} onChange={(e) => set('type', e.target.value)}>
+                <option value="prices">Harga Pangan</option>
+                <option value="news">Portal Berita</option>
+              </select>
+            </div>
             <div><label>Kategori</label><input value={form.category} onChange={(e) => set('category', e.target.value)} /></div>
             <div>
               <label>Aktif</label>

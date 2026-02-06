@@ -82,10 +82,12 @@ type CommodityRequest struct {
 }
 
 type CommodityPriceRequest struct {
-	CommodityID string  `json:"commodity_id" binding:"required"`
-	Price       float64 `json:"price" binding:"required"`
-	CollectedAt string  `json:"collected_at"` // RFC3339 optional, default now
-	SourceURL   string  `json:"source_url"`
+	CommodityID   string  `json:"commodity_id"`                // optional if commodity_name provided
+	CommodityName string  `json:"commodity_name" binding:"-"`  // optional free text
+	Unit          string  `json:"unit"`                        // optional when commodity_id provided
+	Price         float64 `json:"price" binding:"required"`
+	CollectedAt   string  `json:"collected_at"` // RFC3339 optional, default now
+	SourceURL     string  `json:"source_url"`
 }
 
 type DateRange struct {

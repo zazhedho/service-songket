@@ -42,11 +42,7 @@ export default function NewsPage() {
   const removeRow = (idx: number) => setUrls((prev) => prev.filter((_, i) => i !== idx))
   const startScrape = () => {
     const clean = urls.map((u) => u.trim()).filter(Boolean)
-    if (clean.length === 0) {
-      alert('Minimal 1 URL')
-      return
-    }
-    doScrape(clean)
+    doScrape(clean.length ? clean : undefined)
   }
 
   return (

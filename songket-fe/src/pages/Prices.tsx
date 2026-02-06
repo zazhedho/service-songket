@@ -6,8 +6,6 @@ import {
   fetchScrapeResults,
   commitScrapeResults,
   deletePrice,
-  listCommodities,
-  upsertCommodity,
   addCommodityPrice,
 } from '../api'
 import { useAuth } from '../store'
@@ -36,15 +34,13 @@ export default function PricesPage() {
 
   const [prices, setPrices] = useState<any[]>([])
   const [loadingPrices, setLoadingPrices] = useState(false)
-  const [commodities, setCommodities] = useState<any[]>([])
 
   const [showModal, setShowModal] = useState(false)
   const [urls, setUrls] = useState<string[]>([''])
   const [startingJob, setStartingJob] = useState(false)
 
   const [showManual, setShowManual] = useState(false)
-  const [manual, setManual] = useState<{ commodity_id: string; name: string; unit: string; price: string; source_url: string }>({
-    commodity_id: '',
+  const [manual, setManual] = useState<{ name: string; unit: string; price: string; source_url: string }>({
     name: '',
     unit: '',
     price: '',
@@ -73,12 +69,6 @@ export default function PricesPage() {
       .catch(() => {})
   }
 
-  const loadCommodities = () => {
-    if (!canImport) return
-    listCommodities()
-      .then((r) => setCommodities(r.data.data || r.data || []))
-      .catch(() => {})
-  }
 
   const loadResults = (jobId: string) => {
     setSelectedJob(jobId)
@@ -94,7 +84,6 @@ export default function PricesPage() {
 
   useEffect(() => {
     loadPrices()
-    loadCommodities()
   }, [canList])
 
   useEffect(() => {
@@ -107,22 +96,19 @@ export default function PricesPage() {
   const submitManual = async () => {
     if (!canImport) return
     try {
-      let commodityId = manual.commodity_id
-      if (!commodityId) {
-        if (!manual.name) {
-          alert('Pilih komoditas atau isi nama baru')
-          return
-        }
-        const res = await upsertCommodity({ name: manual.name, unit: manual.unit })
-        commodityId = res.data.data?.id || res.data.id
+      if (!manual.name) {
+        alert('Nama komoditas wajib diisi')
+        return
       }
+      const numeric = toNumber(manual.price)
       await addCommodityPrice({
-        commodity_id: commodityId,
-        price: Number(manual.price),
+        commodity_name: manual.name,
+        unit: manual.unit,
+        price: numeric,
         source_url: manual.source_url,
       })
       setShowManual(false)
-      setManual({ commodity_id: '', name: '', unit: '', price: '', source_url: '' })
+      setManual({ name: '', unit: '', price: '', source_url: '' })
       loadPrices()
     } catch (e: any) {
       alert(e?.response?.data?.error || 'Gagal menyimpan harga')
@@ -131,13 +117,9 @@ export default function PricesPage() {
 
   const startJob = async () => {
     const payload = urls.map((u) => u.trim()).filter(Boolean)
-    if (payload.length === 0) {
-      window.alert('Minimal 1 URL')
-      return
-    }
     setStartingJob(true)
     try {
-      await createScrapeJob({ urls: payload })
+      await createScrapeJob(payload.length ? { urls: payload } : {})
       setShowModal(false)
       setUrls([''])
       loadJobs()
@@ -352,20 +334,7 @@ export default function PricesPage() {
             <h3>Input Manual Harga Pangan</h3>
             <div className="grid" style={{ gap: 10 }}>
               <div>
-                <label>Pilih Komoditas</label>
-                <select
-                  value={manual.commodity_id}
-                  onChange={(e) => setManual((m) => ({ ...m, commodity_id: e.target.value }))}
-                >
-                  <option value="">-- pilih --</option>
-                  {commodities.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="muted" style={{ fontSize: 12 }}>Atau isi komoditas baru di bawah</div>
-              <div>
-                <label>Nama komoditas baru</label>
+                <label>Nama komoditas</label>
                 <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Contoh: Beras Medium" />
               </div>
               <div>
@@ -374,7 +343,16 @@ export default function PricesPage() {
               </div>
               <div>
                 <label>Harga (Rp)</label>
-                <input type="number" value={manual.price} onChange={(e) => setManual((m) => ({ ...m, price: e.target.value }))} />
+                <input
+                  value={manual.price}
+                  onChange={(e) =>
+                    setManual((m) => ({
+                      ...m,
+                      price: formatRupiahInput(e.target.value),
+                    }))
+                  }
+                  placeholder="Rp 10.000"
+                />
               </div>
               <div>
                 <label>Sumber URL</label>
@@ -460,4 +438,16 @@ function JobDock({
 function formatRupiah(value: number) {
   if (!value && value !== 0) return '-'
   return value.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })
+}
+
+function formatRupiahInput(raw: string) {
+  const digits = raw.replace(/[^\d]/g, '')
+  if (!digits) return ''
+  const num = Number(digits)
+  return num.toLocaleString('id-ID')
+}
+
+function toNumber(raw: string) {
+  const digits = raw.replace(/[^\d]/g, '')
+  return digits ? Number(digits) : 0
 }
