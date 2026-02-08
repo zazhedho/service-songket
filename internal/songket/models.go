@@ -66,6 +66,20 @@ type Job struct {
 
 func (Job) TableName() string { return "jobs" }
 
+// JobNetIncome stores net income settings per job and multi-area coverage.
+type JobNetIncome struct {
+	Id            string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	JobID         string         `gorm:"column:job_id;type:uuid;not null;uniqueIndex" json:"job_id"`
+	Job           *Job           `gorm:"foreignKey:JobID" json:"job,omitempty"`
+	NetIncome     float64        `gorm:"column:net_income;type:numeric(18,2);not null;default:0" json:"net_income"`
+	AreaNetIncome datatypes.JSON `gorm:"column:area_net_income;type:jsonb;not null;default:'[]'" json:"area_net_income"`
+	CreatedAt     time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (JobNetIncome) TableName() string { return "job_net_incomes" }
+
 // Order captures dealer submissions.
 type Order struct {
 	Id            string                `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`

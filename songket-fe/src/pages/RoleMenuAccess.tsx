@@ -10,7 +10,7 @@ type TargetRole = (typeof TARGET_ROLES)[number]
 
 // Path kategori
 const DEALER_PATHS = ['/orders']
-const MAIN_DEALER_PATHS = ['/orders', '/finance', '/credit', '/quadrants', '/prices', '/news', '/dashboard']
+const MAIN_DEALER_PATHS = ['/orders', '/finance', '/credit', '/quadrants', '/prices', '/news', '/jobs', '/net-income', '/dashboard']
 const ADMIN_ONLY_PATHS = ['/users', '/roles', '/menus', '/role-menu-access', '/scrape-sources']
 
 export default function RoleMenuAccessPage() {
@@ -156,12 +156,12 @@ export default function RoleMenuAccessPage() {
   return (
     <div>
       <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Roles Menu Access</div>
-          <div style={{ color: '#9ca3af' }}>
-            Atur akses menu FE: Dealer (Form Order In), Main Dealer (Order, peta/finance, credit, kuadran, harga pangan, portal berita, dashboard), Superadmin (semua).
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Roles Menu Access</div>
+            <div style={{ color: '#9ca3af' }}>
+            Atur akses menu FE: Dealer (Form Order In), Main Dealer (Order, peta/finance, credit, kuadran, harga pangan, portal berita, nama pekerjaan, net income, dashboard), Superadmin (semua).
+            </div>
           </div>
-        </div>
       </div>
       <div className="page">
         <div className="card">
@@ -169,7 +169,7 @@ export default function RoleMenuAccessPage() {
             <div>
               <h3 style={{ margin: 0 }}>Mapping Menu per Role</h3>
               <div style={{ color: '#9ca3af', fontSize: 13 }}>
-                Dealer: Form Order in saja. Main Dealer: Order, peta, credit, dll non-admin. Superadmin: semua menu.
+                Dealer: Form Order in saja. Main Dealer: Order, peta, credit, nama pekerjaan, net income, dll non-admin. Superadmin: semua menu.
               </div>
             </div>
             {renderPresetButtons()}

@@ -653,6 +653,227 @@ func (s *Service) DeleteFinanceCompany(id string) error {
 	return s.db.Delete(&FinanceCompany{}, "id = ?", id).Error
 }
 
+type JobNetIncomeItem struct {
+	Id        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type NetIncomeItem struct {
+	Id            string    `json:"id"`
+	JobID         string    `json:"job_id"`
+	JobName       string    `json:"job_name"`
+	NetIncome     float64   `json:"net_income"`
+	AreaNetIncome []string  `json:"area_net_income"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+func (s *Service) ListJobs() ([]JobNetIncomeItem, error) {
+	var jobs []Job
+	if err := s.db.Order("name ASC").Find(&jobs).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]JobNetIncomeItem, 0, len(jobs))
+	for _, job := range jobs {
+		items = append(items, JobNetIncomeItem{
+			Id:        job.Id,
+			Name:      job.Name,
+			CreatedAt: job.CreatedAt,
+			UpdatedAt: job.UpdatedAt,
+		})
+	}
+	return items, nil
+}
+
+func (s *Service) GetJobByID(id string) (JobNetIncomeItem, error) {
+	var job Job
+	if err := s.db.First(&job, "id = ?", id).Error; err != nil {
+		return JobNetIncomeItem{}, err
+	}
+	return JobNetIncomeItem{
+		Id:        job.Id,
+		Name:      job.Name,
+		CreatedAt: job.CreatedAt,
+		UpdatedAt: job.UpdatedAt,
+	}, nil
+}
+
+func (s *Service) CreateJob(req JobRequest) (JobNetIncomeItem, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return JobNetIncomeItem{}, fmt.Errorf("name is required")
+	}
+
+	job := Job{
+		Id:   utils.CreateUUID(),
+		Name: name,
+	}
+	if err := s.db.Create(&job).Error; err != nil {
+		return JobNetIncomeItem{}, err
+	}
+
+	return JobNetIncomeItem{
+		Id:        job.Id,
+		Name:      job.Name,
+		CreatedAt: job.CreatedAt,
+		UpdatedAt: job.UpdatedAt,
+	}, nil
+}
+
+func (s *Service) UpdateJob(id string, req JobRequest) (JobNetIncomeItem, error) {
+	var job Job
+	if err := s.db.First(&job, "id = ?", id).Error; err != nil {
+		return JobNetIncomeItem{}, err
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return JobNetIncomeItem{}, fmt.Errorf("name is required")
+	}
+
+	job.Name = name
+	if err := s.db.Save(&job).Error; err != nil {
+		return JobNetIncomeItem{}, err
+	}
+
+	return JobNetIncomeItem{
+		Id:        job.Id,
+		Name:      job.Name,
+		CreatedAt: job.CreatedAt,
+		UpdatedAt: job.UpdatedAt,
+	}, nil
+}
+
+func (s *Service) DeleteJob(id string) error {
+	return s.db.Delete(&Job{}, "id = ?", id).Error
+}
+
+func (s *Service) ListNetIncomes() ([]NetIncomeItem, error) {
+	var rows []JobNetIncome
+	if err := s.db.Preload("Job").Order("created_at DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]NetIncomeItem, 0, len(rows))
+	for _, row := range rows {
+		jobName := "-"
+		if row.Job != nil && strings.TrimSpace(row.Job.Name) != "" {
+			jobName = row.Job.Name
+		}
+		items = append(items, NetIncomeItem{
+			Id:            row.Id,
+			JobID:         row.JobID,
+			JobName:       jobName,
+			NetIncome:     row.NetIncome,
+			AreaNetIncome: decodeAreaNetIncome(row.AreaNetIncome),
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+		})
+	}
+	return items, nil
+}
+
+func (s *Service) GetNetIncomeByID(id string) (NetIncomeItem, error) {
+	var row JobNetIncome
+	if err := s.db.Preload("Job").First(&row, "id = ?", id).Error; err != nil {
+		return NetIncomeItem{}, err
+	}
+	jobName := "-"
+	if row.Job != nil && strings.TrimSpace(row.Job.Name) != "" {
+		jobName = row.Job.Name
+	}
+	return NetIncomeItem{
+		Id:            row.Id,
+		JobID:         row.JobID,
+		JobName:       jobName,
+		NetIncome:     row.NetIncome,
+		AreaNetIncome: decodeAreaNetIncome(row.AreaNetIncome),
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}, nil
+}
+
+func (s *Service) CreateNetIncome(req NetIncomeRequest) (NetIncomeItem, error) {
+	if req.NetIncome < 0 {
+		return NetIncomeItem{}, fmt.Errorf("net_income must be greater than or equal to 0")
+	}
+
+	areas := normalizeAreaNetIncome(req.AreaNetIncome)
+	if len(areas) == 0 {
+		return NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one area")
+	}
+
+	var job Job
+	if err := s.db.First(&job, "id = ?", req.JobID).Error; err != nil {
+		return NetIncomeItem{}, fmt.Errorf("job not found")
+	}
+
+	row := JobNetIncome{
+		Id:            utils.CreateUUID(),
+		JobID:         req.JobID,
+		NetIncome:     req.NetIncome,
+		AreaNetIncome: encodeAreaNetIncome(areas),
+	}
+	if err := s.db.Create(&row).Error; err != nil {
+		return NetIncomeItem{}, err
+	}
+
+	return NetIncomeItem{
+		Id:            row.Id,
+		JobID:         row.JobID,
+		JobName:       job.Name,
+		NetIncome:     row.NetIncome,
+		AreaNetIncome: areas,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}, nil
+}
+
+func (s *Service) UpdateNetIncome(id string, req NetIncomeRequest) (NetIncomeItem, error) {
+	var row JobNetIncome
+	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+		return NetIncomeItem{}, err
+	}
+
+	if req.NetIncome < 0 {
+		return NetIncomeItem{}, fmt.Errorf("net_income must be greater than or equal to 0")
+	}
+
+	areas := normalizeAreaNetIncome(req.AreaNetIncome)
+	if len(areas) == 0 {
+		return NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one area")
+	}
+
+	var job Job
+	if err := s.db.First(&job, "id = ?", req.JobID).Error; err != nil {
+		return NetIncomeItem{}, fmt.Errorf("job not found")
+	}
+
+	row.JobID = req.JobID
+	row.NetIncome = req.NetIncome
+	row.AreaNetIncome = encodeAreaNetIncome(areas)
+	if err := s.db.Save(&row).Error; err != nil {
+		return NetIncomeItem{}, err
+	}
+
+	return NetIncomeItem{
+		Id:            row.Id,
+		JobID:         row.JobID,
+		JobName:       job.Name,
+		NetIncome:     row.NetIncome,
+		AreaNetIncome: areas,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}, nil
+}
+
+func (s *Service) DeleteNetIncome(id string) error {
+	return s.db.Delete(&JobNetIncome{}, "id = ?", id).Error
+}
+
 func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCapability, error) {
 	cc := CreditCapability{}
 	err := s.db.Where("regency = ? AND job_id = ?", req.Regency, req.JobID).First(&cc).Error
@@ -2130,6 +2351,51 @@ func firstFloat(m map[string]interface{}, keys ...string) float64 {
 		}
 	}
 	return 0
+}
+
+func normalizeAreaNetIncome(areas []string) []string {
+	if len(areas) == 0 {
+		return []string{}
+	}
+
+	seen := make(map[string]struct{}, len(areas))
+	out := make([]string, 0, len(areas))
+	for _, area := range areas {
+		val := strings.TrimSpace(area)
+		if val == "" {
+			continue
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, val)
+	}
+	return out
+}
+
+func encodeAreaNetIncome(areas []string) datatypes.JSON {
+	clean := normalizeAreaNetIncome(areas)
+	if len(clean) == 0 {
+		return datatypes.JSON([]byte("[]"))
+	}
+	b, err := json.Marshal(clean)
+	if err != nil {
+		return datatypes.JSON([]byte("[]"))
+	}
+	return datatypes.JSON(b)
+}
+
+func decodeAreaNetIncome(raw datatypes.JSON) []string {
+	if len(raw) == 0 {
+		return []string{}
+	}
+	var areas []string
+	if err := json.Unmarshal(raw, &areas); err != nil {
+		return []string{}
+	}
+	return normalizeAreaNetIncome(areas)
 }
 
 // Lookups for dropdowns

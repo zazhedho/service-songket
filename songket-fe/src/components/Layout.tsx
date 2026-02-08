@@ -19,6 +19,8 @@ type IconName =
   | 'prices'
   | 'credit'
   | 'quadrants'
+  | 'jobs'
+  | 'netIncome'
   | 'users'
   | 'roles'
   | 'access'
@@ -36,6 +38,8 @@ const PATH_ICON_MAP: Record<string, IconName> = {
   '/prices': 'prices',
   '/credit': 'credit',
   '/quadrants': 'quadrants',
+  '/jobs': 'jobs',
+  '/net-income': 'netIncome',
   '/users': 'users',
   '/roles': 'roles',
   '/role-menu-access': 'access',
@@ -54,6 +58,8 @@ function iconFromMenu(menu: MenuItem): IconName {
     if (guess.includes('price') || guess.includes('commodity')) return 'prices'
     if (guess.includes('credit')) return 'credit'
     if (guess.includes('quadrant')) return 'quadrants'
+    if (guess.includes('briefcase') || guess.includes('job') || guess.includes('work')) return 'jobs'
+    if (guess.includes('cash') || guess.includes('income') || guess.includes('coin')) return 'netIncome'
     if (guess.includes('user')) return 'users'
     if (guess.includes('role')) return 'roles'
     if (guess.includes('access')) return 'access'
@@ -118,6 +124,20 @@ function AppIcon({ name, className }: { name: IconName; className?: string }) {
         <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
           <path d="M12 4v16M4 12h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
           <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.7" />
+        </svg>
+      )
+    case 'jobs':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
+          <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M9 7V5a3 3 0 0 1 6 0v2M3 12h18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      )
+    case 'netIncome':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
+          <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M9.5 13.5c0 1 1 1.8 2.5 1.8s2.5-.8 2.5-1.8c0-1.1-.9-1.6-2.5-2-1.6-.4-2.5-.8-2.5-2 0-1 .9-1.8 2.5-1.8s2.5.8 2.5 1.8M12 7.5v9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
         </svg>
       )
     case 'users':

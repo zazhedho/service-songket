@@ -129,7 +129,7 @@ export default function UsersPage() {
   const filterResourcesByTargetRole = (targetRole: string, grouped: Record<string, Perm[]>) => {
     if (targetRole === 'superadmin' || targetRole === 'admin') return grouped
     if (targetRole === 'main_dealer') {
-      const allow = ['orders', 'finance', 'credit', 'quadrants', 'commodities', 'news', 'dashboard', 'prices']
+      const allow = ['orders', 'finance', 'credit', 'quadrants', 'commodities', 'news', 'dashboard', 'prices', 'jobs', 'net_income']
       return Object.fromEntries(Object.entries(grouped).filter(([resource]) => allow.includes(resource)))
     }
     if (targetRole === 'dealer') {

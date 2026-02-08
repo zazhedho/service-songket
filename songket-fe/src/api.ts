@@ -37,6 +37,18 @@ export const createFinanceCompany = (body: Record<string, unknown>) => api.post(
 export const updateFinanceCompany = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/finance/companies/${id}`, body)
 export const deleteFinanceCompany = (id: string) => api.delete(`/api/songket/finance/companies/${id}`)
 
+export const listJobs = () => api.get('/api/songket/jobs')
+export const getJob = (id: string) => api.get(`/api/songket/jobs/${id}`)
+export const createJob = (body: Record<string, unknown>) => api.post('/api/songket/jobs', body)
+export const updateJob = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/jobs/${id}`, body)
+export const deleteJob = (id: string) => api.delete(`/api/songket/jobs/${id}`)
+
+export const listNetIncome = () => api.get('/api/songket/net-income')
+export const getNetIncome = (id: string) => api.get(`/api/songket/net-income/${id}`)
+export const createNetIncome = (body: Record<string, unknown>) => api.post('/api/songket/net-income', body)
+export const updateNetIncome = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/net-income/${id}`, body)
+export const deleteNetIncome = (id: string) => api.delete(`/api/songket/net-income/${id}`)
+
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
 export const listNewsItems = (params?: Record<string, unknown>) => api.get('/api/songket/news/items', { params })
 export const listNewsSources = () => api.get('/api/songket/news/sources')

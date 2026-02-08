@@ -4,8 +4,10 @@ import Protected from './components/Protected'
 import CreditPage from './pages/Credit'
 import DashboardPage from './pages/Dashboard'
 import FinancePage from './pages/Finance'
+import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
 import MenusPage from './pages/Menus'
+import NetIncomePage from './pages/NetIncome'
 import NewsPage from './pages/News'
 import OrdersPage from './pages/Orders'
 import PricesPage from './pages/Prices'
@@ -56,6 +58,14 @@ export default function App() {
 
         <Route path="/credit" element={<Guarded><CreditPage /></Guarded>} />
         <Route path="/quadrants" element={<Guarded><QuadrantsPage /></Guarded>} />
+        <Route path="/jobs" element={<Guarded><JobsPage /></Guarded>} />
+        <Route path="/jobs/create" element={<Guarded><JobsPage /></Guarded>} />
+        <Route path="/jobs/:id" element={<Guarded><JobsPage /></Guarded>} />
+        <Route path="/jobs/:id/edit" element={<Guarded><JobsPage /></Guarded>} />
+        <Route path="/net-income" element={<Guarded><NetIncomePage /></Guarded>} />
+        <Route path="/net-income/create" element={<Guarded><NetIncomePage /></Guarded>} />
+        <Route path="/net-income/:id" element={<Guarded><NetIncomePage /></Guarded>} />
+        <Route path="/net-income/:id/edit" element={<Guarded><NetIncomePage /></Guarded>} />
 
         <Route path="/users" element={<Guarded><UsersPage /></Guarded>} />
         <Route path="/users/create" element={<Guarded><UsersPage /></Guarded>} />

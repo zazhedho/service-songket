@@ -92,6 +92,16 @@ type FinanceCompanyRequest struct {
 	Phone    string `json:"phone" binding:"required"`
 }
 
+type JobRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type NetIncomeRequest struct {
+	JobID         string   `json:"job_id" binding:"required"`
+	NetIncome     float64  `json:"net_income" binding:"required,gte=0"`
+	AreaNetIncome []string `json:"area_net_income" binding:"required,min=1,dive,required"`
+}
+
 type NewsSourceRequest struct {
 	Name     string `json:"name" binding:"required"`
 	URL      string `json:"url" binding:"required"`

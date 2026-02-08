@@ -49,6 +49,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.FinanceCompany{},
 		&songket.MotorType{},
 		&songket.Job{},
+		&songket.JobNetIncome{},
 		&songket.Order{},
 		&songket.OrderFinanceAttempt{},
 		&songket.CreditCapability{},
@@ -94,6 +95,9 @@ func seedDefaults(db *gorm.DB) error {
 		return err
 	}
 	if err := seedRoleMenus(db, roleIDs, menuIDs); err != nil {
+		return err
+	}
+	if err := cleanupLegacyJobNetIncome(db); err != nil {
 		return err
 	}
 
@@ -246,6 +250,39 @@ func seedDefaults(db *gorm.DB) error {
 	return nil
 }
 
+func cleanupLegacyJobNetIncome(db *gorm.DB) error {
+	legacyPerms := []string{
+		"list_job_net_income",
+		"view_job_net_income",
+		"create_job_net_income",
+		"update_job_net_income",
+		"delete_job_net_income",
+	}
+
+	if err := db.Where(
+		"permission_id IN (?)",
+		db.Model(&domainpermission.Permission{}).Select("id").Where("name IN ?", legacyPerms),
+	).Delete(&domainrole.RolePermission{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where(
+		"menu_item_id IN (?)",
+		db.Model(&domainmenu.MenuItem{}).Select("id").Where("name = ?", "job_net_income"),
+	).Delete(&domainrole.RoleMenu{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where("name = ?", "job_net_income").Delete(&domainmenu.MenuItem{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("name IN ?", legacyPerms).Delete(&domainpermission.Permission{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func seedRoles(db *gorm.DB) (map[string]string, error) {
 	roles := []domainrole.Role{
 		{Id: utils.CreateUUID(), Name: utils.RoleSuperAdmin, DisplayName: "Superadmin", IsSystem: true},
@@ -344,6 +381,20 @@ func seedPermissions(db *gorm.DB) (map[string]string, error) {
 		{Name: "list_finance_dealers", DisplayName: "List Finance Dealers", Resource: "finance", Action: "list_dealers"},
 		{Name: "view_finance_metrics", DisplayName: "View Finance Metrics", Resource: "finance", Action: "view_metrics"},
 
+		// Jobs master (Nama Pekerjaan)
+		{Name: "list_jobs", DisplayName: "List Jobs", Resource: "jobs", Action: "list"},
+		{Name: "view_jobs", DisplayName: "View Jobs", Resource: "jobs", Action: "view"},
+		{Name: "create_jobs", DisplayName: "Create Jobs", Resource: "jobs", Action: "create"},
+		{Name: "update_jobs", DisplayName: "Update Jobs", Resource: "jobs", Action: "update"},
+		{Name: "delete_jobs", DisplayName: "Delete Jobs", Resource: "jobs", Action: "delete"},
+
+		// Net income per job
+		{Name: "list_net_income", DisplayName: "List Net Income", Resource: "net_income", Action: "list"},
+		{Name: "view_net_income", DisplayName: "View Net Income", Resource: "net_income", Action: "view"},
+		{Name: "create_net_income", DisplayName: "Create Net Income", Resource: "net_income", Action: "create"},
+		{Name: "update_net_income", DisplayName: "Update Net Income", Resource: "net_income", Action: "update"},
+		{Name: "delete_net_income", DisplayName: "Delete Net Income", Resource: "net_income", Action: "delete"},
+
 		// Credit & Quadrants
 		{Name: "list_credit", DisplayName: "List Credit Capability", Resource: "credit", Action: "list"},
 		{Name: "upsert_credit", DisplayName: "Upsert Credit Capability", Resource: "credit", Action: "upsert"},
@@ -409,6 +460,8 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 		{Name: "quadrants", DisplayName: "Kuadran", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5},
 		{Name: "prices", DisplayName: "Harga Pangan", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6},
 		{Name: "news", DisplayName: "Portal Berita", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7},
+		{Name: "jobs", DisplayName: "Nama Pekerjaan", Path: "/jobs", Icon: "bi-briefcase", OrderIndex: 8},
+		{Name: "net_income", DisplayName: "Net Income", Path: "/net-income", Icon: "bi-cash-coin", OrderIndex: 9},
 		{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 90},
 		{Name: "roles", DisplayName: "Roles & Access", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 91},
 		{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92},
@@ -490,6 +543,9 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		case "view_profile", "update_profile", "view_dashboard":
 			return true
 		}
+		if strings.Contains(name, "_jobs") || strings.Contains(name, "_net_income") {
+			return false
+		}
 		if strings.HasPrefix(name, "users") || strings.HasPrefix(name, "roles") || strings.HasPrefix(name, "permissions") {
 			return false
 		}
@@ -508,6 +564,9 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		case "view_profile", "view_dashboard":
 			return true
 		}
+		if strings.Contains(name, "_jobs") || strings.Contains(name, "_net_income") {
+			return false
+		}
 		if strings.HasPrefix(name, "users") || strings.HasPrefix(name, "roles") || strings.HasPrefix(name, "permissions") {
 			return false
 		}
@@ -522,6 +581,8 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		"view_dashboard",
 		"list_orders", "view_orders", "create_orders", "update_orders",
 		"list_finance_dealers", "view_finance_metrics",
+		"list_jobs", "view_jobs", "create_jobs", "update_jobs", "delete_jobs",
+		"list_net_income", "view_net_income", "create_net_income", "update_net_income", "delete_net_income",
 		"list_credit", "list_quadrants",
 		"list_prices", "view_news",
 	}
@@ -569,13 +630,13 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 	// admin: semua kecuali role_menu_access (khusus superadmin)
-	adminMenus := excludeMenus(allMenus, []string{"role_menu_access"})
+	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "net_income"})
 	if err := assign(utils.RoleAdmin, adminMenus); err != nil {
 		return err
 	}
 
 	// main dealer: dashboard, orders, finance, credit, quadrants, prices, news
-	mainDealerMenus := []string{"dashboard", "orders", "finance", "credit", "quadrants", "prices", "news"}
+	mainDealerMenus := []string{"dashboard", "orders", "finance", "credit", "quadrants", "prices", "news", "jobs", "net_income"}
 	if err := assign(utils.RoleMainDealer, mainDealerMenus); err != nil {
 		return err
 	}
@@ -586,12 +647,12 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 
-	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access"})
+	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income"})
 	if err := assign(utils.RoleStaff, staffMenus); err != nil {
 		return err
 	}
 
-	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access"})
+	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income"})
 	return assign(utils.RoleViewer, viewerMenus)
 }
 

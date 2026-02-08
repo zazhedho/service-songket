@@ -272,6 +272,19 @@ func (r *Routes) SongketRoutes() {
 	g.PUT("/finance/companies/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateFinanceCompany)
 	g.DELETE("/finance/companies/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteFinanceCompany)
 
+	// Jobs + Net Income (main dealer + superadmin only)
+	g.GET("/jobs", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("jobs", "list"), h.ListJobs)
+	g.GET("/jobs/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("jobs", "view"), h.GetJobByID)
+	g.POST("/jobs", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("jobs", "create"), h.CreateJob)
+	g.PUT("/jobs/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("jobs", "update"), h.UpdateJob)
+	g.DELETE("/jobs/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("jobs", "delete"), h.DeleteJob)
+
+	g.GET("/net-income", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("net_income", "list"), h.ListNetIncomes)
+	g.GET("/net-income/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("net_income", "view"), h.GetNetIncomeByID)
+	g.POST("/net-income", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("net_income", "create"), h.CreateNetIncome)
+	g.PUT("/net-income/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("net_income", "update"), h.UpdateNetIncome)
+	g.DELETE("/net-income/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin), mdw.PermissionMiddleware("net_income", "delete"), h.DeleteNetIncome)
+
 	// Credit capability & quadrants
 	g.POST("/credit", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)
 	g.GET("/credit", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("credit", "list"), h.ListCredit)

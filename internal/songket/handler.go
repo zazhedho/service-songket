@@ -281,6 +281,214 @@ func (h *Handler) DeleteFinanceCompany(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/jobs
+func (h *Handler) ListJobs(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.ListJobs()
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/jobs/:id
+func (h *Handler) GetJobByID(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.GetJobByID(id)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/jobs
+func (h *Handler) CreateJob(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req JobRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.CreateJob(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// PUT /api/songket/jobs/:id
+func (h *Handler) UpdateJob(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	var req JobRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.UpdateJob(id, req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/jobs/:id
+func (h *Handler) DeleteJob(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if err := h.svc.DeleteJob(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/net-income
+func (h *Handler) ListNetIncomes(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.ListNetIncomes()
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/net-income/:id
+func (h *Handler) GetNetIncomeByID(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.GetNetIncomeByID(id)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/net-income
+func (h *Handler) CreateNetIncome(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req NetIncomeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.CreateNetIncome(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// PUT /api/songket/net-income/:id
+func (h *Handler) UpdateNetIncome(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	var req NetIncomeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.UpdateNetIncome(id, req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/net-income/:id
+func (h *Handler) DeleteNetIncome(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if err := h.svc.DeleteNetIncome(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/finance/dealers/:id/metrics
 func (h *Handler) DealerMetrics(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
