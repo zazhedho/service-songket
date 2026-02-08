@@ -1,25 +1,43 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
-  fetchPriceList,
-  scrapePrices,
-  listScrapeSources,
   createScrapeSource,
-  updateScrapeSource,
   deleteScrapeSource,
+  fetchPriceList,
+  listScrapeSources,
+  scrapePrices,
+  updateScrapeSource,
 } from '../api'
 import { useAuth } from '../store'
 
 const empty = { name: '', url: '', category: '', type: 'prices', is_active: true }
 
+function parseMode(pathname: string) {
+  if (pathname.endsWith('/create')) return 'create'
+  if (pathname.endsWith('/edit')) return 'edit'
+  if (/\/scrape-sources\/[^/]+$/.test(pathname)) return 'detail'
+  return 'list'
+}
+
 export default function ScrapeSourcesPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = useParams()
+
+  const mode = parseMode(location.pathname)
+  const selectedId = params.id || ''
+  const isList = mode === 'list'
+  const isCreate = mode === 'create'
+  const isEdit = mode === 'edit'
+  const isDetail = mode === 'detail'
+
   const [sources, setSources] = useState<any[]>([])
   const [form, setForm] = useState(empty)
-  const [editing, setEditing] = useState<string>('')
   const [customUrls, setCustomUrls] = useState('')
   const [prices, setPrices] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
+
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_scrape_sources')
   const canCreate = perms.includes('create_scrape_source')
@@ -27,50 +45,183 @@ export default function ScrapeSourcesPage() {
   const canDelete = perms.includes('delete_scrape_source')
   const canScrape = perms.includes('scrape_prices')
 
-  const load = () => listScrapeSources().then((r) => setSources(r.data.data || r.data))
-  const loadPrices = () => fetchPriceList({ limit: 10 }).then((r) => setPrices(r.data.data || r.data))
+  const stateSource = (location.state as any)?.source || null
+
+  const load = async () => {
+    const res = await listScrapeSources()
+    setSources(res.data.data || res.data || [])
+  }
+
+  const loadPrices = async () => {
+    const res = await fetchPriceList({ limit: 10 })
+    setPrices(res.data.data || res.data || [])
+  }
 
   useEffect(() => {
-    if (canList) load()
-    if (canScrape) loadPrices()
-  }, [canList, canScrape])
+    if (canList || isEdit || isDetail) {
+      load().catch(() => setSources([]))
+    }
+    if (canScrape) {
+      loadPrices().catch(() => setPrices([]))
+    }
+  }, [canList, canScrape, isDetail, isEdit])
+
+  const selectedSource = useMemo(() => {
+    if (!selectedId) return null
+    return sources.find((source) => source.id === selectedId) || (stateSource?.id === selectedId ? stateSource : null)
+  }, [selectedId, sources, stateSource])
+
+  useEffect(() => {
+    if (isCreate) {
+      setForm(empty)
+      return
+    }
+
+    if (isEdit && selectedSource) {
+      setForm({
+        name: selectedSource.name || '',
+        url: selectedSource.url || '',
+        category: selectedSource.category || '',
+        type: selectedSource.type || 'prices',
+        is_active: Boolean(selectedSource.is_active),
+      })
+    }
+  }, [isCreate, isEdit, selectedSource])
 
   const save = async () => {
-    if (!canCreate && !canUpdate) return
+    if (isCreate && !canCreate) return
+    if (isEdit && !canUpdate) return
+
     setLoading(true)
     setMessage(null)
-    if (editing) await updateScrapeSource(editing, form)
-    else await createScrapeSource(form)
-    setForm(empty)
-    setEditing('')
-    load()
-    setLoading(false)
+    try {
+      if (isEdit && selectedId) await updateScrapeSource(selectedId, form)
+      else await createScrapeSource(form)
+      setForm(empty)
+      navigate('/scrape-sources')
+    } catch (err: any) {
+      const text = err?.response?.data?.error || 'Gagal menyimpan sumber'
+      setMessage({ text, ok: false })
+      window.alert(text)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!confirm('Hapus URL ini?')) return
+    if (!window.confirm('Hapus URL ini?')) return
     await deleteScrapeSource(id)
-    load()
+    await load()
   }
 
   const runScrape = async () => {
     if (!canScrape) return
+
     setLoading(true)
     setMessage(null)
+
     const urls = customUrls
       .split(',')
-      .map((s) => s.trim())
+      .map((entry) => entry.trim())
       .filter(Boolean)
+
     try {
       await scrapePrices(urls.length ? { urls } : {})
       setMessage({ text: 'Scrape berhasil dijalankan', ok: true })
-      loadPrices()
-    } catch (e: any) {
-      setMessage({ text: e?.response?.data?.error || 'Scrape gagal', ok: false })
+      await loadPrices()
+    } catch (err: any) {
+      setMessage({ text: err?.response?.data?.error || 'Scrape gagal', ok: false })
     } finally {
       setLoading(false)
     }
+  }
+
+  const set = (key: keyof typeof empty, value: any) => setForm((prev) => ({ ...prev, [key]: value }))
+
+  if (isDetail) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Scrape Source</div>
+            <div style={{ color: '#64748b' }}>Lihat konfigurasi URL scraping</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {canUpdate && selectedId && (
+              <button className="btn" onClick={() => navigate(`/scrape-sources/${selectedId}/edit`, { state: { source: selectedSource } })}>
+                Edit Source
+              </button>
+            )}
+            <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Kembali</button>
+          </div>
+        </div>
+
+        <div className="page">
+          {!selectedSource && <div className="alert">Data source tidak ditemukan.</div>}
+          {selectedSource && (
+            <div className="card" style={{ maxWidth: 820 }}>
+              <DetailRow label="Nama" value={selectedSource.name} />
+              <DetailRow label="URL" value={selectedSource.url} />
+              <DetailRow label="Type" value={selectedSource.type || '-'} />
+              <DetailRow label="Kategori" value={selectedSource.category || '-'} />
+              <DetailRow label="Aktif" value={selectedSource.is_active ? 'Ya' : 'Tidak'} />
+              <DetailRow label="Source ID" value={selectedSource.id} />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (isCreate || isEdit) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Scrape Source' : 'Input Scrape Source Baru'}</div>
+            <div style={{ color: '#64748b' }}>Form sumber scraping dipisah dari tabel</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Kembali ke Tabel</button>
+        </div>
+
+        <div className="page">
+          <div className="card" style={{ maxWidth: 860 }}>
+            {!canCreate && isCreate && <div className="alert">Tidak ada izin tambah sumber.</div>}
+            {!canUpdate && isEdit && <div className="alert">Tidak ada izin ubah sumber.</div>}
+
+            <div className="grid" style={{ gap: 10 }}>
+              <div><label>Nama</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
+              <div><label>URL</label><input value={form.url} onChange={(e) => set('url', e.target.value)} /></div>
+              <div>
+                <label>Type</label>
+                <select value={form.type} onChange={(e) => set('type', e.target.value)}>
+                  <option value="prices">Harga Pangan</option>
+                  <option value="news">Portal Berita</option>
+                </select>
+              </div>
+              <div><label>Kategori</label><input value={form.category} onChange={(e) => set('category', e.target.value)} /></div>
+              <div>
+                <label>Aktif</label>
+                <select value={form.is_active ? 'true' : 'false'} onChange={(e) => set('is_active', e.target.value === 'true')}>
+                  <option value="true">Aktif</option>
+                  <option value="false">Nonaktif</option>
+                </select>
+              </div>
+
+              {message && !message.ok && <div style={{ color: '#b91c1c', fontSize: 13 }}>{message.text}</div>}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => void save()} disabled={loading || (!canCreate && !canUpdate)}>
+                  {loading ? 'Saving...' : isEdit ? 'Update Source' : 'Simpan Source'}
+                </button>
+                <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Batal</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -78,96 +229,101 @@ export default function ScrapeSourcesPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape URLs</div>
-          <div style={{ color: '#9ca3af' }}>Kelola sumber scraping & jalankan manual</div>
+          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel sumber scraping</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canCreate && <button className="btn" onClick={() => navigate('/scrape-sources/create')}>Input Source</button>}
         </div>
       </div>
-      <div className="page grid lg:grid-cols-[1.2fr_1fr]">
+
+      <div className="page">
         <div className="card">
           <h3>Daftar Sumber</h3>
           {!canList && <div className="alert">Tidak ada izin melihat sumber scrape.</div>}
           {canList && (
             <table className="table">
               <thead>
-                <tr><th>Nama</th><th>URL</th><th>Type</th><th>Aktif</th><th>Action</th></tr>
+                <tr>
+                  <th>Nama</th>
+                  <th>URL</th>
+                  <th>Type</th>
+                  <th>Aktif</th>
+                  <th>Action</th>
+                </tr>
               </thead>
               <tbody>
-                {sources.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td style={{ maxWidth: 260, wordBreak: 'break-word' }}>{s.url}</td>
-                    <td>{s.type || '-'}</td>
-                    <td>{s.is_active ? 'Ya' : 'Tidak'}</td>
-                    <td style={{ display: 'flex', gap: 8 }}>
-                      {canUpdate && <button className="btn-ghost" onClick={() => { setEditing(s.id); setForm({ name: s.name, url: s.url, category: s.category, type: s.type || 'prices', is_active: s.is_active }) }}>Edit</button>}
-                      {canDelete && <button className="btn-ghost" onClick={() => remove(s.id)}>Delete</button>}
+                {sources.map((source) => (
+                  <tr key={source.id}>
+                    <td>{source.name}</td>
+                    <td style={{ maxWidth: 300, wordBreak: 'break-word' }}>{source.url}</td>
+                    <td>{source.type || '-'}</td>
+                    <td>{source.is_active ? 'Ya' : 'Tidak'}</td>
+                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn-ghost" onClick={() => navigate(`/scrape-sources/${source.id}`, { state: { source } })}>View</button>
+                      {canUpdate && (
+                        <button className="btn-ghost" onClick={() => navigate(`/scrape-sources/${source.id}/edit`, { state: { source } })}>
+                          Edit
+                        </button>
+                      )}
+                      {canDelete && <button className="btn-ghost" onClick={() => void remove(source.id)}>Delete</button>}
                       {!canUpdate && !canDelete && '-'}
                     </td>
                   </tr>
                 ))}
+                {sources.length === 0 && (
+                  <tr>
+                    <td colSpan={5}>Belum ada source.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
         </div>
-        <div className="card">
-          <h3>{editing ? 'Edit URL' : 'Tambah URL'}</h3>
-          {!canCreate && !canUpdate && <div className="alert">Tidak ada izin tambah/ubah sumber.</div>}
-          <div className="grid" style={{ gap: 10 }}>
-            <div><label>Nama</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
-            <div><label>URL</label><input value={form.url} onChange={(e) => set('url', e.target.value)} /></div>
-            <div>
-              <label>Type</label>
-              <select value={form.type} onChange={(e) => set('type', e.target.value)}>
-                <option value="prices">Harga Pangan</option>
-                <option value="news">Portal Berita</option>
-              </select>
-            </div>
-            <div><label>Kategori</label><input value={form.category} onChange={(e) => set('category', e.target.value)} /></div>
-            <div>
-              <label>Aktif</label>
-              <select value={form.is_active ? 'true' : 'false'} onChange={(e) => set('is_active', e.target.value === 'true')}>
-                <option value="true">Aktif</option>
-                <option value="false">Nonaktif</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={save} disabled={loading || (!canCreate && !canUpdate)}>{editing ? 'Update' : 'Simpan'}</button>
-              {editing && <button className="btn-ghost" onClick={() => { setEditing(''); setForm(empty) }}>Batal</button>}
-            </div>
-          </div>
-          <div style={{ marginTop: 16 }}>
-            <h4>Scrape Manual</h4>
-            <label>URL list (pisah koma, opsional, jika kosong pakai default aktif)</label>
+
+        {canScrape && (
+          <div className="card">
+            <h3>Scrape Manual</h3>
+            <label>URL list (pisah koma, jika kosong pakai default aktif)</label>
             <input value={customUrls} onChange={(e) => setCustomUrls(e.target.value)} placeholder="https://..." />
-            <button className="btn" style={{ marginTop: 8 }} onClick={runScrape} disabled={loading || !canScrape}>{loading ? 'Scraping...' : 'Scrape Sekarang'}</button>
-            {message && !loading && (
-              <div
-                style={{
-                  color: message.ok ? '#22c55e' : '#f87171',
-                  marginTop: 8,
-                  fontSize: 13,
-                }}
-              >
+            <div style={{ marginTop: 8 }}>
+              <button className="btn" onClick={() => void runScrape()} disabled={loading || !canScrape}>
+                {loading ? 'Scraping...' : 'Scrape Sekarang'}
+              </button>
+            </div>
+            {message && (
+              <div style={{ color: message.ok ? '#166534' : '#b91c1c', marginTop: 8, fontSize: 13 }}>
                 {message.text}
               </div>
             )}
           </div>
-        </div>
-      </div>
-      {canScrape && (
-        <div className="page">
+        )}
+
+        {canScrape && (
           <div className="card">
-            <h3>Harga Terbaru (preview)</h3>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))' }}>
-              {prices.map((p) => (
-                <div key={p.id} style={{ background: 'rgba(255,255,255,0.04)', padding: 10, borderRadius: 10 }}>
-                  <div style={{ fontWeight: 700 }}>{p.commodity?.name || 'Komoditas'}</div>
-                  <div style={{ color: '#9ca3af' }}>{p.price?.toLocaleString('id-ID')} / {p.commodity?.unit}</div>
+            <h3>Harga Terbaru (Preview)</h3>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 10 }}>
+              {prices.map((price) => (
+                <div key={price.id} style={{ background: '#f8fafc', padding: 10, borderRadius: 10, border: '1px solid #dde4ee' }}>
+                  <div style={{ fontWeight: 700 }}>{price.commodity?.name || 'Komoditas'}</div>
+                  <div style={{ color: '#64748b' }}>
+                    {price.price?.toLocaleString('id-ID')} / {price.commodity?.unit}
+                  </div>
                 </div>
               ))}
+              {prices.length === 0 && <div className="muted">Belum ada preview harga.</div>}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
+      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
     </div>
   )
 }

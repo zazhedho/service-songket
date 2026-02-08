@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { importNews, listNewsItems, scrapeNews } from '../api'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { importNews, listNewsItems, scrapeNews } from '../api'
 import { useAuth } from '../store'
 
 type ScrapedNews = {
@@ -19,39 +20,57 @@ type ScrapedNews = {
   }
 }
 
+function parseMode(pathname: string) {
+  if (pathname.endsWith('/scrape')) return 'scrape'
+  if (/\/news\/[^/]+$/.test(pathname)) return 'detail'
+  return 'list'
+}
+
 export default function NewsPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = useParams()
+
+  const mode = parseMode(location.pathname)
+  const selectedId = params.id || ''
+  const isList = mode === 'list'
+  const isScrape = mode === 'scrape'
+  const isDetail = mode === 'detail'
+
   const [category, setCategory] = useState('')
   const [items, setItems] = useState<any[]>([])
   const [scrapedRows, setScrapedRows] = useState<ScrapedNews[]>([])
   const [scraping, setScraping] = useState(false)
   const [adding, setAdding] = useState<Record<string, boolean>>({})
   const [added, setAdded] = useState<Record<string, boolean>>({})
-  const [detail, setDetail] = useState<ScrapedNews | null>(null)
-  const [showModal, setShowModal] = useState(false)
   const [urls, setUrls] = useState<string[]>([''])
+
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('view_news')
   const canScrape = perms.includes('scrape_news')
 
+  const stateDetail = (location.state as any)?.detail || null
+
   const load = () =>
-    listNewsItems({ category: category || undefined, limit: 200 }).then((r) => setItems(r.data.data || r.data || []))
+    listNewsItems({ category: category || undefined, limit: 200 }).then((res) => setItems(res.data.data || res.data || []))
 
   useEffect(() => {
-    if (canView) load()
+    if (canView) {
+      load().catch(() => setItems([]))
+    }
   }, [category, canView])
 
   const doScrape = async (customUrls?: string[]) => {
     if (!canScrape) return
     setScraping(true)
     try {
-      const clean = (customUrls || []).map((u) => u.trim()).filter(Boolean)
-      const r = await scrapeNews(clean.length ? { urls: clean } : undefined)
-      const data: ScrapedNews[] = r.data.data || r.data || []
+      const clean = (customUrls || []).map((url) => url.trim()).filter(Boolean)
+      const res = await scrapeNews(clean.length ? { urls: clean } : undefined)
+      const data: ScrapedNews[] = res.data.data || res.data || []
       setScrapedRows(data)
       setAdded({})
     } finally {
       setScraping(false)
-      setShowModal(false)
       setUrls([''])
     }
   }
@@ -63,49 +82,220 @@ export default function NewsPage() {
       await importNews({ items: [row] })
       setAdded((prev) => ({ ...prev, [row.url]: true }))
       await load()
-    } catch (e: any) {
-      window.alert(e?.response?.data?.error || 'Gagal menambahkan berita')
+    } catch (err: any) {
+      window.alert(err?.response?.data?.error || 'Gagal menambahkan berita')
     } finally {
       setAdding((prev) => ({ ...prev, [row.url]: false }))
     }
   }
 
-  const addRow = () => setUrls((prev) => [...prev, ''])
-  const removeRow = (idx: number) => setUrls((prev) => prev.filter((_, i) => i !== idx))
   const startScrape = () => {
-    const clean = urls.map((u) => u.trim()).filter(Boolean)
+    const clean = urls.map((url) => url.trim()).filter(Boolean)
     doScrape(clean.length ? clean : undefined)
   }
 
+  const selectedDetail = useMemo(() => {
+    if (stateDetail) return stateDetail as ScrapedNews
+    if (!selectedId) return null
+
+    const fromDb = items.find((item) => String(item.id) === selectedId)
+    if (fromDb) return toDetailRow(fromDb)
+
+    return null
+  }, [items, selectedId, stateDetail])
+
   const detailImages = useMemo(() => {
-    if (!detail) return []
-    const raw = [detail.images?.foto_utama, ...(detail.images?.dalam_berita || [])].filter(Boolean) as string[]
+    if (!selectedDetail) return []
+    const raw = [selectedDetail.images?.foto_utama, ...(selectedDetail.images?.dalam_berita || [])].filter(Boolean) as string[]
     return Array.from(new Set(raw))
-  }, [detail])
+  }, [selectedDetail])
+
+  if (isDetail) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Berita</div>
+            <div style={{ color: '#64748b' }}>Informasi berita lengkap</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/news')}>Kembali</button>
+        </div>
+
+        <div className="page">
+          {!selectedDetail && <div className="alert">Detail berita tidak ditemukan.</div>}
+          {selectedDetail && (
+            <div className="card" style={{ maxWidth: 980 }}>
+              <h3>{selectedDetail.judul || '-'}</h3>
+              <div style={{ color: '#64748b', marginTop: 6 }}>
+                {selectedDetail.created_at ? dayjs(selectedDetail.created_at).format('DD MMM YYYY HH:mm') : '-'} | {selectedDetail.sumber || '-'}
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <a href={selectedDetail.url} target="_blank" rel="noreferrer">{selectedDetail.url}</a>
+              </div>
+
+              {detailImages.length > 0 && (
+                <div
+                  className="grid"
+                  style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginTop: 12, marginBottom: 12 }}
+                >
+                  {detailImages.map((img) => (
+                    <a key={img} href={img} target="_blank" rel="noreferrer">
+                      <img
+                        src={img}
+                        alt={selectedDetail.judul}
+                        style={{
+                          width: '100%',
+                          height: 120,
+                          objectFit: 'cover',
+                          borderRadius: 8,
+                          border: '1px solid #dbe3ef',
+                        }}
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              <div
+                style={{
+                  maxHeight: '50vh',
+                  overflowY: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.45,
+                  border: '1px solid #dbe3ef',
+                  borderRadius: 10,
+                  padding: 12,
+                  background: '#f8fafc',
+                }}
+              >
+                {selectedDetail.isi || '-'}
+              </div>
+
+              {canScrape && !selectedDetail.from_db && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                  <button
+                    className="btn"
+                    onClick={() => void addToNews(selectedDetail)}
+                    disabled={!!adding[selectedDetail.url] || !!added[selectedDetail.url]}
+                  >
+                    {added[selectedDetail.url] ? 'Added' : adding[selectedDetail.url] ? 'Adding...' : 'Add to News'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (isScrape) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape Portal Berita</div>
+            <div style={{ color: '#64748b' }}>Halaman input URL scraping terpisah</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/news')}>Kembali ke Tabel</button>
+        </div>
+
+        <div className="page">
+          {!canScrape && <div className="alert">Tidak ada izin scrape berita.</div>}
+
+          {canScrape && (
+            <div className="card">
+              <div className="muted">Masukkan 1 atau lebih URL portal berita, tambahkan baris jika perlu.</div>
+              <div className="grid" style={{ gap: 10, marginTop: 10 }}>
+                {urls.map((url, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      value={url}
+                      placeholder="https://"
+                      onChange={(e) => {
+                        const next = [...urls]
+                        next[idx] = e.target.value
+                        setUrls(next)
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    {urls.length > 1 && (
+                      <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>Hapus</button>
+                    )}
+                  </div>
+                ))}
+                <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Tambah baris</button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                <button className="btn" onClick={() => void startScrape()} disabled={scraping}>
+                  {scraping ? 'Memproses...' : 'Proses Scrape'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {canScrape && scrapedRows.length > 0 && (
+            <div className="card">
+              <h3>Hasil Scrape (Preview)</h3>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Judul</th>
+                    <th>Isi</th>
+                    <th>Created At</th>
+                    <th>Sumber</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scrapedRows.map((row) => (
+                    <tr key={row.url}>
+                      <td style={{ maxWidth: 320 }}>{row.judul}</td>
+                      <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(row.isi, 180)}</td>
+                      <td>{row.created_at ? dayjs(row.created_at).format('DD MMM YYYY HH:mm') : '-'}</td>
+                      <td>{row.sumber || '-'}</td>
+                      <td style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn-ghost" onClick={() => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } })}>
+                          View
+                        </button>
+                        <button className="btn" onClick={() => void addToNews(row)} disabled={!!adding[row.url] || !!added[row.url]}>
+                          {added[row.url] ? 'Added' : adding[row.url] ? 'Adding...' : 'Add to News'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Portal Berita</div>
-          <div style={{ color: '#9ca3af' }}>Headline per portal</div>
+          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel berita dari database</div>
         </div>
+
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 200 }}>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 220 }}>
             <option value="">Semua</option>
             <option value="agri">Agriculture</option>
             <option value="pariwisata">Pariwisata</option>
             <option value="pns">PNS/Gov</option>
           </select>
-          {canScrape && (
-            <button className="btn" onClick={() => setShowModal(true)} disabled={scraping}>
-              {scraping ? 'Scraping...' : 'Scrape Sekarang'}
-            </button>
-          )}
+          {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape Berita</button>}
         </div>
       </div>
 
       {!canView && <div className="page"><div className="alert">Tidak ada izin melihat berita.</div></div>}
+
       {canView && (
         <div className="page">
           <div className="card">
@@ -128,15 +318,19 @@ export default function NewsPage() {
                     <tr key={item.id || item.url}>
                       <td style={{ maxWidth: 320 }}>{item.title || '-'}</td>
                       <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(item.content || '', 180)}</td>
-                      <td>{(item.published_at || item.created_at) ? dayjs(item.published_at || item.created_at).format('DD MMM YYYY HH:mm') : '-'}</td>
+                      <td>
+                        {(item.published_at || item.created_at)
+                          ? dayjs(item.published_at || item.created_at).format('DD MMM YYYY HH:mm')
+                          : '-'}
+                      </td>
                       <td>{item.source_name || item.source?.name || detailRow.sumber || '-'}</td>
                       <td>
-                        <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">
-                          Buka Link
-                        </a>
+                        <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Buka Link</a>
                       </td>
                       <td>
-                        <button className="btn-ghost" onClick={() => setDetail(detailRow)}>View Detail</button>
+                        <button className="btn-ghost" onClick={() => navigate(`/news/${item.id}`, { state: { detail: detailRow } })}>
+                          View Detail
+                        </button>
                       </td>
                     </tr>
                   )
@@ -151,141 +345,14 @@ export default function NewsPage() {
           </div>
         </div>
       )}
-
-      {canScrape && scrapedRows.length > 0 && (
-        <div className="page">
-          <div className="card">
-            <h3>Hasil Scrape (Preview)</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Judul</th>
-                  <th>Isi</th>
-                  <th>Created At</th>
-                  <th>Sumber</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scrapedRows.map((r) => (
-                  <tr key={r.url}>
-                    <td style={{ maxWidth: 320 }}>{r.judul}</td>
-                    <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(r.isi, 180)}</td>
-                    <td>{r.created_at ? dayjs(r.created_at).format('DD MMM YYYY HH:mm') : '-'}</td>
-                    <td>{r.sumber || '-'}</td>
-                    <td style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn-ghost" onClick={() => setDetail(r)}>View Detail</button>
-                      <button
-                        className="btn"
-                        onClick={() => addToNews(r)}
-                        disabled={!!adding[r.url] || !!added[r.url]}
-                      >
-                        {added[r.url] ? 'Added' : adding[r.url] ? 'Adding...' : 'Add to News'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {showModal && canScrape && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Scrape Portal Berita</h3>
-            <div className="muted">Masukkan 1 atau lebih URL portal berita, tambahkan baris jika perlu.</div>
-            <div className="grid" style={{ gap: 10, marginTop: 10 }}>
-              {urls.map((u, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    value={u}
-                    placeholder="https://"
-                    onChange={(e) => {
-                      const next = [...urls]
-                      next[idx] = e.target.value
-                      setUrls(next)
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                  {urls.length > 1 && (
-                    <button className="btn-ghost" onClick={() => removeRow(idx)}>Hapus</button>
-                  )}
-                </div>
-              ))}
-              <button className="btn-ghost" onClick={addRow}>+ Tambah baris</button>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-              <button className="btn-ghost" onClick={() => setShowModal(false)}>Batal</button>
-              <button className="btn" onClick={startScrape} disabled={scraping}>{scraping ? 'Memulai...' : 'Proses'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {detail && (
-        <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: 860, width: '100%' }}>
-            <h3>{detail.judul}</h3>
-            <div className="muted" style={{ marginBottom: 8 }}>
-              {detail.created_at ? dayjs(detail.created_at).format('DD MMM YYYY HH:mm') : '-'} | {detail.sumber || '-'}
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <a href={detail.url} target="_blank" rel="noreferrer">{detail.url}</a>
-            </div>
-
-            {detailImages.length > 0 && (
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginBottom: 12 }}>
-                {detailImages.map((img) => (
-                  <a key={img} href={img} target="_blank" rel="noreferrer">
-                    <img
-                      src={img}
-                      alt={detail.judul}
-                      style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}
-                    />
-                  </a>
-                ))}
-              </div>
-            )}
-
-            <div
-              style={{
-                maxHeight: '45vh',
-                overflowY: 'auto',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.45,
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 10,
-                padding: 12,
-              }}
-            >
-              {detail.isi || '-'}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-              <button className="btn-ghost" onClick={() => setDetail(null)}>Tutup</button>
-              {canScrape && !detail.from_db && (
-                <button
-                  className="btn"
-                  onClick={() => addToNews(detail)}
-                  disabled={!!adding[detail.url] || !!added[detail.url]}
-                >
-                  {added[detail.url] ? 'Added' : adding[detail.url] ? 'Adding...' : 'Add to News'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-function shortText(val: string, max: number): string {
-  const s = (val || '').replace(/\s+/g, ' ').trim()
-  if (s.length <= max) return s
-  return `${s.slice(0, max)}...`
+function shortText(value: string, max: number): string {
+  const cleaned = (value || '').replace(/\s+/g, ' ').trim()
+  if (cleaned.length <= max) return cleaned
+  return `${cleaned.slice(0, max)}...`
 }
 
 function toDetailRow(item: any): ScrapedNews {

@@ -1,11 +1,15 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import {
   createDealer,
   createFinanceCompany,
   deleteDealer,
   deleteFinanceCompany,
-  fetchDealers,
   fetchDealerMetrics,
+  fetchDealers,
   fetchKabupaten,
   fetchKecamatan,
   fetchLookups,
@@ -13,9 +17,6 @@ import {
   updateDealer,
   updateFinanceCompany,
 } from '../api'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
 import { useAuth } from '../store'
 
 const markerIcon = new L.Icon({
@@ -70,14 +71,39 @@ const initialFinanceForm: FinanceForm = {
   address: '',
 }
 
+function parseFinanceMode(pathname: string) {
+  if (pathname.endsWith('/dealers/create')) return 'dealer_create'
+  if (/\/finance\/dealers\/[^/]+\/edit$/.test(pathname)) return 'dealer_edit'
+  if (/\/finance\/dealers\/[^/]+$/.test(pathname)) return 'dealer_detail'
+  if (pathname.endsWith('/companies/create')) return 'company_create'
+  if (/\/finance\/companies\/[^/]+\/edit$/.test(pathname)) return 'company_edit'
+  if (/\/finance\/companies\/[^/]+$/.test(pathname)) return 'company_detail'
+  return 'list'
+}
+
 export default function FinancePage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = useParams()
+
+  const mode = parseFinanceMode(location.pathname)
+  const selectedId = params.id || ''
+
+  const isList = mode === 'list'
+  const isDealerCreate = mode === 'dealer_create'
+  const isDealerEdit = mode === 'dealer_edit'
+  const isDealerDetail = mode === 'dealer_detail'
+  const isCompanyCreate = mode === 'company_create'
+  const isCompanyEdit = mode === 'company_edit'
+  const isCompanyDetail = mode === 'company_detail'
+
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('list_finance_dealers')
   const canManage = canView
 
   const [dealers, setDealers] = useState<any[]>([])
   const [financeCompanies, setFinanceCompanies] = useState<any[]>([])
-  const [selected, setSelected] = useState<string>('')
+  const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
   const [fcFilter, setFcFilter] = useState('')
 
@@ -88,88 +114,93 @@ export default function FinancePage() {
   const [financeKecamatan, setFinanceKecamatan] = useState<Option[]>([])
 
   const [dealerForm, setDealerForm] = useState<DealerForm>(initialDealerForm)
-  const [dealerEditId, setDealerEditId] = useState('')
-  const [savingDealer, setSavingDealer] = useState(false)
-
   const [financeForm, setFinanceForm] = useState<FinanceForm>(initialFinanceForm)
-  const [financeEditId, setFinanceEditId] = useState('')
+  const [savingDealer, setSavingDealer] = useState(false)
   const [savingFinance, setSavingFinance] = useState(false)
 
-  const [notice, setNotice] = useState('')
+  const stateDealer = (location.state as any)?.dealer || null
+  const stateCompany = (location.state as any)?.company || null
 
   const loadBaseData = async () => {
     const [dealerRes, lookupRes] = await Promise.all([fetchDealers(), fetchLookups()])
     const dealerData = dealerRes.data.data || dealerRes.data || []
-    const fcData = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
+    const companyData = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
+
     setDealers(dealerData)
-    setFinanceCompanies(fcData)
-    if (!selected && dealerData.length > 0) setSelected(dealerData[0].id)
+    setFinanceCompanies(companyData)
+
+    if (!selectedDealerId && dealerData.length > 0) {
+      setSelectedDealerId(dealerData[0].id)
+    }
   }
 
   useEffect(() => {
     if (!canView) return
     Promise.all([fetchProvinces(), loadBaseData()])
       .then(([provRes]) => setProvinces(provRes.data.data || provRes.data || []))
-      .catch(() => window.alert('Gagal memuat data finance'))
+      .catch(() => {
+        setProvinces([])
+        setDealers([])
+        setFinanceCompanies([])
+      })
   }, [canView])
 
   useEffect(() => {
-    if (!selected) {
+    if (!selectedDealerId) {
       setMetrics(null)
       return
     }
-    fetchDealerMetrics(selected, fcFilter ? { finance_company_id: fcFilter } : undefined)
-      .then((r) => setMetrics(r.data.data || r.data))
+    fetchDealerMetrics(selectedDealerId, fcFilter ? { finance_company_id: fcFilter } : undefined)
+      .then((res) => setMetrics(res.data.data || res.data || null))
       .catch(() => setMetrics(null))
-  }, [selected, fcFilter])
+  }, [selectedDealerId, fcFilter])
 
   useEffect(() => {
     if (dealers.length === 0) {
-      setSelected('')
+      setSelectedDealerId('')
       return
     }
-    if (!selected || !dealers.some((d) => d.id === selected)) {
-      setSelected(dealers[0].id)
+    if (!selectedDealerId || !dealers.some((item) => item.id === selectedDealerId)) {
+      setSelectedDealerId(dealers[0].id)
     }
-  }, [dealers, selected])
+  }, [dealers, selectedDealerId])
+
+  const selectedDealer = useMemo(() => {
+    if (!selectedId) return null
+    return dealers.find((dealer) => dealer.id === selectedId) || (stateDealer?.id === selectedId ? stateDealer : null)
+  }, [dealers, selectedId, stateDealer])
+
+  const selectedCompany = useMemo(() => {
+    if (!selectedId) return null
+    return financeCompanies.find((company) => company.id === selectedId) || (stateCompany?.id === selectedId ? stateCompany : null)
+  }, [financeCompanies, selectedId, stateCompany])
 
   const dealerPoints = useMemo(() => {
     return dealers
-      .map((d) => ({ ...d, _lat: Number(d.lat ?? d.latitude), _lng: Number(d.lng ?? d.longitude) }))
-      .filter((d) => Number.isFinite(d._lat) && Number.isFinite(d._lng))
+      .map((dealer) => ({ ...dealer, _lat: Number(dealer.lat ?? dealer.latitude), _lng: Number(dealer.lng ?? dealer.longitude) }))
+      .filter((dealer) => Number.isFinite(dealer._lat) && Number.isFinite(dealer._lng))
   }, [dealers])
 
-  const selectedDealer = dealers.find((d) => d.id === selected)
-  const selectedLat = Number(selectedDealer?.lat ?? selectedDealer?.latitude)
-  const selectedLng = Number(selectedDealer?.lng ?? selectedDealer?.longitude)
+  const currentDealer = dealers.find((dealer) => dealer.id === selectedDealerId)
+  const currentLat = Number(currentDealer?.lat ?? currentDealer?.latitude)
+  const currentLng = Number(currentDealer?.lng ?? currentDealer?.longitude)
+
   const center: [number, number] =
-    Number.isFinite(selectedLat) && Number.isFinite(selectedLng)
-      ? [selectedLat, selectedLng]
+    Number.isFinite(currentLat) && Number.isFinite(currentLng)
+      ? [currentLat, currentLng]
       : dealerPoints.length > 0
         ? [dealerPoints[0]._lat, dealerPoints[0]._lng]
         : [-8.58, 116.12]
 
-  const resetDealerForm = () => {
-    setDealerEditId('')
-    setDealerForm(initialDealerForm)
-    setDealerKabupaten([])
-    setDealerKecamatan([])
-  }
-
-  const resetFinanceForm = () => {
-    setFinanceEditId('')
-    setFinanceForm(initialFinanceForm)
-    setFinanceKabupaten([])
-    setFinanceKecamatan([])
-  }
-
   const handleDealerProvince = async (code: string) => {
-    setDealerForm((s) => ({ ...s, province: code, regency: '', district: '' }))
+    setDealerForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
     setDealerKecamatan([])
+
     if (!code) {
       setDealerKabupaten([])
       return
     }
+
     try {
       const res = await fetchKabupaten(code)
       setDealerKabupaten(res.data.data || res.data || [])
@@ -179,11 +210,13 @@ export default function FinancePage() {
   }
 
   const handleDealerRegency = async (code: string) => {
-    setDealerForm((s) => ({ ...s, regency: code, district: '' }))
+    setDealerForm((prev) => ({ ...prev, regency: code, district: '' }))
+
     if (!dealerForm.province || !code) {
       setDealerKecamatan([])
       return
     }
+
     try {
       const res = await fetchKecamatan(dealerForm.province, code)
       setDealerKecamatan(res.data.data || res.data || [])
@@ -193,12 +226,14 @@ export default function FinancePage() {
   }
 
   const handleFinanceProvince = async (code: string) => {
-    setFinanceForm((s) => ({ ...s, province: code, regency: '', district: '' }))
+    setFinanceForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
     setFinanceKecamatan([])
+
     if (!code) {
       setFinanceKabupaten([])
       return
     }
+
     try {
       const res = await fetchKabupaten(code)
       setFinanceKabupaten(res.data.data || res.data || [])
@@ -208,11 +243,13 @@ export default function FinancePage() {
   }
 
   const handleFinanceRegency = async (code: string) => {
-    setFinanceForm((s) => ({ ...s, regency: code, district: '' }))
+    setFinanceForm((prev) => ({ ...prev, regency: code, district: '' }))
+
     if (!financeForm.province || !code) {
       setFinanceKecamatan([])
       return
     }
+
     try {
       const res = await fetchKecamatan(financeForm.province, code)
       setFinanceKecamatan(res.data.data || res.data || [])
@@ -221,82 +258,95 @@ export default function FinancePage() {
     }
   }
 
-  const startEditDealer = async (d: any) => {
-    const next: DealerForm = {
-      name: d.name || '',
-      province: d.province || '',
-      regency: d.regency || '',
-      district: d.district || '',
-      village: d.village || '',
-      phone: d.phone || '',
-      address: d.address || '',
-      lat: String(d.lat ?? d.latitude ?? ''),
-      lng: String(d.lng ?? d.longitude ?? ''),
-    }
-    setDealerEditId(d.id)
-    setDealerForm(next)
-    setSelected(d.id)
-
-    if (next.province) {
-      try {
-        const kab = await fetchKabupaten(next.province)
-        const kabData = kab.data.data || kab.data || []
-        setDealerKabupaten(kabData)
-        if (next.regency) {
-          const kec = await fetchKecamatan(next.province, next.regency)
-          setDealerKecamatan(kec.data.data || kec.data || [])
-        } else {
-          setDealerKecamatan([])
-        }
-      } catch {
-        setDealerKabupaten([])
-        setDealerKecamatan([])
-      }
-    } else {
+  useEffect(() => {
+    if (isDealerCreate) {
+      setDealerForm(initialDealerForm)
       setDealerKabupaten([])
       setDealerKecamatan([])
+      return
     }
-  }
 
-  const startEditFinance = async (f: any) => {
-    const next: FinanceForm = {
-      name: f.name || '',
-      province: f.province || '',
-      regency: f.regency || '',
-      district: f.district || '',
-      village: f.village || '',
-      phone: f.phone || '',
-      address: f.address || '',
-    }
-    setFinanceEditId(f.id)
-    setFinanceForm(next)
-
-    if (next.province) {
-      try {
-        const kab = await fetchKabupaten(next.province)
-        const kabData = kab.data.data || kab.data || []
-        setFinanceKabupaten(kabData)
-        if (next.regency) {
-          const kec = await fetchKecamatan(next.province, next.regency)
-          setFinanceKecamatan(kec.data.data || kec.data || [])
-        } else {
-          setFinanceKecamatan([])
-        }
-      } catch {
-        setFinanceKabupaten([])
-        setFinanceKecamatan([])
+    if (isDealerEdit && selectedDealer) {
+      const next: DealerForm = {
+        name: selectedDealer.name || '',
+        province: selectedDealer.province || '',
+        regency: selectedDealer.regency || '',
+        district: selectedDealer.district || '',
+        village: selectedDealer.village || '',
+        phone: selectedDealer.phone || '',
+        address: selectedDealer.address || '',
+        lat: String(selectedDealer.lat ?? selectedDealer.latitude ?? ''),
+        lng: String(selectedDealer.lng ?? selectedDealer.longitude ?? ''),
       }
-    } else {
+
+      setDealerForm(next)
+
+      if (next.province) {
+        fetchKabupaten(next.province)
+          .then((kab) => {
+            const kabData = kab.data.data || kab.data || []
+            setDealerKabupaten(kabData)
+            if (next.regency) {
+              fetchKecamatan(next.province, next.regency)
+                .then((kec) => setDealerKecamatan(kec.data.data || kec.data || []))
+                .catch(() => setDealerKecamatan([]))
+            }
+          })
+          .catch(() => {
+            setDealerKabupaten([])
+            setDealerKecamatan([])
+          })
+      }
+    }
+  }, [isDealerCreate, isDealerEdit, selectedDealer])
+
+  useEffect(() => {
+    if (isCompanyCreate) {
+      setFinanceForm(initialFinanceForm)
       setFinanceKabupaten([])
       setFinanceKecamatan([])
+      return
     }
-  }
+
+    if (isCompanyEdit && selectedCompany) {
+      const next: FinanceForm = {
+        name: selectedCompany.name || '',
+        province: selectedCompany.province || '',
+        regency: selectedCompany.regency || '',
+        district: selectedCompany.district || '',
+        village: selectedCompany.village || '',
+        phone: selectedCompany.phone || '',
+        address: selectedCompany.address || '',
+      }
+
+      setFinanceForm(next)
+
+      if (next.province) {
+        fetchKabupaten(next.province)
+          .then((kab) => {
+            const kabData = kab.data.data || kab.data || []
+            setFinanceKabupaten(kabData)
+            if (next.regency) {
+              fetchKecamatan(next.province, next.regency)
+                .then((kec) => setFinanceKecamatan(kec.data.data || kec.data || []))
+                .catch(() => setFinanceKecamatan([]))
+            }
+          })
+          .catch(() => {
+            setFinanceKabupaten([])
+            setFinanceKecamatan([])
+          })
+      }
+    }
+  }, [isCompanyCreate, isCompanyEdit, selectedCompany])
 
   const submitDealer = async (e: FormEvent) => {
     e.preventDefault()
     if (!canManage) return
+
     const lat = Number(dealerForm.lat)
     const lng = Number(dealerForm.lng)
+
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       window.alert('Latitude/Longitude tidak valid')
       return
@@ -316,12 +366,10 @@ export default function FinancePage() {
 
     setSavingDealer(true)
     try {
-      const res = dealerEditId ? await updateDealer(dealerEditId, payload) : await createDealer(payload)
-      const saved = res.data.data || res.data
+      if (isDealerEdit && selectedId) await updateDealer(selectedId, payload)
+      else await createDealer(payload)
       await loadBaseData()
-      setSelected(saved?.id || selected)
-      setNotice(dealerEditId ? 'Dealer berhasil diperbarui' : 'Dealer berhasil ditambahkan')
-      resetDealerForm()
+      navigate('/finance')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan dealer')
     } finally {
@@ -345,11 +393,10 @@ export default function FinancePage() {
 
     setSavingFinance(true)
     try {
-      if (financeEditId) await updateFinanceCompany(financeEditId, payload)
+      if (isCompanyEdit && selectedId) await updateFinanceCompany(selectedId, payload)
       else await createFinanceCompany(payload)
       await loadBaseData()
-      setNotice(financeEditId ? 'Finance company berhasil diperbarui' : 'Finance company berhasil ditambahkan')
-      resetFinanceForm()
+      navigate('/finance')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan finance company')
     } finally {
@@ -363,8 +410,6 @@ export default function FinancePage() {
     try {
       await deleteDealer(id)
       await loadBaseData()
-      setNotice('Dealer berhasil dihapus')
-      if (selected === id) setSelected('')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menghapus dealer')
     }
@@ -376,11 +421,303 @@ export default function FinancePage() {
     try {
       await deleteFinanceCompany(id)
       await loadBaseData()
-      setNotice('Finance company berhasil dihapus')
-      if (fcFilter === id) setFcFilter('')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menghapus finance company')
     }
+  }
+
+  if (!canView) {
+    return (
+      <div className="page">
+        <div className="card">
+          <h3>Peta & Finance</h3>
+          <div className="alert">Tidak ada izin melihat finance.</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isDealerDetail) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Dealer</div>
+            <div style={{ color: '#64748b' }}>Informasi dealer dan performa</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {canManage && selectedId && (
+              <button className="btn" onClick={() => navigate(`/finance/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
+                Edit Dealer
+              </button>
+            )}
+            <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali</button>
+          </div>
+        </div>
+
+        <div className="page">
+          {!selectedDealer && <div className="alert">Dealer tidak ditemukan.</div>}
+          {selectedDealer && (
+            <>
+              <div className="card" style={{ maxWidth: 860 }}>
+                <DetailRow label="Nama" value={selectedDealer.name} />
+                <DetailRow label="Telepon" value={selectedDealer.phone || '-'} />
+                <DetailRow label="Provinsi" value={selectedDealer.province || '-'} />
+                <DetailRow label="Kab/Kota" value={selectedDealer.regency || '-'} />
+                <DetailRow label="Kecamatan" value={selectedDealer.district || '-'} />
+                <DetailRow label="Kelurahan" value={selectedDealer.village || '-'} />
+                <DetailRow label="Alamat" value={selectedDealer.address || '-'} />
+                <DetailRow label="Latitude" value={String(selectedDealer.lat ?? selectedDealer.latitude ?? '-')} />
+                <DetailRow label="Longitude" value={String(selectedDealer.lng ?? selectedDealer.longitude ?? '-')} />
+              </div>
+
+              <div className="card" style={{ minHeight: 360 }}>
+                <h3>Lokasi Dealer</h3>
+                <div style={{ marginTop: 10 }}>
+                  <MapContainer
+                    center={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
+                    zoom={11}
+                    style={{ height: 300, borderRadius: 12 }}
+                    scrollWheelZoom={false}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                    <Marker
+                      position={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
+                      icon={markerIcon}
+                    >
+                      <Popup>{selectedDealer.name}</Popup>
+                    </Marker>
+                  </MapContainer>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (isCompanyDetail) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Finance Company</div>
+            <div style={{ color: '#64748b' }}>Informasi finance company</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {canManage && selectedId && (
+              <button className="btn" onClick={() => navigate(`/finance/companies/${selectedId}/edit`, { state: { company: selectedCompany } })}>
+                Edit Finance Company
+              </button>
+            )}
+            <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali</button>
+          </div>
+        </div>
+
+        <div className="page">
+          {!selectedCompany && <div className="alert">Finance company tidak ditemukan.</div>}
+          {selectedCompany && (
+            <div className="card" style={{ maxWidth: 860 }}>
+              <DetailRow label="Nama" value={selectedCompany.name} />
+              <DetailRow label="Telepon" value={selectedCompany.phone || '-'} />
+              <DetailRow label="Provinsi" value={selectedCompany.province || '-'} />
+              <DetailRow label="Kab/Kota" value={selectedCompany.regency || '-'} />
+              <DetailRow label="Kecamatan" value={selectedCompany.district || '-'} />
+              <DetailRow label="Kelurahan" value={selectedCompany.village || '-'} />
+              <DetailRow label="Alamat" value={selectedCompany.address || '-'} />
+              <DetailRow label="Company ID" value={selectedCompany.id || '-'} />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (isDealerCreate || isDealerEdit) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Input Dealer Baru'}</div>
+            <div style={{ color: '#64748b' }}>Form dealer terpisah dari tabel</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali ke Tabel</button>
+        </div>
+
+        <div className="page">
+          <div className="card" style={{ maxWidth: 920 }}>
+            <form onSubmit={submitDealer} className="grid" style={{ gap: 10 }}>
+              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label>Nama Dealer</label>
+                  <input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} required />
+                </div>
+                <div>
+                  <label>No Telepon</label>
+                  <input value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: e.target.value }))} required />
+                </div>
+
+                <div>
+                  <label>Provinsi</label>
+                  <select value={dealerForm.province} onChange={(e) => void handleDealerProvince(e.target.value)} required>
+                    <option value="">Pilih</option>
+                    {provinces.map((province) => (
+                      <option key={province.code} value={province.code}>{province.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Kab/Kota</label>
+                  <select
+                    value={dealerForm.regency}
+                    onChange={(e) => void handleDealerRegency(e.target.value)}
+                    disabled={!dealerForm.province}
+                    required
+                  >
+                    <option value="">Pilih</option>
+                    {dealerKabupaten.map((kab) => (
+                      <option key={kab.code} value={kab.code}>{kab.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Kecamatan</label>
+                  <select
+                    value={dealerForm.district}
+                    onChange={(e) => setDealerForm((prev) => ({ ...prev, district: e.target.value }))}
+                    disabled={!dealerForm.regency}
+                    required
+                  >
+                    <option value="">Pilih</option>
+                    {dealerKecamatan.map((kec) => (
+                      <option key={kec.code} value={kec.code}>{kec.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Kelurahan</label>
+                  <input value={dealerForm.village} onChange={(e) => setDealerForm((prev) => ({ ...prev, village: e.target.value }))} />
+                </div>
+
+                <div>
+                  <label>Latitude</label>
+                  <input type="number" step="any" value={dealerForm.lat} onChange={(e) => setDealerForm((prev) => ({ ...prev, lat: e.target.value }))} required />
+                </div>
+
+                <div>
+                  <label>Longitude</label>
+                  <input type="number" step="any" value={dealerForm.lng} onChange={(e) => setDealerForm((prev) => ({ ...prev, lng: e.target.value }))} required />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label>Alamat</label>
+                  <input value={dealerForm.address} onChange={(e) => setDealerForm((prev) => ({ ...prev, address: e.target.value }))} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/finance')}>Batal</button>
+                <button className="btn" type="submit" disabled={savingDealer}>
+                  {savingDealer ? 'Menyimpan...' : isDealerEdit ? 'Update Dealer' : 'Tambah Dealer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isCompanyCreate || isCompanyEdit) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Input Finance Company Baru'}</div>
+            <div style={{ color: '#64748b' }}>Form finance company terpisah dari tabel</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali ke Tabel</button>
+        </div>
+
+        <div className="page">
+          <div className="card" style={{ maxWidth: 920 }}>
+            <form onSubmit={submitFinance} className="grid" style={{ gap: 10 }}>
+              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label>Nama Finance Company</label>
+                  <input value={financeForm.name} onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))} required />
+                </div>
+                <div>
+                  <label>No Telepon</label>
+                  <input value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: e.target.value }))} required />
+                </div>
+
+                <div>
+                  <label>Provinsi</label>
+                  <select value={financeForm.province} onChange={(e) => void handleFinanceProvince(e.target.value)} required>
+                    <option value="">Pilih</option>
+                    {provinces.map((province) => (
+                      <option key={province.code} value={province.code}>{province.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Kab/Kota</label>
+                  <select
+                    value={financeForm.regency}
+                    onChange={(e) => void handleFinanceRegency(e.target.value)}
+                    disabled={!financeForm.province}
+                    required
+                  >
+                    <option value="">Pilih</option>
+                    {financeKabupaten.map((kab) => (
+                      <option key={kab.code} value={kab.code}>{kab.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Kecamatan</label>
+                  <select
+                    value={financeForm.district}
+                    onChange={(e) => setFinanceForm((prev) => ({ ...prev, district: e.target.value }))}
+                    disabled={!financeForm.regency}
+                    required
+                  >
+                    <option value="">Pilih</option>
+                    {financeKecamatan.map((kec) => (
+                      <option key={kec.code} value={kec.code}>{kec.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Kelurahan</label>
+                  <input value={financeForm.village} onChange={(e) => setFinanceForm((prev) => ({ ...prev, village: e.target.value }))} />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label>Alamat</label>
+                  <input value={financeForm.address} onChange={(e) => setFinanceForm((prev) => ({ ...prev, address: e.target.value }))} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/finance')}>Batal</button>
+                <button className="btn" type="submit" disabled={savingFinance}>
+                  {savingFinance ? 'Menyimpan...' : isCompanyEdit ? 'Update Finance' : 'Tambah Finance'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -388,319 +725,175 @@ export default function FinancePage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Peta & Finance</div>
-          <div style={{ color: '#9ca3af' }}>Kelola dealer, finance company, dan pantau performa</div>
+          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel dealer dan finance company</div>
         </div>
       </div>
 
-      {!canView && <div className="page"><div className="alert">Tidak ada izin melihat finance.</div></div>}
-
-      {canView && (
-        <div className="page" style={{ display: 'grid', gap: 16 }}>
-          {notice && (
-            <div
-              className="card"
-              style={{
-                border: '1px solid rgba(34,197,94,0.35)',
-                background: 'linear-gradient(135deg, rgba(22,163,74,0.15), rgba(15,23,42,0.6))',
-                color: '#bbf7d0',
-              }}
-            >
-              {notice}
+      <div className="page" style={{ display: 'grid', gap: 14 }}>
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3>Dealer</h3>
+              {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Input Dealer</button>}
             </div>
-          )}
 
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16, alignItems: 'start' }}>
-            <div className="card" style={{ background: 'linear-gradient(160deg, rgba(14,116,144,0.22), rgba(15,23,42,0.9))' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3 style={{ margin: 0 }}>Kelola Dealer</h3>
-                <span style={{ fontSize: 12, color: '#67e8f9' }}>{dealerEditId ? 'Mode Edit' : 'Tambah Baru'}</span>
-              </div>
-
-              <form onSubmit={submitDealer} className="grid" style={{ gap: 10 }}>
-                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label>Nama Dealer</label>
-                    <input value={dealerForm.name} onChange={(e) => setDealerForm((s) => ({ ...s, name: e.target.value }))} required />
-                  </div>
-                  <div>
-                    <label>No Telepon</label>
-                    <input value={dealerForm.phone} onChange={(e) => setDealerForm((s) => ({ ...s, phone: e.target.value }))} required />
-                  </div>
-                  <div>
-                    <label>Provinsi</label>
-                    <select value={dealerForm.province} onChange={(e) => void handleDealerProvince(e.target.value)} required>
-                      <option value="">Pilih</option>
-                      {provinces.map((p) => (
-                        <option key={p.code} value={p.code}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Kab/Kota</label>
-                    <select
-                      value={dealerForm.regency}
-                      onChange={(e) => void handleDealerRegency(e.target.value)}
-                      disabled={!dealerForm.province}
-                      required
-                    >
-                      <option value="">Pilih</option>
-                      {dealerKabupaten.map((k) => (
-                        <option key={k.code} value={k.code}>{k.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Kecamatan</label>
-                    <select
-                      value={dealerForm.district}
-                      onChange={(e) => setDealerForm((s) => ({ ...s, district: e.target.value }))}
-                      disabled={!dealerForm.regency}
-                      required
-                    >
-                      <option value="">Pilih</option>
-                      {dealerKecamatan.map((k) => (
-                        <option key={k.code} value={k.code}>{k.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Kelurahan (free text)</label>
-                    <input value={dealerForm.village} onChange={(e) => setDealerForm((s) => ({ ...s, village: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label>Latitude</label>
-                    <input type="number" step="any" value={dealerForm.lat} onChange={(e) => setDealerForm((s) => ({ ...s, lat: e.target.value }))} required />
-                  </div>
-                  <div>
-                    <label>Longitude</label>
-                    <input type="number" step="any" value={dealerForm.lng} onChange={(e) => setDealerForm((s) => ({ ...s, lng: e.target.value }))} required />
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Alamat</label>
-                    <input value={dealerForm.address} onChange={(e) => setDealerForm((s) => ({ ...s, address: e.target.value }))} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn-ghost" onClick={resetDealerForm}>Reset</button>
-                  <button type="submit" className="btn" disabled={savingDealer}>
-                    {savingDealer ? 'Menyimpan...' : dealerEditId ? 'Update Dealer' : 'Tambah Dealer'}
-                  </button>
-                </div>
-              </form>
-
-              <div style={{ marginTop: 14, display: 'grid', gap: 8, maxHeight: 290, overflowY: 'auto' }}>
-                {dealers.map((d) => (
-                  <div
-                    key={d.id}
-                    style={{
-                      padding: 10,
-                      borderRadius: 10,
-                      border: selected === d.id ? '1px solid rgba(56,189,248,0.7)' : '1px solid rgba(255,255,255,0.08)',
-                      background: selected === d.id ? 'rgba(14,116,144,0.25)' : 'rgba(15,23,42,0.45)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                    }}
-                  >
-                    <button className="btn-ghost" style={{ flex: 1, textAlign: 'left', justifyContent: 'flex-start' }} onClick={() => setSelected(d.id)}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{d.name}</div>
-                        <div style={{ color: '#94a3b8', fontSize: 12 }}>{d.regency} • {d.phone || '-'}</div>
-                      </div>
-                    </button>
-                    {canManage && (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn-ghost" onClick={() => void startEditDealer(d)}>Edit</button>
-                        <button className="btn-ghost" onClick={() => void removeDealer(d.id)}>Delete</button>
-                      </div>
-                    )}
-                  </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Regency</th>
+                  <th>Phone</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dealers.map((dealer) => (
+                  <tr key={dealer.id}>
+                    <td>{dealer.name}</td>
+                    <td>{dealer.regency || '-'}</td>
+                    <td>{dealer.phone || '-'}</td>
+                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } })}>View</button>
+                      {canManage && (
+                        <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } })}>Edit</button>
+                      )}
+                      {canManage && <button className="btn-ghost" onClick={() => void removeDealer(dealer.id)}>Delete</button>}
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-
-            <div className="card" style={{ background: 'linear-gradient(160deg, rgba(79,70,229,0.18), rgba(15,23,42,0.9))' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3 style={{ margin: 0 }}>Kelola Finance Company</h3>
-                <span style={{ fontSize: 12, color: '#c4b5fd' }}>{financeEditId ? 'Mode Edit' : 'Tambah Baru'}</span>
-              </div>
-
-              <form onSubmit={submitFinance} className="grid" style={{ gap: 10 }}>
-                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label>Nama Finance Company</label>
-                    <input value={financeForm.name} onChange={(e) => setFinanceForm((s) => ({ ...s, name: e.target.value }))} required />
-                  </div>
-                  <div>
-                    <label>No Telepon</label>
-                    <input value={financeForm.phone} onChange={(e) => setFinanceForm((s) => ({ ...s, phone: e.target.value }))} required />
-                  </div>
-                  <div>
-                    <label>Provinsi</label>
-                    <select value={financeForm.province} onChange={(e) => void handleFinanceProvince(e.target.value)} required>
-                      <option value="">Pilih</option>
-                      {provinces.map((p) => (
-                        <option key={p.code} value={p.code}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Kab/Kota</label>
-                    <select
-                      value={financeForm.regency}
-                      onChange={(e) => void handleFinanceRegency(e.target.value)}
-                      disabled={!financeForm.province}
-                      required
-                    >
-                      <option value="">Pilih</option>
-                      {financeKabupaten.map((k) => (
-                        <option key={k.code} value={k.code}>{k.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Kecamatan</label>
-                    <select
-                      value={financeForm.district}
-                      onChange={(e) => setFinanceForm((s) => ({ ...s, district: e.target.value }))}
-                      disabled={!financeForm.regency}
-                      required
-                    >
-                      <option value="">Pilih</option>
-                      {financeKecamatan.map((k) => (
-                        <option key={k.code} value={k.code}>{k.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Kelurahan (free text)</label>
-                    <input value={financeForm.village} onChange={(e) => setFinanceForm((s) => ({ ...s, village: e.target.value }))} />
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Alamat</label>
-                    <input value={financeForm.address} onChange={(e) => setFinanceForm((s) => ({ ...s, address: e.target.value }))} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn-ghost" onClick={resetFinanceForm}>Reset</button>
-                  <button type="submit" className="btn" disabled={savingFinance}>
-                    {savingFinance ? 'Menyimpan...' : financeEditId ? 'Update Finance' : 'Tambah Finance'}
-                  </button>
-                </div>
-              </form>
-
-              <div style={{ marginTop: 14, display: 'grid', gap: 8, maxHeight: 290, overflowY: 'auto' }}>
-                {financeCompanies.map((f: any) => (
-                  <div
-                    key={f.id}
-                    style={{
-                      padding: 10,
-                      borderRadius: 10,
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      background: 'rgba(15,23,42,0.45)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{f.name}</div>
-                      <div style={{ color: '#94a3b8', fontSize: 12 }}>{f.regency || '-'} • {f.phone || '-'}</div>
-                    </div>
-                    {canManage && (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn-ghost" onClick={() => void startEditFinance(f)}>Edit</button>
-                        <button className="btn-ghost" onClick={() => void removeFinance(f.id)}>Delete</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+                {dealers.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>Belum ada dealer.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
-          <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
-            <div className="card" style={{ minHeight: 430 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>Peta Dealer</h3>
-                <div style={{ color: '#9ca3af', fontSize: 12 }}>{dealerPoints.length} titik dealer</div>
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
-                  <MapFly center={center as any} />
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                  {dealerPoints.map((d) => (
-                    <Marker key={d.id} position={[d._lat, d._lng]} icon={markerIcon} eventHandlers={{ click: () => setSelected(d.id) }}>
-                      <Popup>
-                        <strong>{d.name}</strong>
-                        <div>{d.regency}</div>
-                        <div>{d.phone || '-'}</div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-              </div>
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3>Finance Company</h3>
+              {canManage && <button className="btn" onClick={() => navigate('/finance/companies/create')}>Input Finance</button>}
             </div>
 
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>Detail Performa</h3>
-                <div style={{ color: '#9ca3af', fontSize: 12 }}>{selectedDealer?.name || 'Pilih dealer'}</div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <label>Filter Finance Company</label>
-                <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
-                  <option value="">Semua</option>
-                  {financeCompanies.map((f: any) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {!metrics && <div style={{ marginTop: 12, color: '#94a3b8' }}>Pilih dealer untuk melihat metrik.</div>}
-
-              {metrics && (
-                <>
-                  <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                    <Metric label="Total Order" value={metrics.total_orders} />
-                    <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                    <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
-                    <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                  </div>
-
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Finance</th>
-                          <th>Total</th>
-                          <th>Approve</th>
-                          <th>Lead Avg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {metrics.finance_companies?.map((fc: any) => (
-                          <tr key={fc.finance_company_id}>
-                            <td>{fc.finance_company_name}</td>
-                            <td>{fc.total_orders}</td>
-                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Regency</th>
+                  <th>Phone</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {financeCompanies.map((company) => (
+                  <tr key={company.id}>
+                    <td>{company.name}</td>
+                    <td>{company.regency || '-'}</td>
+                    <td>{company.phone || '-'}</td>
+                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}`, { state: { company } })}>View</button>
+                      {canManage && (
+                        <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}/edit`, { state: { company } })}>Edit</button>
+                      )}
+                      {canManage && <button className="btn-ghost" onClick={() => void removeFinance(company.id)}>Delete</button>}
+                    </td>
+                  </tr>
+                ))}
+                {financeCompanies.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>Belum ada finance company.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+
+        <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 14 }}>
+          <div className="card" style={{ minHeight: 430 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Peta Dealer</h3>
+              <div style={{ color: '#64748b', fontSize: 12 }}>{dealerPoints.length} titik dealer</div>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
+                <MapFly center={center as any} />
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                {dealerPoints.map((dealer) => (
+                  <Marker
+                    key={dealer.id}
+                    position={[dealer._lat, dealer._lng]}
+                    icon={markerIcon}
+                    eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
+                  >
+                    <Popup>
+                      <strong>{dealer.name}</strong>
+                      <div>{dealer.regency}</div>
+                      <div>{dealer.phone || '-'}</div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Detail Performa</h3>
+              <div style={{ color: '#64748b', fontSize: 12 }}>{currentDealer?.name || 'Pilih dealer'}</div>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <label>Filter Finance Company</label>
+              <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
+                <option value="">Semua</option>
+                {financeCompanies.map((company) => (
+                  <option key={company.id} value={company.id}>{company.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {!metrics && <div style={{ marginTop: 12, color: '#64748b' }}>Pilih dealer untuk melihat metrik.</div>}
+
+            {metrics && (
+              <>
+                <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                  <Metric label="Total Order" value={metrics.total_orders} />
+                  <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
+                  <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                  <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Finance</th>
+                        <th>Total</th>
+                        <th>Approve</th>
+                        <th>Lead Avg</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(metrics.finance_companies || []).map((fc: any) => (
+                        <tr key={fc.finance_company_id}>
+                          <td>{fc.finance_company_name}</td>
+                          <td>{fc.total_orders}</td>
+                          <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                          <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -715,16 +908,18 @@ function MapFly({ center }: { center: [number, number] }) {
 
 function Metric({ label, value }: { label: string; value: any }) {
   return (
-    <div
-      style={{
-        background: 'linear-gradient(135deg, rgba(15,23,42,0.75), rgba(30,41,59,0.65))',
-        padding: 12,
-        borderRadius: 12,
-        border: '1px solid rgba(255,255,255,0.08)',
-      }}
-    >
-      <div style={{ color: '#9ca3af', fontSize: 12 }}>{label}</div>
+    <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+      <div style={{ color: '#64748b', fontSize: 12 }}>{label}</div>
       <div style={{ fontWeight: 700, fontSize: 19 }}>{value}</div>
+    </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
+      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
     </div>
   )
 }

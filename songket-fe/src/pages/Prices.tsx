@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
-  fetchPriceList,
-  createScrapeJob,
-  listScrapeJobs,
-  fetchScrapeResults,
-  commitScrapeResults,
-  deletePrice,
   addCommodityPrice,
+  commitScrapeResults,
+  createScrapeJob,
+  deletePrice,
+  fetchPriceList,
+  fetchScrapeResults,
+  listScrapeJobs,
 } from '../api'
 import { useAuth } from '../store'
 
@@ -26,7 +27,23 @@ type ScrapeResult = {
   scraped_at: string
 }
 
+function parseMode(pathname: string) {
+  if (pathname.endsWith('/create')) return 'create'
+  if (/\/prices\/[^/]+$/.test(pathname)) return 'detail'
+  return 'list'
+}
+
 export default function PricesPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = useParams()
+
+  const mode = parseMode(location.pathname)
+  const selectedId = params.id || ''
+  const isList = mode === 'list'
+  const isCreate = mode === 'create'
+  const isDetail = mode === 'detail'
+
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_prices')
   const canScrape = perms.includes('scrape_prices')
@@ -39,7 +56,6 @@ export default function PricesPage() {
   const [urls, setUrls] = useState<string[]>([''])
   const [startingJob, setStartingJob] = useState(false)
 
-  const [showManual, setShowManual] = useState(false)
   const [manual, setManual] = useState<{ name: string; unit: string; price: string; source_url: string }>({
     name: '',
     unit: '',
@@ -54,30 +70,36 @@ export default function PricesPage() {
   const [selectedResultIds, setSelectedResultIds] = useState<string[]>([])
   const [loadingResults, setLoadingResults] = useState(false)
 
+  const statePrice = (location.state as any)?.price || null
+
+  const selectedPrice = useMemo(() => {
+    if (!selectedId) return null
+    return prices.find((price) => price.id === selectedId) || (statePrice?.id === selectedId ? statePrice : null)
+  }, [prices, selectedId, statePrice])
+
   const loadPrices = () => {
     if (!canList) return
     setLoadingPrices(true)
     fetchPriceList({ limit: 200 })
-      .then((r) => setPrices(r.data.data || r.data || []))
+      .then((res) => setPrices(res.data.data || res.data || []))
       .finally(() => setLoadingPrices(false))
   }
 
   const loadJobs = () => {
     if (!canScrape) return
     listScrapeJobs()
-      .then((r) => setJobs(r.data.data || r.data || []))
+      .then((res) => setJobs(res.data.data || res.data || []))
       .catch(() => {})
   }
-
 
   const loadResults = (jobId: string) => {
     setSelectedJob(jobId)
     setLoadingResults(true)
     fetchScrapeResults(jobId)
-      .then((r) => {
-        const data: ScrapeResult[] = r.data.data || r.data || []
+      .then((res) => {
+        const data: ScrapeResult[] = res.data.data || res.data || []
         setResults(data)
-        setSelectedResultIds(data.map((d) => d.id))
+        setSelectedResultIds(data.map((item) => item.id))
       })
       .finally(() => setLoadingResults(false))
   }
@@ -88,18 +110,19 @@ export default function PricesPage() {
 
   useEffect(() => {
     if (!canScrape) return
-      loadJobs()
-    const t = setInterval(loadJobs, 3000)
-    return () => clearInterval(t)
+    loadJobs()
+    const timer = setInterval(loadJobs, 3000)
+    return () => clearInterval(timer)
   }, [canScrape])
 
   const submitManual = async () => {
     if (!canImport) return
+    if (!manual.name) {
+      window.alert('Nama komoditas wajib diisi')
+      return
+    }
+
     try {
-      if (!manual.name) {
-        alert('Nama komoditas wajib diisi')
-        return
-      }
       const numeric = toNumber(manual.price)
       await addCommodityPrice({
         commodity_name: manual.name,
@@ -107,33 +130,31 @@ export default function PricesPage() {
         price: numeric,
         source_url: manual.source_url,
       })
-      setShowManual(false)
       setManual({ name: '', unit: '', price: '', source_url: '' })
       loadPrices()
-    } catch (e: any) {
-      alert(e?.response?.data?.error || 'Gagal menyimpan harga')
+      navigate('/prices')
+    } catch (err: any) {
+      window.alert(err?.response?.data?.error || 'Gagal menyimpan harga')
     }
   }
 
   const startJob = async () => {
-    const payload = urls.map((u) => u.trim()).filter(Boolean)
+    const payload = urls.map((url) => url.trim()).filter(Boolean)
     setStartingJob(true)
     try {
       await createScrapeJob(payload.length ? { urls: payload } : {})
       setShowModal(false)
       setUrls([''])
       loadJobs()
-    } catch (e: any) {
-      window.alert(e?.response?.data?.error || 'Gagal membuat job')
+    } catch (err: any) {
+      window.alert(err?.response?.data?.error || 'Gagal membuat job')
     } finally {
       setStartingJob(false)
     }
   }
 
   const toggleResult = (id: string) => {
-    setSelectedResultIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    )
+    setSelectedResultIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]))
   }
 
   const importSelected = async () => {
@@ -145,8 +166,8 @@ export default function PricesPage() {
       await commitScrapeResults(selectedJob, selectedResultIds)
       window.alert('Data berhasil dimasukkan')
       loadPrices()
-    } catch (e: any) {
-      window.alert(e?.response?.data?.error || 'Gagal mengimport')
+    } catch (err: any) {
+      window.alert(err?.response?.data?.error || 'Gagal mengimport')
     }
   }
 
@@ -156,41 +177,118 @@ export default function PricesPage() {
     try {
       await deletePrice(id)
       loadPrices()
-    } catch (e: any) {
-      window.alert(e?.response?.data?.error || 'Gagal menghapus')
+    } catch (err: any) {
+      window.alert(err?.response?.data?.error || 'Gagal menghapus')
     }
   }
 
   const statusColor = useMemo(
     () =>
       ({
-        pending: '#fbbf24',
-        running: '#60a5fa',
-        success: '#22c55e',
-        error: '#f87171',
+        pending: '#ca8a04',
+        running: '#2563eb',
+        success: '#16a34a',
+        error: '#dc2626',
       } as Record<string, string>),
     [],
   )
+
+  if (isDetail) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Harga Pangan</div>
+            <div style={{ color: '#64748b' }}>Informasi lengkap data harga</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/prices')}>Kembali</button>
+        </div>
+
+        <div className="page">
+          {!selectedPrice && <div className="alert">Data harga tidak ditemukan.</div>}
+          {selectedPrice && (
+            <div className="card" style={{ maxWidth: 820 }}>
+              <DetailRow label="Komoditas" value={selectedPrice.commodity?.name || '-'} />
+              <DetailRow label="Harga" value={formatRupiah(selectedPrice.price)} />
+              <DetailRow label="Satuan" value={selectedPrice.commodity?.unit || '-'} />
+              <DetailRow label="Sumber URL" value={selectedPrice.source_url || '-'} />
+              <DetailRow label="Waktu" value={selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('id-ID') : '-'} />
+              <DetailRow label="Price ID" value={selectedPrice.id} />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (isCreate) {
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Input Manual Harga Pangan</div>
+            <div style={{ color: '#64748b' }}>Halaman form terpisah dari tabel harga</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/prices')}>Kembali ke Tabel</button>
+        </div>
+
+        <div className="page">
+          {!canImport && <div className="alert">Tidak ada izin input harga manual.</div>}
+
+          <div className="card" style={{ maxWidth: 820 }}>
+            <div className="grid" style={{ gap: 10 }}>
+              <div>
+                <label>Nama komoditas</label>
+                <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Contoh: Beras Medium" />
+              </div>
+              <div>
+                <label>Satuan</label>
+                <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/ikat" />
+              </div>
+              <div>
+                <label>Harga (Rp)</label>
+                <input
+                  value={manual.price}
+                  onChange={(e) => setManual((m) => ({ ...m, price: formatRupiahInput(e.target.value) }))}
+                  placeholder="Rp 10.000"
+                />
+              </div>
+              <div>
+                <label>Sumber URL</label>
+                <input value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button className="btn" onClick={() => void submitManual()}>Simpan</button>
+              <button className="btn-ghost" onClick={() => navigate('/prices')}>Batal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Harga Pangan</div>
-          <div style={{ color: '#9ca3af' }}>Scrape harga kemudian pilih data yang mau disimpan</div>
+          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel harga</div>
         </div>
-        {canScrape && (
-          <div style={{ display: 'flex', gap: 8 }}>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {canScrape && (
             <button className="btn" onClick={() => setShowModal(true)}>
               Jalankan Scrape
             </button>
-            {canImport && (
-              <button className="btn-ghost" onClick={() => setShowManual(true)}>
-                Input Manual
-              </button>
-            )}
-          </div>
-        )}
+          )}
+          {canImport && (
+            <button className="btn-ghost" onClick={() => navigate('/prices/create')}>
+              Input Manual
+            </button>
+          )}
+        </div>
       </div>
 
       {!canList && <div className="page"><div className="alert">Tidak ada izin melihat harga.</div></div>}
@@ -200,8 +298,9 @@ export default function PricesPage() {
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>Daftar Harga</h3>
-              <small style={{ color: '#9ca3af' }}>Tampilkan maksimal 200 terbaru</small>
+              <small style={{ color: '#64748b' }}>Menampilkan maksimal 200 data terbaru</small>
             </div>
+
             {loadingPrices ? (
               <div>Memuat...</div>
             ) : (
@@ -212,23 +311,27 @@ export default function PricesPage() {
                     <th>Harga</th>
                     <th>Sumber</th>
                     <th>Waktu</th>
-                    {canScrape && <th>Action</th>}
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {prices.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.commodity?.name || 'Komoditas'}</td>
-                      <td>{formatRupiah(p.price)} {p.commodity?.unit ? `/ ${p.commodity?.unit}` : ''}</td>
-                      <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{p.source_url || '-'}</td>
-                      <td>{new Date(p.collected_at).toLocaleString('id-ID')}</td>
-                      {canScrape && (
-                        <td>
-                          <button className="btn-ghost" onClick={() => removePrice(p.id)}>Delete</button>
-                        </td>
-                      )}
+                  {prices.map((price) => (
+                    <tr key={price.id}>
+                      <td>{price.commodity?.name || 'Komoditas'}</td>
+                      <td>{formatRupiah(price.price)} {price.commodity?.unit ? `/ ${price.commodity?.unit}` : ''}</td>
+                      <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{price.source_url || '-'}</td>
+                      <td>{price.collected_at ? new Date(price.collected_at).toLocaleString('id-ID') : '-'}</td>
+                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn-ghost" onClick={() => navigate(`/prices/${price.id}`, { state: { price } })}>View</button>
+                        {canScrape && <button className="btn-ghost" onClick={() => void removePrice(price.id)}>Delete</button>}
+                      </td>
                     </tr>
                   ))}
+                  {prices.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>Belum ada harga.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             )}
@@ -239,11 +342,12 @@ export default function PricesPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3>Hasil Scrape (Job {selectedJob.slice(0, 6)})</h3>
                 {canImport && (
-                  <button className="btn" onClick={importSelected} disabled={selectedResultIds.length === 0}>
+                  <button className="btn" onClick={() => void importSelected()} disabled={selectedResultIds.length === 0}>
                     Import pilihan ({selectedResultIds.length})
                   </button>
                 )}
               </div>
+
               {loadingResults ? (
                 <div>Memuat hasil...</div>
               ) : results.length === 0 ? (
@@ -260,15 +364,19 @@ export default function PricesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((r) => (
-                      <tr key={r.id}>
+                    {results.map((result) => (
+                      <tr key={result.id}>
                         <td>
-                          <input type="checkbox" checked={selectedResultIds.includes(r.id)} onChange={() => toggleResult(r.id)} />
+                          <input
+                            type="checkbox"
+                            checked={selectedResultIds.includes(result.id)}
+                            onChange={() => toggleResult(result.id)}
+                          />
                         </td>
-                        <td>{r.commodity_name}</td>
-                        <td>{formatRupiah(r.price)} {r.unit ? `/ ${r.unit}` : ''}</td>
-                        <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{r.source_url}</td>
-                        <td>{new Date(r.scraped_at).toLocaleString('id-ID')}</td>
+                        <td>{result.commodity_name}</td>
+                        <td>{formatRupiah(result.price)} {result.unit ? `/ ${result.unit}` : ''}</td>
+                        <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{result.source_url}</td>
+                        <td>{new Date(result.scraped_at).toLocaleString('id-ID')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -280,28 +388,20 @@ export default function PricesPage() {
       )}
 
       {canScrape && (
-        <JobDock
-          open={jobsOpen}
-          onToggle={() => setJobsOpen((o) => !o)}
-          jobs={jobs}
-          onSelect={loadResults}
-          statusColor={statusColor}
-        />
+        <JobDock open={jobsOpen} onToggle={() => setJobsOpen((value) => !value)} jobs={jobs} onSelect={loadResults} statusColor={statusColor} />
       )}
 
       {showModal && canScrape && (
         <div className="modal-backdrop">
           <div className="modal">
             <h3>Input URL untuk di-scrape</h3>
-            <div className="muted" style={{ marginBottom: 8 }}>
-              Tambahkan 1 atau lebih URL. Bisa tambah baris.
-            </div>
+            <div className="muted" style={{ marginBottom: 8 }}>Tambahkan 1 atau lebih URL. Bisa tambah baris.</div>
             <div className="grid" style={{ gap: 10 }}>
-              {urls.map((u, idx) => (
+              {urls.map((url, idx) => (
                 <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <input
                     style={{ flex: 1 }}
-                    value={u}
+                    value={url}
                     placeholder="https://..."
                     onChange={(e) => {
                       const next = [...urls]
@@ -318,50 +418,12 @@ export default function PricesPage() {
               ))}
               <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Tambah baris</button>
             </div>
+
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button className="btn-ghost" onClick={() => setShowModal(false)}>Batal</button>
-              <button className="btn" onClick={startJob} disabled={startingJob}>
+              <button className="btn" onClick={() => void startJob()} disabled={startingJob}>
                 {startingJob ? 'Memulai...' : 'Proses'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showManual && canImport && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Input Manual Harga Pangan</h3>
-            <div className="grid" style={{ gap: 10 }}>
-              <div>
-                <label>Nama komoditas</label>
-                <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Contoh: Beras Medium" />
-              </div>
-              <div>
-                <label>Satuan</label>
-                <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/ikat" />
-              </div>
-              <div>
-                <label>Harga (Rp)</label>
-                <input
-                  value={manual.price}
-                  onChange={(e) =>
-                    setManual((m) => ({
-                      ...m,
-                      price: formatRupiahInput(e.target.value),
-                    }))
-                  }
-                  placeholder="Rp 10.000"
-                />
-              </div>
-              <div>
-                <label>Sumber URL</label>
-                <input value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-              <button className="btn-ghost" onClick={() => setShowManual(false)}>Batal</button>
-              <button className="btn" onClick={submitManual}>Simpan</button>
             </div>
           </div>
         </div>
@@ -390,10 +452,10 @@ function JobDock({
         right: 16,
         bottom: 16,
         width: open ? 320 : 140,
-        background: '#0f172a',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: '#ffffff',
+        border: '1px solid #dbe3ef',
         borderRadius: 12,
-        boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+        boxShadow: '0 10px 40px rgba(15, 23, 42, 0.2)',
         zIndex: 30,
       }}
     >
@@ -401,31 +463,32 @@ function JobDock({
         <div style={{ fontWeight: 700 }}>Job Scrape</div>
         <button className="btn-ghost" onClick={onToggle}>{open ? 'Minimize' : 'Buka'}</button>
       </div>
+
       {open && (
         <div style={{ maxHeight: 260, overflow: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {jobs.length === 0 && <div className="muted">Belum ada job.</div>}
-          {jobs.map((j) => (
+          {jobs.map((job) => (
             <button
-              key={j.id}
+              key={job.id}
               className="btn-ghost"
-              style={{ justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10 }}
-              onClick={() => onSelect(j.id)}
+              style={{ justifyContent: 'space-between', borderRadius: 10, padding: 10 }}
+              onClick={() => onSelect(job.id)}
             >
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 700 }}>{j.id.slice(0, 8)}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>{new Date(j.created_at).toLocaleTimeString('id-ID')}</div>
+                <div style={{ fontWeight: 700 }}>{job.id.slice(0, 8)}</div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>{new Date(job.created_at).toLocaleTimeString('id-ID')}</div>
               </div>
               <span
                 style={{
                   padding: '4px 8px',
                   borderRadius: 999,
-                  background: `${statusColor[j.status] || '#e5e7eb'}22`,
-                  color: statusColor[j.status] || '#e5e7eb',
+                  background: `${statusColor[job.status] || '#334155'}22`,
+                  color: statusColor[job.status] || '#334155',
                   fontSize: 12,
                   textTransform: 'capitalize',
                 }}
               >
-                {j.status}
+                {job.status}
               </span>
             </button>
           ))}
@@ -443,11 +506,20 @@ function formatRupiah(value: number) {
 function formatRupiahInput(raw: string) {
   const digits = raw.replace(/[^\d]/g, '')
   if (!digits) return ''
-  const num = Number(digits)
-  return num.toLocaleString('id-ID')
+  const numeric = Number(digits)
+  return numeric.toLocaleString('id-ID')
 }
 
 function toNumber(raw: string) {
   const digits = raw.replace(/[^\d]/g, '')
   return digits ? Number(digits) : 0
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
+      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
+    </div>
+  )
 }
