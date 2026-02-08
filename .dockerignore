@@ -1,0 +1,13 @@
+.git
+.gitignore
+.idea
+
+node_modules
+songket-fe/node_modules
+songket-fe/dist
+
+coverage
+tmp
+*.log
+
+deploy
