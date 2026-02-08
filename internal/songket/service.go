@@ -660,14 +660,21 @@ type JobNetIncomeItem struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type NetIncomeAreaItem struct {
+	ProvinceCode string `json:"province_code"`
+	ProvinceName string `json:"province_name"`
+	RegencyCode  string `json:"regency_code"`
+	RegencyName  string `json:"regency_name"`
+}
+
 type NetIncomeItem struct {
-	Id            string    `json:"id"`
-	JobID         string    `json:"job_id"`
-	JobName       string    `json:"job_name"`
-	NetIncome     float64   `json:"net_income"`
-	AreaNetIncome []string  `json:"area_net_income"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Id            string              `json:"id"`
+	JobID         string              `json:"job_id"`
+	JobName       string              `json:"job_name"`
+	NetIncome     float64             `json:"net_income"`
+	AreaNetIncome []NetIncomeAreaItem `json:"area_net_income"`
+	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
 }
 
 func (s *Service) ListJobs() ([]JobNetIncomeItem, error) {
@@ -803,7 +810,7 @@ func (s *Service) CreateNetIncome(req NetIncomeRequest) (NetIncomeItem, error) {
 
 	areas := normalizeAreaNetIncome(req.AreaNetIncome)
 	if len(areas) == 0 {
-		return NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one area")
+		return NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one valid province and regency")
 	}
 
 	var job Job
@@ -844,7 +851,7 @@ func (s *Service) UpdateNetIncome(id string, req NetIncomeRequest) (NetIncomeIte
 
 	areas := normalizeAreaNetIncome(req.AreaNetIncome)
 	if len(areas) == 0 {
-		return NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one area")
+		return NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one valid province and regency")
 	}
 
 	var job Job
@@ -2353,30 +2360,70 @@ func firstFloat(m map[string]interface{}, keys ...string) float64 {
 	return 0
 }
 
-func normalizeAreaNetIncome(areas []string) []string {
+func normalizeAreaNetIncome(areas []NetIncomeAreaRequest) []NetIncomeAreaItem {
 	if len(areas) == 0 {
-		return []string{}
+		return []NetIncomeAreaItem{}
+	}
+
+	normalized := make([]NetIncomeAreaItem, 0, len(areas))
+	for _, area := range areas {
+		normalized = append(normalized, NetIncomeAreaItem{
+			ProvinceCode: strings.TrimSpace(area.ProvinceCode),
+			ProvinceName: strings.TrimSpace(area.ProvinceName),
+			RegencyCode:  strings.TrimSpace(area.RegencyCode),
+			RegencyName:  strings.TrimSpace(area.RegencyName),
+		})
+	}
+	return normalizeAreaNetIncomeItems(normalized)
+}
+
+func normalizeAreaNetIncomeItems(areas []NetIncomeAreaItem) []NetIncomeAreaItem {
+	if len(areas) == 0 {
+		return []NetIncomeAreaItem{}
 	}
 
 	seen := make(map[string]struct{}, len(areas))
-	out := make([]string, 0, len(areas))
+	out := make([]NetIncomeAreaItem, 0, len(areas))
 	for _, area := range areas {
-		val := strings.TrimSpace(area)
-		if val == "" {
+		item := NetIncomeAreaItem{
+			ProvinceCode: strings.TrimSpace(area.ProvinceCode),
+			ProvinceName: strings.TrimSpace(area.ProvinceName),
+			RegencyCode:  strings.TrimSpace(area.RegencyCode),
+			RegencyName:  strings.TrimSpace(area.RegencyName),
+		}
+		if item.ProvinceCode == "" && item.ProvinceName == "" && item.RegencyCode == "" && item.RegencyName == "" {
 			continue
 		}
-		key := strings.ToLower(val)
+		if item.ProvinceName == "" {
+			item.ProvinceName = item.ProvinceCode
+		}
+		if item.RegencyName == "" {
+			item.RegencyName = item.RegencyCode
+		}
+		if item.ProvinceCode == "" || item.RegencyCode == "" {
+			// keep legacy entries readable, but new writes always require codes from request validation
+			if item.RegencyName == "" {
+				continue
+			}
+		}
+
+		key := strings.ToLower(strings.Join([]string{
+			item.ProvinceCode,
+			item.ProvinceName,
+			item.RegencyCode,
+			item.RegencyName,
+		}, "|"))
 		if _, ok := seen[key]; ok {
 			continue
 		}
 		seen[key] = struct{}{}
-		out = append(out, val)
+		out = append(out, item)
 	}
 	return out
 }
 
-func encodeAreaNetIncome(areas []string) datatypes.JSON {
-	clean := normalizeAreaNetIncome(areas)
+func encodeAreaNetIncome(areas []NetIncomeAreaItem) datatypes.JSON {
+	clean := normalizeAreaNetIncomeItems(areas)
 	if len(clean) == 0 {
 		return datatypes.JSON([]byte("[]"))
 	}
@@ -2387,15 +2434,36 @@ func encodeAreaNetIncome(areas []string) datatypes.JSON {
 	return datatypes.JSON(b)
 }
 
-func decodeAreaNetIncome(raw datatypes.JSON) []string {
+func decodeAreaNetIncome(raw datatypes.JSON) []NetIncomeAreaItem {
 	if len(raw) == 0 {
-		return []string{}
+		return []NetIncomeAreaItem{}
 	}
-	var areas []string
-	if err := json.Unmarshal(raw, &areas); err != nil {
-		return []string{}
+
+	var areas []NetIncomeAreaItem
+	if err := json.Unmarshal(raw, &areas); err == nil {
+		return normalizeAreaNetIncomeItems(areas)
 	}
-	return normalizeAreaNetIncome(areas)
+
+	// Backward compatibility for old payload shape: []string
+	var legacy []string
+	if err := json.Unmarshal(raw, &legacy); err == nil {
+		mapped := make([]NetIncomeAreaItem, 0, len(legacy))
+		for _, item := range legacy {
+			val := strings.TrimSpace(item)
+			if val == "" {
+				continue
+			}
+			mapped = append(mapped, NetIncomeAreaItem{
+				ProvinceCode: "",
+				ProvinceName: "",
+				RegencyCode:  val,
+				RegencyName:  val,
+			})
+		}
+		return normalizeAreaNetIncomeItems(mapped)
+	}
+
+	return []NetIncomeAreaItem{}
 }
 
 // Lookups for dropdowns

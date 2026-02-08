@@ -96,10 +96,17 @@ type JobRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+type NetIncomeAreaRequest struct {
+	ProvinceCode string `json:"province_code" binding:"required"`
+	ProvinceName string `json:"province_name" binding:"required"`
+	RegencyCode  string `json:"regency_code" binding:"required"`
+	RegencyName  string `json:"regency_name" binding:"required"`
+}
+
 type NetIncomeRequest struct {
-	JobID         string   `json:"job_id" binding:"required"`
-	NetIncome     float64  `json:"net_income" binding:"required,gte=0"`
-	AreaNetIncome []string `json:"area_net_income" binding:"required,min=1,dive,required"`
+	JobID         string                 `json:"job_id" binding:"required"`
+	NetIncome     float64                `json:"net_income" binding:"required,gte=0"`
+	AreaNetIncome []NetIncomeAreaRequest `json:"area_net_income" binding:"required,min=1,dive"`
 }
 
 type NewsSourceRequest struct {

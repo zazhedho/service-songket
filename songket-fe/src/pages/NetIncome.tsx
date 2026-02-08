@@ -1,11 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { createNetIncome, deleteNetIncome, getNetIncome, listJobs, listNetIncome, updateNetIncome } from '../api'
+import {
+  createNetIncome,
+  deleteNetIncome,
+  fetchKabupaten,
+  fetchProvinces,
+  getNetIncome,
+  listJobs,
+  listNetIncome,
+  updateNetIncome,
+} from '../api'
 import { useAuth } from '../store'
+
+type OptionItem = {
+  code: string
+  name: string
+}
 
 type JobItem = {
   id: string
   name: string
+}
+
+type NetIncomeArea = {
+  province_code: string
+  province_name: string
+  regency_code: string
+  regency_name: string
 }
 
 type NetIncomeItem = {
@@ -13,12 +34,18 @@ type NetIncomeItem = {
   job_id: string
   job_name?: string
   net_income: number
-  area_net_income: string[]
+  area_net_income: NetIncomeArea[]
   created_at?: string
   updated_at?: string
 }
 
-const emptyForm = { job_id: '', net_income: '0', area_input: '' }
+const emptyForm = {
+  job_id: '',
+  net_income: '0',
+  province_code: '',
+  regency_code: '',
+  selected_areas: [] as NetIncomeArea[],
+}
 
 function parseMode(pathname: string) {
   if (pathname.endsWith('/create')) return 'create'
@@ -27,21 +54,63 @@ function parseMode(pathname: string) {
   return 'list'
 }
 
-function parseAreas(value: string): string[] {
+function normalizeAreaInput(raw: any): NetIncomeArea[] {
+  if (!Array.isArray(raw)) return []
+
   const seen = new Set<string>()
-  const out: string[] = []
-  value
-    .split(/[\n,]/)
-    .map((v) => v.trim())
-    .filter(Boolean)
-    .forEach((area) => {
-      const key = area.toLowerCase()
-      if (!seen.has(key)) {
-        seen.add(key)
-        out.push(area)
-      }
-    })
+  const out: NetIncomeArea[] = []
+
+  raw.forEach((entry) => {
+    if (typeof entry === 'string') {
+      const val = entry.trim()
+      if (!val) return
+      const key = `|${val}|${val}`.toLowerCase()
+      if (seen.has(key)) return
+      seen.add(key)
+      out.push({
+        province_code: '',
+        province_name: '',
+        regency_code: val,
+        regency_name: val,
+      })
+      return
+    }
+
+    if (!entry || typeof entry !== 'object') return
+
+    const provinceCode = String(entry.province_code || '').trim()
+    const provinceName = String(entry.province_name || '').trim()
+    const regencyCode = String(entry.regency_code || '').trim()
+    const regencyName = String(entry.regency_name || '').trim()
+
+    if (!regencyCode && !regencyName) return
+
+    const normalized: NetIncomeArea = {
+      province_code: provinceCode,
+      province_name: provinceName,
+      regency_code: regencyCode || regencyName,
+      regency_name: regencyName || regencyCode,
+    }
+
+    const key = `${normalized.province_code}|${normalized.regency_code}|${normalized.regency_name}`.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(normalized)
+  })
+
   return out
+}
+
+function normalizeNetIncomeItem(raw: any): NetIncomeItem {
+  return {
+    id: String(raw?.id || ''),
+    job_id: String(raw?.job_id || ''),
+    job_name: raw?.job_name || '',
+    net_income: Number(raw?.net_income || 0),
+    area_net_income: normalizeAreaInput(raw?.area_net_income),
+    created_at: raw?.created_at,
+    updated_at: raw?.updated_at,
+  }
 }
 
 function formatDate(value?: string) {
@@ -57,6 +126,13 @@ function formatCurrency(value: number) {
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(Number(value || 0))
+}
+
+function areaLabel(area: NetIncomeArea) {
+  const province = area.province_name || area.province_code
+  const regency = area.regency_name || area.regency_code
+  if (province) return `${province} - ${regency}`
+  return regency || '-'
 }
 
 export default function NetIncomePage() {
@@ -78,6 +154,8 @@ export default function NetIncomePage() {
 
   const [items, setItems] = useState<NetIncomeItem[]>([])
   const [jobs, setJobs] = useState<JobItem[]>([])
+  const [provinces, setProvinces] = useState<OptionItem[]>([])
+  const [kabupaten, setKabupaten] = useState<OptionItem[]>([])
   const [fetchedItem, setFetchedItem] = useState<NetIncomeItem | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
@@ -86,21 +164,26 @@ export default function NetIncomePage() {
   const stateItem = (location.state as any)?.item || null
 
   const load = async () => {
-    const [netRes, jobRes] = await Promise.all([
+    const [netRes, jobRes, provRes] = await Promise.all([
       listNetIncome().catch(() => ({ data: { data: [] } } as any)),
       listJobs().catch(() => ({ data: { data: [] } } as any)),
+      fetchProvinces().catch(() => ({ data: { data: [] } } as any)),
     ])
 
     const netData = netRes.data?.data || netRes.data || []
     const jobData = jobRes.data?.data || jobRes.data || []
-    setItems(Array.isArray(netData) ? netData : [])
+    const provData = provRes.data?.data || provRes.data || []
+
+    setItems(Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : [])
     setJobs(Array.isArray(jobData) ? jobData : [])
+    setProvinces(Array.isArray(provData) ? provData : [])
   }
 
   useEffect(() => {
     load().catch(() => {
       setItems([])
       setJobs([])
+      setProvinces([])
     })
   }, [])
 
@@ -109,13 +192,14 @@ export default function NetIncomePage() {
       load().catch(() => {
         setItems([])
         setJobs([])
+        setProvinces([])
       })
     }
   }, [canList, isEdit, isDetail, items.length])
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
-    return items.find((item) => item.id === selectedId) || (stateItem?.id === selectedId ? stateItem : null) || fetchedItem
+    return items.find((item) => item.id === selectedId) || (stateItem?.id === selectedId ? normalizeNetIncomeItem(stateItem) : null) || fetchedItem
   }, [items, selectedId, stateItem, fetchedItem])
 
   useEffect(() => {
@@ -123,7 +207,7 @@ export default function NetIncomePage() {
     getNetIncome(selectedId)
       .then((res) => {
         const data = res.data?.data || res.data
-        setFetchedItem(data || null)
+        setFetchedItem(data ? normalizeNetIncomeItem(data) : null)
       })
       .catch(() => setFetchedItem(null))
   }, [selectedId, selectedItem])
@@ -138,23 +222,84 @@ export default function NetIncomePage() {
       setForm({
         job_id: selectedItem.job_id || '',
         net_income: String(selectedItem.net_income ?? 0),
-        area_input: (selectedItem.area_net_income || []).join(', '),
+        province_code: '',
+        regency_code: '',
+        selected_areas: normalizeAreaInput(selectedItem.area_net_income),
       })
     }
   }, [isCreate, isEdit, selectedItem])
 
   useEffect(() => {
-    if (isCreate && jobs.length && !form.job_id) {
+    if ((isCreate || isEdit) && jobs.length && !form.job_id) {
       setForm((prev) => ({ ...prev, job_id: jobs[0].id }))
     }
-  }, [isCreate, jobs, form.job_id])
+  }, [isCreate, isEdit, jobs, form.job_id])
+
+  useEffect(() => {
+    if (!(isCreate || isEdit)) return
+
+    if (!form.province_code) {
+      setKabupaten([])
+      return
+    }
+
+    fetchKabupaten(form.province_code)
+      .then((res) => {
+        const data = res.data?.data || res.data || []
+        setKabupaten(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setKabupaten([]))
+  }, [isCreate, isEdit, form.province_code])
+
+  const addArea = () => {
+    const province = provinces.find((item) => item.code === form.province_code)
+    const regency = kabupaten.find((item) => item.code === form.regency_code)
+
+    if (!province) {
+      setError('Provinsi wajib dipilih')
+      return
+    }
+    if (!regency) {
+      setError('Kabupaten/Kota wajib dipilih')
+      return
+    }
+
+    const nextArea: NetIncomeArea = {
+      province_code: province.code,
+      province_name: province.name,
+      regency_code: regency.code,
+      regency_name: regency.name,
+    }
+
+    const exists = form.selected_areas.some(
+      (item) => item.province_code === nextArea.province_code && item.regency_code === nextArea.regency_code,
+    )
+    if (exists) {
+      setError('Area yang dipilih sudah ada')
+      return
+    }
+
+    setError('')
+    setForm((prev) => ({
+      ...prev,
+      selected_areas: [...prev.selected_areas, nextArea],
+      regency_code: '',
+    }))
+  }
+
+  const removeArea = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      selected_areas: prev.selected_areas.filter((_, idx) => idx !== index),
+    }))
+  }
 
   const save = async () => {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
 
     const netIncome = Number(form.net_income)
-    const areas = parseAreas(form.area_input)
+    const areas = normalizeAreaInput(form.selected_areas)
 
     if (!form.job_id) {
       setError('Pekerjaan wajib dipilih')
@@ -172,7 +317,11 @@ export default function NetIncomePage() {
     setLoading(true)
     setError('')
     try {
-      const body = { job_id: form.job_id, net_income: netIncome, area_net_income: areas }
+      const body = {
+        job_id: form.job_id,
+        net_income: netIncome,
+        area_net_income: areas,
+      }
       if (isEdit && selectedId) await updateNetIncome(selectedId, body)
       else await createNetIncome(body)
       if (canList) {
@@ -225,7 +374,10 @@ export default function NetIncomePage() {
             <div className="card" style={{ maxWidth: 820 }}>
               <DetailRow label="Pekerjaan" value={jobName(selectedItem.job_id, selectedItem.job_name)} />
               <DetailRow label="Net Income" value={formatCurrency(Number(selectedItem.net_income || 0))} />
-              <DetailRow label="Area Net Income" value={(selectedItem.area_net_income || []).join(', ') || '-'} />
+              <DetailRow
+                label="Area Net Income"
+                value={selectedItem.area_net_income.length ? selectedItem.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}
+              />
               <DetailRow label="Created At" value={formatDate(selectedItem.created_at)} />
               <DetailRow label="Updated At" value={formatDate(selectedItem.updated_at)} />
               <DetailRow label="ID" value={selectedItem.id} />
@@ -248,7 +400,7 @@ export default function NetIncomePage() {
         </div>
 
         <div className="page">
-          <div className="card" style={{ maxWidth: 860 }}>
+          <div className="card" style={{ maxWidth: 900 }}>
             {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat data.</div>}
             {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah data.</div>}
 
@@ -274,16 +426,65 @@ export default function NetIncomePage() {
                 />
               </div>
 
-              <div>
-                <label>Area Net Income</label>
-                <textarea
-                  value={form.area_input}
-                  onChange={(e) => setForm((prev) => ({ ...prev, area_input: e.target.value }))}
-                  rows={4}
-                  placeholder="Pisahkan area dengan koma atau baris baru. Contoh: Lombok Barat, Mataram"
-                />
-                <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-                  Area terdeteksi: {parseAreas(form.area_input).length}
+              <div style={{ border: '1px solid #dde4ee', borderRadius: 10, padding: 12, background: '#f8fafc' }}>
+                <div style={{ fontWeight: 700, marginBottom: 10 }}>Tambah Area Net Income</div>
+                <div className="grid" style={{ gap: 10 }}>
+                  <div>
+                    <label>Provinsi</label>
+                    <select
+                      value={form.province_code}
+                      onChange={(e) => setForm((prev) => ({ ...prev, province_code: e.target.value, regency_code: '' }))}
+                    >
+                      <option value="">Pilih provinsi</option>
+                      {provinces.map((province) => (
+                        <option key={province.code} value={province.code}>{province.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Kabupaten / Kota</label>
+                    <select
+                      value={form.regency_code}
+                      onChange={(e) => setForm((prev) => ({ ...prev, regency_code: e.target.value }))}
+                      disabled={!form.province_code}
+                    >
+                      <option value="">Pilih kabupaten/kota</option>
+                      {kabupaten.map((item) => (
+                        <option key={item.code} value={item.code}>{item.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <button className="btn-ghost" type="button" onClick={addArea}>Tambah Area</button>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  {form.selected_areas.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>Belum ada area dipilih.</div>}
+                  {form.selected_areas.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {form.selected_areas.map((area, idx) => (
+                        <div
+                          key={`${area.province_code}-${area.regency_code}-${idx}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 10,
+                            border: '1px solid #dde4ee',
+                            borderRadius: 8,
+                            padding: '8px 10px',
+                            background: '#fff',
+                          }}
+                        >
+                          <div style={{ fontWeight: 600 }}>{areaLabel(area)}</div>
+                          <button className="btn-ghost" type="button" onClick={() => removeArea(idx)}>Hapus</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -332,7 +533,7 @@ export default function NetIncomePage() {
                   <tr key={item.id}>
                     <td>{jobName(item.job_id, item.job_name)}</td>
                     <td>{formatCurrency(Number(item.net_income || 0))}</td>
-                    <td>{(item.area_net_income || []).join(', ') || '-'}</td>
+                    <td>{item.area_net_income.length ? item.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}</td>
                     <td>{formatDate(item.updated_at)}</td>
                     <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button className="btn-ghost" onClick={() => navigate(`/net-income/${item.id}`, { state: { item } })}>View</button>
