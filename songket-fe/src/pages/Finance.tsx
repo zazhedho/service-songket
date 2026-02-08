@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -49,6 +49,24 @@ type FinanceForm = {
   address: string
 }
 
+type CompanyDealerRow = {
+  dealer_id: string
+  dealer_name: string
+  total_orders: number
+  approval_rate: number
+  lead_time_seconds_avg: number | null
+  rescue_approved_fc2: number
+}
+
+type CompanySummary = {
+  total_orders: number
+  approval_rate: number
+  lead_time_seconds_avg: number | null
+  rescue_approved_fc2: number
+  active_dealers: number
+  dealer_rows: CompanyDealerRow[]
+}
+
 const initialDealerForm: DealerForm = {
   name: '',
   province: '',
@@ -81,10 +99,15 @@ function parseFinanceMode(pathname: string) {
   return 'list'
 }
 
+function getListTab(searchParams: URLSearchParams): 'dealer' | 'finance' {
+  return searchParams.get('tab') === 'finance' ? 'finance' : 'dealer'
+}
+
 export default function FinancePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const mode = parseFinanceMode(location.pathname)
   const selectedId = params.id || ''
@@ -96,6 +119,8 @@ export default function FinancePage() {
   const isCompanyCreate = mode === 'company_create'
   const isCompanyEdit = mode === 'company_edit'
   const isCompanyDetail = mode === 'company_detail'
+
+  const listTab = getListTab(searchParams)
 
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('list_finance_dealers')
@@ -117,6 +142,9 @@ export default function FinancePage() {
   const [financeForm, setFinanceForm] = useState<FinanceForm>(initialFinanceForm)
   const [savingDealer, setSavingDealer] = useState(false)
   const [savingFinance, setSavingFinance] = useState(false)
+
+  const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
+  const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
 
   const stateDealer = (location.state as any)?.dealer || null
   const stateCompany = (location.state as any)?.company || null
@@ -146,14 +174,14 @@ export default function FinancePage() {
   }, [canView])
 
   useEffect(() => {
-    if (!selectedDealerId) {
+    if (!selectedDealerId || !(isList && listTab === 'dealer')) {
       setMetrics(null)
       return
     }
     fetchDealerMetrics(selectedDealerId, fcFilter ? { finance_company_id: fcFilter } : undefined)
       .then((res) => setMetrics(res.data.data || res.data || null))
       .catch(() => setMetrics(null))
-  }, [selectedDealerId, fcFilter])
+  }, [fcFilter, isList, listTab, selectedDealerId])
 
   useEffect(() => {
     if (dealers.length === 0) {
@@ -175,6 +203,66 @@ export default function FinancePage() {
     return financeCompanies.find((company) => company.id === selectedId) || (stateCompany?.id === selectedId ? stateCompany : null)
   }, [financeCompanies, selectedId, stateCompany])
 
+  useEffect(() => {
+    if (!isCompanyDetail || !selectedCompany?.id || dealers.length === 0) {
+      setCompanySummary(null)
+      return
+    }
+
+    setCompanySummaryLoading(true)
+    Promise.all(
+      dealers.map(async (dealer) => {
+        try {
+          const res = await fetchDealerMetrics(dealer.id)
+          const data = res.data.data || res.data || {}
+          const rows = Array.isArray(data.finance_companies) ? data.finance_companies : []
+          const row = rows.find((fc: any) => fc.finance_company_id === selectedCompany.id)
+          if (!row) return null
+
+          return {
+            dealer_id: dealer.id,
+            dealer_name: dealer.name || '-',
+            total_orders: Number(row.total_orders || 0),
+            approval_rate: Number(row.approval_rate || 0),
+            lead_time_seconds_avg:
+              row.lead_time_seconds_avg == null ? null : Number(row.lead_time_seconds_avg),
+            rescue_approved_fc2: Number(row.rescue_approved_fc2 || 0),
+          } as CompanyDealerRow
+        } catch {
+          return null
+        }
+      }),
+    )
+      .then((results) => {
+        const rows = results.filter((item): item is CompanyDealerRow => item !== null)
+
+        const totalOrders = rows.reduce((sum, item) => sum + item.total_orders, 0)
+        const approvedCount = rows.reduce((sum, item) => sum + item.approval_rate * item.total_orders, 0)
+        const rescueCount = rows.reduce((sum, item) => sum + item.rescue_approved_fc2, 0)
+
+        let leadWeight = 0
+        let leadTotal = 0
+        rows.forEach((item) => {
+          if (item.lead_time_seconds_avg != null && item.total_orders > 0) {
+            leadWeight += item.lead_time_seconds_avg * item.total_orders
+            leadTotal += item.total_orders
+          }
+        })
+
+        const summary: CompanySummary = {
+          total_orders: totalOrders,
+          approval_rate: totalOrders > 0 ? approvedCount / totalOrders : 0,
+          lead_time_seconds_avg: leadTotal > 0 ? leadWeight / leadTotal : null,
+          rescue_approved_fc2: rescueCount,
+          active_dealers: rows.filter((item) => item.total_orders > 0).length,
+          dealer_rows: rows.sort((a, b) => b.total_orders - a.total_orders),
+        }
+
+        setCompanySummary(summary)
+      })
+      .finally(() => setCompanySummaryLoading(false))
+  }, [dealers, isCompanyDetail, selectedCompany?.id])
+
   const dealerPoints = useMemo(() => {
     return dealers
       .map((dealer) => ({ ...dealer, _lat: Number(dealer.lat ?? dealer.latitude), _lng: Number(dealer.lng ?? dealer.longitude) }))
@@ -191,6 +279,13 @@ export default function FinancePage() {
       : dealerPoints.length > 0
         ? [dealerPoints[0]._lat, dealerPoints[0]._lng]
         : [-8.58, 116.12]
+
+  const setTab = (tab: 'dealer' | 'finance') => {
+    const next = new URLSearchParams(searchParams)
+    if (tab === 'finance') next.set('tab', 'finance')
+    else next.delete('tab')
+    setSearchParams(next, { replace: true })
+  }
 
   const handleDealerProvince = async (code: string) => {
     setDealerForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
@@ -369,7 +464,7 @@ export default function FinancePage() {
       if (isDealerEdit && selectedId) await updateDealer(selectedId, payload)
       else await createDealer(payload)
       await loadBaseData()
-      navigate('/finance')
+      navigate('/finance?tab=dealer')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan dealer')
     } finally {
@@ -396,7 +491,7 @@ export default function FinancePage() {
       if (isCompanyEdit && selectedId) await updateFinanceCompany(selectedId, payload)
       else await createFinanceCompany(payload)
       await loadBaseData()
-      navigate('/finance')
+      navigate('/finance?tab=finance')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan finance company')
     } finally {
@@ -443,7 +538,7 @@ export default function FinancePage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Dealer</div>
-            <div style={{ color: '#64748b' }}>Informasi dealer dan performa</div>
+            <div style={{ color: '#64748b' }}>Informasi dealer dan peta lokasi</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
@@ -451,7 +546,7 @@ export default function FinancePage() {
                 Edit Dealer
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/finance?tab=dealer')}>Kembali</button>
           </div>
         </div>
 
@@ -472,7 +567,7 @@ export default function FinancePage() {
               </div>
 
               <div className="card" style={{ minHeight: 360 }}>
-                <h3>Lokasi Dealer</h3>
+                <h3>Peta Dealer</h3>
                 <div style={{ marginTop: 10 }}>
                   <MapContainer
                     center={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
@@ -503,7 +598,7 @@ export default function FinancePage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Finance Company</div>
-            <div style={{ color: '#64748b' }}>Informasi finance company</div>
+            <div style={{ color: '#64748b' }}>Data company dan ringkasan performa</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
@@ -511,23 +606,76 @@ export default function FinancePage() {
                 Edit Finance Company
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/finance?tab=finance')}>Kembali</button>
           </div>
         </div>
 
         <div className="page">
           {!selectedCompany && <div className="alert">Finance company tidak ditemukan.</div>}
           {selectedCompany && (
-            <div className="card" style={{ maxWidth: 860 }}>
-              <DetailRow label="Nama" value={selectedCompany.name} />
-              <DetailRow label="Telepon" value={selectedCompany.phone || '-'} />
-              <DetailRow label="Provinsi" value={selectedCompany.province || '-'} />
-              <DetailRow label="Kab/Kota" value={selectedCompany.regency || '-'} />
-              <DetailRow label="Kecamatan" value={selectedCompany.district || '-'} />
-              <DetailRow label="Kelurahan" value={selectedCompany.village || '-'} />
-              <DetailRow label="Alamat" value={selectedCompany.address || '-'} />
-              <DetailRow label="Company ID" value={selectedCompany.id || '-'} />
-            </div>
+            <>
+              <div className="card" style={{ maxWidth: 860 }}>
+                <DetailRow label="Nama" value={selectedCompany.name} />
+                <DetailRow label="Telepon" value={selectedCompany.phone || '-'} />
+                <DetailRow label="Provinsi" value={selectedCompany.province || '-'} />
+                <DetailRow label="Kab/Kota" value={selectedCompany.regency || '-'} />
+                <DetailRow label="Kecamatan" value={selectedCompany.district || '-'} />
+                <DetailRow label="Kelurahan" value={selectedCompany.village || '-'} />
+                <DetailRow label="Alamat" value={selectedCompany.address || '-'} />
+                <DetailRow label="Company ID" value={selectedCompany.id || '-'} />
+              </div>
+
+              <div className="card">
+                <h3>Summary Performa Finance</h3>
+                {companySummaryLoading && <div className="muted">Memuat summary performa...</div>}
+                {!companySummaryLoading && !companySummary && <div className="muted">Belum ada data performa.</div>}
+
+                {!companySummaryLoading && companySummary && (
+                  <>
+                    <div className="grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
+                      <Metric label="Total Order" value={companySummary.total_orders} />
+                      <Metric label="Approval Rate" value={`${(companySummary.approval_rate * 100).toFixed(1)}%`} />
+                      <Metric label="Lead Avg (s)" value={companySummary.lead_time_seconds_avg != null ? companySummary.lead_time_seconds_avg.toFixed(1) : '-'} />
+                      <Metric label="Rescue FC2" value={companySummary.rescue_approved_fc2} />
+                    </div>
+
+                    <div style={{ marginTop: 10, color: '#64748b', fontSize: 12 }}>
+                      Dealer aktif: {companySummary.active_dealers} dari {dealers.length} dealer
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Dealer</th>
+                            <th>Total Order</th>
+                            <th>Approval Rate</th>
+                            <th>Lead Avg (s)</th>
+                            <th>Rescue FC2</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {companySummary.dealer_rows.map((row) => (
+                            <tr key={row.dealer_id}>
+                              <td>{row.dealer_name}</td>
+                              <td>{row.total_orders}</td>
+                              <td>{(row.approval_rate * 100).toFixed(1)}%</td>
+                              <td>{row.lead_time_seconds_avg != null ? row.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                              <td>{row.rescue_approved_fc2}</td>
+                            </tr>
+                          ))}
+                          {companySummary.dealer_rows.length === 0 && (
+                            <tr>
+                              <td colSpan={5}>Belum ada data performa per dealer.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -542,7 +690,7 @@ export default function FinancePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Input Dealer Baru'}</div>
             <div style={{ color: '#64748b' }}>Form dealer terpisah dari tabel</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/finance?tab=dealer')}>Kembali ke Tabel</button>
         </div>
 
         <div className="page">
@@ -620,7 +768,7 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate('/finance')}>Batal</button>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/finance?tab=dealer')}>Batal</button>
                 <button className="btn" type="submit" disabled={savingDealer}>
                   {savingDealer ? 'Menyimpan...' : isDealerEdit ? 'Update Dealer' : 'Tambah Dealer'}
                 </button>
@@ -640,7 +788,7 @@ export default function FinancePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Input Finance Company Baru'}</div>
             <div style={{ color: '#64748b' }}>Form finance company terpisah dari tabel</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/finance?tab=finance')}>Kembali ke Tabel</button>
         </div>
 
         <div className="page">
@@ -708,7 +856,7 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate('/finance')}>Batal</button>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/finance?tab=finance')}>Batal</button>
                 <button className="btn" type="submit" disabled={savingFinance}>
                   {savingFinance ? 'Menyimpan...' : isCompanyEdit ? 'Update Finance' : 'Tambah Finance'}
                 </button>
@@ -725,51 +873,145 @@ export default function FinancePage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Peta & Finance</div>
-          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel dealer dan finance company</div>
+          <div style={{ color: '#64748b' }}>Gunakan tab untuk kelola Dealer dan Finance Company</div>
         </div>
       </div>
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <h3>Dealer</h3>
-              {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Input Dealer</button>}
+        <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Tab Dealer</button>
+          <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Tab Finance</button>
+        </div>
+
+        {listTab === 'dealer' && (
+          <>
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <h3>Dealer</h3>
+                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Input Dealer</button>}
+              </div>
+
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nama</th>
+                    <th>Regency</th>
+                    <th>Phone</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dealers.map((dealer) => (
+                    <tr key={dealer.id}>
+                      <td>{dealer.name}</td>
+                      <td>{dealer.regency || '-'}</td>
+                      <td>{dealer.phone || '-'}</td>
+                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn-ghost" onClick={() => setSelectedDealerId(dealer.id)}>Preview</button>
+                        <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } })}>View</button>
+                        {canManage && (
+                          <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } })}>Edit</button>
+                        )}
+                        {canManage && <button className="btn-ghost" onClick={() => void removeDealer(dealer.id)}>Delete</button>}
+                      </td>
+                    </tr>
+                  ))}
+                  {dealers.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>Belum ada dealer.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nama</th>
-                  <th>Regency</th>
-                  <th>Phone</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dealers.map((dealer) => (
-                  <tr key={dealer.id}>
-                    <td>{dealer.name}</td>
-                    <td>{dealer.regency || '-'}</td>
-                    <td>{dealer.phone || '-'}</td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } })}>View</button>
-                      {canManage && (
-                        <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } })}>Edit</button>
-                      )}
-                      {canManage && <button className="btn-ghost" onClick={() => void removeDealer(dealer.id)}>Delete</button>}
-                    </td>
-                  </tr>
-                ))}
-                {dealers.length === 0 && (
-                  <tr>
-                    <td colSpan={4}>Belum ada dealer.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+            <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 14 }}>
+              <div className="card" style={{ minHeight: 430 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Peta Dealer</h3>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{dealerPoints.length} titik dealer</div>
+                </div>
 
+                <div style={{ marginTop: 10 }}>
+                  <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
+                    <MapFly center={center as any} />
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                    {dealerPoints.map((dealer) => (
+                      <Marker
+                        key={dealer.id}
+                        position={[dealer._lat, dealer._lng]}
+                        icon={markerIcon}
+                        eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
+                      >
+                        <Popup>
+                          <strong>{dealer.name}</strong>
+                          <div>{dealer.regency}</div>
+                          <div>{dealer.phone || '-'}</div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                  </MapContainer>
+                </div>
+              </div>
+
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Performa Dealer</h3>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{currentDealer?.name || 'Pilih dealer'}</div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <label>Filter Finance Company</label>
+                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
+                    <option value="">Semua</option>
+                    {financeCompanies.map((company) => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {!metrics && <div style={{ marginTop: 12, color: '#64748b' }}>Pilih dealer untuk melihat metrik.</div>}
+
+                {metrics && (
+                  <>
+                    <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                      <Metric label="Total Order" value={metrics.total_orders} />
+                      <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
+                      <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                      <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Finance</th>
+                            <th>Total</th>
+                            <th>Approve</th>
+                            <th>Lead Avg</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(metrics.finance_companies || []).map((fc: any) => (
+                            <tr key={fc.finance_company_id}>
+                              <td>{fc.finance_company_name}</td>
+                              <td>{fc.total_orders}</td>
+                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {listTab === 'finance' && (
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <h3>Finance Company</h3>
@@ -808,91 +1050,7 @@ export default function FinancePage() {
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 14 }}>
-          <div className="card" style={{ minHeight: 430 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Peta Dealer</h3>
-              <div style={{ color: '#64748b', fontSize: 12 }}>{dealerPoints.length} titik dealer</div>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
-                <MapFly center={center as any} />
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                {dealerPoints.map((dealer) => (
-                  <Marker
-                    key={dealer.id}
-                    position={[dealer._lat, dealer._lng]}
-                    icon={markerIcon}
-                    eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
-                  >
-                    <Popup>
-                      <strong>{dealer.name}</strong>
-                      <div>{dealer.regency}</div>
-                      <div>{dealer.phone || '-'}</div>
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
-            </div>
-          </div>
-
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Detail Performa</h3>
-              <div style={{ color: '#64748b', fontSize: 12 }}>{currentDealer?.name || 'Pilih dealer'}</div>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <label>Filter Finance Company</label>
-              <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
-                <option value="">Semua</option>
-                {financeCompanies.map((company) => (
-                  <option key={company.id} value={company.id}>{company.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {!metrics && <div style={{ marginTop: 12, color: '#64748b' }}>Pilih dealer untuk melihat metrik.</div>}
-
-            {metrics && (
-              <>
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                  <Metric label="Total Order" value={metrics.total_orders} />
-                  <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                  <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
-                  <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Finance</th>
-                        <th>Total</th>
-                        <th>Approve</th>
-                        <th>Lead Avg</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(metrics.finance_companies || []).map((fc: any) => (
-                        <tr key={fc.finance_company_id}>
-                          <td>{fc.finance_company_name}</td>
-                          <td>{fc.total_orders}</td>
-                          <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                          <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

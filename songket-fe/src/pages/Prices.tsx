@@ -64,7 +64,7 @@ export default function PricesPage() {
   })
 
   const [jobs, setJobs] = useState<Job[]>([])
-  const [jobsOpen, setJobsOpen] = useState(true)
+  const [jobsOpen, setJobsOpen] = useState(false)
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
   const [results, setResults] = useState<ScrapeResult[]>([])
   const [selectedResultIds, setSelectedResultIds] = useState<string[]>([])
