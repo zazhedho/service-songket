@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { createMenu, deleteMenu, listMenus, updateMenu } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const empty = { name: '', display_name: '', path: '', icon: '', parent_id: '', order_index: 0, is_active: true }
@@ -31,6 +32,12 @@ export default function MenusPage() {
   const canDelete = perms.includes('delete_menu')
 
   const [items, setItems] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
+
   const [form, setForm] = useState(empty)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -38,15 +45,22 @@ export default function MenusPage() {
   const stateItem = (location.state as any)?.menu || null
 
   const load = async () => {
-    const res = await listMenus()
+    const res = await listMenus({ page, limit, search: search || undefined })
     setItems(res.data.data || res.data || [])
+    setTotalPages(res.data.total_pages || 1)
+    setTotalData(res.data.total_data || 0)
+    setPage(res.data.current_page || page)
   }
 
   useEffect(() => {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isDetail, isEdit])
+  }, [canList, isDetail, isEdit, limit, page, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
@@ -199,10 +213,16 @@ export default function MenusPage() {
 
       <div className="page">
         <div className="card">
+          <div style={{ marginBottom: 10 }}>
+            <label>Search Menu</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/path" />
+          </div>
+
           <h3>Daftar Menu</h3>
           {!canList && <div className="alert">Tidak ada izin melihat menu.</div>}
           {canList && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Nama</th>
@@ -235,7 +255,20 @@ export default function MenusPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
       </div>

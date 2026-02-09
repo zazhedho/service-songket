@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { createJob, deleteJob, getJob, listJobs, updateJob } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 type JobItem = {
@@ -48,19 +49,36 @@ export default function JobsPage() {
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [nameFilter, setNameFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
 
   const stateItem = (location.state as any)?.job || null
 
   const load = async () => {
-    const res = await listJobs()
+    const res = await listJobs({ page, limit, search: search || undefined, filters: { name: nameFilter || undefined } })
     setItems(res.data.data || res.data || [])
+    setTotalPages(res.data.total_pages || 1)
+    setTotalData(res.data.total_data || 0)
+    setPage(res.data.current_page || page)
   }
 
   useEffect(() => {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isEdit, isDetail])
+  }, [canList, isEdit, isDetail, limit, nameFilter, page, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [nameFilter])
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
@@ -204,10 +222,21 @@ export default function JobsPage() {
 
       <div className="page">
         <div className="card">
+          <div style={{ marginBottom: 10 }}>
+            <label>Search Pekerjaan</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama pekerjaan" />
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <label>Filter Nama Tepat</label>
+            <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} placeholder="Nama persis" />
+          </div>
+
           <h3>Daftar Pekerjaan</h3>
           {!canList && <div className="alert">Tidak ada izin melihat data pekerjaan.</div>}
           {canList && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Nama Pekerjaan</th>
@@ -238,7 +267,20 @@ export default function JobsPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
       </div>

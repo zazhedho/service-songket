@@ -560,13 +560,76 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 	}, nil
 }
 
-// ListDealers returns all dealers for map.
-func (s *Service) ListDealers() ([]Dealer, error) {
-	var dealers []Dealer
-	if err := s.db.Order("name ASC").Find(&dealers).Error; err != nil {
-		return nil, err
+// ListDealers returns dealers with pagination support.
+func (s *Service) ListDealers(params filter.BaseParams) ([]Dealer, int64, error) {
+	query := s.db.Model(&Dealer{})
+
+	if v, ok := params.Filters["province"]; ok {
+		query = query.Where("province = ?", v)
 	}
-	return dealers, nil
+	if v, ok := params.Filters["regency"]; ok {
+		query = query.Where("regency = ?", v)
+	}
+	if v, ok := params.Filters["district"]; ok {
+		query = query.Where("district = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(name) LIKE ? OR LOWER(regency) LIKE ? OR LOWER(phone) LIKE ?", search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var dealers []Dealer
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&dealers).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return dealers, total, nil
+}
+
+// ListFinanceCompanies returns finance companies with pagination support.
+func (s *Service) ListFinanceCompanies(params filter.BaseParams) ([]FinanceCompany, int64, error) {
+	query := s.db.Model(&FinanceCompany{})
+
+	if v, ok := params.Filters["province"]; ok {
+		query = query.Where("province = ?", v)
+	}
+	if v, ok := params.Filters["regency"]; ok {
+		query = query.Where("regency = ?", v)
+	}
+	if v, ok := params.Filters["district"]; ok {
+		query = query.Where("district = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(name) LIKE ? OR LOWER(regency) LIKE ? OR LOWER(phone) LIKE ?", search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var companies []FinanceCompany
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&companies).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return companies, total, nil
 }
 
 func (s *Service) CreateDealer(req DealerRequest) (Dealer, error) {
@@ -677,10 +740,30 @@ type NetIncomeItem struct {
 	UpdatedAt     time.Time           `json:"updated_at"`
 }
 
-func (s *Service) ListJobs() ([]JobNetIncomeItem, error) {
+func (s *Service) ListJobs(params filter.BaseParams) ([]JobNetIncomeItem, int64, error) {
+	query := s.db.Model(&Job{})
+
+	if v, ok := params.Filters["name"]; ok {
+		query = query.Where("name = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(name) LIKE ?", search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	var jobs []Job
-	if err := s.db.Order("name ASC").Find(&jobs).Error; err != nil {
-		return nil, err
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&jobs).Error; err != nil {
+		return nil, 0, err
 	}
 
 	items := make([]JobNetIncomeItem, 0, len(jobs))
@@ -692,7 +775,7 @@ func (s *Service) ListJobs() ([]JobNetIncomeItem, error) {
 			UpdatedAt: job.UpdatedAt,
 		})
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (s *Service) GetJobByID(id string) (JobNetIncomeItem, error) {
@@ -758,10 +841,37 @@ func (s *Service) DeleteJob(id string) error {
 	return s.db.Delete(&Job{}, "id = ?", id).Error
 }
 
-func (s *Service) ListNetIncomes() ([]NetIncomeItem, error) {
+func (s *Service) ListNetIncomes(params filter.BaseParams) ([]NetIncomeItem, int64, error) {
+	query := s.db.Model(&JobNetIncome{}).
+		Joins("LEFT JOIN jobs ON jobs.id = job_net_incomes.job_id")
+
+	if v, ok := params.Filters["job_id"]; ok {
+		query = query.Where("job_net_incomes.job_id = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(jobs.name) LIKE ?", search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "job_net_incomes." + orderBy
+	}
+
 	var rows []JobNetIncome
-	if err := s.db.Preload("Job").Order("created_at DESC").Find(&rows).Error; err != nil {
-		return nil, err
+	if err := query.
+		Preload("Job").
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
 	}
 
 	items := make([]NetIncomeItem, 0, len(rows))
@@ -780,7 +890,7 @@ func (s *Service) ListNetIncomes() ([]NetIncomeItem, error) {
 			UpdatedAt:     row.UpdatedAt,
 		})
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (s *Service) GetNetIncomeByID(id string) (NetIncomeItem, error) {
@@ -915,12 +1025,55 @@ func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCap
 	return cc, nil
 }
 
-func (s *Service) ListCreditCapabilities() ([]CreditCapability, error) {
-	var data []CreditCapability
-	if err := s.db.Preload("Job").Find(&data).Error; err != nil {
-		return nil, err
+func (s *Service) ListCreditCapabilities(params filter.BaseParams) ([]CreditCapability, int64, error) {
+	query := s.db.Model(&CreditCapability{}).
+		Joins("LEFT JOIN jobs ON jobs.id = credit_capabilities.job_id")
+
+	if v, ok := params.Filters["job_id"]; ok {
+		query = query.Where("credit_capabilities.job_id = ?", v)
 	}
-	return data, nil
+	if v, ok := params.Filters["province"]; ok {
+		query = query.Where("credit_capabilities.province = ?", v)
+	}
+	if v, ok := params.Filters["regency"]; ok {
+		query = query.Where("credit_capabilities.regency = ?", v)
+	}
+	if v, ok := params.Filters["district"]; ok {
+		query = query.Where("credit_capabilities.district = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where(
+			"LOWER(credit_capabilities.province) LIKE ? OR LOWER(credit_capabilities.regency) LIKE ? OR LOWER(credit_capabilities.district) LIKE ? OR LOWER(jobs.name) LIKE ?",
+			search,
+			search,
+			search,
+			search,
+		)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "credit_capabilities." + orderBy
+	}
+
+	var data []CreditCapability
+	if err := query.
+		Preload("Job").
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&data).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return data, total, nil
 }
 
 type CreditSummary struct {
@@ -1100,12 +1253,49 @@ func computeQuadrant(orderCount int64, score float64, orderThreshold int, scoreT
 	}
 }
 
-func (s *Service) ListQuadrants() ([]QuadrantResult, error) {
-	var data []QuadrantResult
-	if err := s.db.Preload("Job").Find(&data).Error; err != nil {
-		return nil, err
+func (s *Service) ListQuadrants(params filter.BaseParams) ([]QuadrantResult, int64, error) {
+	query := s.db.Model(&QuadrantResult{}).
+		Joins("LEFT JOIN jobs ON jobs.id = quadrant_results.job_id")
+
+	if v, ok := params.Filters["job_id"]; ok {
+		query = query.Where("quadrant_results.job_id = ?", v)
 	}
-	return data, nil
+	if v, ok := params.Filters["regency"]; ok {
+		query = query.Where("quadrant_results.regency = ?", v)
+	}
+	if v, ok := params.Filters["quadrant"]; ok {
+		query = query.Where("quadrant_results.quadrant = ?", v)
+	}
+	if v, ok := params.Filters["credit_score"]; ok {
+		query = query.Where("quadrant_results.credit_score = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(quadrant_results.regency) LIKE ? OR LOWER(jobs.name) LIKE ?", search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "quadrant_results." + orderBy
+	}
+
+	var data []QuadrantResult
+	if err := query.
+		Preload("Job").
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&data).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return data, total, nil
 }
 
 func (s *Service) UpsertNewsSource(req NewsSourceRequest) (NewsSource, error) {
@@ -1133,12 +1323,33 @@ func (s *Service) UpsertNewsSource(req NewsSourceRequest) (NewsSource, error) {
 	return ns, nil
 }
 
-func (s *Service) ListNewsSources() ([]NewsSource, error) {
-	var list []NewsSource
-	if err := s.db.Find(&list).Error; err != nil {
-		return nil, err
+func (s *Service) ListNewsSources(params filter.BaseParams) ([]NewsSource, int64, error) {
+	query := s.db.Model(&NewsSource{})
+
+	if v, ok := params.Filters["category"]; ok {
+		query = query.Where("category = ?", v)
 	}
-	return list, nil
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(name) LIKE ? OR LOWER(url) LIKE ? OR LOWER(category) LIKE ?", search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var list []NewsSource
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
 }
 
 func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
@@ -1165,26 +1376,44 @@ func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 	return result, nil
 }
 
-// ListNewsItems returns persisted news rows from database (newest first).
-func (s *Service) ListNewsItems(category string, limit int) ([]NewsItem, error) {
-	if limit <= 0 {
-		limit = 100
+// ListNewsItems returns persisted news rows from database with pagination.
+func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]NewsItem, int64, error) {
+	query := s.db.Model(&NewsItem{})
+
+	if category != "" {
+		query = query.Where("category = ?", category)
 	}
-	if limit > 500 {
-		limit = 500
+	if v, ok := params.Filters["source_id"]; ok {
+		query = query.Where("source_id = ?", v)
+	}
+	if v, ok := params.Filters["source_name"]; ok {
+		query = query.Where("source_name = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(title) LIKE ? OR LOWER(content) LIKE ? OR LOWER(source_name) LIKE ? OR LOWER(url) LIKE ?", search, search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "news_items." + orderBy
 	}
 
 	var rows []NewsItem
-	q := s.db.Model(&NewsItem{}).
+	if err := query.
 		Preload("Source").
-		Order("published_at DESC").
-		Order("created_at DESC").
-		Limit(limit)
-	if category != "" {
-		q = q.Where("category = ?", category)
-	}
-	if err := q.Find(&rows).Error; err != nil {
-		return nil, err
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Order("news_items.created_at DESC").
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
 	}
 
 	for i := range rows {
@@ -1197,7 +1426,7 @@ func (s *Service) ListNewsItems(category string, limit int) ([]NewsItem, error) 
 		}
 	}
 
-	return rows, nil
+	return rows, total, nil
 }
 
 // ScrapeNews runs python scraper and returns scraped rows without persisting.
@@ -2063,16 +2292,41 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 	return result, nil
 }
 
-// ListCommodityPrices returns raw price rows ordered by collected_at desc.
-func (s *Service) ListCommodityPrices(limit int) ([]CommodityPrice, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 200
+// ListCommodityPrices returns raw price rows with pagination.
+func (s *Service) ListCommodityPrices(params filter.BaseParams) ([]CommodityPrice, int64, error) {
+	query := s.db.Model(&CommodityPrice{}).
+		Joins("LEFT JOIN commodities ON commodities.id = commodity_prices.commodity_id")
+
+	if v, ok := params.Filters["commodity_id"]; ok {
+		query = query.Where("commodity_prices.commodity_id = ?", v)
 	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(commodities.name) LIKE ? OR LOWER(commodity_prices.source_url) LIKE ?", search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "commodity_prices." + orderBy
+	}
+
 	var prices []CommodityPrice
-	if err := s.db.Preload("Commodity").Order("collected_at DESC").Limit(limit).Find(&prices).Error; err != nil {
-		return nil, err
+	if err := query.
+		Preload("Commodity").
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&prices).Error; err != nil {
+		return nil, 0, err
 	}
-	return prices, nil
+
+	return prices, total, nil
 }
 
 // ListCommodities returns all commodities.
@@ -2153,24 +2407,96 @@ func (s *Service) runScrapeJob(jobId string, urls []string) {
 	})
 }
 
-// ListScrapeJobs returns recent jobs.
-func (s *Service) ListScrapeJobs(limit int) ([]ScrapeJob, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 30
+// ListScrapeJobs returns recent jobs with pagination.
+func (s *Service) ListScrapeJobs(params filter.BaseParams) ([]ScrapeJob, int64, error) {
+	query := s.db.Model(&ScrapeJob{})
+
+	if v, ok := params.Filters["status"]; ok {
+		query = query.Where("status = ?", v)
 	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(status) LIKE ? OR LOWER(message) LIKE ?", search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	var jobs []ScrapeJob
-	if err := s.db.Order("created_at DESC").Limit(limit).Find(&jobs).Error; err != nil {
-		return nil, err
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&jobs).Error; err != nil {
+		return nil, 0, err
 	}
-	return jobs, nil
+
+	return jobs, total, nil
 }
 
-func (s *Service) ListScrapeResults(jobId string) ([]ScrapeResult, error) {
-	var res []ScrapeResult
-	if err := s.db.Where("job_id = ?", jobId).Order("scraped_at DESC").Find(&res).Error; err != nil {
-		return nil, err
+func (s *Service) ListScrapeResults(jobId string, params filter.BaseParams) ([]ScrapeResult, int64, error) {
+	query := s.db.Model(&ScrapeResult{}).Where("job_id = ?", jobId)
+
+	if v, ok := params.Filters["source_url"]; ok {
+		query = query.Where("source_url = ?", v)
 	}
-	return res, nil
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(commodity_name) LIKE ? OR LOWER(source_url) LIKE ?", search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var res []ScrapeResult
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&res).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return res, total, nil
+}
+
+// ListScrapeSources returns configured scrape sources with pagination.
+func (s *Service) ListScrapeSources(params filter.BaseParams) ([]ScrapeSource, int64, error) {
+	query := s.db.Model(&ScrapeSource{})
+
+	if v, ok := params.Filters["type"]; ok {
+		query = query.Where("type = ?", v)
+	}
+	if v, ok := params.Filters["category"]; ok {
+		query = query.Where("category = ?", v)
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		query = query.Where("LOWER(name) LIKE ? OR LOWER(url) LIKE ? OR LOWER(category) LIKE ?", search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var sources []ScrapeSource
+	if err := query.
+		Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&sources).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return sources, total, nil
 }
 
 // Import selected scrape results into commodity_prices (and commodities).

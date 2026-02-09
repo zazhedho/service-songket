@@ -8,6 +8,7 @@ import {
   scrapePrices,
   updateScrapeSource,
 } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const empty = { name: '', url: '', category: '', type: 'prices', is_active: true }
@@ -32,6 +33,13 @@ export default function ScrapeSourcesPage() {
   const isDetail = mode === 'detail'
 
   const [sources, setSources] = useState<any[]>([])
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+
   const [form, setForm] = useState(empty)
   const [customUrls, setCustomUrls] = useState('')
   const [prices, setPrices] = useState<any[]>([])
@@ -48,8 +56,11 @@ export default function ScrapeSourcesPage() {
   const stateSource = (location.state as any)?.source || null
 
   const load = async () => {
-    const res = await listScrapeSources()
+    const res = await listScrapeSources({ page, limit, search: search || undefined, filters: { type: typeFilter || undefined } })
     setSources(res.data.data || res.data || [])
+    setTotalPages(res.data.total_pages || 1)
+    setTotalData(res.data.total_data || 0)
+    setPage(res.data.current_page || page)
   }
 
   const loadPrices = async () => {
@@ -64,7 +75,15 @@ export default function ScrapeSourcesPage() {
     if (canScrape) {
       loadPrices().catch(() => setPrices([]))
     }
-  }, [canList, canScrape, isDetail, isEdit])
+  }, [canList, canScrape, isDetail, isEdit, limit, page, search, typeFilter])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [typeFilter])
 
   const selectedSource = useMemo(() => {
     if (!selectedId) return null
@@ -236,10 +255,25 @@ export default function ScrapeSourcesPage() {
 
       <div className="page">
         <div className="card">
+          <div style={{ marginBottom: 10 }}>
+            <label>Search Source</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/url/kategori" />
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <label>Filter Type</label>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <option value="">Semua</option>
+              <option value="prices">Harga Pangan</option>
+              <option value="news">Portal Berita</option>
+            </select>
+          </div>
+
           <h3>Daftar Sumber</h3>
           {!canList && <div className="alert">Tidak ada izin melihat sumber scrape.</div>}
           {canList && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Nama</th>
@@ -274,7 +308,20 @@ export default function ScrapeSourcesPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
 

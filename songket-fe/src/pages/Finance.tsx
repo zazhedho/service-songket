@@ -10,6 +10,7 @@ import {
   deleteFinanceCompany,
   fetchDealerMetrics,
   fetchDealers,
+  fetchFinanceCompanies,
   fetchKabupaten,
   fetchKecamatan,
   fetchLookups,
@@ -17,6 +18,7 @@ import {
   updateDealer,
   updateFinanceCompany,
 } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const markerIcon = new L.Icon({
@@ -128,9 +130,22 @@ export default function FinancePage() {
 
   const [dealers, setDealers] = useState<any[]>([])
   const [financeCompanies, setFinanceCompanies] = useState<any[]>([])
+  const [dealerPage, setDealerPage] = useState(1)
+  const [dealerLimit, setDealerLimit] = useState(20)
+  const [dealerTotalPages, setDealerTotalPages] = useState(1)
+  const [dealerTotalData, setDealerTotalData] = useState(0)
+  const [financePage, setFinancePage] = useState(1)
+  const [financeLimit, setFinanceLimit] = useState(20)
+  const [financeTotalPages, setFinanceTotalPages] = useState(1)
+  const [financeTotalData, setFinanceTotalData] = useState(0)
+
   const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
   const [fcFilter, setFcFilter] = useState('')
+  const [dealerSearch, setDealerSearch] = useState('')
+  const [financeSearch, setFinanceSearch] = useState('')
+  const [dealerProvinceFilter, setDealerProvinceFilter] = useState('')
+  const [financeProvinceFilter, setFinanceProvinceFilter] = useState('')
 
   const [provinces, setProvinces] = useState<Option[]>([])
   const [dealerKabupaten, setDealerKabupaten] = useState<Option[]>([])
@@ -149,29 +164,84 @@ export default function FinancePage() {
   const stateDealer = (location.state as any)?.dealer || null
   const stateCompany = (location.state as any)?.company || null
 
-  const loadBaseData = async () => {
-    const [dealerRes, lookupRes] = await Promise.all([fetchDealers(), fetchLookups()])
+  const loadDealers = async () => {
+    const dealerRes = await fetchDealers({
+      page: dealerPage,
+      limit: dealerLimit,
+      search: dealerSearch || undefined,
+      filters: { province: dealerProvinceFilter || undefined },
+    })
     const dealerData = dealerRes.data.data || dealerRes.data || []
-    const companyData = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
 
     setDealers(dealerData)
-    setFinanceCompanies(companyData)
+    setDealerTotalPages(dealerRes.data.total_pages || 1)
+    setDealerTotalData(dealerRes.data.total_data || 0)
+    setDealerPage(dealerRes.data.current_page || dealerPage)
 
     if (!selectedDealerId && dealerData.length > 0) {
       setSelectedDealerId(dealerData[0].id)
     }
   }
 
+  const loadFinanceCompanies = async () => {
+    const [companyRes, lookupRes] = await Promise.all([
+      fetchFinanceCompanies({
+        page: financePage,
+        limit: financeLimit,
+        search: financeSearch || undefined,
+        filters: { province: financeProvinceFilter || undefined },
+      }),
+      fetchLookups(),
+    ])
+
+    const companyData = companyRes.data.data || companyRes.data || []
+    setFinanceCompanies(companyData)
+    setFinanceTotalPages(companyRes.data.total_pages || 1)
+    setFinanceTotalData(companyRes.data.total_data || 0)
+    setFinancePage(companyRes.data.current_page || financePage)
+
+    if (!Array.isArray(companyData) || companyData.length === 0) {
+      const fallback = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
+      setFinanceCompanies(Array.isArray(fallback) ? fallback : [])
+    }
+  }
+
   useEffect(() => {
     if (!canView) return
-    Promise.all([fetchProvinces(), loadBaseData()])
+    Promise.all([fetchProvinces(), loadDealers(), loadFinanceCompanies()])
       .then(([provRes]) => setProvinces(provRes.data.data || provRes.data || []))
       .catch(() => {
         setProvinces([])
         setDealers([])
         setFinanceCompanies([])
       })
-  }, [canView])
+  }, [
+    canView,
+    dealerLimit,
+    dealerPage,
+    dealerProvinceFilter,
+    dealerSearch,
+    financeLimit,
+    financePage,
+    financeProvinceFilter,
+    financeSearch,
+  ])
+
+  useEffect(() => {
+    setDealerPage(1)
+  }, [dealerSearch])
+
+  useEffect(() => {
+    setDealerPage(1)
+  }, [dealerProvinceFilter])
+
+  useEffect(() => {
+    setFinancePage(1)
+  }, [financeSearch])
+
+  useEffect(() => {
+    setFinancePage(1)
+  }, [financeProvinceFilter])
 
   useEffect(() => {
     if (!selectedDealerId || !(isList && listTab === 'dealer')) {
@@ -886,6 +956,21 @@ export default function FinancePage() {
         {listTab === 'dealer' && (
           <>
             <div className="card">
+              <div style={{ marginBottom: 10 }}>
+                <label>Search Dealer</label>
+                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Cari nama/regency/phone" />
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <label>Filter Provinsi Dealer</label>
+                <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
+                  <option value="">Semua</option>
+                  {provinces.map((province) => (
+                    <option key={province.code} value={province.code}>{province.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h3>Dealer</h3>
                 {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Input Dealer</button>}
@@ -923,6 +1008,18 @@ export default function FinancePage() {
                   )}
                 </tbody>
               </table>
+
+              <Pagination
+                page={dealerPage}
+                totalPages={dealerTotalPages}
+                totalData={dealerTotalData}
+                limit={dealerLimit}
+                onPageChange={setDealerPage}
+                onLimitChange={(next) => {
+                  setDealerLimit(next)
+                  setDealerPage(1)
+                }}
+              />
             </div>
 
             <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 14 }}>
@@ -1013,6 +1110,21 @@ export default function FinancePage() {
 
         {listTab === 'finance' && (
           <div className="card">
+            <div style={{ marginBottom: 10 }}>
+              <label>Search Finance Company</label>
+              <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Cari nama/regency/phone" />
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <label>Filter Provinsi Finance</label>
+              <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
+                <option value="">Semua</option>
+                {provinces.map((province) => (
+                  <option key={province.code} value={province.code}>{province.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <h3>Finance Company</h3>
               {canManage && <button className="btn" onClick={() => navigate('/finance/companies/create')}>Input Finance</button>}
@@ -1049,6 +1161,18 @@ export default function FinancePage() {
                 )}
               </tbody>
             </table>
+
+            <Pagination
+              page={financePage}
+              totalPages={financeTotalPages}
+              totalData={financeTotalData}
+              limit={financeLimit}
+              onPageChange={setFinancePage}
+              onLimitChange={(next) => {
+                setFinanceLimit(next)
+                setFinancePage(1)
+              }}
+            />
           </div>
         )}
       </div>

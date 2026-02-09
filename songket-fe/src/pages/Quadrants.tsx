@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchKabupaten, fetchKecamatan, fetchProvinces, fetchQuadrantSummary } from '../api'
+import Pagination from '../components/Pagination'
 
 export default function QuadrantsPage() {
   const [items, setItems] = useState<any[]>([])
@@ -7,6 +8,8 @@ export default function QuadrantsPage() {
   const [provinces, setProvinces] = useState<any[]>([])
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
 
   const load = () => fetchQuadrantSummary().then((res) => setItems(res.data.data || res.data || []))
 
@@ -60,6 +63,25 @@ export default function QuadrantsPage() {
       }),
     [items, filter],
   )
+
+  const paged = useMemo(() => {
+    const from = (page - 1) * limit
+    const to = from + limit
+    return filtered.slice(from, to)
+  }, [filtered, limit, page])
+
+  const totalPages = useMemo(() => {
+    if (!filtered.length) return 1
+    return Math.ceil(filtered.length / limit)
+  }, [filtered.length, limit])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filter.district, filter.province, filter.regency])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1)
+  }, [page, totalPages])
 
   return (
     <div>
@@ -135,7 +157,7 @@ export default function QuadrantsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row, idx) => (
+              {paged.map((row, idx) => (
                 <tr key={idx}>
                   <td>{nameFrom(row.province, provinces)}</td>
                   <td>{nameFrom(row.regency, kabupaten)}</td>
@@ -145,13 +167,25 @@ export default function QuadrantsPage() {
                   <td>{row.score}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {paged.length === 0 && (
                 <tr>
                   <td colSpan={6}>Data tidak ditemukan.</td>
                 </tr>
               )}
             </tbody>
           </table>
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalData={filtered.length}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={(next) => {
+              setLimit(next)
+              setPage(1)
+            }}
+          />
         </div>
       </div>
     </div>

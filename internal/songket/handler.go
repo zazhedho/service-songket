@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"starter-kit/pkg/filter"
@@ -132,14 +131,48 @@ func (h *Handler) DeleteOrder(ctx *gin.Context) {
 // GET /api/songket/finance/dealers
 func (h *Handler) Dealers(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ListDealers()
+	params, err := filter.GetBaseParams(ctx, "name", "asc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
+
+	data, total, err := h.svc.ListDealers(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/finance/companies
+func (h *Handler) FinanceCompanies(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "name", "asc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
+
+	data, total, err := h.svc.ListFinanceCompanies(params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -284,14 +317,24 @@ func (h *Handler) DeleteFinanceCompany(ctx *gin.Context) {
 // GET /api/songket/jobs
 func (h *Handler) ListJobs(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ListJobs()
+	params, err := filter.GetBaseParams(ctx, "name", "asc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"name"})
+
+	data, total, err := h.svc.ListJobs(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -388,14 +431,24 @@ func (h *Handler) DeleteJob(ctx *gin.Context) {
 // GET /api/songket/net-income
 func (h *Handler) ListNetIncomes(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ListNetIncomes()
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"job_id"})
+
+	data, total, err := h.svc.ListNetIncomes(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -551,14 +604,24 @@ func (h *Handler) UpsertCredit(ctx *gin.Context) {
 // GET /api/songket/credit
 func (h *Handler) ListCredit(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ListCreditCapabilities()
+	params, err := filter.GetBaseParams(ctx, "updated_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"job_id", "province", "regency", "district"})
+
+	data, total, err := h.svc.ListCreditCapabilities(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -616,14 +679,24 @@ func (h *Handler) RecomputeQuadrants(ctx *gin.Context) {
 // GET /api/songket/quadrants
 func (h *Handler) ListQuadrants(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ListQuadrants()
+	params, err := filter.GetBaseParams(ctx, "computed_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"job_id", "regency", "quadrant", "credit_score"})
+
+	data, total, err := h.svc.ListQuadrants(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -651,14 +724,24 @@ func (h *Handler) UpsertNewsSource(ctx *gin.Context) {
 // GET /api/songket/news/sources
 func (h *Handler) ListNewsSources(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.ListNewsSources()
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"category"})
+
+	data, total, err := h.svc.ListNewsSources(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -681,20 +764,24 @@ func (h *Handler) LatestNews(ctx *gin.Context) {
 func (h *Handler) ListNewsItems(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	category := ctx.Query("category")
-	limit := 100
-	if raw := ctx.Query("limit"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil {
-			limit = n
-		}
+	params, err := filter.GetBaseParams(ctx, "published_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
 	}
-	data, err := h.svc.ListNewsItems(category, limit)
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"source_id", "source_name"})
+
+	data, total, err := h.svc.ListNewsItems(category, params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -829,16 +916,23 @@ func (h *Handler) ListCommodities(ctx *gin.Context) {
 // GET /api/songket/commodities/prices
 func (h *Handler) ListPrices(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	limitStr := ctx.DefaultQuery("limit", "200")
-	limit, _ := strconv.Atoi(limitStr)
-	data, err := h.svc.ListCommodityPrices(limit)
+	params, err := filter.GetBaseParams(ctx, "collected_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"commodity_id"})
+
+	data, total, err := h.svc.ListCommodityPrices(params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -913,15 +1007,24 @@ func (h *Handler) CreateScrapeJob(ctx *gin.Context) {
 // GET /api/songket/commodities/prices/jobs
 func (h *Handler) ListScrapeJobs(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "30"))
-	data, err := h.svc.ListScrapeJobs(limit)
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"status"})
+
+	data, total, err := h.svc.ListScrapeJobs(params)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusBadRequest, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -929,14 +1032,24 @@ func (h *Handler) ListScrapeJobs(ctx *gin.Context) {
 func (h *Handler) ListScrapeResults(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	id := ctx.Param("id")
-	data, err := h.svc.ListScrapeResults(id)
+	params, err := filter.GetBaseParams(ctx, "scraped_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"source_url"})
+
+	data, total, err := h.svc.ListScrapeResults(id, params)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusBadRequest, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, data)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -968,14 +1081,23 @@ func (h *Handler) CommitScrapeResults(ctx *gin.Context) {
 // CRUD scrape sources
 func (h *Handler) ListScrapeSources(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	var sources []ScrapeSource
-	if err := h.svc.db.Find(&sources).Error; err != nil {
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"type", "category"})
+
+	sources, total, err := h.svc.ListScrapeSources(params)
+	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	res := response.Response(http.StatusOK, "success", logId, sources)
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, sources)
 	ctx.JSON(http.StatusOK, res)
 }
 

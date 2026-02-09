@@ -11,6 +11,7 @@ import {
   listRoles,
   updateRole,
 } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const empty = { name: '', display_name: '', description: '' }
@@ -45,6 +46,12 @@ export default function RolesPage() {
   const [roles, setRoles] = useState<any[]>([])
   const [menus, setMenus] = useState<any[]>([])
   const [perms, setPerms] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
+
   const [form, setForm] = useState(empty)
   const [permInput, setPermInput] = useState('')
   const [menuInput, setMenuInput] = useState('')
@@ -55,9 +62,16 @@ export default function RolesPage() {
   const stateRole = (location.state as any)?.role || null
 
   const load = async () => {
-    const [rolesRes, menusRes] = await Promise.all([listRoles(), listMenus()])
+    const [rolesRes, menusRes] = await Promise.all([
+      listRoles({ page, limit, search: search || undefined }),
+      listMenus({ page: 1, limit: 500 }),
+    ])
     setRoles(rolesRes.data.data || rolesRes.data || [])
     setMenus(menusRes.data.data || menusRes.data || [])
+
+    setTotalPages(rolesRes.data.total_pages || 1)
+    setTotalData(rolesRes.data.total_data || 0)
+    setPage(rolesRes.data.current_page || page)
   }
 
   useEffect(() => {
@@ -68,7 +82,11 @@ export default function RolesPage() {
       })
     }
     listPermissions().then((res: any) => setPerms(res.data.data || res.data || [])).catch(() => setPerms([]))
-  }, [canList, isDetail, isEdit])
+  }, [canList, isDetail, isEdit, limit, page, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   const selectedRole = useMemo(() => {
     if (!selectedId) return null
@@ -319,10 +337,16 @@ export default function RolesPage() {
 
       <div className="page">
         <div className="card">
+          <div style={{ marginBottom: 10 }}>
+            <label>Search Role</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari name/display name" />
+          </div>
+
           <h3>Daftar Role</h3>
           {!canList && <div className="alert">Tidak ada izin melihat role.</div>}
           {canList && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -353,7 +377,20 @@ export default function RolesPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
       </div>

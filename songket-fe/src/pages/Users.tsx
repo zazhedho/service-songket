@@ -9,6 +9,7 @@ import {
   setUserPermissions,
   updateUserById,
 } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const emptyForm = { name: '', email: '', phone: '', password: '', role: 'dealer' }
@@ -55,6 +56,11 @@ export default function UsersPage() {
   const canSetUserPerm = role === 'superadmin'
 
   const [users, setUsers] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -70,8 +76,11 @@ export default function UsersPage() {
   const stateUser = (location.state as any)?.user || null
 
   const loadUsers = async () => {
-    const res = await listUsers()
+    const res = await listUsers({ page, limit, search: search || undefined })
     setUsers(res.data.data || res.data || [])
+    setTotalPages(res.data.total_pages || 1)
+    setTotalData(res.data.total_data || 0)
+    setPage(res.data.current_page || page)
   }
 
   useEffect(() => {
@@ -83,7 +92,11 @@ export default function UsersPage() {
         .then((p: any) => setAllPerms(p.data.data || p.data || []))
         .catch(() => setAllPerms([]))
     }
-  }, [canList, canSetUserPerm, isDetail, isEdit])
+  }, [canList, canSetUserPerm, isDetail, isEdit, limit, page, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   const selectedUser = useMemo(() => {
     if (!selectedId) return null
@@ -378,10 +391,16 @@ export default function UsersPage() {
 
       <div className="page">
         <div className="card">
+          <div style={{ marginBottom: 10 }}>
+            <label>Search User</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/email/phone" />
+          </div>
+
           <h3>Daftar User</h3>
           {!canList && <div className="alert">Tidak ada izin melihat data.</div>}
           {canList && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Nama</th>
@@ -415,7 +434,20 @@ export default function UsersPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
 

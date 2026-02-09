@@ -11,6 +11,7 @@ import {
   fetchProvinces,
   updateOrder,
 } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const defaultForm = {
@@ -76,12 +77,20 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({ search: '', status: '' })
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
 
   const stateOrder = (location.state as any)?.order || null
 
   const loadList = async (params?: Record<string, unknown>) => {
-    const res = await fetchOrders(params || { limit: 80 })
+    const request = params || { page, limit }
+    const res = await fetchOrders(request)
     setList(res.data.data || res.data || [])
+    setTotalPages(res.data.total_pages || 1)
+    setTotalData(res.data.total_data || 0)
+    setPage(res.data.current_page || (request.page as number) || 1)
   }
 
   const loadLookups = async () => {
@@ -105,15 +114,23 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (isList && showTable) {
-      loadList({ limit: 80, search: filters.search || undefined, status: filters.status || undefined }).catch(() => setList([]))
+      loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined }).catch(() => {
+        setList([])
+        setTotalPages(1)
+        setTotalData(0)
+      })
     }
-  }, [filters, isList, showTable])
+  }, [filters, isList, limit, page, showTable])
 
   useEffect(() => {
     if (isEdit || isDetail) {
-      loadList({ limit: 200 }).catch(() => setList([]))
+      loadList({ page: 1, limit: 200 }).catch(() => setList([]))
     }
   }, [isDetail, isEdit])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filters.search, filters.status])
 
   const selectedOrder = useMemo(() => {
     if (!selectedId) return null
@@ -210,7 +227,7 @@ export default function OrdersPage() {
     setLoading(true)
     try {
       await deleteOrder(id)
-      await loadList({ limit: 80, search: filters.search || undefined, status: filters.status || undefined })
+      await loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined })
     } catch (err: any) {
       const message = err?.response?.data?.error || err?.message || 'Gagal menghapus order'
       window.alert(message)
@@ -552,7 +569,8 @@ export default function OrdersPage() {
           <h3>Order Tersimpan</h3>
           {!showTable && <div className="alert">Anda tidak punya izin melihat order.</div>}
           {showTable && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Pooling</th>
@@ -591,7 +609,20 @@ export default function OrdersPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
       </div>

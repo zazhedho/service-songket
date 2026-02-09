@@ -27,7 +27,8 @@ export const createOrder = (body: Record<string, unknown>) => api.post('/api/son
 export const updateOrder = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/orders/${id}`, body)
 export const deleteOrder = (id: string) => api.delete(`/api/songket/orders/${id}`)
 
-export const fetchDealers = () => api.get('/api/songket/finance/dealers')
+export const fetchDealers = (params?: Record<string, unknown>) => api.get('/api/songket/finance/dealers', { params })
+export const fetchFinanceCompanies = (params?: Record<string, unknown>) => api.get('/api/songket/finance/companies', { params })
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>
   api.get(`/api/songket/finance/dealers/${id}/metrics`, { params })
 export const createDealer = (body: Record<string, unknown>) => api.post('/api/songket/finance/dealers', body)
@@ -37,13 +38,13 @@ export const createFinanceCompany = (body: Record<string, unknown>) => api.post(
 export const updateFinanceCompany = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/finance/companies/${id}`, body)
 export const deleteFinanceCompany = (id: string) => api.delete(`/api/songket/finance/companies/${id}`)
 
-export const listJobs = () => api.get('/api/songket/jobs')
+export const listJobs = (params?: Record<string, unknown>) => api.get('/api/songket/jobs', { params })
 export const getJob = (id: string) => api.get(`/api/songket/jobs/${id}`)
 export const createJob = (body: Record<string, unknown>) => api.post('/api/songket/jobs', body)
 export const updateJob = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/jobs/${id}`, body)
 export const deleteJob = (id: string) => api.delete(`/api/songket/jobs/${id}`)
 
-export const listNetIncome = () => api.get('/api/songket/net-income')
+export const listNetIncome = (params?: Record<string, unknown>) => api.get('/api/songket/net-income', { params })
 export const getNetIncome = (id: string) => api.get(`/api/songket/net-income/${id}`)
 export const createNetIncome = (body: Record<string, unknown>) => api.post('/api/songket/net-income', body)
 export const updateNetIncome = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/net-income/${id}`, body)
@@ -51,7 +52,7 @@ export const deleteNetIncome = (id: string) => api.delete(`/api/songket/net-inco
 
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
 export const listNewsItems = (params?: Record<string, unknown>) => api.get('/api/songket/news/items', { params })
-export const listNewsSources = () => api.get('/api/songket/news/sources')
+export const listNewsSources = (params?: Record<string, unknown>) => api.get('/api/songket/news/sources', { params })
 export const scrapeNews = (body?: Record<string, unknown>) => api.post('/api/songket/news/scrape', body)
 export const importNews = (body: Record<string, unknown>) => api.post('/api/songket/news/import', body)
 export const fetchPricesLatest = () => api.get('/api/songket/commodities/prices/latest')
@@ -65,18 +66,18 @@ export const scrapePrices = (body?: Record<string, unknown>) =>
   api.post('/api/songket/commodities/prices/scrape', body)
 export const createScrapeJob = (body: Record<string, unknown>) =>
   api.post('/api/songket/commodities/prices/scrape-jobs', body)
-export const listScrapeJobs = () => api.get('/api/songket/commodities/prices/jobs')
-export const fetchScrapeResults = (jobId: string) =>
-  api.get(`/api/songket/commodities/prices/jobs/${jobId}/results`)
+export const listScrapeJobs = (params?: Record<string, unknown>) => api.get('/api/songket/commodities/prices/jobs', { params })
+export const fetchScrapeResults = (jobId: string, params?: Record<string, unknown>) =>
+  api.get(`/api/songket/commodities/prices/jobs/${jobId}/results`, { params })
 export const commitScrapeResults = (jobId: string, result_ids: string[]) =>
   api.post(`/api/songket/commodities/prices/jobs/${jobId}/commit`, { result_ids })
 
-export const fetchCredit = () => api.get('/api/songket/credit')
+export const fetchCredit = (params?: Record<string, unknown>) => api.get('/api/songket/credit', { params })
 export const fetchCreditSummary = () => api.get('/api/songket/credit/summary')
 export const upsertCredit = (body: Record<string, unknown>) => api.post('/api/songket/credit', body)
 
 export const recomputeQuadrant = (body: Record<string, unknown>) => api.post('/api/songket/quadrants/recompute', body)
-export const fetchQuadrants = () => api.get('/api/songket/quadrants')
+export const fetchQuadrants = (params?: Record<string, unknown>) => api.get('/api/songket/quadrants', { params })
 export const fetchQuadrantSummary = () => api.get('/api/songket/quadrants/summary')
 
 export const getMe = () => api.get('/api/user')
@@ -88,7 +89,7 @@ export const adminCreateUser = (body: Record<string, unknown>) => api.post('/api
 export const updateUserById = (id: string, body: Record<string, unknown>) => api.put(`/api/user/${id}`, body)
 export const deleteUserById = (id: string) => api.delete(`/api/user/${id}`)
 
-export const listRoles = () => api.get('/api/roles')
+export const listRoles = (params?: Record<string, unknown>) => api.get('/api/roles', { params })
 export const getRoleById = (id: string) => api.get(`/api/role/${id}`)
 export const createRole = (body: Record<string, unknown>) => api.post('/api/role', body)
 export const updateRole = (id: string, body: Record<string, unknown>) => api.put(`/api/role/${id}`, body)
@@ -98,7 +99,7 @@ export const assignRolePermissions = (id: string, permission_ids: string[]) =>
 export const assignRoleMenus = (id: string, menu_ids: string[]) =>
   api.post(`/api/role/${id}/menus`, { menu_ids })
 
-export const listMenus = () => api.get('/api/menus')
+export const listMenus = (params?: Record<string, unknown>) => api.get('/api/menus', { params })
 export const listMyMenus = () => api.get('/api/menus/me')
 export const createMenu = (body: Record<string, unknown>) => api.post('/api/menu', body)
 export const updateMenu = (id: string, body: Record<string, unknown>) => api.put(`/api/menu/${id}`, body)
@@ -111,7 +112,7 @@ export const setUserPermissions = (userId: string, permission_ids: string[]) =>
   api.post(`/api/user/${userId}/permissions`, { permission_ids })
 
 // Scrape sources
-export const listScrapeSources = () => api.get('/api/songket/scrape-sources')
+export const listScrapeSources = (params?: Record<string, unknown>) => api.get('/api/songket/scrape-sources', { params })
 export const createScrapeSource = (body: Record<string, unknown>) => api.post('/api/songket/scrape-sources', body)
 export const updateScrapeSource = (id: string, body: Record<string, unknown>) =>
   api.put(`/api/songket/scrape-sources/${id}`, body)

@@ -1,22 +1,22 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: songket-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USERNAME:-shagya}
-      POSTGRES_PASSWORD: ${DB_PASS:-shagya22}
-      POSTGRES_DB: ${DB_NAME:-songket}
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-shagya} -d ${DB_NAME:-songket}"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
+#  postgres:
+#    image: postgres:16-alpine
+#    container_name: songket-postgres
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: ${DB_USERNAME:-shagya}
+#      POSTGRES_PASSWORD: ${DB_PASS:-shagya22}
+#      POSTGRES_DB: ${DB_NAME:-songket}
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - pgdata:/var/lib/postgresql/data
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-shagya} -d ${DB_NAME:-songket}"]
+#      interval: 5s
+#      timeout: 3s
+#      retries: 10
+#      start_period: 10s
 
   backend:
     build:
@@ -30,27 +30,34 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_SSLMODE: disable
-      PORT: 8080
+      PORT: ${PORT:-8080}
       SCRAPE_BERITA_PYTHON: python3
       SCRAPE_BERITA_SCRIPT: python/songket-scraping/scrape_berita.py
+      #    environment:
+      #      POSTGRES_USER: ${DB_USERNAME:-shagya}
+      #      POSTGRES_PASSWORD: ${DB_PASS:-shagya22}
+      #      POSTGRES_DB: ${DB_NAME:-songket}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:${PORT:-8080}"
 
   frontend:
     build:
       context: ./songket-fe
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://localhost:8080
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     container_name: songket-frontend
     restart: unless-stopped
+    environment:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        PORT: ${FRONTEND_PORT:-80}
     depends_on:
       - backend
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
 
 volumes:
   pgdata:

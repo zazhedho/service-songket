@@ -10,6 +10,7 @@ import {
   listNetIncome,
   updateNetIncome,
 } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 type OptionItem = {
@@ -160,13 +161,18 @@ export default function NetIncomePage() {
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
 
   const stateItem = (location.state as any)?.item || null
 
   const load = async () => {
     const [netRes, jobRes, provRes] = await Promise.all([
-      listNetIncome().catch(() => ({ data: { data: [] } } as any)),
-      listJobs().catch(() => ({ data: { data: [] } } as any)),
+      listNetIncome({ page, limit, search: search || undefined }).catch(() => ({ data: { data: [] } } as any)),
+      listJobs({ page: 1, limit: 500 }).catch(() => ({ data: { data: [] } } as any)),
       fetchProvinces().catch(() => ({ data: { data: [] } } as any)),
     ])
 
@@ -177,6 +183,10 @@ export default function NetIncomePage() {
     setItems(Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : [])
     setJobs(Array.isArray(jobData) ? jobData : [])
     setProvinces(Array.isArray(provData) ? provData : [])
+
+    setTotalPages(netRes.data?.total_pages || 1)
+    setTotalData(netRes.data?.total_data || 0)
+    setPage(netRes.data?.current_page || page)
   }
 
   useEffect(() => {
@@ -185,7 +195,11 @@ export default function NetIncomePage() {
       setJobs([])
       setProvinces([])
     })
-  }, [])
+  }, [limit, page, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   useEffect(() => {
     if ((canList || isEdit || isDetail) && items.length === 0) {
@@ -513,10 +527,16 @@ export default function NetIncomePage() {
 
       <div className="page">
         <div className="card">
+          <div style={{ marginBottom: 10 }}>
+            <label>Search Net Income</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama pekerjaan" />
+          </div>
+
           <h3>Daftar Net Income</h3>
           {!canList && <div className="alert">Tidak ada izin melihat data net income.</div>}
           {canList && (
-            <table className="table">
+            <>
+              <table className="table">
               <thead>
                 <tr>
                   <th>Pekerjaan</th>
@@ -551,7 +571,20 @@ export default function NetIncomePage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={totalData}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
+            </>
           )}
         </div>
       </div>

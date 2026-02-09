@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { importNews, listNewsItems, scrapeNews } from '../api'
+import { importNews, listNewsItems, listScrapeSources, scrapeNews } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 type ScrapedNews = {
@@ -39,11 +40,19 @@ export default function NewsPage() {
 
   const [category, setCategory] = useState('')
   const [items, setItems] = useState<any[]>([])
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalData, setTotalData] = useState(0)
+
   const [scrapedRows, setScrapedRows] = useState<ScrapedNews[]>([])
+  const [scrapedPage, setScrapedPage] = useState(1)
+  const [scrapedLimit, setScrapedLimit] = useState(20)
   const [scraping, setScraping] = useState(false)
   const [adding, setAdding] = useState<Record<string, boolean>>({})
   const [added, setAdded] = useState<Record<string, boolean>>({})
   const [urls, setUrls] = useState<string[]>([''])
+  const [sourceOptions, setSourceOptions] = useState<{ url: string; name: string }[]>([])
 
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('view_news')
@@ -52,13 +61,37 @@ export default function NewsPage() {
   const stateDetail = (location.state as any)?.detail || null
 
   const load = () =>
-    listNewsItems({ category: category || undefined, limit: 200 }).then((res) => setItems(res.data.data || res.data || []))
+    listNewsItems({ category: category || undefined, page, limit }).then((res) => {
+      setItems(res.data.data || res.data || [])
+      setTotalPages(res.data.total_pages || 1)
+      setTotalData(res.data.total_data || 0)
+      setPage(res.data.current_page || page)
+    })
 
   useEffect(() => {
     if (canView) {
       load().catch(() => setItems([]))
     }
-  }, [category, canView])
+  }, [category, canView, limit, page])
+
+  useEffect(() => {
+    if (!canScrape) return
+    listScrapeSources({ page: 1, limit: 500, filters: { type: 'news', category: category || undefined } })
+      .then((res) => {
+        const data = res.data.data || res.data || []
+        const mapped = Array.isArray(data)
+          ? data
+              .map((item: any) => ({ url: String(item.url || '').trim(), name: String(item.name || '').trim() }))
+              .filter((item) => item.url)
+          : []
+        setSourceOptions(mapped)
+      })
+      .catch(() => setSourceOptions([]))
+  }, [canScrape, category])
+
+  useEffect(() => {
+    setPage(1)
+  }, [category])
 
   const doScrape = async (customUrls?: string[]) => {
     if (!canScrape) return
@@ -93,6 +126,23 @@ export default function NewsPage() {
     const clean = urls.map((url) => url.trim()).filter(Boolean)
     doScrape(clean.length ? clean : undefined)
   }
+
+  const pagedScrapedRows = useMemo(() => {
+    const from = (scrapedPage - 1) * scrapedLimit
+    const to = from + scrapedLimit
+    return scrapedRows.slice(from, to)
+  }, [scrapedLimit, scrapedPage, scrapedRows])
+
+  const scrapedTotalPages = useMemo(() => {
+    if (!scrapedRows.length) return 1
+    return Math.ceil(scrapedRows.length / scrapedLimit)
+  }, [scrapedLimit, scrapedRows.length])
+
+  useEffect(() => {
+    if (scrapedPage > scrapedTotalPages) {
+      setScrapedPage(1)
+    }
+  }, [scrapedPage, scrapedTotalPages])
 
   const selectedDetail = useMemo(() => {
     if (stateDetail) return stateDetail as ScrapedNews
@@ -207,6 +257,11 @@ export default function NewsPage() {
           {canScrape && (
             <div className="card">
               <div className="muted">Masukkan 1 atau lebih URL portal berita, tambahkan baris jika perlu.</div>
+              {sourceOptions.length > 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
+                  Source terdaftar: {sourceOptions.map((item) => `${item.name || 'source'} (${item.url})`).join(', ')}
+                </div>
+              )}
               <div className="grid" style={{ gap: 10, marginTop: 10 }}>
                 {urls.map((url, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -250,7 +305,7 @@ export default function NewsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {scrapedRows.map((row) => (
+                  {pagedScrapedRows.map((row) => (
                     <tr key={row.url}>
                       <td style={{ maxWidth: 320 }}>{row.judul}</td>
                       <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(row.isi, 180)}</td>
@@ -268,6 +323,18 @@ export default function NewsPage() {
                   ))}
                 </tbody>
               </table>
+
+              <Pagination
+                page={scrapedPage}
+                totalPages={scrapedTotalPages}
+                totalData={scrapedRows.length}
+                limit={scrapedLimit}
+                onPageChange={setScrapedPage}
+                onLimitChange={(next) => {
+                  setScrapedLimit(next)
+                  setScrapedPage(1)
+                }}
+              />
             </div>
           )}
         </div>
@@ -342,6 +409,18 @@ export default function NewsPage() {
                 )}
               </tbody>
             </table>
+
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalData={totalData}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next)
+                setPage(1)
+              }}
+            />
           </div>
         </div>
       )}

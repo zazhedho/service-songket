@@ -264,6 +264,7 @@ func (r *Routes) SongketRoutes() {
 
 	// Finance performance
 	g.GET("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
+	g.GET("/finance/companies", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceCompanies)
 	g.GET("/finance/dealers/:id/metrics", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "view_metrics"), h.DealerMetrics)
 	g.POST("/finance/dealers", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateDealer)
 	g.PUT("/finance/dealers/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateDealer)

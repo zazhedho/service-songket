@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchKabupaten, fetchKecamatan, fetchProvinces, fetchQuadrantSummary } from '../api'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 export default function CreditPage() {
@@ -8,6 +9,8 @@ export default function CreditPage() {
   const [provinces, setProvinces] = useState<any[]>([])
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
 
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_credit')
@@ -67,6 +70,25 @@ export default function CreditPage() {
       }),
     [items, filter],
   )
+
+  const paged = useMemo(() => {
+    const from = (page - 1) * limit
+    const to = from + limit
+    return filtered.slice(from, to)
+  }, [filtered, limit, page])
+
+  const totalPages = useMemo(() => {
+    if (!filtered.length) return 1
+    return Math.ceil(filtered.length / limit)
+  }, [filtered.length, limit])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filter.district, filter.province, filter.regency])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1)
+  }, [page, totalPages])
 
   return (
     <div>
@@ -146,7 +168,7 @@ export default function CreditPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((item, idx) => (
+                  {paged.map((item, idx) => (
                     <tr key={idx}>
                       <td>{nameFrom(item.province, provinces)}</td>
                       <td>{nameFrom(item.regency, kabupaten)}</td>
@@ -157,13 +179,25 @@ export default function CreditPage() {
                       <td>{item.score}</td>
                     </tr>
                   ))}
-                  {filtered.length === 0 && (
+                  {paged.length === 0 && (
                     <tr>
                       <td colSpan={7}>Data tidak ditemukan.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalData={filtered.length}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next)
+                  setPage(1)
+                }}
+              />
             </>
           )}
         </div>
