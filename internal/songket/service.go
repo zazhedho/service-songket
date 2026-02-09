@@ -2235,6 +2235,10 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 	if scriptPath == "" {
 		scriptPath = "python/songket-scraping/scrape_pangan_html.py"
 	}
+	pyRunner := strings.TrimSpace(utils.GetEnv("SCRAPE_PANGAN_PYTHON", "").(string))
+	if pyRunner == "" {
+		pyRunner = "python3"
+	}
 
 	for _, rawURL := range urls {
 		sourceURL := strings.TrimSpace(rawURL)
@@ -2242,7 +2246,7 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 			continue
 		}
 
-		cmd := exec.CommandContext(ctx, "python3", scriptPath, sourceURL)
+		cmd := exec.CommandContext(ctx, pyRunner, scriptPath, sourceURL)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			msg := strings.TrimSpace(string(output))

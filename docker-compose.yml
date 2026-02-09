@@ -27,21 +27,26 @@ services:
     env_file:
       - .env
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: ${DB_HOST:-localhost}
+      DB_PORT: ${DB_PORT:-5432}
       DB_SSLMODE: disable
+      DB_USERNAME: ${DB_USERNAME:-shagya}
+      DB_PASS: ${DB_PASS:-shagya22}
+      DB_NAME: ${DB_NAME:-songket}
       PORT: ${PORT:-8080}
-      SCRAPE_BERITA_PYTHON: python3
+      SCRAPE_PANGAN_PYTHON: /opt/songket-venv/bin/python
+      SCRAPE_BERITA_PYTHON: /opt/songket-venv/bin/python
       SCRAPE_BERITA_SCRIPT: python/songket-scraping/scrape_berita.py
       #    environment:
       #      POSTGRES_USER: ${DB_USERNAME:-shagya}
       #      POSTGRES_PASSWORD: ${DB_PASS:-shagya22}
       #      POSTGRES_DB: ${DB_NAME:-songket}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+   # depends_on:
+   #   postgres:
+    #    condition: service_healthy
+#    ports:
+#      - "${PORT:-8080}:${PORT:-8080}"
+    network_mode: "host"
 
   frontend:
     build:
