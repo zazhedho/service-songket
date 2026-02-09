@@ -214,6 +214,7 @@ def main():
         out = {
             "url": url,
             "found_container": raw.get("found") if isinstance(raw, dict) else False,
+            "debug_reason": raw.get("reason") if isinstance(raw, dict) else None,
             "debug_container_sample": raw.get("containerTextSample") if isinstance(raw, dict) else None,
             "debug_lines_count": len(lines),
             "debug_cleaned_preview": cleaned[:25],  # biar gampang debug kalau format berubah
