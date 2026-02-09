@@ -109,6 +109,11 @@ type InstallmentRequest struct {
 	Amount      float64 `json:"amount" binding:"required,gte=0"`
 }
 
+type NewsScrapeCronSettingRequest struct {
+	IsActive        bool `json:"is_active"`
+	IntervalMinutes int  `json:"interval_minutes" binding:"required,min=1,max=10080"`
+}
+
 type JobRequest struct {
 	Name string `json:"name" binding:"required"`
 }

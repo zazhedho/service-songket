@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	MasterSettingKeyNewsScrapeCron = "cron_scrape_news"
+)
+
 // Dealer represents a dealer location.
 type Dealer struct {
 	Id        string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
@@ -261,3 +265,17 @@ type NewsItem struct {
 }
 
 func (NewsItem) TableName() string { return "news_items" }
+
+// MasterSetting stores runtime application settings managed from database.
+type MasterSetting struct {
+	Id              string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Key             string         `gorm:"column:key;not null;uniqueIndex" json:"key"`
+	IsActive        bool           `gorm:"column:is_active;not null;default:false" json:"is_active"`
+	IntervalMinutes int            `gorm:"column:interval_minutes;not null;default:5" json:"interval_minutes"`
+	Description     string         `gorm:"column:description" json:"description"`
+	CreatedAt       time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (MasterSetting) TableName() string { return "master_settings" }

@@ -59,6 +59,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.CommodityPrice{},
 		&songket.NewsSource{},
 		&songket.NewsItem{},
+		&songket.MasterSetting{},
 		&songket.ScrapeSource{},
 		&songket.ScrapeJob{},
 		&songket.ScrapeResult{},
@@ -105,6 +106,9 @@ func seedDefaults(db *gorm.DB) error {
 		return err
 	}
 	if err := cleanupLegacyJobNetIncome(db); err != nil {
+		return err
+	}
+	if err := seedMasterSettings(db); err != nil {
 		return err
 	}
 
@@ -326,6 +330,33 @@ func seedDefaults(db *gorm.DB) error {
 	//}
 
 	return nil
+}
+
+func seedMasterSettings(db *gorm.DB) error {
+	defaultSetting := songket.MasterSetting{
+		Id:              utils.CreateUUID(),
+		Key:             songket.MasterSettingKeyNewsScrapeCron,
+		IsActive:        true,
+		IntervalMinutes: 5,
+		Description:     "Auto scrape portal berita",
+	}
+
+	var existing songket.MasterSetting
+	err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
+	if err == nil {
+		existing.DeletedAt = gorm.DeletedAt{}
+		if existing.IntervalMinutes <= 0 {
+			existing.IntervalMinutes = defaultSetting.IntervalMinutes
+		}
+		if strings.TrimSpace(existing.Description) == "" {
+			existing.Description = defaultSetting.Description
+		}
+		return db.Save(&existing).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return db.Create(&defaultSetting).Error
 }
 
 func ensureMotorTypeIndexes(db *gorm.DB) error {
@@ -612,6 +643,7 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 		{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92},
 		{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 93},
 		{Name: "scrape_sources", DisplayName: "Scrape URL", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94},
+		{Name: "master_settings", DisplayName: "Master Setting", Path: "/master-settings", Icon: "bi-sliders", OrderIndex: 95},
 	}
 
 	result := make(map[string]string)
@@ -808,7 +840,7 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 	// admin: semua kecuali menu khusus superadmin/main dealer
-	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "net_income", "motor_types", "installments"})
+	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
 	if err := assign(utils.RoleAdmin, adminMenus); err != nil {
 		return err
 	}
@@ -825,17 +857,17 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 
-	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments"})
+	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
 	if err := assign(utils.RoleStaff, staffMenus); err != nil {
 		return err
 	}
 
-	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments"})
+	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
 	if err := assign(utils.RoleViewer, viewerMenus); err != nil {
 		return err
 	}
 
-	restrictedMenus := []string{"motor_types", "installments"}
+	restrictedMenus := []string{"motor_types", "installments", "master_settings"}
 	disallowedRoles := []string{utils.RoleAdmin, utils.RoleStaff, utils.RoleViewer, utils.RoleDealer}
 	for _, roleName := range disallowedRoles {
 		roleID, ok := roleIDs[roleName]

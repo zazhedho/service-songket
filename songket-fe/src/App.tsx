@@ -7,6 +7,7 @@ import FinancePage from './pages/Finance'
 import InstallmentsPage from './pages/Installments'
 import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
+import MasterSettingsPage from './pages/MasterSettings'
 import MenusPage from './pages/Menus'
 import MotorTypesPage from './pages/MotorTypes'
 import NetIncomePage from './pages/NetIncome'
@@ -51,6 +52,8 @@ export default function App() {
         <Route path="/installments/create" element={<Guarded><InstallmentsPage /></Guarded>} />
         <Route path="/installments/:id" element={<Guarded><InstallmentsPage /></Guarded>} />
         <Route path="/installments/:id/edit" element={<Guarded><InstallmentsPage /></Guarded>} />
+
+        <Route path="/master-settings" element={<Guarded><MasterSettingsPage /></Guarded>} />
 
         <Route path="/finance" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/dealers/create" element={<Guarded><FinancePage /></Guarded>} />

@@ -11,6 +11,7 @@ import (
 	"starter-kit/pkg/messages"
 	"starter-kit/pkg/response"
 	"starter-kit/utils"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -171,7 +172,7 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 	if err := h.Service.AssignPermissions(id, req, currentUserRole); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AssignPermissions; Error: %+v", logPrefix, err))
 		statusCode := http.StatusInternalServerError
-		if err.Error() == "access denied: cannot modify superadmin role" || err.Error() == "access denied: only superadmin and admin can modify system roles" {
+		if strings.HasPrefix(err.Error(), "access denied") {
 			statusCode = http.StatusForbidden
 		}
 		res := response.Response(statusCode, err.Error(), logId, nil)
@@ -207,7 +208,7 @@ func (h *RoleHandler) AssignMenus(ctx *gin.Context) {
 	if err := h.Service.AssignMenus(id, req, currentUserRole); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AssignMenus; Error: %+v", logPrefix, err))
 		statusCode := http.StatusInternalServerError
-		if err.Error() == "access denied: cannot modify superadmin role" || err.Error() == "access denied: only superadmin and admin can modify system roles" {
+		if strings.HasPrefix(err.Error(), "access denied") {
 			statusCode = http.StatusForbidden
 		}
 		res := response.Response(statusCode, err.Error(), logId, nil)

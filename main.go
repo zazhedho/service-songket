@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"flag"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"starter-kit/infrastructure/database"
 	"starter-kit/internal/router"
+	"starter-kit/internal/songket"
 	"starter-kit/pkg/config"
 	"starter-kit/pkg/logger"
 	"starter-kit/utils"
@@ -88,6 +90,9 @@ func main() {
 	if err := database.AutoMigrate(routes.DB); err != nil {
 		FailOnError(err, "Failed to automigrate")
 	}
+
+	newsCronScheduler := songket.NewNewsScrapeCronScheduler(songket.NewService(routes.DB))
+	newsCronScheduler.Start(context.Background())
 
 	routes.UserRoutes()
 	routes.RoleRoutes()

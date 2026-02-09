@@ -280,6 +280,10 @@ func (r *Routes) SongketRoutes() {
 	g.PUT("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "update"), h.UpdateInstallment)
 	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), h.DeleteInstallment)
 
+	// Master settings (superadmin only)
+	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSetting)
+	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdateNewsScrapeCronSetting)
+
 	// Finance performance
 	g.GET("/finance/dealers", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
 	g.GET("/finance/companies", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceCompanies)
@@ -333,7 +337,7 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeJobs)
 	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeResults)
 	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), h.CommitScrapeResults)
-	g.GET("/lookups", menuAccess("/orders", "/finance", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments"), h.Lookups)
+	g.GET("/lookups", menuAccess("/orders", "/finance", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), h.Lookups)
 	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), h.ListScrapeSources)
 	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), h.CreateScrapeSource)
 	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), h.UpdateScrapeSource)

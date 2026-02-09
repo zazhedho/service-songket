@@ -540,6 +540,42 @@ func (h *Handler) DeleteInstallment(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/master-settings/news-scrape-cron
+func (h *Handler) GetNewsScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.GetNewsScrapeCronMasterSetting()
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// PUT /api/songket/master-settings/news-scrape-cron
+func (h *Handler) UpdateNewsScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req NewsScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	data, err := h.svc.UpdateNewsScrapeCronMasterSetting(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/jobs
 func (h *Handler) ListJobs(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

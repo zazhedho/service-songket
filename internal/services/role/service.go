@@ -9,6 +9,7 @@ import (
 	interfacerole "starter-kit/internal/interfaces/role"
 	"starter-kit/pkg/filter"
 	"starter-kit/utils"
+	"strings"
 	"time"
 )
 
@@ -188,13 +189,39 @@ func (s *RoleService) AssignMenus(roleId string, req dto.AssignMenus, currentUse
 		}
 	}
 
+	menuIDs := make([]string, 0, len(req.MenuIds)+1)
+	seenMenuIDs := make(map[string]struct{}, len(req.MenuIds)+1)
+	hasMasterSettings := false
+
 	for _, menuId := range req.MenuIds {
-		if _, err := s.MenuRepo.GetByID(menuId); err != nil {
+		menu, err := s.MenuRepo.GetByID(menuId)
+		if err != nil {
 			return errors.New("invalid menu ID: " + menuId)
+		}
+		if strings.EqualFold(menu.Name, "master_settings") {
+			hasMasterSettings = true
+			if role.Name != utils.RoleSuperAdmin {
+				return errors.New("access denied: menu master_settings hanya untuk role superadmin")
+			}
+		}
+		if _, exists := seenMenuIDs[menuId]; exists {
+			continue
+		}
+		seenMenuIDs[menuId] = struct{}{}
+		menuIDs = append(menuIDs, menuId)
+	}
+
+	if role.Name == utils.RoleSuperAdmin && !hasMasterSettings {
+		menu, err := s.MenuRepo.GetByName("master_settings")
+		if err != nil {
+			return errors.New("master_settings menu not found")
+		}
+		if _, exists := seenMenuIDs[menu.Id]; !exists {
+			menuIDs = append(menuIDs, menu.Id)
 		}
 	}
 
-	return s.RoleRepo.AssignMenus(roleId, req.MenuIds)
+	return s.RoleRepo.AssignMenus(roleId, menuIDs)
 }
 
 func (s *RoleService) GetRolePermissions(roleId string) ([]string, error) {

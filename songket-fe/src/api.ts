@@ -39,6 +39,10 @@ export const createInstallment = (body: Record<string, unknown>) => api.post('/a
 export const updateInstallment = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/installments/${id}`, body)
 export const deleteInstallment = (id: string) => api.delete(`/api/songket/installments/${id}`)
 
+export const getNewsScrapeCronSetting = () => api.get('/api/songket/master-settings/news-scrape-cron')
+export const updateNewsScrapeCronSetting = (body: Record<string, unknown>) =>
+  api.put('/api/songket/master-settings/news-scrape-cron', body)
+
 export const fetchDealers = (params?: Record<string, unknown>) => api.get('/api/songket/finance/dealers', { params })
 export const fetchFinanceCompanies = (params?: Record<string, unknown>) => api.get('/api/songket/finance/companies', { params })
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>
