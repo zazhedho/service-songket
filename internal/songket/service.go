@@ -28,6 +28,8 @@ type Service struct {
 	db *gorm.DB
 }
 
+var errNewsAlreadyAdded = errors.New("news already added")
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
@@ -1693,6 +1695,7 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 
 	saved := make([]NewsItem, 0, len(rows))
 	errs := make([]string, 0)
+	duplicateFound := false
 	seenURL := make(map[string]struct{})
 
 	for _, row := range rows {
@@ -1737,6 +1740,10 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 
 		item, err := s.upsertNewsItem(row, sourceID, category, published)
 		if err != nil {
+			if errors.Is(err, errNewsAlreadyAdded) {
+				duplicateFound = true
+				continue
+			}
 			errs = append(errs, fmt.Sprintf("%s: %v", url, err))
 			continue
 		}
@@ -1744,6 +1751,9 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 	}
 
 	if len(saved) == 0 {
+		if duplicateFound && len(errs) == 0 {
+			return nil, errNewsAlreadyAdded
+		}
 		if len(errs) == 0 {
 			return nil, fmt.Errorf("no valid selected news")
 		}
@@ -1753,7 +1763,11 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 }
 
 func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category string, publishedAt time.Time) (NewsItem, error) {
-	urlRaw := strings.TrimSpace(row.URL)
+	urlOriginal := strings.TrimSpace(row.URL)
+	urlRaw := urlOriginal
+	if normalized := normalizeNewsURL(urlOriginal); normalized != "" {
+		urlRaw = normalized
+	}
 	title := strings.TrimSpace(row.Title)
 	content := strings.TrimSpace(row.Content)
 	sourceName := strings.TrimSpace(row.Source)
@@ -1764,18 +1778,34 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 	if urlRaw == "" || title == "" {
 		return NewsItem{}, fmt.Errorf("invalid news row")
 	}
-	imagesJSON, hasImages := buildNewsImagesJSON(row.Images)
+	imagesJSON, _ := buildNewsImagesJSON(row.Images)
 
-	noSlash := strings.TrimRight(urlRaw, "/")
-	withSlash := noSlash + "/"
+	urlCandidates := make(map[string]struct{})
+	addCandidate := func(raw string) {
+		v := strings.TrimSpace(raw)
+		if v == "" {
+			return
+		}
+		urlCandidates[v] = struct{}{}
+		noSlash := strings.TrimRight(v, "/")
+		if noSlash != "" {
+			urlCandidates[noSlash] = struct{}{}
+			urlCandidates[noSlash+"/"] = struct{}{}
+		}
+	}
+	addCandidate(urlOriginal)
+	addCandidate(urlRaw)
 
 	var existing NewsItem
-	q := s.db.Where("url = ?", urlRaw)
-	if noSlash != "" && noSlash != urlRaw {
-		q = q.Or("url = ?", noSlash)
-	}
-	if withSlash != urlRaw {
-		q = q.Or("url = ?", withSlash)
+	var q *gorm.DB
+	first := true
+	for candidate := range urlCandidates {
+		if first {
+			q = s.db.Where("url = ?", candidate)
+			first = false
+			continue
+		}
+		q = q.Or("url = ?", candidate)
 	}
 	findErr := q.Order("created_at DESC").First(&existing).Error
 
@@ -1794,6 +1824,9 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 			item.SourceID = stringPtr(sourceID)
 		}
 		if err := s.db.Create(&item).Error; err != nil {
+			if isUniqueViolationError(err) {
+				return NewsItem{}, errNewsAlreadyAdded
+			}
 			return NewsItem{}, err
 		}
 		return item, nil
@@ -1801,42 +1834,7 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 	if findErr != nil {
 		return NewsItem{}, findErr
 	}
-
-	updates := map[string]interface{}{}
-	if title != "" && existing.Title != title {
-		updates["title"] = title
-		existing.Title = title
-	}
-	if content != "" && existing.Content != content {
-		updates["content"] = content
-		existing.Content = content
-	}
-	if sourceName != "" && existing.SourceName != sourceName {
-		updates["source_name"] = sourceName
-		existing.SourceName = sourceName
-	}
-	if (existing.SourceID == nil || strings.TrimSpace(*existing.SourceID) == "") && sourceID != "" {
-		updates["source_id"] = sourceID
-		existing.SourceID = stringPtr(sourceID)
-	}
-	if category != "" && existing.Category != category {
-		updates["category"] = category
-		existing.Category = category
-	}
-	if hasImages && string(existing.Images) != string(imagesJSON) {
-		updates["images"] = imagesJSON
-		existing.Images = imagesJSON
-	}
-	if existing.PublishedAt.IsZero() || existing.PublishedAt.Before(publishedAt) {
-		updates["published_at"] = publishedAt
-		existing.PublishedAt = publishedAt
-	}
-	if len(updates) > 0 {
-		if err := s.db.Model(&NewsItem{}).Where("id = ?", existing.Id).Updates(updates).Error; err != nil {
-			return NewsItem{}, err
-		}
-	}
-	return existing, nil
+	return NewsItem{}, errNewsAlreadyAdded
 }
 
 func buildNewsImagesJSON(images NewsScrapedImages) (datatypes.JSON, bool) {
@@ -2055,6 +2053,16 @@ func hostFromURL(raw string) string {
 		return ""
 	}
 	return strings.ToLower(strings.TrimSpace(u.Host))
+}
+
+func isUniqueViolationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "violates unique") ||
+		strings.Contains(msg, "unique constraint")
 }
 
 func parseStringSlice(v interface{}) []string {

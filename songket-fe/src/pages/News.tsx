@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { deleteNewsItem, importNews, listNewsItems, listScrapeSources, scrapeNews } from '../api'
@@ -20,6 +20,8 @@ type ScrapedNews = {
     dalam_berita?: string[]
   }
 }
+
+type ToastTone = 'info' | 'success' | 'error' | 'warning'
 
 function parseMode(pathname: string) {
   if (pathname.endsWith('/scrape')) return 'scrape'
@@ -52,8 +54,11 @@ export default function NewsPage() {
   const [adding, setAdding] = useState<Record<string, boolean>>({})
   const [added, setAdded] = useState<Record<string, boolean>>({})
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null)
   const [urls, setUrls] = useState<string[]>([''])
   const [sourceOptions, setSourceOptions] = useState<{ url: string; name: string }[]>([])
+  const toastTimer = useRef<number | null>(null)
 
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('view_news')
@@ -61,6 +66,26 @@ export default function NewsPage() {
   const canDelete = canScrape
 
   const stateDetail = (location.state as any)?.detail || null
+
+  const showToast = (message: string, tone: ToastTone = 'info', durationMs = 2800) => {
+    if (toastTimer.current) {
+      window.clearTimeout(toastTimer.current)
+      toastTimer.current = null
+    }
+    setToast({ message, tone })
+    if (durationMs > 0) {
+      toastTimer.current = window.setTimeout(() => {
+        setToast(null)
+        toastTimer.current = null
+      }, durationMs)
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    }
+  }, [])
 
   const load = () =>
     listNewsItems({ category: category || undefined, page, limit }).then((res) => {
@@ -112,13 +137,32 @@ export default function NewsPage() {
 
   const addToNews = async (row: ScrapedNews) => {
     if (!canScrape || !row?.url) return
+    const normalizedRowURL = normalizeNewsUrl(row.url)
+    if (normalizedRowURL && existingNewsUrls.has(normalizedRowURL)) {
+      showToast('news already added', 'warning')
+      setAdded((prev) => ({ ...prev, [row.url]: true }))
+      return
+    }
+    if (row.from_db) {
+      showToast('news already added', 'warning')
+      setAdded((prev) => ({ ...prev, [row.url]: true }))
+      return
+    }
     setAdding((prev) => ({ ...prev, [row.url]: true }))
     try {
       await importNews({ items: [row] })
       setAdded((prev) => ({ ...prev, [row.url]: true }))
+      showToast('Berita berhasil ditambahkan', 'success')
       await load()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menambahkan berita')
+      const message = String(err?.response?.data?.error || err?.message || 'Gagal menambahkan berita')
+      const lower = message.toLowerCase()
+      if (lower.includes('duplicate') || lower.includes('already exists') || lower.includes('already exist') || lower.includes('unique')) {
+        showToast('news already added', 'warning')
+        setAdded((prev) => ({ ...prev, [row.url]: true }))
+      } else {
+        showToast(message, 'error')
+      }
     } finally {
       setAdding((prev) => ({ ...prev, [row.url]: false }))
     }
@@ -129,16 +173,17 @@ export default function NewsPage() {
     doScrape(clean.length ? clean : undefined)
   }
 
-  const removeNews = async (id: string) => {
-    if (!canDelete || !id) return
-    if (!window.confirm('Hapus berita ini?')) return
-
+  const removeNews = async () => {
+    if (!canDelete || !confirmDeleteId) return
+    const id = confirmDeleteId
+    setConfirmDeleteId(null)
     setDeleting((prev) => ({ ...prev, [id]: true }))
     try {
       await deleteNewsItem(id)
+      showToast('Berita berhasil dihapus', 'success')
       await load()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menghapus berita')
+      showToast(String(err?.response?.data?.error || err?.message || 'Gagal menghapus berita'), 'error')
     } finally {
       setDeleting((prev) => ({ ...prev, [id]: false }))
     }
@@ -176,6 +221,11 @@ export default function NewsPage() {
     const raw = [selectedDetail.images?.foto_utama, ...(selectedDetail.images?.dalam_berita || [])].filter(Boolean) as string[]
     return Array.from(new Set(raw))
   }, [selectedDetail])
+
+  const existingNewsUrls = useMemo(() => {
+    const mapped = (items || []).map((item) => normalizeNewsUrl(String(item?.url || '')))
+    return new Set(mapped.filter(Boolean))
+  }, [items])
 
   if (isDetail) {
     return (
@@ -241,11 +291,7 @@ export default function NewsPage() {
 
               {canScrape && !selectedDetail.from_db && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                  <button
-                    className="btn"
-                    onClick={() => void addToNews(selectedDetail)}
-                    disabled={!!adding[selectedDetail.url] || !!added[selectedDetail.url]}
-                  >
+                  <button className="btn" onClick={() => void addToNews(selectedDetail)} disabled={!!adding[selectedDetail.url] || !!added[selectedDetail.url]}>
                     {added[selectedDetail.url] ? 'Added' : adding[selectedDetail.url] ? 'Adding...' : 'Add to News'}
                   </button>
                 </div>
@@ -253,6 +299,15 @@ export default function NewsPage() {
             </div>
           )}
         </div>
+        <ToastLayer
+          toast={toast}
+          onCloseToast={() => setToast(null)}
+        />
+        <DeleteConfirmDialog
+          visible={!!confirmDeleteId}
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => void removeNews()}
+        />
       </div>
     )
   }
@@ -355,6 +410,15 @@ export default function NewsPage() {
             </div>
           )}
         </div>
+        <ToastLayer
+          toast={toast}
+          onCloseToast={() => setToast(null)}
+        />
+        <DeleteConfirmDialog
+          visible={!!confirmDeleteId}
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => void removeNews()}
+        />
       </div>
     )
   }
@@ -418,7 +482,11 @@ export default function NewsPage() {
                         {canDelete && (
                           <button
                             className="btn-ghost"
-                            onClick={() => void removeNews(String(item.id || ''))}
+                            onClick={() => {
+                              const id = String(item.id || '')
+                              if (!id) return
+                              setConfirmDeleteId(id)
+                            }}
                             disabled={!item.id || !!deleting[String(item.id)]}
                           >
                             {!!deleting[String(item.id)] ? 'Deleting...' : 'Delete'}
@@ -450,6 +518,15 @@ export default function NewsPage() {
           </div>
         </div>
       )}
+      <ToastLayer
+        toast={toast}
+        onCloseToast={() => setToast(null)}
+      />
+      <DeleteConfirmDialog
+        visible={!!confirmDeleteId}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => void removeNews()}
+      />
     </div>
   )
 }
@@ -458,6 +535,21 @@ function shortText(value: string, max: number): string {
   const cleaned = (value || '').replace(/\s+/g, ' ').trim()
   if (cleaned.length <= max) return cleaned
   return `${cleaned.slice(0, max)}...`
+}
+
+function normalizeNewsUrl(raw: string): string {
+  const input = String(raw || '').trim()
+  if (!input) return ''
+  try {
+    const parsed = new URL(input)
+    parsed.hash = ''
+    parsed.search = ''
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '')
+    if (!parsed.pathname) parsed.pathname = '/'
+    return parsed.toString().toLowerCase()
+  } catch {
+    return input.replace(/\/+$/, '').toLowerCase()
+  }
 }
 
 function toDetailRow(item: any): ScrapedNews {
@@ -486,4 +578,47 @@ function parseImages(raw: any): { foto_utama?: string; dalam_berita?: string[] }
   const main = typeof data?.foto_utama === 'string' ? data.foto_utama : ''
   const list = Array.isArray(data?.dalam_berita) ? data.dalam_berita.filter((x: any) => typeof x === 'string') : []
   return { foto_utama: main, dalam_berita: list }
+}
+
+function ToastLayer({
+  toast,
+  onCloseToast,
+}: {
+  toast: { message: string; tone: ToastTone } | null
+  onCloseToast: () => void
+}) {
+  return (
+    <div className="toast-stack">
+      {toast && (
+        <div className={`toast-card ${toast.tone}`} role="status" aria-live="polite">
+          <div className="toast-message">{toast.message}</div>
+          <button className="toast-close" onClick={onCloseToast} aria-label="Close toast">x</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DeleteConfirmDialog({
+  visible,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  if (!visible) return null
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Konfirmasi hapus berita">
+      <div className="modal" style={{ width: 'min(420px, 100%)' }}>
+        <h3 style={{ marginBottom: 8 }}>Konfirmasi Hapus</h3>
+        <div className="muted" style={{ marginBottom: 14 }}>Hapus berita ini?</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn-ghost" onClick={onCancel}>Batal</button>
+          <button className="btn" onClick={onConfirm}>Hapus</button>
+        </div>
+      </div>
+    </div>
+  )
 }
