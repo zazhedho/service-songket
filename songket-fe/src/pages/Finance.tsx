@@ -879,8 +879,8 @@ export default function FinancePage() {
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
         <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Tab Dealer</button>
-          <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Tab Finance</button>
+          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealer</button>
+          <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Finance</button>
         </div>
 
         {listTab === 'dealer' && (

@@ -73,7 +73,6 @@ export default function CreditPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Credit Capability</div>
-          <div style={{ color: '#64748b' }}>Filter wilayah sekarang menyatu dengan tabel data</div>
         </div>
       </div>
 

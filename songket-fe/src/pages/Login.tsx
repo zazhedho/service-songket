@@ -82,16 +82,7 @@ export default function LoginPage() {
         >
           <div>
             <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9 }}>Songket Suite</div>
-            <h1 style={{ margin: '8px 0 0', fontSize: 34, lineHeight: 1.2 }}>Operational Credit Console</h1>
-            <p style={{ marginTop: 14, color: '#dbeafe', maxWidth: 420 }}>
-              Kelola order, peta dealer, harga pangan, dan portal berita dalam satu workspace admin.
-            </p>
-          </div>
-
-          <div style={{ display: 'grid', gap: 10 }}>
-            <InfoBullet text="Route CRUD sudah dipisah per halaman" />
-            <InfoBullet text="Sidebar hamburger + ikon menu" />
-            <InfoBullet text="UI modern ala admin panel berbasis Tailwind" />
+            <h1 style={{ margin: '8px 0 0', fontSize: 34, lineHeight: 1.2 }}>Songket Console</h1>
           </div>
         </div>
 

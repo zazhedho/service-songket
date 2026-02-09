@@ -163,7 +163,6 @@ export default function JobsPage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Nama Pekerjaan' : 'Input Nama Pekerjaan'}</div>
-            <div style={{ color: '#64748b' }}>Form dipisah dari tabel</div>
           </div>
           <button className="btn-ghost" onClick={() => navigate('/jobs')}>Kembali ke Tabel</button>
         </div>
@@ -199,7 +198,6 @@ export default function JobsPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Nama Pekerjaan</div>
-          <div style={{ color: '#64748b' }}>Daftar pekerjaan dengan halaman create, edit, dan detail terpisah</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/jobs/create')}>Input Nama Pekerjaan</button>}
       </div>

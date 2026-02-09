@@ -370,7 +370,6 @@ export default function UsersPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>User Management</div>
-          <div style={{ color: '#64748b' }}>Tabel user dengan aksi create, edit, detail, delete</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canCreate && <button className="btn" onClick={() => navigate('/users/create')}>Input User</button>}

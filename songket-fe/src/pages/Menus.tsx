@@ -146,7 +146,6 @@ export default function MenusPage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Menu' : 'Input Menu Baru'}</div>
-            <div style={{ color: '#64748b' }}>Form menu dipisahkan dari tabel</div>
           </div>
           <button className="btn-ghost" onClick={() => navigate('/menus')}>Kembali ke Tabel</button>
         </div>
@@ -194,7 +193,6 @@ export default function MenusPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Menus</div>
-          <div style={{ color: '#64748b' }}>Daftar menu dengan aksi create/edit/detail/delete</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/menus/create')}>Input Menu</button>}
       </div>

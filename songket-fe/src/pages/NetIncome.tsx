@@ -394,7 +394,6 @@ export default function NetIncomePage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Net Income' : 'Input Net Income'}</div>
-            <div style={{ color: '#64748b' }}>Form dipisah dari tabel</div>
           </div>
           <button className="btn-ghost" onClick={() => navigate('/net-income')}>Kembali ke Tabel</button>
         </div>
@@ -508,7 +507,6 @@ export default function NetIncomePage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Net Income</div>
-          <div style={{ color: '#64748b' }}>Daftar net income dengan halaman create, edit, dan detail terpisah</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/net-income/create')}>Input Net Income</button>}
       </div>

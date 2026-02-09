@@ -299,7 +299,7 @@ export default function NewsPage() {
       {canView && (
         <div className="page">
           <div className="card">
-            <h3>Daftar Berita (Data DB)</h3>
+            <h3>Daftar Berita</h3>
             <table className="table">
               <thead>
                 <tr>

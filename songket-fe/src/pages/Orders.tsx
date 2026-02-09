@@ -525,7 +525,6 @@ export default function OrdersPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Form Order In</div>
-          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel order + aksi CRUD</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/orders/create')}>Input Order</button>}
       </div>

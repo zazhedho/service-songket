@@ -46,8 +46,7 @@ export default function DashboardPage() {
       <div className="page">
         <div className="hero card">
           <div>
-            <div className="big">Monitor order, harga pangan, dan berita NTB dalam satu layar.</div>
-            <div className="muted">Tampilan cepat untuk dealer, main dealer, dan superadmin.</div>
+            <div className="big">Monitor order</div>
           </div>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             <Stat label="Order terbaru" value={`${orders.length}`} />

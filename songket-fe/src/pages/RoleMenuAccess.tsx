@@ -158,9 +158,6 @@ export default function RoleMenuAccessPage() {
       <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Roles Menu Access</div>
-            <div style={{ color: '#9ca3af' }}>
-            Atur akses menu FE: Dealer (Form Order In), Main Dealer (Order, peta/finance, credit, kuadran, harga pangan, portal berita, nama pekerjaan, net income, dashboard), Superadmin (semua).
-            </div>
           </div>
       </div>
       <div className="page">

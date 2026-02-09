@@ -65,8 +65,7 @@ export default function QuadrantsPage() {
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Kuadran Area x Pekerjaan</div>
-          <div style={{ color: '#64748b' }}>Filter wilayah sekarang menyatu di card tabel</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Kuadran</div>
         </div>
       </div>
 

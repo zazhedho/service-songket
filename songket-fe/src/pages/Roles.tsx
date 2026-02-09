@@ -313,7 +313,6 @@ export default function RolesPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Roles & Access</div>
-          <div style={{ color: '#64748b' }}>Tabel role dengan halaman create/edit/detail terpisah</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/roles/create')}>Input Role</button>}
       </div>

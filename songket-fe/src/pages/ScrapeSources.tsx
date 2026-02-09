@@ -180,7 +180,6 @@ export default function ScrapeSourcesPage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Scrape Source' : 'Input Scrape Source Baru'}</div>
-            <div style={{ color: '#64748b' }}>Form sumber scraping dipisah dari tabel</div>
           </div>
           <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Kembali ke Tabel</button>
         </div>
@@ -229,7 +228,6 @@ export default function ScrapeSourcesPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape URLs</div>
-          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel sumber scraping</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canCreate && <button className="btn" onClick={() => navigate('/scrape-sources/create')}>Input Source</button>}

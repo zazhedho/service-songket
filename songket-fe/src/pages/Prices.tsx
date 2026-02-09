@@ -274,7 +274,6 @@ export default function PricesPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Harga Pangan</div>
-          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel harga</div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
