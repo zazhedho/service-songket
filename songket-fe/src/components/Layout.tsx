@@ -270,10 +270,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
         </div>
 
-        <button className="btn-ghost sidebar-logout" onClick={handleLogout}>
-          <AppIcon name="logout" className="menu-icon" />
-          <span className="menu-label">Logout</span>
-        </button>
+        {/*<button className="btn-ghost sidebar-logout" onClick={handleLogout}>*/}
+        {/*  <AppIcon name="logout" className="menu-icon" />*/}
+        {/*  <span className="menu-label">Logout</span>*/}
+        {/*</button>*/}
       </aside>
 
       {mobileOpen && <button className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Close menu" />}
