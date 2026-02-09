@@ -10,6 +10,7 @@ import (
 	//"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -42,8 +43,24 @@ type ScrapedItem struct {
 }
 
 type panganScrapePayload struct {
-	URL  string                   `json:"url"`
-	Rows []map[string]interface{} `json:"rows"`
+	URL                  string                   `json:"url"`
+	Rows                 []map[string]interface{} `json:"rows"`
+	FoundContainer       *bool                    `json:"found_container,omitempty"`
+	DebugLinesCount      *int                     `json:"debug_lines_count,omitempty"`
+	DebugContainerSample string                   `json:"debug_container_sample,omitempty"`
+	DebugReason          string                   `json:"debug_reason,omitempty"`
+}
+
+type scrapeURLDiagnostic struct {
+	SourceURL            string
+	ParsedRows           int
+	AcceptedRows         int
+	RejectedInvalidName  int
+	RejectedInvalidPrice int
+	FoundContainer       *bool
+	DebugLinesCount      *int
+	DebugReason          string
+	DebugSample          string
 }
 
 type newsScrapeTarget struct {
@@ -1408,7 +1425,7 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 	var rows []NewsItem
 	if err := query.
 		Preload("Source").
-		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		//Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
 		Order("news_items.created_at DESC").
 		Offset(params.Offset).
 		Limit(params.Limit).
@@ -1427,6 +1444,10 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 	}
 
 	return rows, total, nil
+}
+
+func (s *Service) DeleteNewsItem(id string) error {
+	return s.db.Delete(&NewsItem{}, "id = ?", id).Error
 }
 
 // ScrapeNews runs python scraper and returns scraped rows without persisting.
@@ -2235,10 +2256,20 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 	if scriptPath == "" {
 		scriptPath = "python/songket-scraping/scrape_pangan_html.py"
 	}
+	resolvedScriptPath, err := resolvePythonScriptPath(scriptPath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid SCRAPE_PANGAN_SCRIPT: %w", err)
+	}
+
 	pyRunner := strings.TrimSpace(utils.GetEnv("SCRAPE_PANGAN_PYTHON", "").(string))
 	if pyRunner == "" {
 		pyRunner = "python3"
 	}
+	if err := validatePythonRunner(pyRunner); err != nil {
+		return nil, err
+	}
+
+	diagnostics := make([]scrapeURLDiagnostic, 0, len(urls))
 
 	for _, rawURL := range urls {
 		sourceURL := strings.TrimSpace(rawURL)
@@ -2246,29 +2277,42 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 			continue
 		}
 
-		cmd := exec.CommandContext(ctx, pyRunner, scriptPath, sourceURL)
+		diag := scrapeURLDiagnostic{SourceURL: sourceURL}
+
+		cmd := exec.CommandContext(ctx, pyRunner, resolvedScriptPath, sourceURL)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			msg := strings.TrimSpace(string(output))
+			msg := sanitizeLogValue(string(output), 400)
 			if msg == "" {
-				return nil, fmt.Errorf("python scrape error (%s): %w", sourceURL, err)
+				return nil, fmt.Errorf("python scrape error (%s): runner=%s script=%s: %w", sourceURL, pyRunner, resolvedScriptPath, err)
 			}
-			return nil, fmt.Errorf("python scrape error (%s): %w: %s", sourceURL, err, msg)
+			return nil, fmt.Errorf("python scrape error (%s): runner=%s script=%s: %w: %s", sourceURL, pyRunner, resolvedScriptPath, err, msg)
 		}
 
-		rows, err := parsePythonScrapeRows(output)
+		rows, payload, err := parsePythonScrapeRows(output)
 		if err != nil {
-			return nil, fmt.Errorf("parse python output (%s): %w", sourceURL, err)
+			snippet := sanitizeLogValue(string(output), 400)
+			if snippet == "" {
+				return nil, fmt.Errorf("parse python output (%s): runner=%s script=%s: %w", sourceURL, pyRunner, resolvedScriptPath, err)
+			}
+			return nil, fmt.Errorf("parse python output (%s): runner=%s script=%s: %w; output=%s", sourceURL, pyRunner, resolvedScriptPath, err, snippet)
 		}
+		diag.ParsedRows = len(rows)
+		diag.FoundContainer = payload.FoundContainer
+		diag.DebugLinesCount = payload.DebugLinesCount
+		diag.DebugReason = strings.TrimSpace(payload.DebugReason)
+		diag.DebugSample = sanitizeLogValue(payload.DebugContainerSample, 120)
 
 		for _, m := range rows {
 			name := strings.TrimSpace(firstString(m, "name", "nama", "komoditas", "commodity", "wilayah"))
 			if !isLikelyCommodityName(name) {
+				diag.RejectedInvalidName++
 				continue
 			}
 
 			price := firstFloat(m, "price", "harga")
 			if price <= 0 || price > 1000000 {
+				diag.RejectedInvalidPrice++
 				continue
 			}
 
@@ -2286,11 +2330,13 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 				ScrapedAt: collected,
 				Raw:       m,
 			})
+			diag.AcceptedRows++
 		}
+		diagnostics = append(diagnostics, diag)
 	}
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("no valid commodity rows found")
+		return nil, errors.New(buildNoValidCommodityMessage(pyRunner, resolvedScriptPath, diagnostics))
 	}
 
 	return result, nil
@@ -2383,7 +2429,7 @@ func (s *Service) runScrapeJob(jobId string, urls []string) {
 	if err != nil {
 		_ = s.db.Model(&ScrapeJob{}).Where("id = ?", jobId).Updates(map[string]interface{}{
 			"status":      "error",
-			"message":     err.Error(),
+			"message":     sanitizeLogValue(err.Error(), 1800),
 			"finished_at": time.Now(),
 		})
 		return
@@ -2576,6 +2622,123 @@ func (s *Service) defaultScrapeUrls(sourceType string) []string {
 	return urls
 }
 
+func resolvePythonScriptPath(scriptPath string) (string, error) {
+	path := strings.TrimSpace(scriptPath)
+	if path == "" {
+		return "", fmt.Errorf("script path is empty")
+	}
+
+	if info, err := os.Stat(path); err == nil {
+		if info.IsDir() {
+			return "", fmt.Errorf("script path is a directory: %s", path)
+		}
+		return path, nil
+	}
+
+	if filepath.IsAbs(path) {
+		return "", fmt.Errorf("script file not found: %s", path)
+	}
+
+	executablePath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("script file not found: %s", path)
+	}
+
+	absoluteCandidate := filepath.Join(filepath.Dir(executablePath), path)
+	info, err := os.Stat(absoluteCandidate)
+	if err != nil {
+		return "", fmt.Errorf("script file not found: %s (also tried %s)", path, absoluteCandidate)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("script path is a directory: %s", absoluteCandidate)
+	}
+	return absoluteCandidate, nil
+}
+
+func validatePythonRunner(pyRunner string) error {
+	runner := strings.TrimSpace(pyRunner)
+	if runner == "" {
+		return fmt.Errorf("SCRAPE_PANGAN_PYTHON is empty")
+	}
+
+	if strings.ContainsRune(runner, '/') {
+		info, err := os.Stat(runner)
+		if err != nil {
+			return fmt.Errorf("python runner not found at %s: %w", runner, err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("python runner is a directory: %s", runner)
+		}
+		return nil
+	}
+
+	resolved, err := exec.LookPath(runner)
+	if err != nil {
+		return fmt.Errorf("python runner %q not found in PATH", runner)
+	}
+	if _, err := os.Stat(resolved); err != nil {
+		return fmt.Errorf("python runner %q is not accessible: %w", resolved, err)
+	}
+	return nil
+}
+
+func sanitizeLogValue(raw string, limit int) string {
+	val := strings.TrimSpace(raw)
+	if val == "" {
+		return ""
+	}
+	val = strings.Join(strings.Fields(val), " ")
+	if limit <= 0 || len(val) <= limit {
+		return val
+	}
+	if limit <= 3 {
+		return val[:limit]
+	}
+	return val[:limit-3] + "..."
+}
+
+func buildNoValidCommodityMessage(pyRunner, scriptPath string, diagnostics []scrapeURLDiagnostic) string {
+	parts := []string{
+		fmt.Sprintf("no valid commodity rows found (runner=%s script=%s)", pyRunner, scriptPath),
+	}
+
+	if wd, err := os.Getwd(); err == nil {
+		parts = append(parts, fmt.Sprintf("cwd=%s", wd))
+	}
+
+	if len(diagnostics) == 0 {
+		parts = append(parts, "no scrape diagnostics captured")
+		return sanitizeLogValue(strings.Join(parts, "; "), 900)
+	}
+
+	urlDetails := make([]string, 0, len(diagnostics))
+	for _, diag := range diagnostics {
+		chunks := []string{
+			fmt.Sprintf("url=%s", diag.SourceURL),
+			fmt.Sprintf("rows=%d", diag.ParsedRows),
+			fmt.Sprintf("accepted=%d", diag.AcceptedRows),
+			fmt.Sprintf("reject_name=%d", diag.RejectedInvalidName),
+			fmt.Sprintf("reject_price=%d", diag.RejectedInvalidPrice),
+		}
+		if diag.FoundContainer != nil {
+			chunks = append(chunks, fmt.Sprintf("found_container=%t", *diag.FoundContainer))
+		}
+		if diag.DebugLinesCount != nil {
+			chunks = append(chunks, fmt.Sprintf("lines=%d", *diag.DebugLinesCount))
+		}
+		if diag.DebugReason != "" {
+			chunks = append(chunks, fmt.Sprintf("reason=%s", sanitizeLogValue(diag.DebugReason, 80)))
+		}
+		if diag.DebugSample != "" {
+			chunks = append(chunks, fmt.Sprintf("sample=%s", sanitizeLogValue(diag.DebugSample, 80)))
+		}
+		urlDetails = append(urlDetails, strings.Join(chunks, " "))
+	}
+
+	parts = append(parts, "details="+strings.Join(urlDetails, " | "))
+	return sanitizeLogValue(strings.Join(parts, "; "), 1800)
+}
+
 func firstString(m map[string]interface{}, keys ...string) string {
 	for _, k := range keys {
 		if v, ok := m[k]; ok {
@@ -2590,21 +2753,22 @@ func firstString(m map[string]interface{}, keys ...string) string {
 	return ""
 }
 
-func parsePythonScrapeRows(output []byte) ([]map[string]interface{}, error) {
+func parsePythonScrapeRows(output []byte) ([]map[string]interface{}, panganScrapePayload, error) {
 	var payload panganScrapePayload
 	if err := json.Unmarshal(output, &payload); err == nil && payload.Rows != nil {
-		return payload.Rows, nil
+		return payload.Rows, payload, nil
 	}
 
 	var rows []map[string]interface{}
 	if err := json.Unmarshal(output, &rows); err == nil {
-		return rows, nil
+		payload.Rows = rows
+		return rows, payload, nil
 	}
 
 	if err := json.Unmarshal(output, &payload); err != nil {
-		return nil, err
+		return nil, payload, err
 	}
-	return payload.Rows, nil
+	return payload.Rows, payload, nil
 }
 
 func isLikelyCommodityName(name string) bool {

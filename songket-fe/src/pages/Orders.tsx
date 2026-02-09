@@ -309,7 +309,11 @@ export default function OrdersPage() {
             {isEdit && !canUpdate && <div className="alert">Anda tidak punya izin mengubah order.</div>}
             {error && <div className="alert" style={{ marginBottom: 10 }}>{error}</div>}
 
-            <form className="grid" style={{ gap: 12 }} onSubmit={submit}>
+            <form
+              className="grid"
+              style={{ gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', alignItems: 'start' }}
+              onSubmit={submit}
+            >
               <div>
                 <label>Dealer</label>
                 <select
@@ -413,7 +417,7 @@ export default function OrdersPage() {
                 <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Tulis kelurahan" />
               </div>
 
-              <div>
+              <div style={{ gridColumn: '1 / -1' }}>
                 <label>Alamat</label>
                 <input value={form.address} onChange={(e) => set('address', e.target.value)} />
               </div>
@@ -482,7 +486,7 @@ export default function OrdersPage() {
                 </select>
               </div>
 
-              <div>
+              <div style={{ gridColumn: '1 / -1' }}>
                 <label>Keterangan Hasil</label>
                 <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} />
               </div>
@@ -509,7 +513,7 @@ export default function OrdersPage() {
                     </select>
                   </div>
 
-                  <div>
+                  <div style={{ gridColumn: '1 / -1' }}>
                     <label>Keterangan Finance 2</label>
                     <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
                   </div>
