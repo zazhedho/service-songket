@@ -1446,6 +1446,10 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 	return rows, total, nil
 }
 
+func (s *Service) DeleteNewsItem(id string) error {
+	return s.db.Delete(&NewsItem{}, "id = ?", id).Error
+}
+
 // ScrapeNews runs python scraper and returns scraped rows without persisting.
 func (s *Service) ScrapeNews(ctx context.Context) ([]NewsScrapedArticle, error) {
 	var sources []NewsSource

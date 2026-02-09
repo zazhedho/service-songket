@@ -301,6 +301,7 @@ func (r *Routes) SongketRoutes() {
 	g.POST("/news/import", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "scrape"), h.ImportNews)
 	g.GET("/news/latest", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "view"), h.LatestNews)
 	g.GET("/news/items", mdw.RoleMiddleware(utils.RoleDealer, utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "view"), h.ListNewsItems)
+	g.DELETE("/news/items/:id", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("news", "scrape"), h.DeleteNewsItem)
 
 	// Commodity prices
 	g.POST("/commodities", mdw.RoleMiddleware(utils.RoleMainDealer, utils.RoleSuperAdmin, utils.RoleAdmin), mdw.PermissionMiddleware("commodities", "upsert"), h.UpsertCommodity)

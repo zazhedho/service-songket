@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { importNews, listNewsItems, listScrapeSources, scrapeNews } from '../api'
+import { deleteNewsItem, importNews, listNewsItems, listScrapeSources, scrapeNews } from '../api'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
@@ -51,12 +51,14 @@ export default function NewsPage() {
   const [scraping, setScraping] = useState(false)
   const [adding, setAdding] = useState<Record<string, boolean>>({})
   const [added, setAdded] = useState<Record<string, boolean>>({})
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({})
   const [urls, setUrls] = useState<string[]>([''])
   const [sourceOptions, setSourceOptions] = useState<{ url: string; name: string }[]>([])
 
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('view_news')
   const canScrape = perms.includes('scrape_news')
+  const canDelete = canScrape
 
   const stateDetail = (location.state as any)?.detail || null
 
@@ -125,6 +127,21 @@ export default function NewsPage() {
   const startScrape = () => {
     const clean = urls.map((url) => url.trim()).filter(Boolean)
     doScrape(clean.length ? clean : undefined)
+  }
+
+  const removeNews = async (id: string) => {
+    if (!canDelete || !id) return
+    if (!window.confirm('Hapus berita ini?')) return
+
+    setDeleting((prev) => ({ ...prev, [id]: true }))
+    try {
+      await deleteNewsItem(id)
+      await load()
+    } catch (err: any) {
+      window.alert(err?.response?.data?.error || 'Gagal menghapus berita')
+    } finally {
+      setDeleting((prev) => ({ ...prev, [id]: false }))
+    }
   }
 
   const pagedScrapedRows = useMemo(() => {
@@ -394,10 +411,19 @@ export default function NewsPage() {
                       <td>
                         <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Buka Link</a>
                       </td>
-                      <td>
+                      <td style={{ display: 'flex', gap: 8 }}>
                         <button className="btn-ghost" onClick={() => navigate(`/news/${item.id}`, { state: { detail: detailRow } })}>
                           View Detail
                         </button>
+                        {canDelete && (
+                          <button
+                            className="btn-ghost"
+                            onClick={() => void removeNews(String(item.id || ''))}
+                            disabled={!item.id || !!deleting[String(item.id)]}
+                          >
+                            {!!deleting[String(item.id)] ? 'Deleting...' : 'Delete'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )

@@ -785,6 +785,20 @@ func (h *Handler) ListNewsItems(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// DELETE /api/songket/news/items/:id
+func (h *Handler) DeleteNewsItem(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if err := h.svc.DeleteNewsItem(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, nil)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // POST /api/songket/news/scrape
 func (h *Handler) ScrapeNews(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
