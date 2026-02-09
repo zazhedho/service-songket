@@ -1426,7 +1426,7 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 	if err := query.
 		Preload("Source").
 		//Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
-		Order("news_items.created_at DESC").
+		Order("news_items.published_at DESC").
 		Offset(params.Offset).
 		Limit(params.Limit).
 		Find(&rows).Error; err != nil {
