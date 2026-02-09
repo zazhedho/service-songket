@@ -4,9 +4,11 @@ import Protected from './components/Protected'
 import CreditPage from './pages/Credit'
 import DashboardPage from './pages/Dashboard'
 import FinancePage from './pages/Finance'
+import InstallmentsPage from './pages/Installments'
 import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
 import MenusPage from './pages/Menus'
+import MotorTypesPage from './pages/MotorTypes'
 import NetIncomePage from './pages/NetIncome'
 import NewsPage from './pages/News'
 import OrdersPage from './pages/Orders'
@@ -39,6 +41,16 @@ export default function App() {
         <Route path="/orders/create" element={<Guarded><OrdersPage /></Guarded>} />
         <Route path="/orders/:id" element={<Guarded><OrdersPage /></Guarded>} />
         <Route path="/orders/:id/edit" element={<Guarded><OrdersPage /></Guarded>} />
+
+        <Route path="/motor-types" element={<Guarded><MotorTypesPage /></Guarded>} />
+        <Route path="/motor-types/create" element={<Guarded><MotorTypesPage /></Guarded>} />
+        <Route path="/motor-types/:id" element={<Guarded><MotorTypesPage /></Guarded>} />
+        <Route path="/motor-types/:id/edit" element={<Guarded><MotorTypesPage /></Guarded>} />
+
+        <Route path="/installments" element={<Guarded><InstallmentsPage /></Guarded>} />
+        <Route path="/installments/create" element={<Guarded><InstallmentsPage /></Guarded>} />
+        <Route path="/installments/:id" element={<Guarded><InstallmentsPage /></Guarded>} />
+        <Route path="/installments/:id/edit" element={<Guarded><InstallmentsPage /></Guarded>} />
 
         <Route path="/finance" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/dealers/create" element={<Guarded><FinancePage /></Guarded>} />

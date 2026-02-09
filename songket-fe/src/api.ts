@@ -27,6 +27,18 @@ export const createOrder = (body: Record<string, unknown>) => api.post('/api/son
 export const updateOrder = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/orders/${id}`, body)
 export const deleteOrder = (id: string) => api.delete(`/api/songket/orders/${id}`)
 
+export const listMotorTypes = (params?: Record<string, unknown>) => api.get('/api/songket/motor-types', { params })
+export const getMotorType = (id: string) => api.get(`/api/songket/motor-types/${id}`)
+export const createMotorType = (body: Record<string, unknown>) => api.post('/api/songket/motor-types', body)
+export const updateMotorType = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/motor-types/${id}`, body)
+export const deleteMotorType = (id: string) => api.delete(`/api/songket/motor-types/${id}`)
+
+export const listInstallments = (params?: Record<string, unknown>) => api.get('/api/songket/installments', { params })
+export const getInstallment = (id: string) => api.get(`/api/songket/installments/${id}`)
+export const createInstallment = (body: Record<string, unknown>) => api.post('/api/songket/installments', body)
+export const updateInstallment = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/installments/${id}`, body)
+export const deleteInstallment = (id: string) => api.delete(`/api/songket/installments/${id}`)
+
 export const fetchDealers = (params?: Record<string, unknown>) => api.get('/api/songket/finance/dealers', { params })
 export const fetchFinanceCompanies = (params?: Record<string, unknown>) => api.get('/api/songket/finance/companies', { params })
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>

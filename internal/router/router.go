@@ -266,6 +266,20 @@ func (r *Routes) SongketRoutes() {
 	g.PUT("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "update"), h.UpdateOrder)
 	g.DELETE("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "delete"), h.DeleteOrder)
 
+	// Motor types
+	g.GET("/motor-types", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "list"), h.ListMotorTypes)
+	g.GET("/motor-types/:id", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "view"), h.GetMotorTypeByID)
+	g.POST("/motor-types", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "create"), h.CreateMotorType)
+	g.PUT("/motor-types/:id", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "update"), h.UpdateMotorType)
+	g.DELETE("/motor-types/:id", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "delete"), h.DeleteMotorType)
+
+	// Installments
+	g.GET("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "list"), h.ListInstallments)
+	g.GET("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "view"), h.GetInstallmentByID)
+	g.POST("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "create"), h.CreateInstallment)
+	g.PUT("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "update"), h.UpdateInstallment)
+	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), h.DeleteInstallment)
+
 	// Finance performance
 	g.GET("/finance/dealers", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
 	g.GET("/finance/companies", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceCompanies)
@@ -319,7 +333,7 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeJobs)
 	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeResults)
 	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), h.CommitScrapeResults)
-	g.GET("/lookups", menuAccess("/orders", "/finance", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources"), h.Lookups)
+	g.GET("/lookups", menuAccess("/orders", "/finance", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments"), h.Lookups)
 	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), h.ListScrapeSources)
 	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), h.CreateScrapeSource)
 	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), h.UpdateScrapeSource)

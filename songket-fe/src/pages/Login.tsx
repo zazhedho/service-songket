@@ -6,6 +6,7 @@ import { useAuth } from '../store'
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState('dealer')
@@ -42,7 +43,13 @@ export default function LoginPage() {
         navigate('/dashboard')
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Gagal memproses autentikasi')
+      const rawError = err?.response?.data?.error
+      const message =
+        (typeof rawError === 'string' && rawError.trim()) ||
+        (rawError && typeof rawError === 'object' && typeof rawError.message === 'string' && rawError.message.trim()) ||
+        (typeof err?.response?.data?.message === 'string' && err.response.data.message.trim()) ||
+        'Gagal memproses autentikasi'
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -123,7 +130,38 @@ export default function LoginPage() {
 
             <div>
               <label>Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ paddingRight: 42 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 28,
+                    height: 28,
+                    border: '1px solid #d4dce8',
+                    borderRadius: 8,
+                    background: '#fff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#475569',
+                  }}
+                >
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
             </div>
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
@@ -139,6 +177,24 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M10.6 6.2A11.6 11.6 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.1 3.7M6.1 9.1A18.4 18.4 0 0 0 2 12s3.5 6 10 6c1.2 0 2.3-.2 3.3-.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
   )
 }
 

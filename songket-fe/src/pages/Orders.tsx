@@ -137,6 +137,18 @@ export default function OrdersPage() {
     return list.find((order) => order.id === selectedId) || (stateOrder?.id === selectedId ? stateOrder : null)
   }, [list, selectedId, stateOrder])
 
+  const filteredMotorTypes = useMemo(() => {
+    const rows = Array.isArray(lookups?.motor_types) ? lookups.motor_types : []
+    if (!form.province && !form.regency) return rows
+    return rows.filter((motor: any) => {
+      const provinceCode = `${motor?.province_code || ''}`.trim()
+      const regencyCode = `${motor?.regency_code || ''}`.trim()
+      if (form.province && provinceCode !== form.province) return false
+      if (form.regency && regencyCode !== form.regency) return false
+      return true
+    })
+  }, [form.province, form.regency, lookups?.motor_types])
+
   const applyOrderToForm = (order: any) => {
     setForm({
       pooling_number: order.pooling_number || '',
@@ -197,6 +209,14 @@ export default function OrdersPage() {
       setKecamatan([])
     }
   }, [form.province, form.regency])
+
+  useEffect(() => {
+    if (!form.motor_type_id) return
+    const exists = filteredMotorTypes.some((motor: any) => motor.id === form.motor_type_id)
+    if (!exists) {
+      setForm((prev) => ({ ...prev, motor_type_id: '' }))
+    }
+  }, [filteredMotorTypes, form.motor_type_id])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -436,8 +456,10 @@ export default function OrdersPage() {
                 <label>Tipe Motor</label>
                 <select value={form.motor_type_id} onChange={(e) => set('motor_type_id', e.target.value)}>
                   <option value="">Pilih</option>
-                  {lookups?.motor_types?.map((motor: any) => (
-                    <option key={motor.id} value={motor.id}>{motor.name} - OTR {motor.otr?.toLocaleString?.('id-ID')}</option>
+                  {filteredMotorTypes.map((motor: any) => (
+                    <option key={motor.id} value={motor.id}>
+                      {motor.name} - OTR {motor.otr?.toLocaleString?.('id-ID')}
+                    </option>
                   ))}
                 </select>
               </div>

@@ -314,6 +314,232 @@ func (h *Handler) DeleteFinanceCompany(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/motor-types
+func (h *Handler) ListMotorTypes(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province_code", "regency_code"})
+
+	data, total, err := h.svc.ListMotorTypes(params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/motor-types/:id
+func (h *Handler) GetMotorTypeByID(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.GetMotorTypeByID(id)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/motor-types
+func (h *Handler) CreateMotorType(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req MotorTypeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.CreateMotorType(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// PUT /api/songket/motor-types/:id
+func (h *Handler) UpdateMotorType(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	var req MotorTypeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.UpdateMotorType(id, req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/motor-types/:id
+func (h *Handler) DeleteMotorType(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if err := h.svc.DeleteMotorType(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/installments
+func (h *Handler) ListInstallments(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"motor_type_id", "province_code", "regency_code"})
+
+	data, total, err := h.svc.ListInstallments(params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/installments/:id
+func (h *Handler) GetInstallmentByID(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.GetInstallmentByID(id)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/installments
+func (h *Handler) CreateInstallment(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req InstallmentRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.CreateInstallment(req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// PUT /api/songket/installments/:id
+func (h *Handler) UpdateInstallment(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	var req InstallmentRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	data, err := h.svc.UpdateInstallment(id, req)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/installments/:id
+func (h *Handler) DeleteInstallment(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	if err := h.svc.DeleteInstallment(id); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"id": id})
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/jobs
 func (h *Handler) ListJobs(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
