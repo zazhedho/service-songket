@@ -20,6 +20,9 @@ type IconName =
   | 'credit'
   | 'quadrants'
   | 'jobs'
+  | 'motorTypes'
+  | 'installments'
+  | 'settings'
   | 'netIncome'
   | 'users'
   | 'roles'
@@ -39,6 +42,9 @@ const PATH_ICON_MAP: Record<string, IconName> = {
   '/credit': 'credit',
   '/quadrants': 'quadrants',
   '/jobs': 'jobs',
+  '/motor-types': 'motorTypes',
+  '/installments': 'installments',
+  '/master-settings': 'settings',
   '/net-income': 'netIncome',
   '/users': 'users',
   '/roles': 'roles',
@@ -59,6 +65,9 @@ function iconFromMenu(menu: MenuItem): IconName {
     if (guess.includes('credit')) return 'credit'
     if (guess.includes('quadrant')) return 'quadrants'
     if (guess.includes('briefcase') || guess.includes('job') || guess.includes('work')) return 'jobs'
+    if (guess.includes('motor') || guess.includes('bike') || guess.includes('bicycle')) return 'motorTypes'
+    if (guess.includes('install') || guess.includes('wallet')) return 'installments'
+    if (guess.includes('setting') || guess.includes('slider')) return 'settings'
     if (guess.includes('cash') || guess.includes('income') || guess.includes('coin')) return 'netIncome'
     if (guess.includes('user')) return 'users'
     if (guess.includes('role')) return 'roles'
@@ -131,6 +140,27 @@ function AppIcon({ name, className }: { name: IconName; className?: string }) {
         <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
           <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.7" />
           <path d="M9 7V5a3 3 0 0 1 6 0v2M3 12h18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      )
+    case 'motorTypes':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
+          <circle cx="7" cy="16" r="2.3" stroke="currentColor" strokeWidth="1.7" />
+          <circle cx="17" cy="16" r="2.3" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M6.8 16h4l2.2-4h3.6l1.4 4M9 11h2.6l1.7-2.8h2.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'installments':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
+          <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M3 10h18M7 14h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      )
+    case 'settings':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={baseClass}>
+          <path d="M4 7h6M14 7h6M10 7h2M4 12h2M10 12h10M8 12h2M4 17h10M18 17h2M14 17h2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
         </svg>
       )
     case 'netIncome':

@@ -28,6 +28,8 @@ type Service struct {
 	db *gorm.DB
 }
 
+var errNewsAlreadyAdded = errors.New("news already added")
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
@@ -103,6 +105,26 @@ func parseTimeRequired(val string) (time.Time, error) {
 	return t, nil
 }
 
+func validateMotorTypeArea(motor MotorType, provinceCode, regencyCode string) error {
+	motorProvince := strings.TrimSpace(motor.ProvinceCode)
+	motorRegency := strings.TrimSpace(motor.RegencyCode)
+	orderProvince := strings.TrimSpace(provinceCode)
+	orderRegency := strings.TrimSpace(regencyCode)
+
+	// Backward compatibility: old motor rows may not yet be area-specific.
+	if motorProvince == "" && motorRegency == "" {
+		return nil
+	}
+
+	if motorProvince != "" && orderProvince != "" && motorProvince != orderProvince {
+		return fmt.Errorf("motor type is not available for selected province")
+	}
+	if motorRegency != "" && orderRegency != "" && motorRegency != orderRegency {
+		return fmt.Errorf("motor type is not available for selected regency")
+	}
+	return nil
+}
+
 // CreateOrder creates order + finance attempts.
 func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role string) (Order, error) {
 	poolingAt, err := parseTimeRequired(req.PoolingAt)
@@ -121,6 +143,9 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	var motor MotorType
 	if err := s.db.First(&motor, "id = ?", req.MotorTypeID).Error; err != nil {
 		return Order{}, fmt.Errorf("motor type not found")
+	}
+	if err := validateMotorTypeArea(motor, req.Province, req.Regency); err != nil {
+		return Order{}, err
 	}
 
 	otr := motor.OTR
@@ -209,6 +234,7 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if err := s.db.Preload("Attempts").First(&order, "id = ?", id).Error; err != nil {
 		return Order{}, err
 	}
+	var selectedMotor *MotorType
 
 	if role == utils.RoleDealer && order.CreatedBy != userId {
 		return Order{}, errors.New("dealer can only edit own orders")
@@ -263,9 +289,11 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.MotorTypeID != nil {
 		order.MotorTypeID = *req.MotorTypeID
 		var motor MotorType
-		if err := s.db.First(&motor, "id = ?", order.MotorTypeID).Error; err == nil {
-			order.OTR = motor.OTR
+		if err := s.db.First(&motor, "id = ?", order.MotorTypeID).Error; err != nil {
+			return Order{}, fmt.Errorf("motor type not found")
 		}
+		order.OTR = motor.OTR
+		selectedMotor = &motor
 	}
 	if req.DPGross != nil {
 		order.DPGross = *req.DPGross
@@ -284,6 +312,22 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	}
 	if req.ResultNotes != nil {
 		order.ResultNotes = *req.ResultNotes
+	}
+
+	if order.MotorTypeID != "" {
+		if selectedMotor == nil {
+			var motor MotorType
+			if err := s.db.First(&motor, "id = ?", order.MotorTypeID).Error; err != nil {
+				return Order{}, fmt.Errorf("motor type not found")
+			}
+			selectedMotor = &motor
+			if order.OTR <= 0 {
+				order.OTR = motor.OTR
+			}
+		}
+		if err := validateMotorTypeArea(*selectedMotor, order.Province, order.Regency); err != nil {
+			return Order{}, err
+		}
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -731,6 +775,325 @@ func (s *Service) DeleteDealer(id string) error {
 
 func (s *Service) DeleteFinanceCompany(id string) error {
 	return s.db.Delete(&FinanceCompany{}, "id = ?", id).Error
+}
+
+func (s *Service) ListMotorTypes(params filter.BaseParams) ([]MotorType, int64, error) {
+	query := s.db.Model(&MotorType{})
+
+	if v, ok := params.Filters["province_code"]; ok {
+		query = query.Where("province_code = ?", strings.TrimSpace(fmt.Sprint(v)))
+	}
+	if v, ok := params.Filters["regency_code"]; ok {
+		query = query.Where("regency_code = ?", strings.TrimSpace(fmt.Sprint(v)))
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(strings.TrimSpace(params.Search)) + "%"
+		query = query.Where(
+			"LOWER(name) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(model) LIKE ? OR LOWER(variant_type) LIKE ? OR LOWER(province_name) LIKE ? OR LOWER(regency_name) LIKE ?",
+			search,
+			search,
+			search,
+			search,
+			search,
+			search,
+		)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "motor_types." + orderBy
+	}
+
+	var rows []MotorType
+	if err := query.
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+func (s *Service) GetMotorTypeByID(id string) (MotorType, error) {
+	var row MotorType
+	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+		return MotorType{}, err
+	}
+	return row, nil
+}
+
+func (s *Service) CreateMotorType(req MotorTypeRequest) (MotorType, error) {
+	name := strings.TrimSpace(req.Name)
+	brand := strings.TrimSpace(req.Brand)
+	model := strings.TrimSpace(req.Model)
+	variantType := strings.TrimSpace(req.Type)
+	provinceCode := strings.TrimSpace(req.ProvinceCode)
+	provinceName := strings.TrimSpace(req.ProvinceName)
+	regencyCode := strings.TrimSpace(req.RegencyCode)
+	regencyName := strings.TrimSpace(req.RegencyName)
+
+	if name == "" || brand == "" || model == "" || variantType == "" {
+		return MotorType{}, fmt.Errorf("name, brand, model, and type are required")
+	}
+	if provinceCode == "" || regencyCode == "" {
+		return MotorType{}, fmt.Errorf("province_code and regency_code are required")
+	}
+	if req.OTR < 0 {
+		return MotorType{}, fmt.Errorf("otr must be greater than or equal to 0")
+	}
+
+	var existing MotorType
+	err := s.db.
+		Where("LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?", name, brand, model, variantType, provinceCode, regencyCode).
+		First(&existing).Error
+	if err == nil {
+		return MotorType{}, fmt.Errorf("motor type already exists for selected area")
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return MotorType{}, err
+	}
+
+	row := MotorType{
+		Id:           utils.CreateUUID(),
+		Name:         name,
+		Brand:        brand,
+		Model:        model,
+		VariantType:  variantType,
+		OTR:          req.OTR,
+		ProvinceCode: provinceCode,
+		ProvinceName: provinceName,
+		RegencyCode:  regencyCode,
+		RegencyName:  regencyName,
+	}
+	if err := s.db.Create(&row).Error; err != nil {
+		if isUniqueViolationError(err) {
+			return MotorType{}, fmt.Errorf("motor type already exists for selected area")
+		}
+		return MotorType{}, err
+	}
+	return row, nil
+}
+
+func (s *Service) UpdateMotorType(id string, req MotorTypeRequest) (MotorType, error) {
+	var row MotorType
+	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+		return MotorType{}, err
+	}
+
+	name := strings.TrimSpace(req.Name)
+	brand := strings.TrimSpace(req.Brand)
+	model := strings.TrimSpace(req.Model)
+	variantType := strings.TrimSpace(req.Type)
+	provinceCode := strings.TrimSpace(req.ProvinceCode)
+	provinceName := strings.TrimSpace(req.ProvinceName)
+	regencyCode := strings.TrimSpace(req.RegencyCode)
+	regencyName := strings.TrimSpace(req.RegencyName)
+
+	if name == "" || brand == "" || model == "" || variantType == "" {
+		return MotorType{}, fmt.Errorf("name, brand, model, and type are required")
+	}
+	if provinceCode == "" || regencyCode == "" {
+		return MotorType{}, fmt.Errorf("province_code and regency_code are required")
+	}
+	if req.OTR < 0 {
+		return MotorType{}, fmt.Errorf("otr must be greater than or equal to 0")
+	}
+
+	var dup MotorType
+	err := s.db.
+		Where("id <> ? AND LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?", id, name, brand, model, variantType, provinceCode, regencyCode).
+		First(&dup).Error
+	if err == nil {
+		return MotorType{}, fmt.Errorf("motor type already exists for selected area")
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return MotorType{}, err
+	}
+
+	row.Name = name
+	row.Brand = brand
+	row.Model = model
+	row.VariantType = variantType
+	row.OTR = req.OTR
+	row.ProvinceCode = provinceCode
+	row.ProvinceName = provinceName
+	row.RegencyCode = regencyCode
+	row.RegencyName = regencyName
+	if err := s.db.Save(&row).Error; err != nil {
+		if isUniqueViolationError(err) {
+			return MotorType{}, fmt.Errorf("motor type already exists for selected area")
+		}
+		return MotorType{}, err
+	}
+	return row, nil
+}
+
+func (s *Service) DeleteMotorType(id string) error {
+	var orderCount int64
+	if err := s.db.Model(&Order{}).Where("motor_type_id = ?", id).Count(&orderCount).Error; err != nil {
+		return err
+	}
+	if orderCount > 0 {
+		return fmt.Errorf("motor type is already used by order data")
+	}
+
+	var installmentCount int64
+	if err := s.db.Model(&Installment{}).Where("motor_type_id = ?", id).Count(&installmentCount).Error; err != nil {
+		return err
+	}
+	if installmentCount > 0 {
+		return fmt.Errorf("motor type is already used by installment data")
+	}
+
+	return s.db.Delete(&MotorType{}, "id = ?", id).Error
+}
+
+func (s *Service) ListInstallments(params filter.BaseParams) ([]Installment, int64, error) {
+	query := s.db.Model(&Installment{}).
+		Joins("LEFT JOIN motor_types ON motor_types.id = installments.motor_type_id")
+
+	if v, ok := params.Filters["motor_type_id"]; ok {
+		query = query.Where("installments.motor_type_id = ?", strings.TrimSpace(fmt.Sprint(v)))
+	}
+	if v, ok := params.Filters["province_code"]; ok {
+		query = query.Where("motor_types.province_code = ?", strings.TrimSpace(fmt.Sprint(v)))
+	}
+	if v, ok := params.Filters["regency_code"]; ok {
+		query = query.Where("motor_types.regency_code = ?", strings.TrimSpace(fmt.Sprint(v)))
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(strings.TrimSpace(params.Search)) + "%"
+		query = query.Where(
+			"LOWER(motor_types.name) LIKE ? OR LOWER(motor_types.brand) LIKE ? OR LOWER(motor_types.model) LIKE ? OR LOWER(motor_types.variant_type) LIKE ?",
+			search,
+			search,
+			search,
+			search,
+		)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderBy := params.OrderBy
+	if !strings.Contains(orderBy, ".") {
+		orderBy = "installments." + orderBy
+	}
+
+	var rows []Installment
+	if err := query.
+		Preload("MotorType").
+		Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+func (s *Service) GetInstallmentByID(id string) (Installment, error) {
+	var row Installment
+	if err := s.db.Preload("MotorType").First(&row, "id = ?", id).Error; err != nil {
+		return Installment{}, err
+	}
+	return row, nil
+}
+
+func (s *Service) CreateInstallment(req InstallmentRequest) (Installment, error) {
+	motorTypeID := strings.TrimSpace(req.MotorTypeID)
+	if motorTypeID == "" {
+		return Installment{}, fmt.Errorf("motor_type_id is required")
+	}
+	if req.Amount < 0 {
+		return Installment{}, fmt.Errorf("amount must be greater than or equal to 0")
+	}
+
+	var motor MotorType
+	if err := s.db.First(&motor, "id = ?", motorTypeID).Error; err != nil {
+		return Installment{}, fmt.Errorf("motor type not found")
+	}
+
+	var existing Installment
+	err := s.db.Where("motor_type_id = ?", motorTypeID).First(&existing).Error
+	if err == nil {
+		return Installment{}, fmt.Errorf("installment for selected motor type already exists")
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return Installment{}, err
+	}
+
+	row := Installment{
+		Id:          utils.CreateUUID(),
+		MotorTypeID: motorTypeID,
+		Amount:      req.Amount,
+	}
+	if err := s.db.Create(&row).Error; err != nil {
+		if isUniqueViolationError(err) {
+			return Installment{}, fmt.Errorf("installment for selected motor type already exists")
+		}
+		return Installment{}, err
+	}
+	if err := s.db.Preload("MotorType").First(&row, "id = ?", row.Id).Error; err != nil {
+		return Installment{}, err
+	}
+	return row, nil
+}
+
+func (s *Service) UpdateInstallment(id string, req InstallmentRequest) (Installment, error) {
+	var row Installment
+	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+		return Installment{}, err
+	}
+
+	motorTypeID := strings.TrimSpace(req.MotorTypeID)
+	if motorTypeID == "" {
+		return Installment{}, fmt.Errorf("motor_type_id is required")
+	}
+	if req.Amount < 0 {
+		return Installment{}, fmt.Errorf("amount must be greater than or equal to 0")
+	}
+
+	var motor MotorType
+	if err := s.db.First(&motor, "id = ?", motorTypeID).Error; err != nil {
+		return Installment{}, fmt.Errorf("motor type not found")
+	}
+
+	var dup Installment
+	err := s.db.Where("id <> ? AND motor_type_id = ?", id, motorTypeID).First(&dup).Error
+	if err == nil {
+		return Installment{}, fmt.Errorf("installment for selected motor type already exists")
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return Installment{}, err
+	}
+
+	row.MotorTypeID = motorTypeID
+	row.Amount = req.Amount
+	if err := s.db.Save(&row).Error; err != nil {
+		if isUniqueViolationError(err) {
+			return Installment{}, fmt.Errorf("installment for selected motor type already exists")
+		}
+		return Installment{}, err
+	}
+	if err := s.db.Preload("MotorType").First(&row, "id = ?", row.Id).Error; err != nil {
+		return Installment{}, err
+	}
+	return row, nil
+}
+
+func (s *Service) DeleteInstallment(id string) error {
+	return s.db.Delete(&Installment{}, "id = ?", id).Error
 }
 
 type JobNetIncomeItem struct {
@@ -1426,7 +1789,7 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 	if err := query.
 		Preload("Source").
 		//Order(fmt.Sprintf("%s %s", orderBy, params.OrderDirection)).
-		Order("news_items.created_at DESC").
+		Order("news_items.published_at DESC").
 		Offset(params.Offset).
 		Limit(params.Limit).
 		Find(&rows).Error; err != nil {
@@ -1693,6 +2056,7 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 
 	saved := make([]NewsItem, 0, len(rows))
 	errs := make([]string, 0)
+	duplicateFound := false
 	seenURL := make(map[string]struct{})
 
 	for _, row := range rows {
@@ -1737,6 +2101,10 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 
 		item, err := s.upsertNewsItem(row, sourceID, category, published)
 		if err != nil {
+			if errors.Is(err, errNewsAlreadyAdded) {
+				duplicateFound = true
+				continue
+			}
 			errs = append(errs, fmt.Sprintf("%s: %v", url, err))
 			continue
 		}
@@ -1744,6 +2112,9 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 	}
 
 	if len(saved) == 0 {
+		if duplicateFound && len(errs) == 0 {
+			return nil, errNewsAlreadyAdded
+		}
 		if len(errs) == 0 {
 			return nil, fmt.Errorf("no valid selected news")
 		}
@@ -1753,7 +2124,11 @@ func (s *Service) ImportScrapedNews(rows []NewsScrapedArticle) ([]NewsItem, erro
 }
 
 func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category string, publishedAt time.Time) (NewsItem, error) {
-	urlRaw := strings.TrimSpace(row.URL)
+	urlOriginal := strings.TrimSpace(row.URL)
+	urlRaw := urlOriginal
+	if normalized := normalizeNewsURL(urlOriginal); normalized != "" {
+		urlRaw = normalized
+	}
 	title := strings.TrimSpace(row.Title)
 	content := strings.TrimSpace(row.Content)
 	sourceName := strings.TrimSpace(row.Source)
@@ -1764,18 +2139,34 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 	if urlRaw == "" || title == "" {
 		return NewsItem{}, fmt.Errorf("invalid news row")
 	}
-	imagesJSON, hasImages := buildNewsImagesJSON(row.Images)
+	imagesJSON, _ := buildNewsImagesJSON(row.Images)
 
-	noSlash := strings.TrimRight(urlRaw, "/")
-	withSlash := noSlash + "/"
+	urlCandidates := make(map[string]struct{})
+	addCandidate := func(raw string) {
+		v := strings.TrimSpace(raw)
+		if v == "" {
+			return
+		}
+		urlCandidates[v] = struct{}{}
+		noSlash := strings.TrimRight(v, "/")
+		if noSlash != "" {
+			urlCandidates[noSlash] = struct{}{}
+			urlCandidates[noSlash+"/"] = struct{}{}
+		}
+	}
+	addCandidate(urlOriginal)
+	addCandidate(urlRaw)
 
 	var existing NewsItem
-	q := s.db.Where("url = ?", urlRaw)
-	if noSlash != "" && noSlash != urlRaw {
-		q = q.Or("url = ?", noSlash)
-	}
-	if withSlash != urlRaw {
-		q = q.Or("url = ?", withSlash)
+	var q *gorm.DB
+	first := true
+	for candidate := range urlCandidates {
+		if first {
+			q = s.db.Where("url = ?", candidate)
+			first = false
+			continue
+		}
+		q = q.Or("url = ?", candidate)
 	}
 	findErr := q.Order("created_at DESC").First(&existing).Error
 
@@ -1794,6 +2185,9 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 			item.SourceID = stringPtr(sourceID)
 		}
 		if err := s.db.Create(&item).Error; err != nil {
+			if isUniqueViolationError(err) {
+				return NewsItem{}, errNewsAlreadyAdded
+			}
 			return NewsItem{}, err
 		}
 		return item, nil
@@ -1801,42 +2195,7 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 	if findErr != nil {
 		return NewsItem{}, findErr
 	}
-
-	updates := map[string]interface{}{}
-	if title != "" && existing.Title != title {
-		updates["title"] = title
-		existing.Title = title
-	}
-	if content != "" && existing.Content != content {
-		updates["content"] = content
-		existing.Content = content
-	}
-	if sourceName != "" && existing.SourceName != sourceName {
-		updates["source_name"] = sourceName
-		existing.SourceName = sourceName
-	}
-	if (existing.SourceID == nil || strings.TrimSpace(*existing.SourceID) == "") && sourceID != "" {
-		updates["source_id"] = sourceID
-		existing.SourceID = stringPtr(sourceID)
-	}
-	if category != "" && existing.Category != category {
-		updates["category"] = category
-		existing.Category = category
-	}
-	if hasImages && string(existing.Images) != string(imagesJSON) {
-		updates["images"] = imagesJSON
-		existing.Images = imagesJSON
-	}
-	if existing.PublishedAt.IsZero() || existing.PublishedAt.Before(publishedAt) {
-		updates["published_at"] = publishedAt
-		existing.PublishedAt = publishedAt
-	}
-	if len(updates) > 0 {
-		if err := s.db.Model(&NewsItem{}).Where("id = ?", existing.Id).Updates(updates).Error; err != nil {
-			return NewsItem{}, err
-		}
-	}
-	return existing, nil
+	return NewsItem{}, errNewsAlreadyAdded
 }
 
 func buildNewsImagesJSON(images NewsScrapedImages) (datatypes.JSON, bool) {
@@ -2055,6 +2414,16 @@ func hostFromURL(raw string) string {
 		return ""
 	}
 	return strings.ToLower(strings.TrimSpace(u.Host))
+}
+
+func isUniqueViolationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "violates unique") ||
+		strings.Contains(msg, "unique constraint")
 }
 
 func parseStringSlice(v interface{}) []string {
@@ -2964,6 +3333,7 @@ func decodeAreaNetIncome(raw datatypes.JSON) []NetIncomeAreaItem {
 func (s *Service) Lookups() (map[string]interface{}, error) {
 	var fcs []FinanceCompany
 	var motors []MotorType
+	var installments []Installment
 	var jobs []Job
 	var dealers []Dealer
 
@@ -2971,6 +3341,9 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 		return nil, err
 	}
 	if err := s.db.Find(&motors).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.Preload("MotorType").Find(&installments).Error; err != nil {
 		return nil, err
 	}
 	if err := s.db.Find(&jobs).Error; err != nil {
@@ -2995,6 +3368,7 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"finance_companies": fcs,
 		"motor_types":       motors,
+		"installments":      installments,
 		"jobs":              jobs,
 		"dealers":           dealers,
 		"regencies":         regencies,

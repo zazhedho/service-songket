@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	MasterSettingKeyNewsScrapeCron = "cron_scrape_news"
+)
+
 // Dealer represents a dealer location.
 type Dealer struct {
 	Id        string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
@@ -45,15 +49,35 @@ func (FinanceCompany) TableName() string { return "finance_companies" }
 
 // MotorType contains bike variants and their OTR price.
 type MotorType struct {
-	Id        string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Name      string         `gorm:"column:name;unique;not null" json:"name"`
-	OTR       float64        `gorm:"column:otr;not null" json:"otr"`
-	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Id           string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Name         string         `gorm:"column:name;not null;index" json:"name"`
+	Brand        string         `gorm:"column:brand" json:"brand"`
+	Model        string         `gorm:"column:model" json:"model"`
+	VariantType  string         `gorm:"column:variant_type" json:"type"`
+	OTR          float64        `gorm:"column:otr;not null" json:"otr"`
+	ProvinceCode string         `gorm:"column:province_code;index" json:"province_code"`
+	ProvinceName string         `gorm:"column:province_name" json:"province_name"`
+	RegencyCode  string         `gorm:"column:regency_code;index" json:"regency_code"`
+	RegencyName  string         `gorm:"column:regency_name" json:"regency_name"`
+	CreatedAt    time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (MotorType) TableName() string { return "motor_types" }
+
+// Installment stores monthly installment value per motor type.
+type Installment struct {
+	Id          string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	MotorTypeID string         `gorm:"column:motor_type_id;type:uuid;not null;index" json:"motor_type_id"`
+	MotorType   *MotorType     `gorm:"foreignKey:MotorTypeID" json:"motor_type,omitempty"`
+	Amount      float64        `gorm:"column:amount;type:numeric(18,2);not null" json:"amount"`
+	CreatedAt   time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Installment) TableName() string { return "installments" }
 
 // Job is the occupation reference used in orders and credit capability.
 type Job struct {
@@ -241,3 +265,17 @@ type NewsItem struct {
 }
 
 func (NewsItem) TableName() string { return "news_items" }
+
+// MasterSetting stores runtime application settings managed from database.
+type MasterSetting struct {
+	Id              string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Key             string         `gorm:"column:key;not null;uniqueIndex" json:"key"`
+	IsActive        bool           `gorm:"column:is_active;not null;default:false" json:"is_active"`
+	IntervalMinutes int            `gorm:"column:interval_minutes;not null;default:5" json:"interval_minutes"`
+	Description     string         `gorm:"column:description" json:"description"`
+	CreatedAt       time.Time      `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (MasterSetting) TableName() string { return "master_settings" }

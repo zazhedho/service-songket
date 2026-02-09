@@ -92,6 +92,28 @@ type FinanceCompanyRequest struct {
 	Phone    string `json:"phone" binding:"required"`
 }
 
+type MotorTypeRequest struct {
+	Name         string  `json:"name" binding:"required"`
+	Brand        string  `json:"brand" binding:"required"`
+	Model        string  `json:"model" binding:"required"`
+	Type         string  `json:"type" binding:"required"`
+	OTR          float64 `json:"otr" binding:"required,gte=0"`
+	ProvinceCode string  `json:"province_code" binding:"required"`
+	ProvinceName string  `json:"province_name" binding:"required"`
+	RegencyCode  string  `json:"regency_code" binding:"required"`
+	RegencyName  string  `json:"regency_name" binding:"required"`
+}
+
+type InstallmentRequest struct {
+	MotorTypeID string  `json:"motor_type_id" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,gte=0"`
+}
+
+type NewsScrapeCronSettingRequest struct {
+	IsActive        bool `json:"is_active"`
+	IntervalMinutes int  `json:"interval_minutes" binding:"required,min=1,max=10080"`
+}
+
 type JobRequest struct {
 	Name string `json:"name" binding:"required"`
 }

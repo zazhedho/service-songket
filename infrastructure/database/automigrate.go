@@ -48,6 +48,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.Dealer{},
 		&songket.FinanceCompany{},
 		&songket.MotorType{},
+		&songket.Installment{},
 		&songket.Job{},
 		&songket.JobNetIncome{},
 		&songket.Order{},
@@ -58,6 +59,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.CommodityPrice{},
 		&songket.NewsSource{},
 		&songket.NewsItem{},
+		&songket.MasterSetting{},
 		&songket.ScrapeSource{},
 		&songket.ScrapeJob{},
 		&songket.ScrapeResult{},
@@ -65,6 +67,12 @@ func AutoMigrate(db *gorm.DB) error {
 	}
 
 	if err := db.AutoMigrate(models...); err != nil {
+		return err
+	}
+	if err := ensureMotorTypeIndexes(db); err != nil {
+		return err
+	}
+	if err := ensureInstallmentIndexes(db); err != nil {
 		return err
 	}
 
@@ -98,6 +106,9 @@ func seedDefaults(db *gorm.DB) error {
 		return err
 	}
 	if err := cleanupLegacyJobNetIncome(db); err != nil {
+		return err
+	}
+	if err := seedMasterSettings(db); err != nil {
 		return err
 	}
 
@@ -183,17 +194,86 @@ func seedDefaults(db *gorm.DB) error {
 		}
 	}
 
-	// Motor types placeholder with OTR
+	// Motor types baseline (area-aware)
 	motors := []songket.MotorType{
-		{Id: utils.CreateUUID(), Name: "Scoopy", OTR: 23000000},
-		{Id: utils.CreateUUID(), Name: "Beat", OTR: 19000000},
-		{Id: utils.CreateUUID(), Name: "Vario 160", OTR: 29000000},
+		{
+			Id:           utils.CreateUUID(),
+			Name:         "Scoopy",
+			Brand:        "Honda",
+			Model:        "Scoopy",
+			VariantType:  "Smart Key",
+			OTR:          23000000,
+			ProvinceCode: "52",
+			ProvinceName: "Nusa Tenggara Barat",
+			RegencyCode:  "5271",
+			RegencyName:  "Kota Mataram",
+		},
+		{
+			Id:           utils.CreateUUID(),
+			Name:         "Beat",
+			Brand:        "Honda",
+			Model:        "Beat",
+			VariantType:  "CBS",
+			OTR:          19000000,
+			ProvinceCode: "52",
+			ProvinceName: "Nusa Tenggara Barat",
+			RegencyCode:  "5201",
+			RegencyName:  "Lombok Barat",
+		},
+		{
+			Id:           utils.CreateUUID(),
+			Name:         "Vario 160",
+			Brand:        "Honda",
+			Model:        "Vario",
+			VariantType:  "ABS",
+			OTR:          29000000,
+			ProvinceCode: "52",
+			ProvinceName: "Nusa Tenggara Barat",
+			RegencyCode:  "5272",
+			RegencyName:  "Kota Bima",
+		},
 	}
+	seededMotorIDs := make([]string, 0, len(motors))
 	for _, m := range motors {
 		var existing songket.MotorType
-		err := db.Unscoped().Where("name = ?", m.Name).First(&existing).Error
+		err := db.Unscoped().
+			Where("LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?", m.Name, m.Brand, m.Model, m.VariantType, m.ProvinceCode, m.RegencyCode).
+			First(&existing).Error
 		if err == nil {
+			existing.Name = m.Name
+			existing.Brand = m.Brand
+			existing.Model = m.Model
+			existing.VariantType = m.VariantType
 			existing.OTR = m.OTR
+			existing.ProvinceCode = m.ProvinceCode
+			existing.ProvinceName = m.ProvinceName
+			existing.RegencyCode = m.RegencyCode
+			existing.RegencyName = m.RegencyName
+			existing.DeletedAt = gorm.DeletedAt{}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			seededMotorIDs = append(seededMotorIDs, existing.Id)
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := db.Create(&m).Error; err != nil {
+			return err
+		}
+		seededMotorIDs = append(seededMotorIDs, m.Id)
+	}
+
+	seedInstallmentAmount := []float64{1250000, 1050000, 1550000}
+	for idx, motorID := range seededMotorIDs {
+		if idx >= len(seedInstallmentAmount) {
+			break
+		}
+		var existing songket.Installment
+		err := db.Unscoped().Where("motor_type_id = ?", motorID).First(&existing).Error
+		if err == nil {
+			existing.Amount = seedInstallmentAmount[idx]
 			existing.DeletedAt = gorm.DeletedAt{}
 			if err := db.Save(&existing).Error; err != nil {
 				return err
@@ -203,10 +283,12 @@ func seedDefaults(db *gorm.DB) error {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		if err := db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"otr", "deleted_at"}),
-		}).Create(&m).Error; err != nil {
+		inst := songket.Installment{
+			Id:          utils.CreateUUID(),
+			MotorTypeID: motorID,
+			Amount:      seedInstallmentAmount[idx],
+		}
+		if err := db.Create(&inst).Error; err != nil {
 			return err
 		}
 	}
@@ -247,6 +329,84 @@ func seedDefaults(db *gorm.DB) error {
 	//	return err
 	//}
 
+	return nil
+}
+
+func seedMasterSettings(db *gorm.DB) error {
+	defaultSetting := songket.MasterSetting{
+		Id:              utils.CreateUUID(),
+		Key:             songket.MasterSettingKeyNewsScrapeCron,
+		IsActive:        true,
+		IntervalMinutes: 5,
+		Description:     "Auto scrape portal berita",
+	}
+
+	var existing songket.MasterSetting
+	err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
+	if err == nil {
+		existing.DeletedAt = gorm.DeletedAt{}
+		if existing.IntervalMinutes <= 0 {
+			existing.IntervalMinutes = defaultSetting.IntervalMinutes
+		}
+		if strings.TrimSpace(existing.Description) == "" {
+			existing.Description = defaultSetting.Description
+		}
+		return db.Save(&existing).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return db.Create(&defaultSetting).Error
+}
+
+func ensureMotorTypeIndexes(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	if db.Dialector.Name() != "postgres" {
+		return nil
+	}
+
+	statements := []string{
+		`ALTER TABLE motor_types DROP CONSTRAINT IF EXISTS motor_types_name_key`,
+		`ALTER TABLE motor_types DROP CONSTRAINT IF EXISTS uni_motor_types_name`,
+		`DROP INDEX IF EXISTS idx_motor_types_name`,
+		`DROP INDEX IF EXISTS motor_types_name_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_motor_types_area_identity
+			ON motor_types (LOWER(name), LOWER(brand), LOWER(model), LOWER(variant_type), province_code, regency_code)
+			WHERE deleted_at IS NULL`,
+	}
+
+	for _, stmt := range statements {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureInstallmentIndexes(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	if db.Dialector.Name() != "postgres" {
+		return nil
+	}
+
+	statements := []string{
+		`ALTER TABLE installments DROP CONSTRAINT IF EXISTS installments_motor_type_id_key`,
+		`ALTER TABLE installments DROP CONSTRAINT IF EXISTS uni_installments_motor_type_id`,
+		`DROP INDEX IF EXISTS idx_installments_motor_type_id`,
+		`DROP INDEX IF EXISTS installments_motor_type_id_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_installments_motor_type_unique_active
+			ON installments (motor_type_id)
+			WHERE deleted_at IS NULL`,
+	}
+	for _, stmt := range statements {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -377,6 +537,20 @@ func seedPermissions(db *gorm.DB) (map[string]string, error) {
 		{Name: "update_orders", DisplayName: "Update Orders", Resource: "orders", Action: "update"},
 		{Name: "delete_orders", DisplayName: "Delete Orders", Resource: "orders", Action: "delete"},
 
+		// Motor types
+		{Name: "list_motor_types", DisplayName: "List Motor Types", Resource: "motor_types", Action: "list"},
+		{Name: "view_motor_types", DisplayName: "View Motor Type Detail", Resource: "motor_types", Action: "view"},
+		{Name: "create_motor_types", DisplayName: "Create Motor Types", Resource: "motor_types", Action: "create"},
+		{Name: "update_motor_types", DisplayName: "Update Motor Types", Resource: "motor_types", Action: "update"},
+		{Name: "delete_motor_types", DisplayName: "Delete Motor Types", Resource: "motor_types", Action: "delete"},
+
+		// Installments
+		{Name: "list_installments", DisplayName: "List Installments", Resource: "installments", Action: "list"},
+		{Name: "view_installments", DisplayName: "View Installment Detail", Resource: "installments", Action: "view"},
+		{Name: "create_installments", DisplayName: "Create Installments", Resource: "installments", Action: "create"},
+		{Name: "update_installments", DisplayName: "Update Installments", Resource: "installments", Action: "update"},
+		{Name: "delete_installments", DisplayName: "Delete Installments", Resource: "installments", Action: "delete"},
+
 		// Finance
 		{Name: "list_finance_dealers", DisplayName: "List Finance Dealers", Resource: "finance", Action: "list_dealers"},
 		{Name: "view_finance_metrics", DisplayName: "View Finance Metrics", Resource: "finance", Action: "view_metrics"},
@@ -462,11 +636,14 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 		{Name: "news", DisplayName: "Portal Berita", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7},
 		{Name: "jobs", DisplayName: "Nama Pekerjaan", Path: "/jobs", Icon: "bi-briefcase", OrderIndex: 8},
 		{Name: "net_income", DisplayName: "Net Income", Path: "/net-income", Icon: "bi-cash-coin", OrderIndex: 9},
+		{Name: "motor_types", DisplayName: "Jenis Motor", Path: "/motor-types", Icon: "bi-bicycle", OrderIndex: 10},
+		{Name: "installments", DisplayName: "Angsuran", Path: "/installments", Icon: "bi-wallet2", OrderIndex: 11},
 		{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 90},
 		{Name: "roles", DisplayName: "Roles & Access", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 91},
 		{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92},
 		{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 93},
 		{Name: "scrape_sources", DisplayName: "Scrape URL", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94},
+		{Name: "master_settings", DisplayName: "Master Setting", Path: "/master-settings", Icon: "bi-sliders", OrderIndex: 95},
 	}
 
 	result := make(map[string]string)
@@ -529,11 +706,15 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		return nil
 	}
 
-	// superadmin & admin: all permissions
+	// superadmin: all permissions
 	if err := assign(utils.RoleSuperAdmin, keysFromMap(permIDs)); err != nil {
 		return err
 	}
-	if err := assign(utils.RoleAdmin, keysFromMap(permIDs)); err != nil {
+	// admin: all except motor type + installment management (reserved for superadmin/main dealer)
+	adminPerms := filterPerms(permIDs, func(name string) bool {
+		return !strings.Contains(name, "_motor_types") && !strings.Contains(name, "_installments")
+	})
+	if err := assign(utils.RoleAdmin, adminPerms); err != nil {
 		return err
 	}
 
@@ -543,7 +724,7 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		case "view_profile", "update_profile", "view_dashboard":
 			return true
 		}
-		if strings.Contains(name, "_jobs") || strings.Contains(name, "_net_income") {
+		if strings.Contains(name, "_jobs") || strings.Contains(name, "_net_income") || strings.Contains(name, "_motor_types") || strings.Contains(name, "_installments") {
 			return false
 		}
 		if strings.HasPrefix(name, "users") || strings.HasPrefix(name, "roles") || strings.HasPrefix(name, "permissions") {
@@ -564,7 +745,7 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		case "view_profile", "view_dashboard":
 			return true
 		}
-		if strings.Contains(name, "_jobs") || strings.Contains(name, "_net_income") {
+		if strings.Contains(name, "_jobs") || strings.Contains(name, "_net_income") || strings.Contains(name, "_motor_types") || strings.Contains(name, "_installments") {
 			return false
 		}
 		if strings.HasPrefix(name, "users") || strings.HasPrefix(name, "roles") || strings.HasPrefix(name, "permissions") {
@@ -580,6 +761,8 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 	mainDealerPerms := []string{
 		"view_dashboard",
 		"list_orders", "view_orders", "create_orders", "update_orders",
+		"list_motor_types", "view_motor_types", "create_motor_types", "update_motor_types", "delete_motor_types",
+		"list_installments", "view_installments", "create_installments", "update_installments", "delete_installments",
 		"list_finance_dealers", "view_finance_metrics",
 		"list_jobs", "view_jobs", "create_jobs", "update_jobs", "delete_jobs",
 		"list_net_income", "view_net_income", "create_net_income", "update_net_income", "delete_net_income",
@@ -596,7 +779,34 @@ func seedRolePermissions(db *gorm.DB, roleIDs, permIDs map[string]string) error 
 		"list_orders", "view_orders", "create_orders", "update_orders",
 		"list_prices", "view_news",
 	}
-	return assign(utils.RoleDealer, dealerPerms)
+	if err := assign(utils.RoleDealer, dealerPerms); err != nil {
+		return err
+	}
+
+	restrictedPerms := []string{
+		"list_motor_types", "view_motor_types", "create_motor_types", "update_motor_types", "delete_motor_types",
+		"list_installments", "view_installments", "create_installments", "update_installments", "delete_installments",
+	}
+	disallowedRoles := []string{utils.RoleAdmin, utils.RoleStaff, utils.RoleViewer, utils.RoleDealer}
+	for _, roleName := range disallowedRoles {
+		roleID, ok := roleIDs[roleName]
+		if !ok {
+			continue
+		}
+		permIDsToDelete := make([]string, 0, len(restrictedPerms))
+		for _, permName := range restrictedPerms {
+			if pid, ok := permIDs[permName]; ok {
+				permIDsToDelete = append(permIDsToDelete, pid)
+			}
+		}
+		if len(permIDsToDelete) == 0 {
+			continue
+		}
+		if err := db.Where("role_id = ? AND permission_id IN ?", roleID, permIDsToDelete).Delete(&domainrole.RolePermission{}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
@@ -629,14 +839,14 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 	if err := assign(utils.RoleSuperAdmin, allMenus); err != nil {
 		return err
 	}
-	// admin: semua kecuali role_menu_access (khusus superadmin)
-	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "net_income"})
+	// admin: semua kecuali menu khusus superadmin/main dealer
+	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
 	if err := assign(utils.RoleAdmin, adminMenus); err != nil {
 		return err
 	}
 
-	// main dealer: dashboard, orders, finance, credit, quadrants, prices, news
-	mainDealerMenus := []string{"dashboard", "orders", "finance", "credit", "quadrants", "prices", "news", "jobs", "net_income"}
+	// main dealer: dashboard + operational menus
+	mainDealerMenus := []string{"dashboard", "orders", "motor_types", "installments", "finance", "credit", "quadrants", "prices", "news", "jobs", "net_income"}
 	if err := assign(utils.RoleMainDealer, mainDealerMenus); err != nil {
 		return err
 	}
@@ -647,13 +857,37 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 
-	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income"})
+	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
 	if err := assign(utils.RoleStaff, staffMenus); err != nil {
 		return err
 	}
 
-	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income"})
-	return assign(utils.RoleViewer, viewerMenus)
+	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
+	if err := assign(utils.RoleViewer, viewerMenus); err != nil {
+		return err
+	}
+
+	restrictedMenus := []string{"motor_types", "installments", "master_settings"}
+	disallowedRoles := []string{utils.RoleAdmin, utils.RoleStaff, utils.RoleViewer, utils.RoleDealer}
+	for _, roleName := range disallowedRoles {
+		roleID, ok := roleIDs[roleName]
+		if !ok {
+			continue
+		}
+		menuIDsToDelete := make([]string, 0, len(restrictedMenus))
+		for _, menuName := range restrictedMenus {
+			if mid, ok := menuIDs[menuName]; ok {
+				menuIDsToDelete = append(menuIDsToDelete, mid)
+			}
+		}
+		if len(menuIDsToDelete) == 0 {
+			continue
+		}
+		if err := db.Where("role_id = ? AND menu_item_id IN ?", roleID, menuIDsToDelete).Delete(&domainrole.RoleMenu{}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func fetchProvinsiFromSipedas(ctx context.Context, thn string) (map[string]string, error) {
