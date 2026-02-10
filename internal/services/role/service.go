@@ -2,6 +2,7 @@ package servicerole
 
 import (
 	"errors"
+	"fmt"
 	domainrole "starter-kit/internal/domain/role"
 	"starter-kit/internal/dto"
 	interfacemenu "starter-kit/internal/interfaces/menu"
@@ -11,6 +12,8 @@ import (
 	"starter-kit/utils"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type RoleService struct {
@@ -149,6 +152,15 @@ func (s *RoleService) Delete(id string) error {
 }
 
 func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions, currentUserRole string) error {
+	if _, err := uuid.Parse(strings.TrimSpace(roleId)); err != nil {
+		return errors.New("invalid role ID")
+	}
+
+	permissionIDs, err := sanitizeUUIDList("permission_ids", req.PermissionIds)
+	if err != nil {
+		return err
+	}
+
 	role, err := s.RoleRepo.GetByID(roleId)
 	if err != nil {
 		return err
@@ -164,16 +176,25 @@ func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions
 		}
 	}
 
-	for _, permId := range req.PermissionIds {
+	for _, permId := range permissionIDs {
 		if _, err := s.PermissionRepo.GetByID(permId); err != nil {
 			return errors.New("invalid permission ID: " + permId)
 		}
 	}
 
-	return s.RoleRepo.AssignPermissions(roleId, req.PermissionIds)
+	return s.RoleRepo.AssignPermissions(roleId, permissionIDs)
 }
 
 func (s *RoleService) AssignMenus(roleId string, req dto.AssignMenus, currentUserRole string) error {
+	if _, err := uuid.Parse(strings.TrimSpace(roleId)); err != nil {
+		return errors.New("invalid role ID")
+	}
+
+	requestedMenuIDs, err := sanitizeUUIDList("menu_ids", req.MenuIds)
+	if err != nil {
+		return err
+	}
+
 	role, err := s.RoleRepo.GetByID(roleId)
 	if err != nil {
 		return err
@@ -189,11 +210,11 @@ func (s *RoleService) AssignMenus(roleId string, req dto.AssignMenus, currentUse
 		}
 	}
 
-	menuIDs := make([]string, 0, len(req.MenuIds)+1)
-	seenMenuIDs := make(map[string]struct{}, len(req.MenuIds)+1)
+	menuIDs := make([]string, 0, len(requestedMenuIDs)+1)
+	seenMenuIDs := make(map[string]struct{}, len(requestedMenuIDs)+1)
 	hasMasterSettings := false
 
-	for _, menuId := range req.MenuIds {
+	for _, menuId := range requestedMenuIDs {
 		menu, err := s.MenuRepo.GetByID(menuId)
 		if err != nil {
 			return errors.New("invalid menu ID: " + menuId)
@@ -222,6 +243,34 @@ func (s *RoleService) AssignMenus(roleId string, req dto.AssignMenus, currentUse
 	}
 
 	return s.RoleRepo.AssignMenus(roleId, menuIDs)
+}
+
+func sanitizeUUIDList(fieldName string, values []string) ([]string, error) {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+
+	for _, raw := range values {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+
+		if _, err := uuid.Parse(trimmed); err != nil {
+			return nil, fmt.Errorf("%s contains invalid UUID: %s", fieldName, trimmed)
+		}
+
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%s must contain at least 1 valid UUID", fieldName)
+	}
+
+	return out, nil
 }
 
 func (s *RoleService) GetRolePermissions(roleId string) ([]string, error) {

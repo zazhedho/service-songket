@@ -206,15 +206,20 @@ export default function FinancePage() {
     }
   }
 
-  useEffect(() => {
+  const loadBaseData = async () => {
     if (!canView) return
-    Promise.all([fetchProvinces(), loadDealers(), loadFinanceCompanies()])
-      .then(([provRes]) => setProvinces(provRes.data.data || provRes.data || []))
-      .catch(() => {
-        setProvinces([])
-        setDealers([])
-        setFinanceCompanies([])
-      })
+    try {
+      const [provRes] = await Promise.all([fetchProvinces(), loadDealers(), loadFinanceCompanies()])
+      setProvinces(provRes.data.data || provRes.data || [])
+    } catch {
+      setProvinces([])
+      setDealers([])
+      setFinanceCompanies([])
+    }
+  }
+
+  useEffect(() => {
+    void loadBaseData()
   }, [
     canView,
     dealerLimit,
@@ -225,6 +230,7 @@ export default function FinancePage() {
     financePage,
     financeProvinceFilter,
     financeSearch,
+    mode,
   ])
 
   useEffect(() => {

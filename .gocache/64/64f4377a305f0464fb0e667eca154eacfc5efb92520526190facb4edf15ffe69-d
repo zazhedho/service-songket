@@ -1,0 +1,4 @@
+./menu.go
+./permission.go
+./role.go
+./user.go

@@ -229,6 +229,9 @@ export default function OrdersPage() {
     try {
       if (isEdit && selectedId) await updateOrder(selectedId, form)
       else await createOrder(form)
+      if (showTable) {
+        await loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined }).catch(() => undefined)
+      }
       setForm(defaultForm)
       navigate('/orders')
     } catch (err: any) {

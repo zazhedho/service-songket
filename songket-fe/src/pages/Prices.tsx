@@ -135,7 +135,7 @@ export default function PricesPage() {
 
   useEffect(() => {
     loadPrices()
-  }, [canList, priceLimit, pricePage, priceSearch])
+  }, [canList, isList, priceLimit, pricePage, priceSearch])
 
   useEffect(() => {
     if (!canScrape) return

@@ -2,12 +2,16 @@ package servicemenu
 
 import (
 	"errors"
+	"fmt"
 	domainmenu "starter-kit/internal/domain/menu"
 	"starter-kit/internal/dto"
 	interfacemenu "starter-kit/internal/interfaces/menu"
 	"starter-kit/pkg/filter"
 	"starter-kit/utils"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type MenuService struct {
@@ -31,13 +35,18 @@ func (s *MenuService) Create(req dto.MenuCreate) (domainmenu.MenuItem, error) {
 		isActive = *req.IsActive
 	}
 
+	parentId, err := normalizeOptionalParentID(req.ParentId)
+	if err != nil {
+		return domainmenu.MenuItem{}, err
+	}
+
 	data := domainmenu.MenuItem{
 		Id:          utils.CreateUUID(),
 		Name:        req.Name,
 		DisplayName: req.DisplayName,
 		Path:        req.Path,
 		Icon:        req.Icon,
-		ParentId:    req.ParentId,
+		ParentId:    parentId,
 		OrderIndex:  req.OrderIndex,
 		IsActive:    isActive,
 		CreatedAt:   time.Now(),
@@ -82,7 +91,11 @@ func (s *MenuService) Update(id string, req dto.MenuUpdate) (domainmenu.MenuItem
 		menu.Icon = req.Icon
 	}
 	if req.ParentId != nil {
-		menu.ParentId = req.ParentId
+		parentId, err := normalizeOptionalParentID(req.ParentId)
+		if err != nil {
+			return domainmenu.MenuItem{}, err
+		}
+		menu.ParentId = parentId
 	}
 	if req.OrderIndex != nil {
 		menu.OrderIndex = *req.OrderIndex
@@ -98,6 +111,23 @@ func (s *MenuService) Update(id string, req dto.MenuUpdate) (domainmenu.MenuItem
 	}
 
 	return menu, nil
+}
+
+func normalizeOptionalParentID(parentID *string) (*string, error) {
+	if parentID == nil {
+		return nil, nil
+	}
+
+	trimmed := strings.TrimSpace(*parentID)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	if _, err := uuid.Parse(trimmed); err != nil {
+		return nil, fmt.Errorf("parent_id must be a valid UUID")
+	}
+
+	return &trimmed, nil
 }
 
 func (s *MenuService) Delete(id string) error {

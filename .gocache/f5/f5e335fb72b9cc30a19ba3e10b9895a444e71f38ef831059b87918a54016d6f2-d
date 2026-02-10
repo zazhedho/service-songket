@@ -1,0 +1,3 @@
+./automigrate.go
+./postgresql.go
+./redis.go

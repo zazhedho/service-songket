@@ -111,6 +111,34 @@ func parseTimeRequired(val string) (time.Time, error) {
 	return t, nil
 }
 
+func normalizeRequiredUUID(raw, fieldName string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s is required", fieldName)
+	}
+	if _, err := uuid.Parse(trimmed); err != nil {
+		return "", fmt.Errorf("%s must be a valid UUID", fieldName)
+	}
+	return trimmed, nil
+}
+
+func normalizeOptionalUUID(raw *string, fieldName string) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	if _, err := uuid.Parse(trimmed); err != nil {
+		return nil, fmt.Errorf("%s must be a valid UUID", fieldName)
+	}
+
+	return &trimmed, nil
+}
+
 func validateMotorTypeArea(motor MotorType, provinceCode, regencyCode string) error {
 	motorProvince := strings.TrimSpace(motor.ProvinceCode)
 	motorRegency := strings.TrimSpace(motor.RegencyCode)
@@ -236,8 +264,44 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 
 // UpdateOrder updates order and attempts. Dealer can edit only own orders.
 func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId string) (Order, error) {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
+		return Order{}, err
+	}
+
+	dealerID, err := normalizeOptionalUUID(req.DealerID, "dealer_id")
+	if err != nil {
+		return Order{}, err
+	}
+	if req.DealerID != nil && dealerID == nil {
+		return Order{}, fmt.Errorf("dealer_id cannot be empty")
+	}
+
+	financeCompanyID, err := normalizeOptionalUUID(req.FinanceCompanyID, "finance_company_id")
+	if err != nil {
+		return Order{}, err
+	}
+	if req.FinanceCompanyID != nil && financeCompanyID == nil {
+		return Order{}, fmt.Errorf("finance_company_id cannot be empty")
+	}
+
+	jobID, err := normalizeOptionalUUID(req.JobID, "job_id")
+	if err != nil {
+		return Order{}, err
+	}
+
+	motorTypeID, err := normalizeOptionalUUID(req.MotorTypeID, "motor_type_id")
+	if err != nil {
+		return Order{}, err
+	}
+
+	financeCompany2ID, err := normalizeOptionalUUID(req.FinanceCompany2ID, "finance_company2_id")
+	if err != nil {
+		return Order{}, err
+	}
+
 	var order Order
-	if err := s.db.Preload("Attempts").First(&order, "id = ?", id).Error; err != nil {
+	if err := s.db.Preload("Attempts").First(&order, "id = ?", normalizedID).Error; err != nil {
 		return Order{}, err
 	}
 	var selectedMotor *MotorType
@@ -274,8 +338,8 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.Province != nil {
 		order.Province = *req.Province
 	}
-	if req.DealerID != nil {
-		order.DealerID = *req.DealerID
+	if dealerID != nil {
+		order.DealerID = *dealerID
 	}
 	if req.Regency != nil {
 		order.Regency = *req.Regency
@@ -289,11 +353,11 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.Address != nil {
 		order.Address = *req.Address
 	}
-	if req.JobID != nil {
-		order.JobID = *req.JobID
+	if jobID != nil {
+		order.JobID = *jobID
 	}
-	if req.MotorTypeID != nil {
-		order.MotorTypeID = *req.MotorTypeID
+	if motorTypeID != nil {
+		order.MotorTypeID = *motorTypeID
 		var motor MotorType
 		if err := s.db.First(&motor, "id = ?", order.MotorTypeID).Error; err != nil {
 			return Order{}, fmt.Errorf("motor type not found")
@@ -343,8 +407,8 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 		// Update attempts
 		for _, att := range order.Attempts {
 			if att.AttemptNo == 1 {
-				if req.FinanceCompanyID != nil {
-					att.FinanceCompanyID = *req.FinanceCompanyID
+				if financeCompanyID != nil {
+					att.FinanceCompanyID = *financeCompanyID
 				}
 				if req.ResultStatus != nil {
 					att.Status = strings.ToLower(*req.ResultStatus)
@@ -357,8 +421,14 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 				}
 			}
 			if att.AttemptNo == 2 {
-				if req.FinanceCompany2ID != nil {
-					att.FinanceCompanyID = *req.FinanceCompany2ID
+				if req.FinanceCompany2ID != nil && financeCompany2ID == nil {
+					if err := tx.Delete(&att).Error; err != nil {
+						return err
+					}
+					continue
+				}
+				if financeCompany2ID != nil {
+					att.FinanceCompanyID = *financeCompany2ID
 				}
 				if req.ResultStatus2 != nil && *req.ResultStatus2 != "" {
 					att.Status = strings.ToLower(*req.ResultStatus2)
@@ -373,7 +443,7 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 		}
 
 		// Add attempt 2 if missing and provided
-		if req.FinanceCompany2ID != nil && *req.FinanceCompany2ID != "" && !s.hasAttempt(order.Attempts, 2) {
+		if financeCompany2ID != nil && !s.hasAttempt(order.Attempts, 2) {
 			status2 := ""
 			if req.ResultStatus2 != nil {
 				status2 = strings.ToLower(*req.ResultStatus2)
@@ -381,7 +451,7 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 			newAttempt := OrderFinanceAttempt{
 				Id:               utils.CreateUUID(),
 				OrderID:          order.Id,
-				FinanceCompanyID: *req.FinanceCompany2ID,
+				FinanceCompanyID: *financeCompany2ID,
 				AttemptNo:        2,
 				Status:           status2,
 				Notes:            utils.ValueOrDefault(req.ResultNotes2, ""),
@@ -719,8 +789,13 @@ func (s *Service) CreateDealer(req DealerRequest) (Dealer, error) {
 }
 
 func (s *Service) UpdateDealer(id string, req DealerRequest) (Dealer, error) {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
+		return Dealer{}, err
+	}
+
 	var dealer Dealer
-	if err := s.db.First(&dealer, "id = ?", id).Error; err != nil {
+	if err := s.db.First(&dealer, "id = ?", normalizedID).Error; err != nil {
 		return Dealer{}, err
 	}
 
@@ -758,8 +833,13 @@ func (s *Service) CreateFinanceCompany(req FinanceCompanyRequest) (FinanceCompan
 }
 
 func (s *Service) UpdateFinanceCompany(id string, req FinanceCompanyRequest) (FinanceCompany, error) {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
+		return FinanceCompany{}, err
+	}
+
 	var fc FinanceCompany
-	if err := s.db.First(&fc, "id = ?", id).Error; err != nil {
+	if err := s.db.First(&fc, "id = ?", normalizedID).Error; err != nil {
 		return FinanceCompany{}, err
 	}
 	fc.Name = strings.TrimSpace(req.Name)
@@ -888,8 +968,13 @@ func (s *Service) CreateMotorType(req MotorTypeRequest) (MotorType, error) {
 }
 
 func (s *Service) UpdateMotorType(id string, req MotorTypeRequest) (MotorType, error) {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
+		return MotorType{}, err
+	}
+
 	var row MotorType
-	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+	if err := s.db.First(&row, "id = ?", normalizedID).Error; err != nil {
 		return MotorType{}, err
 	}
 
@@ -913,8 +998,8 @@ func (s *Service) UpdateMotorType(id string, req MotorTypeRequest) (MotorType, e
 	}
 
 	var dup MotorType
-	err := s.db.
-		Where("id <> ? AND LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?", id, name, brand, model, variantType, provinceCode, regencyCode).
+	err = s.db.
+		Where("id <> ? AND LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?", normalizedID, name, brand, model, variantType, provinceCode, regencyCode).
 		First(&dup).Error
 	if err == nil {
 		return MotorType{}, fmt.Errorf("motor type already exists for selected area")
@@ -1057,14 +1142,19 @@ func (s *Service) CreateInstallment(req InstallmentRequest) (Installment, error)
 }
 
 func (s *Service) UpdateInstallment(id string, req InstallmentRequest) (Installment, error) {
-	var row Installment
-	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
 		return Installment{}, err
 	}
 
-	motorTypeID := strings.TrimSpace(req.MotorTypeID)
-	if motorTypeID == "" {
-		return Installment{}, fmt.Errorf("motor_type_id is required")
+	var row Installment
+	if err := s.db.First(&row, "id = ?", normalizedID).Error; err != nil {
+		return Installment{}, err
+	}
+
+	motorTypeID, err := normalizeRequiredUUID(req.MotorTypeID, "motor_type_id")
+	if err != nil {
+		return Installment{}, err
 	}
 	if req.Amount < 0 {
 		return Installment{}, fmt.Errorf("amount must be greater than or equal to 0")
@@ -1076,7 +1166,7 @@ func (s *Service) UpdateInstallment(id string, req InstallmentRequest) (Installm
 	}
 
 	var dup Installment
-	err := s.db.Where("id <> ? AND motor_type_id = ?", id, motorTypeID).First(&dup).Error
+	err = s.db.Where("id <> ? AND motor_type_id = ?", normalizedID, motorTypeID).First(&dup).Error
 	if err == nil {
 		return Installment{}, fmt.Errorf("installment for selected motor type already exists")
 	}
@@ -1200,8 +1290,13 @@ func (s *Service) CreateJob(req JobRequest) (JobNetIncomeItem, error) {
 }
 
 func (s *Service) UpdateJob(id string, req JobRequest) (JobNetIncomeItem, error) {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
+		return JobNetIncomeItem{}, err
+	}
+
 	var job Job
-	if err := s.db.First(&job, "id = ?", id).Error; err != nil {
+	if err := s.db.First(&job, "id = ?", normalizedID).Error; err != nil {
 		return JobNetIncomeItem{}, err
 	}
 
@@ -1336,8 +1431,18 @@ func (s *Service) CreateNetIncome(req NetIncomeRequest) (NetIncomeItem, error) {
 }
 
 func (s *Service) UpdateNetIncome(id string, req NetIncomeRequest) (NetIncomeItem, error) {
+	normalizedID, err := normalizeRequiredUUID(id, "id")
+	if err != nil {
+		return NetIncomeItem{}, err
+	}
+
+	normalizedJobID, err := normalizeRequiredUUID(req.JobID, "job_id")
+	if err != nil {
+		return NetIncomeItem{}, err
+	}
+
 	var row JobNetIncome
-	if err := s.db.First(&row, "id = ?", id).Error; err != nil {
+	if err := s.db.First(&row, "id = ?", normalizedID).Error; err != nil {
 		return NetIncomeItem{}, err
 	}
 
@@ -1351,11 +1456,11 @@ func (s *Service) UpdateNetIncome(id string, req NetIncomeRequest) (NetIncomeIte
 	}
 
 	var job Job
-	if err := s.db.First(&job, "id = ?", req.JobID).Error; err != nil {
+	if err := s.db.First(&job, "id = ?", normalizedJobID).Error; err != nil {
 		return NetIncomeItem{}, fmt.Errorf("job not found")
 	}
 
-	row.JobID = req.JobID
+	row.JobID = normalizedJobID
 	row.NetIncome = req.NetIncome
 	row.AreaNetIncome = encodeAreaNetIncome(areas)
 	if err := s.db.Save(&row).Error; err != nil {
@@ -1378,17 +1483,36 @@ func (s *Service) DeleteNetIncome(id string) error {
 }
 
 func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCapability, error) {
+	normalizedJobID, err := normalizeRequiredUUID(req.JobID, "job_id")
+	if err != nil {
+		return CreditCapability{}, err
+	}
+
+	var job Job
+	if err := s.db.Select("id").First(&job, "id = ?", normalizedJobID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return CreditCapability{}, fmt.Errorf("job not found")
+		}
+		return CreditCapability{}, err
+	}
+
+	province := strings.TrimSpace(req.Province)
+	regency := strings.TrimSpace(req.Regency)
+	district := strings.TrimSpace(req.District)
+	village := strings.TrimSpace(req.Village)
+	address := strings.TrimSpace(req.Address)
+
 	cc := CreditCapability{}
-	err := s.db.Where("regency = ? AND job_id = ?", req.Regency, req.JobID).First(&cc).Error
+	err = s.db.Where("regency = ? AND job_id = ?", regency, normalizedJobID).First(&cc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		cc = CreditCapability{
 			Id:       utils.CreateUUID(),
-			Province: req.Province,
-			Regency:  req.Regency,
-			District: req.District,
-			Village:  req.Village,
-			Address:  req.Address,
-			JobID:    req.JobID,
+			Province: province,
+			Regency:  regency,
+			District: district,
+			Village:  village,
+			Address:  address,
+			JobID:    normalizedJobID,
 			Score:    req.Score,
 		}
 		if err := s.db.Create(&cc).Error; err != nil {
@@ -1399,11 +1523,11 @@ func (s *Service) UpsertCreditCapability(req CreditCapabilityRequest) (CreditCap
 		return CreditCapability{}, err
 	}
 
-	cc.Province = req.Province
-	cc.Regency = req.Regency
-	cc.District = req.District
-	cc.Village = req.Village
-	cc.Address = req.Address
+	cc.Province = province
+	cc.Regency = regency
+	cc.District = district
+	cc.Village = village
+	cc.Address = address
 	cc.Score = req.Score
 	if err := s.db.Save(&cc).Error; err != nil {
 		return CreditCapability{}, err

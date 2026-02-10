@@ -1,0 +1,4 @@
+./factory.go
+./interface.go
+./minio_adapter.go
+./r2_adapter.go

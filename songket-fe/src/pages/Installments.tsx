@@ -156,7 +156,7 @@ export default function InstallmentsPage() {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isEdit, isDetail, page, limit, search, motorTypeFilter, provinceFilter, regencyFilter])
+  }, [canList, isEdit, isDetail, isList, page, limit, search, motorTypeFilter, provinceFilter, regencyFilter])
 
   useEffect(() => {
     setPage(1)

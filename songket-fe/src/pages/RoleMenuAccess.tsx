@@ -4,6 +4,7 @@ import { useAuth } from '../store'
 
 type Role = { id: string; name: string; display_name?: string }
 type Menu = { id: string; name: string; display_name?: string; path?: string; is_active?: boolean }
+const sanitizeIdList = (ids: string[]) => Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
 
 const TARGET_ROLES = ['dealer', 'main_dealer', 'superadmin'] as const
 type TargetRole = (typeof TARGET_ROLES)[number]
@@ -49,7 +50,7 @@ export default function RoleMenuAccessPage() {
           .map(async (r) => {
             try {
               const det = await getRoleById(r.id)
-              const menuIds = det.data?.data?.menu_ids || det.data?.menu_ids || []
+              const menuIds = sanitizeIdList(det.data?.data?.menu_ids || det.data?.menu_ids || [])
               return { id: r.id, menuIds }
             } catch {
               return { id: r.id, menuIds: [] }
@@ -108,7 +109,7 @@ export default function RoleMenuAccessPage() {
     setError('')
     setInfo('')
     try {
-      const payload = roleMenus[roleId] || []
+      const payload = sanitizeIdList(roleMenus[roleId] || [])
       if (!payload.length) {
         setError('Minimal 1 menu harus dipilih.')
         return

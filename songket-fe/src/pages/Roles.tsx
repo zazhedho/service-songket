@@ -17,6 +17,8 @@ import { useAuth } from '../store'
 const empty = { name: '', display_name: '', description: '' }
 type NamedItem = { id: string; name?: string; display_name?: string; path?: string; action?: string }
 
+const sanitizeIdList = (ids: string[]) => Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
+
 function parseMode(pathname: string) {
   if (pathname.endsWith('/create')) return 'create'
   if (pathname.endsWith('/edit')) return 'edit'
@@ -86,7 +88,7 @@ export default function RolesPage() {
       })
     }
     listPermissions({ page: 1, limit: 500 }).then((res: any) => setPerms(res.data.data || res.data || [])).catch(() => setPerms([]))
-  }, [canList, isDetail, isEdit, limit, page, search])
+  }, [canList, isDetail, isEdit, isList, limit, page, search])
 
   useEffect(() => {
     setPage(1)
@@ -161,8 +163,8 @@ export default function RolesPage() {
         .then((res) => {
           const detail = res.data?.data || res.data || null
           setRoleDetail(detail)
-          setPermDraft(detail?.permission_ids || [])
-          setMenuDraft(detail?.menu_ids || [])
+          setPermDraft(sanitizeIdList(detail?.permission_ids || []))
+          setMenuDraft(sanitizeIdList(detail?.menu_ids || []))
           setForm({
             name: detail?.name || preview?.name || '',
             display_name: detail?.display_name || preview?.display_name || '',
@@ -179,14 +181,16 @@ export default function RolesPage() {
   }, [isCreate, isDetail, isEdit, selectedId, selectedRole])
 
   const addPermDraft = () => {
-    if (!selectedPermId) return
-    setPermDraft((prev) => (prev.includes(selectedPermId) ? prev : [...prev, selectedPermId]))
+    const nextPermId = selectedPermId.trim()
+    if (!nextPermId) return
+    setPermDraft((prev) => (prev.includes(nextPermId) ? prev : [...prev, nextPermId]))
     setSelectedPermId('')
   }
 
   const addMenuDraft = () => {
-    if (!selectedMenuId) return
-    setMenuDraft((prev) => (prev.includes(selectedMenuId) ? prev : [...prev, selectedMenuId]))
+    const nextMenuId = selectedMenuId.trim()
+    if (!nextMenuId) return
+    setMenuDraft((prev) => (prev.includes(nextMenuId) ? prev : [...prev, nextMenuId]))
     setSelectedMenuId('')
   }
 
@@ -202,6 +206,9 @@ export default function RolesPage() {
     try {
       if (isEdit && selectedId) await updateRole(selectedId, form)
       else await createRole(form)
+      if (canList) {
+        await load().catch(() => undefined)
+      }
       setForm(empty)
       navigate('/roles')
     } catch (err: any) {
@@ -215,20 +222,21 @@ export default function RolesPage() {
 
   const applyPerms = async () => {
     if (!selectedId || !canAssignPerms) return
-    if (permDraft.length === 0) {
+    const payload = sanitizeIdList(permDraft)
+    if (payload.length === 0) {
       window.alert('Pilih minimal 1 permission.')
       return
     }
     setSavingAccess(true)
     setError('')
     try {
-      await assignRolePermissions(selectedId, permDraft)
+      await assignRolePermissions(selectedId, payload)
       if (isDetail || isEdit) {
         const res = await getRoleById(selectedId)
         const detail = res.data?.data || res.data || null
         setRoleDetail(detail)
-        setPermDraft(detail?.permission_ids || [])
-        setMenuDraft(detail?.menu_ids || [])
+        setPermDraft(sanitizeIdList(detail?.permission_ids || []))
+        setMenuDraft(sanitizeIdList(detail?.menu_ids || []))
       }
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Gagal mengatur permission role'
@@ -241,20 +249,21 @@ export default function RolesPage() {
 
   const applyMenus = async () => {
     if (!selectedId || !canAssignMenus) return
-    if (menuDraft.length === 0) {
+    const payload = sanitizeIdList(menuDraft)
+    if (payload.length === 0) {
       window.alert('Pilih minimal 1 menu.')
       return
     }
     setSavingAccess(true)
     setError('')
     try {
-      await assignRoleMenus(selectedId, menuDraft)
+      await assignRoleMenus(selectedId, payload)
       if (isDetail || isEdit) {
         const res = await getRoleById(selectedId)
         const detail = res.data?.data || res.data || null
         setRoleDetail(detail)
-        setPermDraft(detail?.permission_ids || [])
-        setMenuDraft(detail?.menu_ids || [])
+        setPermDraft(sanitizeIdList(detail?.permission_ids || []))
+        setMenuDraft(sanitizeIdList(detail?.menu_ids || []))
       }
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Gagal mengatur menu role'

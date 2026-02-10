@@ -1,0 +1,10 @@
+./auth.go
+./env.go
+./global_variable.go
+./interface.go
+./json.go
+./jwt.go
+./regex.go
+./string.go
+./uuid.go
+./validator.go

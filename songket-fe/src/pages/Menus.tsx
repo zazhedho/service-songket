@@ -56,7 +56,7 @@ export default function MenusPage() {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isDetail, isEdit, limit, page, search])
+  }, [canList, isDetail, isEdit, isList, limit, page, search])
 
   useEffect(() => {
     setPage(1)
@@ -94,9 +94,17 @@ export default function MenusPage() {
     setError('')
 
     try {
-      const body = { ...form, order_index: Number(form.order_index) }
+      const parentId = String(form.parent_id || '').trim()
+      const body = {
+        ...form,
+        order_index: Number(form.order_index),
+        parent_id: parentId || null,
+      }
       if (isEdit && selectedId) await updateMenu(selectedId, body)
       else await createMenu(body)
+      if (canList) {
+        await load().catch(() => undefined)
+      }
       setForm(empty)
       navigate('/menus')
     } catch (err: any) {

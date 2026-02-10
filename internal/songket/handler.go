@@ -74,11 +74,8 @@ func (h *Handler) ListOrders(ctx *gin.Context) {
 // PUT /api/songket/orders/:id
 func (h *Handler) UpdateOrder(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req UpdateOrderRequest
@@ -200,11 +197,8 @@ func (h *Handler) CreateDealer(ctx *gin.Context) {
 // PUT /api/songket/finance/dealers/:id
 func (h *Handler) UpdateDealer(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req DealerRequest
@@ -269,11 +263,8 @@ func (h *Handler) CreateFinanceCompany(ctx *gin.Context) {
 // PUT /api/songket/finance/companies/:id
 func (h *Handler) UpdateFinanceCompany(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req FinanceCompanyRequest
@@ -382,11 +373,8 @@ func (h *Handler) CreateMotorType(ctx *gin.Context) {
 // PUT /api/songket/motor-types/:id
 func (h *Handler) UpdateMotorType(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req MotorTypeRequest
@@ -495,11 +483,8 @@ func (h *Handler) CreateInstallment(ctx *gin.Context) {
 // PUT /api/songket/installments/:id
 func (h *Handler) UpdateInstallment(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req InstallmentRequest
@@ -645,11 +630,8 @@ func (h *Handler) CreateJob(ctx *gin.Context) {
 // PUT /api/songket/jobs/:id
 func (h *Handler) UpdateJob(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req JobRequest
@@ -759,11 +741,8 @@ func (h *Handler) CreateNetIncome(ctx *gin.Context) {
 // PUT /api/songket/net-income/:id
 func (h *Handler) UpdateNetIncome(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 	var req NetIncomeRequest
@@ -1405,7 +1384,10 @@ func (h *Handler) CreateScrapeSource(ctx *gin.Context) {
 
 func (h *Handler) UpdateScrapeSource(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	id := ctx.Param("id")
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 	var req ScrapeSource
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
