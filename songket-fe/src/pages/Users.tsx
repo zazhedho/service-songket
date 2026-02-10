@@ -51,6 +51,10 @@ function normalizeKey(value?: string) {
     .replace(/-/g, '_')
 }
 
+function sanitizeIdList(ids: string[]) {
+  return Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
+}
+
 export default function UsersPage() {
   const navigate = useNavigate()
   const params = useParams()
@@ -106,7 +110,7 @@ export default function UsersPage() {
     if (canList || isEdit || isDetail) {
       loadUsers().catch(() => setUsers([]))
     }
-  }, [canList, isDetail, isEdit, limit, page, search])
+  }, [canList, isDetail, isEdit, isList, limit, page, search])
 
   const menuToResources = (menu?: MenuItem) => {
     const resources = new Set<string>()
@@ -335,8 +339,12 @@ export default function UsersPage() {
         await updateUserById(editingId, body)
       } else {
         const body: any = { ...form }
-        if (canSetUserPerm && permDraft.length > 0) body.permission_ids = permDraft
+        const permissionIds = sanitizeIdList(permDraft)
+        if (canSetUserPerm && permissionIds.length > 0) body.permission_ids = permissionIds
         await adminCreateUser(body)
+      }
+      if (canList) {
+        await loadUsers().catch(() => undefined)
       }
       setForm(emptyForm)
       setEditingId(null)
@@ -366,7 +374,7 @@ export default function UsersPage() {
     try {
       const latestRoleResourceMap = await loadRoleResourceMap()
       const res = await getUserPermissions(user.id)
-      const ids = (res.data?.data || res.data || []).map((p: any) => p.id)
+      const ids = sanitizeIdList((res.data?.data || res.data || []).map((p: any) => p.id))
       if (allPerms.length === 0) {
         setPermChecked(ids)
         return
@@ -384,9 +392,10 @@ export default function UsersPage() {
 
   const saveUserPerms = async () => {
     if (!permUserId) return
+    const payload = sanitizeIdList(permChecked)
     setPermLoading(true)
     try {
-      await setUserPermissions(permUserId, permChecked)
+      await setUserPermissions(permUserId, payload)
     } catch (err: any) {
       window.alert(err?.response?.data?.error || err?.message || 'Gagal menyimpan permissions')
     } finally {

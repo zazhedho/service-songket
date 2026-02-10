@@ -75,7 +75,7 @@ export default function ScrapeSourcesPage() {
     if (canScrape) {
       loadPrices().catch(() => setPrices([]))
     }
-  }, [canList, canScrape, isDetail, isEdit, limit, page, search, typeFilter])
+  }, [canList, canScrape, isDetail, isEdit, isList, limit, page, search, typeFilter])
 
   useEffect(() => {
     setPage(1)
@@ -116,6 +116,9 @@ export default function ScrapeSourcesPage() {
     try {
       if (isEdit && selectedId) await updateScrapeSource(selectedId, form)
       else await createScrapeSource(form)
+      if (canList) {
+        await load().catch(() => undefined)
+      }
       setForm(empty)
       navigate('/scrape-sources')
     } catch (err: any) {

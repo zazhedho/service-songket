@@ -53,9 +53,12 @@ func (h *PermissionHandler) Create(ctx *gin.Context) {
 }
 
 func (h *PermissionHandler) GetByID(ctx *gin.Context) {
-	id := ctx.Param("id")
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[PermissionHandler][GetByID]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	data, err := h.Service.GetByID(id)
 	if err != nil {
@@ -99,10 +102,13 @@ func (h *PermissionHandler) GetAll(ctx *gin.Context) {
 }
 
 func (h *PermissionHandler) Update(ctx *gin.Context) {
-	id := ctx.Param("id")
 	var req dto.PermissionUpdate
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[PermissionHandler][Update]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
@@ -129,9 +135,12 @@ func (h *PermissionHandler) Update(ctx *gin.Context) {
 }
 
 func (h *PermissionHandler) Delete(ctx *gin.Context) {
-	id := ctx.Param("id")
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[PermissionHandler][Delete]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	if err := h.Service.Delete(id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; Error: %+v", logPrefix, err))
@@ -189,11 +198,8 @@ func (h *PermissionHandler) SetUserPermissions(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[PermissionHandler][SetUserPermissions]"
 
-	userId := ctx.Param("id")
-	if userId == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "user id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	userId, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 
@@ -223,11 +229,8 @@ func (h *PermissionHandler) SetUserPermissions(ctx *gin.Context) {
 func (h *PermissionHandler) GetUserPermissionsByAdmin(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[PermissionHandler][GetUserPermissionsByAdmin]"
-	userId := ctx.Param("id")
-	if userId == "" {
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = "user id is required"
-		ctx.JSON(http.StatusBadRequest, res)
+	userId, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
 		return
 	}
 

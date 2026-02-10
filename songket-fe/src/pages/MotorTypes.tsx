@@ -154,7 +154,7 @@ export default function MotorTypesPage() {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isEdit, isDetail, limit, page, search, provinceFilter, regencyFilter])
+  }, [canList, isEdit, isDetail, isList, limit, page, search, provinceFilter, regencyFilter])
 
   useEffect(() => {
     setPage(1)

@@ -54,9 +54,12 @@ func (h *RoleHandler) Create(ctx *gin.Context) {
 }
 
 func (h *RoleHandler) GetByID(ctx *gin.Context) {
-	id := ctx.Param("id")
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[RoleHandler][GetByID]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	data, err := h.Service.GetByIDWithDetails(id)
 	if err != nil {
@@ -103,10 +106,13 @@ func (h *RoleHandler) GetAll(ctx *gin.Context) {
 }
 
 func (h *RoleHandler) Update(ctx *gin.Context) {
-	id := ctx.Param("id")
 	var req dto.RoleUpdate
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[RoleHandler][Update]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
@@ -133,9 +139,12 @@ func (h *RoleHandler) Update(ctx *gin.Context) {
 }
 
 func (h *RoleHandler) Delete(ctx *gin.Context) {
-	id := ctx.Param("id")
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[RoleHandler][Delete]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	if err := h.Service.Delete(id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; Error: %+v", logPrefix, err))
@@ -151,10 +160,13 @@ func (h *RoleHandler) Delete(ctx *gin.Context) {
 }
 
 func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
-	id := ctx.Param("id")
 	var req dto.AssignPermissions
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[RoleHandler][AssignPermissions]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	authData := utils.GetAuthData(ctx)
 	currentUserRole := utils.InterfaceString(authData["role"])
@@ -187,10 +199,13 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 }
 
 func (h *RoleHandler) AssignMenus(ctx *gin.Context) {
-	id := ctx.Param("id")
 	var req dto.AssignMenus
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[RoleHandler][AssignMenus]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	authData := utils.GetAuthData(ctx)
 	currentUserRole := utils.InterfaceString(authData["role"])

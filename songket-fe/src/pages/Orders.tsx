@@ -150,12 +150,14 @@ export default function OrdersPage() {
   }, [form.province, form.regency, lookups?.motor_types])
 
   const applyOrderToForm = (order: any) => {
+    const firstAttempt = getAttempt(order, 1)
+    const secondAttempt = getAttempt(order, 2)
     setForm({
       pooling_number: order.pooling_number || '',
       pooling_at: order.pooling_at || dayjs().toISOString(),
       result_at: order.result_at || '',
       dealer_id: order.dealer_id || '',
-      finance_company_id: order.attempts?.[0]?.finance_company_id || '',
+      finance_company_id: firstAttempt?.finance_company_id || '',
       consumer_name: order.consumer_name || '',
       consumer_phone: order.consumer_phone || '',
       province: order.province || '',
@@ -170,9 +172,9 @@ export default function OrdersPage() {
       tenor: order.tenor || 12,
       result_status: order.result_status || 'pending',
       result_notes: order.result_notes || '',
-      finance_company2_id: order.attempts?.[1]?.finance_company_id || '',
-      result_status2: order.attempts?.[1]?.status || '',
-      result_notes2: order.attempts?.[1]?.notes || '',
+      finance_company2_id: secondAttempt?.finance_company_id || '',
+      result_status2: secondAttempt?.status || '',
+      result_notes2: secondAttempt?.notes || '',
     })
   }
 
@@ -222,6 +224,14 @@ export default function OrdersPage() {
     e.preventDefault()
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
+    if (form.finance_company2_id && !form.result_status2) {
+      window.alert('Pilih hasil untuk Finance Company 2.')
+      return
+    }
+    if (!form.finance_company2_id && form.result_status2) {
+      window.alert('Pilih Finance Company 2 sebelum mengisi hasil Finance 2.')
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -229,6 +239,9 @@ export default function OrdersPage() {
     try {
       if (isEdit && selectedId) await updateOrder(selectedId, form)
       else await createOrder(form)
+      if (showTable) {
+        await loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined }).catch(() => undefined)
+      }
       setForm(defaultForm)
       navigate('/orders')
     } catch (err: any) {
@@ -265,6 +278,14 @@ export default function OrdersPage() {
     (isNaN(num) ? 0 : num).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
 
   const parseNumber = (value: string) => Number(value.replace(/[^0-9]/g, '')) || 0
+  const detailAttempt1 = selectedOrder ? getAttempt(selectedOrder, 1) : null
+  const detailAttempt2 = selectedOrder ? getAttempt(selectedOrder, 2) : null
+  const detailMotor = selectedOrder?.motor_type || lookups?.motor_types?.find((m: any) => m.id === selectedOrder?.motor_type_id) || null
+  const detailDpPct = Number.isFinite(Number(selectedOrder?.dp_pct))
+    ? Number(selectedOrder?.dp_pct)
+    : selectedOrder?.otr
+      ? (Number(selectedOrder?.dp_paid || 0) / Number(selectedOrder.otr || 1)) * 100
+      : 0
 
   if (isDetail) {
     return (
@@ -287,23 +308,74 @@ export default function OrdersPage() {
         <div className="page">
           {!selectedOrder && <div className="alert">Order tidak ditemukan.</div>}
           {selectedOrder && (
-            <div className="card" style={{ maxWidth: 980 }}>
-              <div style={{ display: 'grid', gap: 8 }}>
-                <DetailRow label="Pooling Number" value={selectedOrder.pooling_number} />
-                <DetailRow label="Waktu Pooling" value={formatDate(selectedOrder.pooling_at)} />
-                <DetailRow label="Waktu Hasil" value={formatDate(selectedOrder.result_at)} />
-                <DetailRow label="Dealer" value={lookupName(lookups?.dealers, selectedOrder.dealer_id)} />
-                <DetailRow label="Konsumen" value={selectedOrder.consumer_name} />
-                <DetailRow label="Phone" value={selectedOrder.consumer_phone} />
-                <DetailRow label="Lokasi" value={[selectedOrder.province, selectedOrder.regency, selectedOrder.district, selectedOrder.village].filter(Boolean).join(' / ')} />
-                <DetailRow label="Alamat" value={selectedOrder.address || '-'} />
-                <DetailRow label="Pekerjaan" value={lookupName(lookups?.jobs, selectedOrder.job_id)} />
-                <DetailRow label="Tipe Motor" value={lookupName(lookups?.motor_types, selectedOrder.motor_type_id)} />
-                <DetailRow label="DP Gross" value={formatRupiah(selectedOrder.dp_gross || 0)} />
-                <DetailRow label="DP Setor" value={formatRupiah(selectedOrder.dp_paid || 0)} />
-                <DetailRow label="Tenor" value={`${selectedOrder.tenor || 0} bln`} />
-                <DetailRow label="Status" value={selectedOrder.result_status || '-'} />
-                <DetailRow label="Catatan" value={selectedOrder.result_notes || '-'} />
+            <div className="card">
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,340px),1fr))', gap: 12 }}>
+                  <div className="card" style={{ background: '#f8fafc' }}>
+                    <h4 style={{ marginTop: 0 }}>Informasi Utama</h4>
+                    <DetailRow label="Pooling Number" value={selectedOrder.pooling_number} />
+                    <DetailRow label="Waktu Pooling" value={formatDate(selectedOrder.pooling_at)} />
+                    <DetailRow label="Waktu Hasil" value={formatDate(selectedOrder.result_at)} />
+                    <DetailRow label="Dealer" value={lookupName(lookups?.dealers, selectedOrder.dealer_id)} />
+                    <DetailRow label="Status Order" value={selectedOrder.result_status || '-'} />
+                    <DetailRow label="Catatan Order" value={selectedOrder.result_notes || '-'} />
+                    <DetailRow label="Dibuat" value={formatDate(selectedOrder.created_at)} />
+                    <DetailRow label="Update Terakhir" value={formatDate(selectedOrder.updated_at)} />
+                  </div>
+
+                  <div className="card" style={{ background: '#f8fafc' }}>
+                    <h4 style={{ marginTop: 0 }}>Data Konsumen</h4>
+                    <DetailRow label="Nama" value={selectedOrder.consumer_name} />
+                    <DetailRow label="Phone" value={selectedOrder.consumer_phone} />
+                    <DetailRow
+                      label="Lokasi"
+                      value={[selectedOrder.province, selectedOrder.regency, selectedOrder.district, selectedOrder.village].filter(Boolean).join(' / ')}
+                    />
+                    <DetailRow label="Alamat" value={selectedOrder.address || '-'} />
+                    <DetailRow label="Pekerjaan" value={lookupName(lookups?.jobs, selectedOrder.job_id)} />
+                  </div>
+
+                  <div className="card" style={{ background: '#f8fafc' }}>
+                    <h4 style={{ marginTop: 0 }}>Kredit & Motor</h4>
+                    <DetailRow label="Tipe Motor" value={lookupName(lookups?.motor_types, selectedOrder.motor_type_id)} />
+                    <DetailRow label="Brand/Model" value={[detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-'} />
+                    <DetailRow label="OTR" value={formatRupiah(selectedOrder.otr || 0)} />
+                    <DetailRow label="DP Gross" value={formatRupiah(selectedOrder.dp_gross || 0)} />
+                    <DetailRow label="DP Setor" value={formatRupiah(selectedOrder.dp_paid || 0)} />
+                    <DetailRow label="%DP" value={`${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%`} />
+                    <DetailRow label="Tenor" value={`${selectedOrder.tenor || 0} bln`} />
+                  </div>
+                </div>
+
+                <div className="card" style={{ background: '#f8fafc' }}>
+                  <h4 style={{ marginTop: 0 }}>Hasil Finance</h4>
+                  <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))', gap: 12 }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#fff', minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <strong>Finance Attempt 1</strong>
+                        <span className={`badge ${detailAttempt1?.status || selectedOrder.result_status || 'pending'}`}>
+                          {detailAttempt1?.status || selectedOrder.result_status || '-'}
+                        </span>
+                      </div>
+                      <DetailRow
+                        label="Finance Company"
+                        value={lookupName(lookups?.finance_companies, detailAttempt1?.finance_company_id || selectedOrder.finance_company_id)}
+                      />
+                      <DetailRow label="Catatan" value={detailAttempt1?.notes || selectedOrder.result_notes || '-'} />
+                      <DetailRow label="Waktu Attempt" value={formatDate(detailAttempt1?.created_at)} />
+                    </div>
+
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#fff', minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <strong>Finance Attempt 2</strong>
+                        <span className={`badge ${detailAttempt2?.status || 'pending'}`}>{detailAttempt2?.status || '-'}</span>
+                      </div>
+                      <DetailRow label="Finance Company" value={lookupName(lookups?.finance_companies, detailAttempt2?.finance_company_id)} />
+                      <DetailRow label="Catatan" value={detailAttempt2?.notes || '-'} />
+                      <DetailRow label="Waktu Attempt" value={formatDate(detailAttempt2?.created_at)} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -513,34 +585,44 @@ export default function OrdersPage() {
                 <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} />
               </div>
 
-              {form.result_status === 'reject' && (
-                <>
-                  <div>
-                    <label>Finance Company 2</label>
-                    <select value={form.finance_company2_id} onChange={(e) => set('finance_company2_id', e.target.value)}>
-                      <option value="">Pilih</option>
-                      {lookups?.finance_companies?.map((finance: any) => (
-                        <option key={finance.id} value={finance.id}>{finance.name}</option>
-                      ))}
-                    </select>
-                  </div>
+              <div style={{ gridColumn: '1 / -1', marginTop: 4, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance Attempt 2 (Opsional)</div>
+                <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
+                  Isi untuk menambahkan/mengubah data pengajuan finance ke-2. Kosongkan Finance Company 2 untuk menghapus attempt ke-2.
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => setForm((prev) => ({ ...prev, finance_company2_id: '', result_status2: '', result_notes2: '' }))}
+                >
+                  Kosongkan Attempt 2
+                </button>
+              </div>
 
-                  <div>
-                    <label>Hasil Finance 2</label>
-                    <select value={form.result_status2} onChange={(e) => set('result_status2', e.target.value)}>
-                      <option value="">--</option>
-                      <option value="approve">Approve</option>
-                      <option value="pending">Pending</option>
-                      <option value="reject">Reject</option>
-                    </select>
-                  </div>
+              <div>
+                <label>Finance Company 2</label>
+                <select value={form.finance_company2_id} onChange={(e) => set('finance_company2_id', e.target.value)}>
+                  <option value="">Pilih</option>
+                  {lookups?.finance_companies?.map((finance: any) => (
+                    <option key={finance.id} value={finance.id}>{finance.name}</option>
+                  ))}
+                </select>
+              </div>
 
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Keterangan Finance 2</label>
-                    <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
-                  </div>
-                </>
-              )}
+              <div>
+                <label>Hasil Finance 2</label>
+                <select value={form.result_status2} onChange={(e) => set('result_status2', e.target.value)}>
+                  <option value="">--</option>
+                  <option value="approve">Approve</option>
+                  <option value="pending">Pending</option>
+                  <option value="reject">Reject</option>
+                </select>
+              </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label>Keterangan Finance 2</label>
+                <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
+              </div>
 
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
                 <button className="btn" type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Order'}</button>
@@ -614,7 +696,14 @@ export default function OrdersPage() {
                     <td>{order.pooling_number}</td>
                     <td>{order.consumer_name}</td>
                     <td>{[order.province, order.regency, order.district, order.village].filter(Boolean).join(' / ')}</td>
-                    <td>{lookupName(lookups?.finance_companies, order.attempts?.[0]?.finance_company_id)}</td>
+                    <td>
+                      <div>{lookupName(lookups?.finance_companies, getAttempt(order, 1)?.finance_company_id)}</div>
+                      {getAttempt(order, 2)?.finance_company_id && (
+                        <div style={{ color: '#64748b', fontSize: 12 }}>
+                          F2: {lookupName(lookups?.finance_companies, getAttempt(order, 2)?.finance_company_id)}
+                        </div>
+                      )}
+                    </td>
                     <td><span className={`badge ${order.result_status}`}>{order.result_status}</span></td>
                     <td>{order.tenor} bln</td>
                     <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -656,6 +745,11 @@ export default function OrdersPage() {
   )
 }
 
+function getAttempt(order: any, attemptNo: number) {
+  const attempts = Array.isArray(order?.attempts) ? order.attempts : []
+  return attempts.find((attempt: any) => Number(attempt?.attempt_no) === Number(attemptNo)) || null
+}
+
 function lookupName(list: any[] | undefined, id: string) {
   if (!id) return '-'
   return list?.find((item) => item.id === id)?.name || id
@@ -668,9 +762,9 @@ function formatDate(value?: string) {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '5px 0' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,170px) minmax(0,1fr)', gap: 12, padding: '5px 0' }}>
       <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
+      <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{value || '-'}</div>
     </div>
   )
 }

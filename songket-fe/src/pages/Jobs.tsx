@@ -70,7 +70,7 @@ export default function JobsPage() {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isEdit, isDetail, limit, nameFilter, page, search])
+  }, [canList, isEdit, isDetail, isList, limit, nameFilter, page, search])
 
   useEffect(() => {
     setPage(1)

@@ -53,9 +53,12 @@ func (h *MenuHandler) Create(ctx *gin.Context) {
 }
 
 func (h *MenuHandler) GetByID(ctx *gin.Context) {
-	id := ctx.Param("id")
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[MenuHandler][GetByID]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	data, err := h.Service.GetByID(id)
 	if err != nil {
@@ -155,10 +158,13 @@ func (h *MenuHandler) GetUserMenus(ctx *gin.Context) {
 }
 
 func (h *MenuHandler) Update(ctx *gin.Context) {
-	id := ctx.Param("id")
 	var req dto.MenuUpdate
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[MenuHandler][Update]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
@@ -185,9 +191,12 @@ func (h *MenuHandler) Update(ctx *gin.Context) {
 }
 
 func (h *MenuHandler) Delete(ctx *gin.Context) {
-	id := ctx.Param("id")
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[MenuHandler][Delete]"
+	id, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
 
 	if err := h.Service.Delete(id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; Error: %+v", logPrefix, err))
