@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { createMenu, deleteMenu, listMenus, updateMenu } from '../api'
 import { AppIcon, ICON_LABELS, MENU_ICON_OPTIONS, normalizeIconName } from '../components/AppIcon'
 import Pagination from '../components/Pagination'
+import { MENUS_UPDATED_EVENT } from '../constants/events'
 import { useAuth } from '../store'
 
 type MenuItem = {
@@ -142,6 +143,7 @@ export default function MenusPage() {
       }
       if (isEdit && selectedId) await updateMenu(selectedId, body)
       else await createMenu(body)
+      window.dispatchEvent(new Event(MENUS_UPDATED_EVENT))
       if (canList) {
         await load().catch(() => undefined)
       }
@@ -160,6 +162,7 @@ export default function MenusPage() {
     if (!canDelete) return
     if (!window.confirm('Delete this menu?')) return
     await deleteMenu(id)
+    window.dispatchEvent(new Event(MENUS_UPDATED_EVENT))
     await load()
   }
 

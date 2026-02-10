@@ -40,24 +40,24 @@ export default function DashboardPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 14, color: '#9ca3af' }}>Halo, selamat datang</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>S.O.N.G.K.E.T Dashboard</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>SONGKET PANEL : S.O.N.G.K.E.T Dashboard</div>
         </div>
       </div>
       <div className="page">
         <div className="hero card">
           <div>
-            <div className="big">SONGKET PANEL</div>
+            <div className="big">Monitoring Order in</div>
           </div>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             <Stat label="Order terbaru" value={`${orders.length}`} />
-            <Stat label="Komoditas update" value={`${prices.length}`} />
-            <Stat label="Portal berita" value={`${news.length}`} />
+            <Stat label="Commodities update" value={`${prices.length}`} />
+            <Stat label="News" value={`${news.length}`} />
           </div>
         </div>
 
         <div className="grid" style={{ gridTemplateColumns: '2fr 1.2fr', gap: 16 }}>
           <div className="card">
-            <h3>5 Order Terakhir</h3>
+            <h3>Latest Order In</h3>
             <table className="table">
               <thead>
                 <tr>
@@ -81,7 +81,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="card">
-            <h3>Harga Pangan Terbaru</h3>
+            <h3>latest prices</h3>
             <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
               {prices.map((p) => (
                 <div key={p.id}>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="card">
-          <h3>Headline NTB (5 terbaru)</h3>
+          <h3>NTB Market Update</h3>
           {activeNews && (
             <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
               <a

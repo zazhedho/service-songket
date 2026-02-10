@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { listMyMenus } from '../api'
 import { AppIcon, inferIconName, menuPathWithoutQuery } from './AppIcon'
 import { useAuth } from '../store'
 import { translateUiText } from '../utils/uiText'
+import { MENUS_UPDATED_EVENT } from '../constants/events'
 
 type MenuItem = {
   id: string
@@ -58,7 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  useEffect(() => {
+  const fetchMenus = useCallback(async () => {
     if (!token) {
       setMenus([])
       return
@@ -73,6 +74,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       .catch(() => setMenus([]))
       .finally(() => setLoading(false))
   }, [token])
+
+  useEffect(() => {
+    void fetchMenus()
+  }, [fetchMenus])
+
+  useEffect(() => {
+    const handleMenusUpdated = () => {
+      void fetchMenus()
+    }
+
+    window.addEventListener(MENUS_UPDATED_EVENT, handleMenusUpdated)
+    return () => {
+      window.removeEventListener(MENUS_UPDATED_EVENT, handleMenusUpdated)
+    }
+  }, [fetchMenus])
 
   useEffect(() => {
     setMobileOpen(false)

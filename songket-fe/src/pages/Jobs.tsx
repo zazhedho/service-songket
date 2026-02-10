@@ -34,6 +34,7 @@ export default function JobsPage() {
 
   const mode = parseMode(location.pathname)
   const selectedId = params.id || ''
+  const isList = mode === 'list'
   const isCreate = mode === 'create'
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
