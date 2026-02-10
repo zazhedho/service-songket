@@ -1,6 +1,0 @@
-./auth.go
-./cors.go
-./ctx.go
-./rate_limiter.go
-./recovery.go
-./request_logger.go
