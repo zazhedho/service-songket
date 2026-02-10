@@ -51,6 +51,9 @@ type panganScrapePayload struct {
 	DebugLinesCount      *int                     `json:"debug_lines_count,omitempty"`
 	DebugContainerSample string                   `json:"debug_container_sample,omitempty"`
 	DebugReason          string                   `json:"debug_reason,omitempty"`
+	DebugAPIFallbackUsed *bool                    `json:"debug_api_fallback_used,omitempty"`
+	DebugAPIRowsCount    *int                     `json:"debug_api_rows_count,omitempty"`
+	DebugAPIError        string                   `json:"debug_api_error,omitempty"`
 }
 
 type scrapeURLDiagnostic struct {
@@ -63,6 +66,9 @@ type scrapeURLDiagnostic struct {
 	DebugLinesCount      *int
 	DebugReason          string
 	DebugSample          string
+	DebugAPIFallbackUsed *bool
+	DebugAPIRowsCount    *int
+	DebugAPIError        string
 }
 
 type newsScrapeTarget struct {
@@ -2671,6 +2677,9 @@ func (s *Service) fetchScrapedItems(ctx context.Context, urls []string) ([]Scrap
 		diag.DebugLinesCount = payload.DebugLinesCount
 		diag.DebugReason = strings.TrimSpace(payload.DebugReason)
 		diag.DebugSample = sanitizeLogValue(payload.DebugContainerSample, 120)
+		diag.DebugAPIFallbackUsed = payload.DebugAPIFallbackUsed
+		diag.DebugAPIRowsCount = payload.DebugAPIRowsCount
+		diag.DebugAPIError = sanitizeLogValue(payload.DebugAPIError, 120)
 
 		for _, m := range rows {
 			name := strings.TrimSpace(firstString(m, "name", "nama", "komoditas", "commodity", "wilayah"))
@@ -3100,6 +3109,15 @@ func buildNoValidCommodityMessage(pyRunner, scriptPath string, diagnostics []scr
 		}
 		if diag.DebugSample != "" {
 			chunks = append(chunks, fmt.Sprintf("sample=%s", sanitizeLogValue(diag.DebugSample, 80)))
+		}
+		if diag.DebugAPIFallbackUsed != nil {
+			chunks = append(chunks, fmt.Sprintf("api_fallback=%t", *diag.DebugAPIFallbackUsed))
+		}
+		if diag.DebugAPIRowsCount != nil {
+			chunks = append(chunks, fmt.Sprintf("api_rows=%d", *diag.DebugAPIRowsCount))
+		}
+		if diag.DebugAPIError != "" {
+			chunks = append(chunks, fmt.Sprintf("api_error=%s", sanitizeLogValue(diag.DebugAPIError, 80)))
 		}
 		urlDetails = append(urlDetails, strings.Join(chunks, " "))
 	}
