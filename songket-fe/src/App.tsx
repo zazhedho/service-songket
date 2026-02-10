@@ -12,6 +12,7 @@ import MenusPage from './pages/Menus'
 import NewsPage from './pages/News'
 import OrdersPage from './pages/Orders'
 import PricesPage from './pages/Prices'
+import ProfilePage from './pages/Profile'
 import QuadrantsPage from './pages/Quadrants'
 import RolesPage from './pages/Roles'
 import ScrapeSourcesPage from './pages/ScrapeSources'
@@ -83,6 +84,8 @@ export default function App() {
         <Route path="/users/create" element={<Guarded><UsersPage /></Guarded>} />
         <Route path="/users/:id" element={<Guarded><UsersPage /></Guarded>} />
         <Route path="/users/:id/edit" element={<Guarded><UsersPage /></Guarded>} />
+
+        <Route path="/profile" element={<Guarded><ProfilePage /></Guarded>} />
 
         <Route path="/roles" element={<Guarded><RolesPage /></Guarded>} />
         <Route path="/roles/create" element={<Guarded><RolesPage /></Guarded>} />

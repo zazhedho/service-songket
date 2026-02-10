@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { listMyMenus } from '../api'
 import { AppIcon, inferIconName, menuPathWithoutQuery } from './AppIcon'
@@ -46,6 +46,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement | null>(null)
 
   const fetchMenus = useCallback(async () => {
     if (!token) {
@@ -90,9 +92,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMobileOpen(false)
+    setProfileMenuOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current) return
+      if (!profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
   const handleLogout = () => {
+    setProfileMenuOpen(false)
     logout()
     navigate('/login')
   }
@@ -197,10 +215,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="topbar-subtitle">Admin workspace for Songket operational flow</div>
             </div>
           </div>
-          <button className="btn-ghost topbar-logout" onClick={handleLogout}>
-            <AppIcon name="logout" className="topbar-icon" />
-            Logout
-          </button>
+          <div className="topbar-actions" ref={profileMenuRef}>
+            <button className="btn-ghost topbar-profile-btn" onClick={() => setProfileMenuOpen((open) => !open)}>
+              <AppIcon name="users" className="topbar-icon" />
+              Account
+            </button>
+
+            {profileMenuOpen && (
+              <div className="topbar-profile-menu">
+                <button
+                  className="topbar-profile-item"
+                  onClick={() => {
+                    setProfileMenuOpen(false)
+                    navigate('/profile')
+                  }}
+                >
+                  Profile
+                </button>
+                <button className="topbar-profile-item danger" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <main>{children}</main>
       </div>

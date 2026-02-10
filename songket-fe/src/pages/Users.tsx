@@ -114,6 +114,8 @@ export default function UsersPage() {
   const [roleResourceMap, setRoleResourceMap] = useState<Record<string, string[]>>({})
   const [roleResourceLoading, setRoleResourceLoading] = useState(false)
   const [roleOptions, setRoleOptions] = useState<RoleItem[]>([])
+  const [detailPermissions, setDetailPermissions] = useState<string[]>([])
+  const [detailPermLoading, setDetailPermLoading] = useState(false)
 
   const stateUser = (location.state as any)?.user || null
 
@@ -239,6 +241,40 @@ export default function UsersPage() {
     if (backendRoles.length > 0) return backendRoles
     return ['superadmin', 'admin', 'main_dealer', 'dealer']
   }, [form.role, roleOptions])
+
+  useEffect(() => {
+    if (!isDetail || !selectedUser?.id) {
+      setDetailPermissions([])
+      setDetailPermLoading(false)
+      return
+    }
+
+    const fallback = Array.isArray(selectedUser?.permissions)
+      ? selectedUser.permissions.map((item: any) => String(item)).filter(Boolean)
+      : []
+
+    if (!canSetUserPerm) {
+      setDetailPermissions(fallback)
+      setDetailPermLoading(false)
+      return
+    }
+
+    setDetailPermLoading(true)
+    getUserPermissions(selectedUser.id)
+      .then((res: any) => {
+        const raw = res.data?.data || res.data || []
+        const labels = Array.isArray(raw)
+          ? raw
+              .map((perm: any) => String(perm?.display_name || perm?.name || perm?.id || '').trim())
+              .filter(Boolean)
+          : []
+        setDetailPermissions(labels)
+      })
+      .catch(() => {
+        setDetailPermissions(fallback)
+      })
+      .finally(() => setDetailPermLoading(false))
+  }, [canSetUserPerm, isDetail, selectedUser?.id, selectedUser?.permissions])
 
   useEffect(() => {
     if (isCreate) {
@@ -459,14 +495,76 @@ export default function UsersPage() {
         <div className="page">
           {!selectedUser && <div className="alert">Data user tidak ditemukan.</div>}
           {selectedUser && (
-            <div className="card" style={{ maxWidth: 720 }}>
-              <div style={{ display: 'grid', gap: 10 }}>
-                <DetailRow label="Nama" value={detailValue(selectedUser.name)} />
-                <DetailRow label="Email" value={detailValue(selectedUser.email)} />
-                <DetailRow label="Phone" value={detailValue(selectedUser.phone)} />
-                <DetailRow label="Role" value={detailValue(selectedUser.role)} />
-                <DetailRow label="User ID" value={detailValue(selectedUser.id)} />
-              </div>
+            <div className="card" style={{ maxWidth: 940 }}>
+              <h3>User Information</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
+                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.name)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Email</th>
+                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.email)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Phone</th>
+                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.phone)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Role</th>
+                    <td style={{ fontWeight: 600 }}>{roleLabel(detailValue(selectedUser.role))}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Role ID</th>
+                    <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{detailValue(selectedUser.role_id)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>User ID</th>
+                    <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{detailValue(selectedUser.id)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
+                    <td style={{ fontWeight: 600 }}>{formatDateTime(selectedUser.created_at)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
+                    <td style={{ fontWeight: 600 }}>{formatDateTime(selectedUser.updated_at)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Permission Count</th>
+                    <td style={{ fontWeight: 600 }}>{detailPermissions.length}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3 style={{ marginTop: 14 }}>Permissions</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 70 }}>No</th>
+                    <th>Permission</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailPermLoading && (
+                    <tr>
+                      <td colSpan={2}>Loading permissions...</td>
+                    </tr>
+                  )}
+                  {!detailPermLoading && detailPermissions.length === 0 && (
+                    <tr>
+                      <td colSpan={2}>No permissions assigned.</td>
+                    </tr>
+                  )}
+                  {!detailPermLoading && detailPermissions.map((permission, index) => (
+                    <tr key={`${permission}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td style={{ fontWeight: 600 }}>{permission}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -670,11 +768,9 @@ export default function UsersPage() {
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12 }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value}</div>
-    </div>
-  )
+function formatDateTime(value: unknown) {
+  if (!value) return '-'
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('en-US')
 }

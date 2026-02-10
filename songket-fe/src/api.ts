@@ -98,6 +98,8 @@ export const fetchQuadrants = (params?: Record<string, unknown>) => api.get('/ap
 export const fetchQuadrantSummary = () => api.get('/api/songket/quadrants/summary')
 
 export const getMe = () => api.get('/api/user')
+export const updateMe = (body: Record<string, unknown>) => api.put('/api/user', body)
+export const changeMyPassword = (body: Record<string, unknown>) => api.put('/api/user/change/password', body)
 export const fetchLookups = () => api.get('/api/songket/lookups')
 
 // Admin / Superadmin

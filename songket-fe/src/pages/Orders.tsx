@@ -318,8 +318,6 @@ export default function OrdersPage() {
   const detailRegencyName = lookupOptionName(detailKabupaten, selectedOrder?.regency)
   const detailDistrictName = lookupOptionName(detailKecamatan, selectedOrder?.district)
   const detailVillageName = selectedOrder?.village || '-'
-  const detailLocation =
-    [detailProvinceName, detailRegencyName, detailDistrictName, detailVillageName].filter((part) => part && part !== '-').join(' / ') || '-'
 
   if (isDetail) {
     return (
@@ -370,7 +368,6 @@ export default function OrdersPage() {
                       rows={[
                         { label: 'Nama', value: selectedOrder.consumer_name || '-' },
                         { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
-                        { label: 'Lokasi', value: detailLocation },
                         { label: 'Provinsi', value: detailProvinceName },
                         { label: 'Kabupaten/Kota', value: detailRegencyName },
                         { label: 'Kecamatan', value: detailDistrictName },

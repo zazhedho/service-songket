@@ -141,7 +141,6 @@ export default function FinancePage() {
 
   const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
-  const [fcFilter, setFcFilter] = useState('')
   const [dealerSearch, setDealerSearch] = useState('')
   const [financeSearch, setFinanceSearch] = useState('')
   const [dealerProvinceFilter, setDealerProvinceFilter] = useState('')
@@ -250,14 +249,14 @@ export default function FinancePage() {
   }, [financeProvinceFilter])
 
   useEffect(() => {
-    if (!selectedDealerId || !(isList && listTab === 'dealer')) {
+    if (!selectedDealerId || !(isList && (listTab === 'dealer' || listTab === 'finance'))) {
       setMetrics(null)
       return
     }
-    fetchDealerMetrics(selectedDealerId, fcFilter ? { finance_company_id: fcFilter } : undefined)
+    fetchDealerMetrics(selectedDealerId)
       .then((res) => setMetrics(res.data.data || res.data || null))
       .catch(() => setMetrics(null))
-  }, [fcFilter, isList, listTab, selectedDealerId])
+  }, [isList, listTab, selectedDealerId])
 
   useEffect(() => {
     if (dealers.length === 0) {
@@ -1079,16 +1078,6 @@ export default function FinancePage() {
                     ))}
                   </select>
                 </div>
-
-                <div>
-                  <label>Finance Company Filter</label>
-                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
-                    <option value="">All</option>
-                    {financeCompanies.map((company) => (
-                      <option key={company.id} value={company.id}>{company.name}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
               {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
@@ -1101,30 +1090,6 @@ export default function FinancePage() {
                     <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
                     <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
                     <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                  </div>
-
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Finance</th>
-                          <th>Total</th>
-                          <th>Approve</th>
-                          <th>Lead Avg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(metrics.finance_companies || []).map((fc: any) => (
-                          <tr key={fc.finance_company_id}>
-                            <td>{fc.finance_company_name}</td>
-                            <td>{fc.total_orders}</td>
-                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 </>
               )}
@@ -1198,6 +1163,58 @@ export default function FinancePage() {
                   setFinancePage(1)
                 }}
               />
+            </div>
+
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Per Finance Company</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+              </div>
+
+              <div style={{ marginTop: 12, maxWidth: 360 }}>
+                <label>Select Dealer</label>
+                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                  <option value="">Select dealer</option>
+                  {dealers.map((dealer) => (
+                    <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance company performance.</div>}
+              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+              {metrics && (
+                <div style={{ marginTop: 12 }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Finance</th>
+                        <th>Total</th>
+                        <th>Approve</th>
+                        <th>Lead Avg</th>
+                        <th>Rescue FC2</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(metrics.finance_companies || []).map((fc: any) => (
+                        <tr key={fc.finance_company_id}>
+                          <td>{fc.finance_company_name}</td>
+                          <td>{fc.total_orders}</td>
+                          <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                          <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                          <td>{fc.rescue_approved_fc2 || 0}</td>
+                        </tr>
+                      ))}
+                      {(metrics.finance_companies || []).length === 0 && (
+                        <tr>
+                          <td colSpan={5}>No finance company metric for this dealer.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </>
         )}
