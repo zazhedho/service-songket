@@ -107,6 +107,27 @@ func (r *repo) GetByResource(resource string) (ret []domainpermission.Permission
 }
 
 func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permission, err error) {
+	var directCount int64
+	if err = r.DB.Table("user_permissions").Where("user_id = ?", userId).Count(&directCount).Error; err != nil {
+		return nil, err
+	}
+
+	// Per-user permissions act as full override.
+	// If user has any direct permissions, only those are used.
+	if directCount > 0 {
+		query := `
+			SELECT DISTINCT p.*
+			FROM permissions p
+			INNER JOIN user_permissions up ON up.permission_id = p.id
+			WHERE up.user_id = ? AND p.deleted_at IS NULL
+			ORDER BY resource, action
+		`
+		if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
 	var user struct {
 		RoleId *string
 		Role   string
@@ -116,31 +137,14 @@ func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permiss
 	}
 
 	if user.RoleId != nil && *user.RoleId != "" {
-		//query := `
-		//	SELECT DISTINCT p.*
-		//	FROM permissions p
-		//	INNER JOIN user_permissions up ON up.permission_id = p.id
-		//	WHERE up.user_id = ? AND p.deleted_at IS NULL
-		//	ORDER BY resource, action
-		//`
-		//if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
-		//	return nil, err
-		//}
 		query := `
 			SELECT DISTINCT p.*
 			FROM permissions p
 			INNER JOIN role_permissions rp ON p.id = rp.permission_id
-			INNER JOIN roles r ON rp.role_id = r.id
-			INNER JOIN users u ON u.role_id = r.id
-			WHERE u.id = ? AND p.deleted_at IS NULL
-			UNION
-			SELECT DISTINCT p.*
-			FROM permissions p
-			INNER JOIN user_permissions up ON up.permission_id = p.id
-			WHERE up.user_id = ? AND p.deleted_at IS NULL
+			WHERE rp.role_id = ? AND p.deleted_at IS NULL
 			ORDER BY resource, action
 		`
-		if err = r.DB.Raw(query, userId, userId).Scan(&ret).Error; err != nil {
+		if err = r.DB.Raw(query, *user.RoleId).Scan(&ret).Error; err != nil {
 			return nil, err
 		}
 		return ret, nil
@@ -153,32 +157,15 @@ func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permiss
 			INNER JOIN role_permissions rp ON p.id = rp.permission_id
 			INNER JOIN roles r ON rp.role_id = r.id
 			WHERE r.name = ? AND p.deleted_at IS NULL
-			UNION
-			SELECT DISTINCT p.*
-			FROM permissions p
-			INNER JOIN user_permissions up ON up.permission_id = p.id
-			WHERE up.user_id = ? AND p.deleted_at IS NULL
 			ORDER BY resource, action
 		`
-		if err = r.DB.Raw(query, user.Role, userId).Scan(&ret).Error; err != nil {
+		if err = r.DB.Raw(query, user.Role).Scan(&ret).Error; err != nil {
 			return nil, err
 		}
 		return ret, nil
 	}
 
-	// fallback only direct user permissions
-	query := `
-		SELECT DISTINCT p.*
-		FROM permissions p
-		INNER JOIN user_permissions up ON up.permission_id = p.id
-		WHERE up.user_id = ? AND p.deleted_at IS NULL
-		ORDER BY resource, action
-	`
-	if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return []domainpermission.Permission{}, nil
 }
 
 // GetUserDirectPermissions returns only permissions assigned directly to the user (user_permissions table).
