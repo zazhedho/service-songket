@@ -40,13 +40,13 @@ export default function DashboardPage() {
       <div className="header">
         <div>
           <div style={{ fontSize: 14, color: '#9ca3af' }}>Halo, selamat datang</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Ringkasan Songket</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>S.O.N.G.K.E.T Dashboard</div>
         </div>
       </div>
       <div className="page">
         <div className="hero card">
           <div>
-            <div className="big">Monitor order</div>
+            <div className="big">SONGKET PANEL</div>
           </div>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             <Stat label="Order terbaru" value={`${orders.length}`} />
