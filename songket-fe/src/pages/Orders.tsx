@@ -378,6 +378,10 @@ export default function OrdersPage() {
     : selectedOrder?.otr
       ? (Number(selectedOrder?.dp_paid || 0) / Number(selectedOrder.otr || 1)) * 100
       : 0
+  const detailProvinceName = lookupOptionName(provinces, selectedOrder?.province)
+  const detailRegencyName = lookupOptionName(detailKabupaten, selectedOrder?.regency)
+  const detailDistrictName = lookupOptionName(detailKecamatan, selectedOrder?.district)
+  const detailVillageName = selectedOrder?.village || '-'
 
   if (isDetail) {
     return (
@@ -428,6 +432,10 @@ export default function OrdersPage() {
                       rows={[
                         { label: 'Nama', value: selectedOrder.consumer_name || '-' },
                         { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
+                        { label: 'Provinsi', value: detailProvinceName },
+                        { label: 'Kabupaten/Kota', value: detailRegencyName },
+                        { label: 'Kecamatan', value: detailDistrictName },
+                        { label: 'Kelurahan', value: detailVillageName },
                         { label: 'Alamat', value: selectedOrder.address || '-' },
                         { label: 'Pekerjaan', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
                       ]}

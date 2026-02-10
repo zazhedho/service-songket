@@ -185,7 +185,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sidebar-brand-row">
-          <div className="brand-mark">SG</div>
+          <div className="brand-mark">
+            <img src="/songket-logo.jpeg" alt="SONGKET Logo" className="brand-mark-img" />
+          </div>
           <div className="brand-copy">
             <div className="brand">Songket Panel</div>
             <div className="brand-role">Role: {role || '-'}</div>

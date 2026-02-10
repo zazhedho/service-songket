@@ -327,11 +327,21 @@ export default function RolesPage() {
       if (newlyCreated && roleId) {
         const partialMessage = `Role berhasil dibuat, tetapi pengaturan akses gagal: ${message}`
         setError(partialMessage)
-        window.alert(partialMessage)
+        await confirm({
+          title: 'Partial Save',
+          description: partialMessage,
+          confirmText: 'OK',
+          cancelText: 'Close',
+        })
         navigate(`/roles/${roleId}/edit`)
       } else {
         setError(message)
-        window.alert(message)
+        await confirm({
+          title: 'Save Failed',
+          description: message,
+          confirmText: 'OK',
+          cancelText: 'Close',
+        })
       }
     } finally {
       setLoading(false)

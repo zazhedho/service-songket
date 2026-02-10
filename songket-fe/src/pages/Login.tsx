@@ -90,22 +90,22 @@ export default function LoginPage() {
           <div>
             <div
               style={{
-                width: 118,
-                height: 118,
-                borderRadius: 18,
-                border: '1px solid rgba(255,255,255,0.34)',
-                background: 'rgba(255,255,255,0.14)',
-                backdropFilter: 'blur(3px)',
+                width: 200,
+                height: 200,
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.28)',
+                background: '#1e40af',
                 display: 'grid',
                 placeItems: 'center',
-                padding: 8,
-                marginBottom: 12,
+                padding: 12,
+                marginBottom: 14,
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
               }}
             >
               <img
                 src="/songket-logo.jpeg"
                 alt="SONGKET Logo"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 12 }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 14 }}
               />
             </div>
             <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9 }}>Songket Suite</div>
