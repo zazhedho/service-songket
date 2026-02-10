@@ -108,9 +108,6 @@ export default function UsersPage() {
   const [error, setError] = useState('')
 
   const [allPerms, setAllPerms] = useState<Perm[]>([])
-  const [permUserId, setPermUserId] = useState<string | null>(null)
-  const [permTargetRole, setPermTargetRole] = useState<string | null>(null)
-  const [permChecked, setPermChecked] = useState<string[]>([])
   const [permDraft, setPermDraft] = useState<string[]>([])
   const [permLoading, setPermLoading] = useState(false)
   const [roleResourceMap, setRoleResourceMap] = useState<Record<string, string[]>>({})
@@ -253,11 +250,6 @@ export default function UsersPage() {
     return roleLabel(detailValue(selectedUser.role))
   }, [roleOptions, selectedUser])
 
-  const permUserName = useMemo(() => {
-    if (!permUserId) return '-'
-    return users.find((user) => user.id === permUserId)?.name || '-'
-  }, [permUserId, users])
-
   const availableRoleNames = useMemo(() => {
     const backendRoles = roleNames(roleOptions)
     if (form.role && !backendRoles.includes(form.role)) {
@@ -305,6 +297,7 @@ export default function UsersPage() {
     if (isCreate) {
       setEditingId(null)
       setForm(emptyForm)
+      setPermDraft([])
       return
     }
     if (isEdit && selectedId) {
@@ -322,6 +315,20 @@ export default function UsersPage() {
     }
   }, [isCreate, isEdit, selectedId, selectedUser])
 
+  useEffect(() => {
+    if (!canSetUserPerm) return
+    if (!isEdit || !selectedUser?.id) return
+
+    setPermLoading(true)
+    getUserPermissions(selectedUser.id)
+      .then((res: any) => {
+        const ids = sanitizeIdList((res.data?.data || res.data || []).map((permission: any) => permission.id))
+        setPermDraft(ids)
+      })
+      .catch(() => setPermDraft([]))
+      .finally(() => setPermLoading(false))
+  }, [canSetUserPerm, isEdit, selectedUser?.id])
+
   const groupPerms = (items: Perm[]) => {
     const grouped: Record<string, Perm[]> = {}
     items.forEach((p) => {
@@ -335,7 +342,7 @@ export default function UsersPage() {
     return grouped
   }
 
-  const groupedAll = groupPerms(allPerms)
+  const groupedAll = useMemo(() => groupPerms(allPerms), [allPerms])
 
   const filterResourcesByTargetRole = (
     targetRole: string,
@@ -432,6 +439,9 @@ export default function UsersPage() {
         const body: any = { ...form }
         if (!body.password) delete body.password
         await updateUserById(editingId, body)
+        if (canSetUserPerm) {
+          await setUserPermissions(editingId, sanitizeIdList(permDraft))
+        }
       } else {
         const body: any = { ...form }
         const permissionIds = sanitizeIdList(permDraft)
@@ -466,43 +476,6 @@ export default function UsersPage() {
     if (!ok) return
     await deleteUserById(id)
     await loadUsers()
-  }
-
-  const openPermModal = async (user: any) => {
-    if (!canSetUserPerm) return
-    setPermLoading(true)
-    setPermUserId(user.id)
-    setPermTargetRole(user.role)
-    try {
-      const latestRoleResourceMap = await loadRoleResourceMap()
-      const res = await getUserPermissions(user.id)
-      const ids = sanitizeIdList((res.data?.data || res.data || []).map((p: any) => p.id))
-      if (allPerms.length === 0) {
-        setPermChecked(ids)
-        return
-      }
-      const allowed = allowedPermissionIdsForRole(user.role, latestRoleResourceMap)
-      setPermChecked(ids.filter((id: string) => allowed.has(id)))
-    } finally {
-      setPermLoading(false)
-    }
-  }
-
-  const togglePerm = (id: string) => {
-    setPermChecked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
-
-  const saveUserPerms = async () => {
-    if (!permUserId) return
-    const payload = sanitizeIdList(permChecked)
-    setPermLoading(true)
-    try {
-      await setUserPermissions(permUserId, payload)
-    } catch (err: any) {
-      window.alert(err?.response?.data?.error || err?.message || 'Gagal menyimpan permissions')
-    } finally {
-      setPermLoading(false)
-    }
   }
 
   const set = (key: keyof typeof emptyForm, value: string) => setForm((prev) => ({ ...prev, [key]: value }))
@@ -646,6 +619,11 @@ export default function UsersPage() {
                       Sinkronisasi permission berdasarkan role menu...
                     </div>
                   )}
+                  {permLoading && (
+                    <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                      Loading existing user permissions...
+                    </div>
+                  )}
                   {renderPermTable(
                     permDraft,
                     (id) => setPermDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
@@ -721,8 +699,7 @@ export default function UsersPage() {
                         </button>
                       )}
                       {canDelete && <button className="btn-ghost" onClick={() => void remove(user.id)}>Delete</button>}
-                      {canSetUserPerm && <button className="btn-ghost" onClick={() => void openPermModal(user)}>Permissions</button>}
-                      {!canUpdate && !canDelete && !canSetUserPerm && '-'}
+                      {!canUpdate && !canDelete && '-'}
                     </td>
                   </tr>
                 ))}
@@ -749,44 +726,6 @@ export default function UsersPage() {
           )}
         </div>
 
-        {canSetUserPerm && permUserId && (
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Set Permissions User</h3>
-              <div style={{ fontSize: 12, color: '#64748b' }}>User: {permUserName}</div>
-            </div>
-            {permLoading && <div>Loading permissions...</div>}
-            {!permLoading && (
-              <>
-                {roleResourceLoading && (
-                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Sinkronisasi permission berdasarkan role menu...
-                  </div>
-                )}
-                {renderPermTable(
-                  permChecked,
-                  togglePerm,
-                  permTargetRole ? filterResourcesByTargetRole(permTargetRole, groupedAll) : groupedAll,
-                )}
-                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                  <button className="btn" onClick={saveUserPerms} disabled={permLoading}>
-                    {permLoading ? 'Saving...' : 'Save Permissions'}
-                  </button>
-                  <button
-                    className="btn-ghost"
-                    onClick={() => {
-                      setPermUserId(null)
-                      setPermTargetRole(null)
-                      setPermChecked([])
-                    }}
-                  >
-                    Tutup
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )
