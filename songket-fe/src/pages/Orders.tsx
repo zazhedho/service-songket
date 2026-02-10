@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
@@ -74,6 +74,8 @@ export default function OrdersPage() {
   const [provinces, setProvinces] = useState<any[]>([])
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
+  const [detailKabupaten, setDetailKabupaten] = useState<any[]>([])
+  const [detailKecamatan, setDetailKecamatan] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({ search: '', status: '' })
@@ -136,6 +138,8 @@ export default function OrdersPage() {
     if (!selectedId) return null
     return list.find((order) => order.id === selectedId) || (stateOrder?.id === selectedId ? stateOrder : null)
   }, [list, selectedId, stateOrder])
+  const detailProvinceCode = selectedOrder?.province || ''
+  const detailRegencyCode = selectedOrder?.regency || ''
 
   const filteredMotorTypes = useMemo(() => {
     const rows = Array.isArray(lookups?.motor_types) ? lookups.motor_types : []
@@ -190,6 +194,30 @@ export default function OrdersPage() {
       setError('')
     }
   }, [isCreate, isEdit, selectedOrder])
+
+  useEffect(() => {
+    if (!isDetail || !detailProvinceCode) {
+      setDetailKabupaten([])
+      setDetailKecamatan([])
+      return
+    }
+
+    fetchKabupaten(detailProvinceCode)
+      .then((res) => {
+        setDetailKabupaten(res.data.data || res.data || [])
+        if (!detailRegencyCode) {
+          setDetailKecamatan([])
+          return
+        }
+        return fetchKecamatan(detailProvinceCode, detailRegencyCode)
+          .then((kecRes) => setDetailKecamatan(kecRes.data.data || kecRes.data || []))
+          .catch(() => setDetailKecamatan([]))
+      })
+      .catch(() => {
+        setDetailKabupaten([])
+        setDetailKecamatan([])
+      })
+  }, [detailProvinceCode, detailRegencyCode, isDetail])
 
   useEffect(() => {
     if (form.province) {
@@ -286,6 +314,12 @@ export default function OrdersPage() {
     : selectedOrder?.otr
       ? (Number(selectedOrder?.dp_paid || 0) / Number(selectedOrder.otr || 1)) * 100
       : 0
+  const detailProvinceName = lookupOptionName(provinces, selectedOrder?.province)
+  const detailRegencyName = lookupOptionName(detailKabupaten, selectedOrder?.regency)
+  const detailDistrictName = lookupOptionName(detailKecamatan, selectedOrder?.district)
+  const detailVillageName = selectedOrder?.village || '-'
+  const detailLocation =
+    [detailProvinceName, detailRegencyName, detailDistrictName, detailVillageName].filter((part) => part && part !== '-').join(' / ') || '-'
 
   if (isDetail) {
     return (
@@ -313,37 +347,53 @@ export default function OrdersPage() {
                 <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,340px),1fr))', gap: 12 }}>
                   <div className="card" style={{ background: '#f8fafc' }}>
                     <h4 style={{ marginTop: 0 }}>Informasi Utama</h4>
-                    <DetailRow label="Pooling Number" value={selectedOrder.pooling_number} />
-                    <DetailRow label="Waktu Pooling" value={formatDate(selectedOrder.pooling_at)} />
-                    <DetailRow label="Waktu Hasil" value={formatDate(selectedOrder.result_at)} />
-                    <DetailRow label="Dealer" value={lookupName(lookups?.dealers, selectedOrder.dealer_id)} />
-                    <DetailRow label="Status Order" value={selectedOrder.result_status || '-'} />
-                    <DetailRow label="Catatan Order" value={selectedOrder.result_notes || '-'} />
-                    <DetailRow label="Dibuat" value={formatDate(selectedOrder.created_at)} />
-                    <DetailRow label="Update Terakhir" value={formatDate(selectedOrder.updated_at)} />
+                    <DetailTable
+                      rows={[
+                        { label: 'Pooling Number', value: selectedOrder.pooling_number || '-' },
+                        { label: 'Waktu Pooling', value: formatDate(selectedOrder.pooling_at) },
+                        { label: 'Waktu Hasil', value: formatDate(selectedOrder.result_at) },
+                        { label: 'Dealer', value: lookupName(lookups?.dealers, selectedOrder.dealer_id) },
+                        {
+                          label: 'Status Order',
+                          value: <span className={`badge ${selectedOrder.result_status || 'pending'}`}>{selectedOrder.result_status || '-'}</span>,
+                        },
+                        { label: 'Catatan Order', value: selectedOrder.result_notes || '-' },
+                        { label: 'Dibuat', value: formatDate(selectedOrder.created_at) },
+                        { label: 'Update Terakhir', value: formatDate(selectedOrder.updated_at) },
+                      ]}
+                    />
                   </div>
 
                   <div className="card" style={{ background: '#f8fafc' }}>
                     <h4 style={{ marginTop: 0 }}>Data Konsumen</h4>
-                    <DetailRow label="Nama" value={selectedOrder.consumer_name} />
-                    <DetailRow label="Phone" value={selectedOrder.consumer_phone} />
-                    <DetailRow
-                      label="Lokasi"
-                      value={[selectedOrder.province, selectedOrder.regency, selectedOrder.district, selectedOrder.village].filter(Boolean).join(' / ')}
+                    <DetailTable
+                      rows={[
+                        { label: 'Nama', value: selectedOrder.consumer_name || '-' },
+                        { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
+                        { label: 'Lokasi', value: detailLocation },
+                        { label: 'Provinsi', value: detailProvinceName },
+                        { label: 'Kabupaten/Kota', value: detailRegencyName },
+                        { label: 'Kecamatan', value: detailDistrictName },
+                        { label: 'Kelurahan', value: detailVillageName },
+                        { label: 'Alamat', value: selectedOrder.address || '-' },
+                        { label: 'Pekerjaan', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
+                      ]}
                     />
-                    <DetailRow label="Alamat" value={selectedOrder.address || '-'} />
-                    <DetailRow label="Pekerjaan" value={lookupName(lookups?.jobs, selectedOrder.job_id)} />
                   </div>
 
                   <div className="card" style={{ background: '#f8fafc' }}>
                     <h4 style={{ marginTop: 0 }}>Kredit & Motor</h4>
-                    <DetailRow label="Tipe Motor" value={lookupName(lookups?.motor_types, selectedOrder.motor_type_id)} />
-                    <DetailRow label="Brand/Model" value={[detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-'} />
-                    <DetailRow label="OTR" value={formatRupiah(selectedOrder.otr || 0)} />
-                    <DetailRow label="DP Gross" value={formatRupiah(selectedOrder.dp_gross || 0)} />
-                    <DetailRow label="DP Setor" value={formatRupiah(selectedOrder.dp_paid || 0)} />
-                    <DetailRow label="%DP" value={`${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%`} />
-                    <DetailRow label="Tenor" value={`${selectedOrder.tenor || 0} bln`} />
+                    <DetailTable
+                      rows={[
+                        { label: 'Tipe Motor', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
+                        { label: 'Brand/Model', value: [detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-' },
+                        { label: 'OTR', value: formatRupiah(selectedOrder.otr || 0) },
+                        { label: 'DP Gross', value: formatRupiah(selectedOrder.dp_gross || 0) },
+                        { label: 'DP Setor', value: formatRupiah(selectedOrder.dp_paid || 0) },
+                        { label: '%DP', value: `${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%` },
+                        { label: 'Tenor', value: `${selectedOrder.tenor || 0} bln` },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -357,12 +407,16 @@ export default function OrdersPage() {
                           {detailAttempt1?.status || selectedOrder.result_status || '-'}
                         </span>
                       </div>
-                      <DetailRow
-                        label="Finance Company"
-                        value={lookupName(lookups?.finance_companies, detailAttempt1?.finance_company_id || selectedOrder.finance_company_id)}
+                      <DetailTable
+                        rows={[
+                          {
+                            label: 'Finance Company',
+                            value: lookupName(lookups?.finance_companies, detailAttempt1?.finance_company_id || selectedOrder.finance_company_id),
+                          },
+                          { label: 'Catatan', value: detailAttempt1?.notes || selectedOrder.result_notes || '-' },
+                          { label: 'Waktu Attempt', value: formatDate(detailAttempt1?.created_at) },
+                        ]}
                       />
-                      <DetailRow label="Catatan" value={detailAttempt1?.notes || selectedOrder.result_notes || '-'} />
-                      <DetailRow label="Waktu Attempt" value={formatDate(detailAttempt1?.created_at)} />
                     </div>
 
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#fff', minWidth: 0 }}>
@@ -370,9 +424,16 @@ export default function OrdersPage() {
                         <strong>Finance Attempt 2</strong>
                         <span className={`badge ${detailAttempt2?.status || 'pending'}`}>{detailAttempt2?.status || '-'}</span>
                       </div>
-                      <DetailRow label="Finance Company" value={lookupName(lookups?.finance_companies, detailAttempt2?.finance_company_id)} />
-                      <DetailRow label="Catatan" value={detailAttempt2?.notes || '-'} />
-                      <DetailRow label="Waktu Attempt" value={formatDate(detailAttempt2?.created_at)} />
+                      <DetailTable
+                        rows={[
+                          {
+                            label: 'Finance Company',
+                            value: lookupName(lookups?.finance_companies, detailAttempt2?.finance_company_id),
+                          },
+                          { label: 'Catatan', value: detailAttempt2?.notes || '-' },
+                          { label: 'Waktu Attempt', value: formatDate(detailAttempt2?.created_at) },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -755,16 +816,32 @@ function lookupName(list: any[] | undefined, id: string) {
   return list?.find((item) => item.id === id)?.name || id
 }
 
+function lookupOptionName(list: any[] | undefined, code?: string) {
+  if (!code) return '-'
+  const rawCode = String(code).trim()
+  const normalized = rawCode.toLowerCase()
+  const found =
+    list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
+    list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
+  return found?.name || rawCode
+}
+
 function formatDate(value?: string) {
   if (!value) return '-'
   return dayjs(value).format('DD MMM YYYY HH:mm')
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,170px) minmax(0,1fr)', gap: 12, padding: '5px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{value || '-'}</div>
-    </div>
+    <table className="table">
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <th style={{ width: '44%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
+            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }

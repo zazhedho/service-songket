@@ -24,7 +24,7 @@ type Perm = {
   resource?: string
   action?: string
 }
-type RoleItem = { id: string; name?: string }
+type RoleItem = { id: string; name?: string; display_name?: string }
 type MenuItem = { id: string; name?: string; path?: string }
 
 const MENU_RESOURCE_ALIASES: Record<string, string[]> = {
@@ -55,6 +55,22 @@ function normalizeKey(value?: string) {
 
 function sanitizeIdList(ids: string[]) {
   return Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
+}
+
+function roleLabel(value: string) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function roleNames(items: RoleItem[]) {
+  return Array.from(
+    new Set(
+      items
+        .map((item) => String(item?.name || '').trim())
+        .filter(Boolean),
+    ),
+  )
 }
 
 export default function UsersPage() {
@@ -97,6 +113,7 @@ export default function UsersPage() {
   const [permLoading, setPermLoading] = useState(false)
   const [roleResourceMap, setRoleResourceMap] = useState<Record<string, string[]>>({})
   const [roleResourceLoading, setRoleResourceLoading] = useState(false)
+  const [roleOptions, setRoleOptions] = useState<RoleItem[]>([])
 
   const stateUser = (location.state as any)?.user || null
 
@@ -113,6 +130,12 @@ export default function UsersPage() {
       loadUsers().catch(() => setUsers([]))
     }
   }, [canList, isDetail, isEdit, isList, limit, page, search])
+
+  useEffect(() => {
+    listRoles({ page: 1, limit: 500 })
+      .then((res: any) => setRoleOptions(res.data.data || res.data || []))
+      .catch(() => setRoleOptions([]))
+  }, [])
 
   const menuToResources = (menu?: MenuItem) => {
     const resources = new Set<string>()
@@ -207,6 +230,15 @@ export default function UsersPage() {
     if (!selectedId) return null
     return users.find((u) => u.id === selectedId) || (stateUser?.id === selectedId ? stateUser : null)
   }, [selectedId, stateUser, users])
+
+  const availableRoleNames = useMemo(() => {
+    const backendRoles = roleNames(roleOptions)
+    if (form.role && !backendRoles.includes(form.role)) {
+      return [form.role, ...backendRoles]
+    }
+    if (backendRoles.length > 0) return backendRoles
+    return ['superadmin', 'admin', 'main_dealer', 'dealer']
+  }, [form.role, roleOptions])
 
   useEffect(() => {
     if (isCreate) {
@@ -476,10 +508,11 @@ export default function UsersPage() {
               <div>
                 <label>Role</label>
                 <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-                  <option value="superadmin">Superadmin</option>
-                  <option value="admin">Admin</option>
-                  <option value="main_dealer">Main Dealer</option>
-                  <option value="dealer">Dealer</option>
+                  {availableRoleNames.map((roleName) => (
+                    <option key={roleName} value={roleName}>
+                      {roleLabel(roleName)}
+                    </option>
+                  ))}
                 </select>
               </div>
 

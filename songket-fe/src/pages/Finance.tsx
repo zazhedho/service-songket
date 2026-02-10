@@ -250,7 +250,7 @@ export default function FinancePage() {
   }, [financeProvinceFilter])
 
   useEffect(() => {
-    if (!selectedDealerId || !(isList && listTab === 'finance')) {
+    if (!selectedDealerId || !(isList && listTab === 'dealer')) {
       setMetrics(null)
       return
     }
@@ -1062,6 +1062,73 @@ export default function FinancePage() {
                 </MapContainer>
               </div>
             </div>
+
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Dealer Performance</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+              </div>
+
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label>Select Dealer</label>
+                  <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                    <option value="">Select dealer</option>
+                    {dealers.map((dealer) => (
+                      <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Finance Company Filter</label>
+                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
+                    <option value="">All</option>
+                    {financeCompanies.map((company) => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+              {metrics && (
+                <>
+                  <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                    <Metric label="Total Order" value={metrics.total_orders} />
+                    <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
+                    <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                    <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
+                  </div>
+
+                  <div style={{ marginTop: 12 }}>
+                    <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Finance</th>
+                          <th>Total</th>
+                          <th>Approve</th>
+                          <th>Lead Avg</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(metrics.finance_companies || []).map((fc: any) => (
+                          <tr key={fc.finance_company_id}>
+                            <td>{fc.finance_company_name}</td>
+                            <td>{fc.total_orders}</td>
+                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
           </>
         )}
 
@@ -1131,73 +1198,6 @@ export default function FinancePage() {
                   setFinancePage(1)
                 }}
               />
-            </div>
-
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Dealer Performance</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
-              </div>
-
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
-                <div>
-                  <label>Select Dealer</label>
-                  <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                    <option value="">Select dealer</option>
-                    {dealers.map((dealer) => (
-                      <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Finance Company Filter</label>
-                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
-                    <option value="">All</option>
-                    {financeCompanies.map((company) => (
-                      <option key={company.id} value={company.id}>{company.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
-              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
-
-              {metrics && (
-                <>
-                  <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                    <Metric label="Total Order" value={metrics.total_orders} />
-                    <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                    <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
-                    <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                  </div>
-
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Finance</th>
-                          <th>Total</th>
-                          <th>Approve</th>
-                          <th>Lead Avg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(metrics.finance_companies || []).map((fc: any) => (
-                          <tr key={fc.finance_company_id}>
-                            <td>{fc.finance_company_name}</td>
-                            <td>{fc.total_orders}</td>
-                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
             </div>
           </>
         )}
