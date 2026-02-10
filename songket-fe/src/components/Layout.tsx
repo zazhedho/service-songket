@@ -54,7 +54,8 @@ const PATH_ICON_MAP: Record<string, IconName> = {
 }
 
 function iconFromMenu(menu: MenuItem): IconName {
-  if (menu.path && PATH_ICON_MAP[menu.path]) return PATH_ICON_MAP[menu.path]
+  const basePath = menuPathWithoutQuery(menu.path)
+  if (basePath && PATH_ICON_MAP[basePath]) return PATH_ICON_MAP[basePath]
   if (menu.icon) {
     const guess = menu.icon.toLowerCase()
     if (guess.includes('home') || guess.includes('dashboard')) return 'dashboard'
@@ -78,9 +79,15 @@ function iconFromMenu(menu: MenuItem): IconName {
   return 'panel'
 }
 
+function menuPathWithoutQuery(menuPath?: string): string {
+  if (!menuPath) return ''
+  return menuPath.split('?')[0]
+}
+
 function isMenuActive(pathname: string, menuPath?: string): boolean {
-  if (!menuPath) return false
-  return pathname === menuPath || pathname.startsWith(`${menuPath}/`)
+  const basePath = menuPathWithoutQuery(menuPath)
+  if (!basePath) return false
+  return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }
 
 function AppIcon({ name, className }: { name: IconName; className?: string }) {
@@ -264,10 +271,41 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate('/login')
   }
 
-  const filtered = useMemo(() => menus.filter((m) => m.path), [menus])
+  const filtered = useMemo(() => {
+    const withPath = menus.filter((m) => m.path)
+    const normalized = withPath.map((menu) => {
+      if (menu.path === '/role-menu-access') {
+        return {
+          ...menu,
+          path: '/roles',
+          display_name: menu.display_name || 'Roles & Access',
+        }
+      }
+      return menu
+    })
+
+    const dedup = new Map<string, MenuItem>()
+    normalized.forEach((menu) => {
+      const key = menuPathWithoutQuery(menu.path)
+      if (!key) return
+
+      const existing = dedup.get(key)
+      if (!existing) {
+        dedup.set(key, menu)
+        return
+      }
+
+      // Prefer canonical route without query string.
+      if ((existing.path || '').includes('?') && !(menu.path || '').includes('?')) {
+        dedup.set(key, menu)
+      }
+    })
+
+    return Array.from(dedup.values())
+  }, [menus])
 
   const activeMenu = useMemo(() => {
-    const sorted = [...filtered].sort((a, b) => (b.path || '').length - (a.path || '').length)
+    const sorted = [...filtered].sort((a, b) => menuPathWithoutQuery(b.path).length - menuPathWithoutQuery(a.path).length)
     return sorted.find((menu) => isMenuActive(location.pathname, menu.path))
   }, [filtered, location.pathname])
 

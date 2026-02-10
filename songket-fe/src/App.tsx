@@ -15,7 +15,6 @@ import NewsPage from './pages/News'
 import OrdersPage from './pages/Orders'
 import PricesPage from './pages/Prices'
 import QuadrantsPage from './pages/Quadrants'
-import RoleMenuAccessPage from './pages/RoleMenuAccess'
 import RolesPage from './pages/Roles'
 import ScrapeSourcesPage from './pages/ScrapeSources'
 import UsersPage from './pages/Users'
@@ -102,7 +101,7 @@ export default function App() {
         <Route path="/scrape-sources/:id" element={<Guarded><ScrapeSourcesPage /></Guarded>} />
         <Route path="/scrape-sources/:id/edit" element={<Guarded><ScrapeSourcesPage /></Guarded>} />
 
-        <Route path="/role-menu-access" element={<Guarded><RoleMenuAccessPage /></Guarded>} />
+        <Route path="/role-menu-access" element={<Guarded><Navigate to="/roles" replace /></Guarded>} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

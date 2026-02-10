@@ -15,9 +15,30 @@ import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
 const empty = { name: '', display_name: '', description: '' }
-type NamedItem = { id: string; name?: string; display_name?: string; path?: string; action?: string }
+
+type NamedItem = {
+  id: string
+  name?: string
+  display_name?: string
+  description?: string
+  path?: string
+  resource?: string
+  action?: string
+  is_active?: boolean
+}
 
 const sanitizeIdList = (ids: string[]) => Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
+const MENU_RESOURCE_ALIASES: Record<string, string[]> = {
+  prices: ['commodities'],
+  role_menu_access: ['roles', 'menus'],
+}
+
+function normalizeKey(value?: string) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_')
+}
 
 function parseMode(pathname: string) {
   if (pathname.endsWith('/create')) return 'create'
@@ -56,12 +77,9 @@ export default function RolesPage() {
   const [totalData, setTotalData] = useState(0)
 
   const [form, setForm] = useState(empty)
-  const [selectedPermId, setSelectedPermId] = useState('')
-  const [selectedMenuId, setSelectedMenuId] = useState('')
   const [permDraft, setPermDraft] = useState<string[]>([])
   const [menuDraft, setMenuDraft] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
-  const [savingAccess, setSavingAccess] = useState(false)
   const [error, setError] = useState('')
   const [roleDetail, setRoleDetail] = useState<any>(null)
 
@@ -72,9 +90,9 @@ export default function RolesPage() {
       listRoles({ page, limit, search: search || undefined }),
       listMenus({ page: 1, limit: 500 }),
     ])
+
     setRoles(rolesRes.data.data || rolesRes.data || [])
     setMenus(menusRes.data.data || menusRes.data || [])
-
     setTotalPages(rolesRes.data.total_pages || 1)
     setTotalData(rolesRes.data.total_data || 0)
     setPage(rolesRes.data.current_page || page)
@@ -87,8 +105,17 @@ export default function RolesPage() {
         setMenus([])
       })
     }
-    listPermissions({ page: 1, limit: 500 }).then((res: any) => setPerms(res.data.data || res.data || [])).catch(() => setPerms([]))
-  }, [canList, isDetail, isEdit, isList, limit, page, search])
+
+    if (isCreate && canAssignMenus && !canList) {
+      listMenus({ page: 1, limit: 500 })
+        .then((res: any) => setMenus(res.data.data || res.data || []))
+        .catch(() => setMenus([]))
+    }
+
+    listPermissions({ page: 1, limit: 500 })
+      .then((res: any) => setPerms(res.data.data || res.data || []))
+      .catch(() => setPerms([]))
+  }, [canList, canAssignMenus, isCreate, isDetail, isEdit, isList, limit, page, search])
 
   useEffect(() => {
     setPage(1)
@@ -107,6 +134,11 @@ export default function RolesPage() {
   const sortedPerms = useMemo(
     () => [...perms].sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),
     [perms],
+  )
+
+  const assignableMenus = useMemo(
+    () => sortedMenus.filter((menu) => menu.is_active !== false),
+    [sortedMenus],
   )
 
   const menuById = useMemo(() => {
@@ -137,12 +169,51 @@ export default function RolesPage() {
     return perm.action ? `${base} (${perm.action})` : base
   }
 
+  const menuToResources = (menu?: NamedItem) => {
+    const resources = new Set<string>()
+    const menuName = normalizeKey(menu?.name)
+    if (menuName) resources.add(menuName)
+
+    const pathKey = normalizeKey(menu?.path?.replace(/^\//, '').split('/')[0] || '')
+    if (pathKey) resources.add(pathKey)
+
+    ;(MENU_RESOURCE_ALIASES[menuName] || []).forEach((resource) => resources.add(normalizeKey(resource)))
+    ;(MENU_RESOURCE_ALIASES[pathKey] || []).forEach((resource) => resources.add(normalizeKey(resource)))
+    return Array.from(resources)
+  }
+
+  const groupedPerms = useMemo(() => {
+    const grouped: Record<string, NamedItem[]> = {}
+    sortedPerms.forEach((perm) => {
+      const resource = perm.resource || 'other'
+      if (!grouped[resource]) grouped[resource] = []
+      grouped[resource].push(perm)
+    })
+    return grouped
+  }, [sortedPerms])
+
+  const filteredGroupedPerms = useMemo(() => {
+    if (!canAssignMenus) return groupedPerms
+    if (!menuDraft.length) return {}
+
+    const selectedResources = new Set<string>()
+    menuDraft.forEach((menuId) => {
+      menuToResources(menuById[menuId]).forEach((resource) => selectedResources.add(normalizeKey(resource)))
+    })
+
+    return Object.fromEntries(
+      Object.entries(groupedPerms).filter(([resource]) => selectedResources.has(normalizeKey(resource))),
+    )
+  }, [canAssignMenus, groupedPerms, menuById, menuDraft])
+
+  const allowedPermissionIdSet = useMemo(() => {
+    return new Set(Object.values(filteredGroupedPerms).flat().map((perm) => perm.id))
+  }, [filteredGroupedPerms])
+
   useEffect(() => {
     if (isCreate) {
       setForm(empty)
       setRoleDetail(null)
-      setSelectedPermId('')
-      setSelectedMenuId('')
       setPermDraft([])
       setMenuDraft([])
       return
@@ -180,22 +251,21 @@ export default function RolesPage() {
     }
   }, [isCreate, isDetail, isEdit, selectedId, selectedRole])
 
-  const addPermDraft = () => {
-    const nextPermId = selectedPermId.trim()
-    if (!nextPermId) return
-    setPermDraft((prev) => (prev.includes(nextPermId) ? prev : [...prev, nextPermId]))
-    setSelectedPermId('')
+  useEffect(() => {
+    if (!canAssignPerms || !canAssignMenus) return
+    setPermDraft((prev) => {
+      const next = prev.filter((id) => allowedPermissionIdSet.has(id))
+      return next.length === prev.length ? prev : next
+    })
+  }, [allowedPermissionIdSet, canAssignMenus, canAssignPerms])
+
+  const toggleMenuDraft = (id: string) => {
+    setMenuDraft((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
   }
 
-  const addMenuDraft = () => {
-    const nextMenuId = selectedMenuId.trim()
-    if (!nextMenuId) return
-    setMenuDraft((prev) => (prev.includes(nextMenuId) ? prev : [...prev, nextMenuId]))
-    setSelectedMenuId('')
+  const togglePermDraft = (id: string) => {
+    setPermDraft((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
   }
-
-  const removePermDraft = (id: string) => setPermDraft((prev) => prev.filter((item) => item !== id))
-  const removeMenuDraft = (id: string) => setMenuDraft((prev) => prev.filter((item) => item !== id))
 
   const saveRole = async () => {
     if (isCreate && !canCreate) return
@@ -203,75 +273,115 @@ export default function RolesPage() {
 
     setLoading(true)
     setError('')
+
+    const permissionPayload = sanitizeIdList(permDraft)
+    const menuPayload = sanitizeIdList(menuDraft)
+
+    let roleId = selectedId
+    let newlyCreated = false
+
     try {
-      if (isEdit && selectedId) await updateRole(selectedId, form)
-      else await createRole(form)
+      if (isEdit && selectedId) {
+        await updateRole(selectedId, {
+          display_name: form.display_name,
+          description: form.description,
+        })
+        roleId = selectedId
+      } else {
+        const created = await createRole({
+          name: form.name,
+          display_name: form.display_name,
+          description: form.description,
+        })
+        roleId = String(created?.data?.data?.id || created?.data?.id || '')
+        newlyCreated = true
+      }
+
+      if (!roleId && ((canAssignMenus && menuPayload.length > 0) || (canAssignPerms && permissionPayload.length > 0))) {
+        throw new Error('Role berhasil disimpan, tetapi ID role tidak ditemukan untuk menyimpan akses.')
+      }
+
+      if (roleId && canAssignPerms && permissionPayload.length > 0) {
+        await assignRolePermissions(roleId, permissionPayload)
+      }
+
+      if (roleId && canAssignMenus && menuPayload.length > 0) {
+        await assignRoleMenus(roleId, menuPayload)
+      }
+
       if (canList) {
         await load().catch(() => undefined)
       }
+
       setForm(empty)
+      setPermDraft([])
+      setMenuDraft([])
       navigate('/roles')
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Gagal menyimpan role'
-      setError(message)
-      window.alert(message)
+      const message = err?.response?.data?.error || err?.message || 'Gagal menyimpan role'
+
+      if (newlyCreated && roleId) {
+        const partialMessage = `Role berhasil dibuat, tetapi pengaturan akses gagal: ${message}`
+        setError(partialMessage)
+        window.alert(partialMessage)
+        navigate(`/roles/${roleId}/edit`)
+      } else {
+        setError(message)
+        window.alert(message)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const applyPerms = async () => {
-    if (!selectedId || !canAssignPerms) return
-    const payload = sanitizeIdList(permDraft)
-    if (payload.length === 0) {
-      window.alert('Pilih minimal 1 permission.')
-      return
-    }
-    setSavingAccess(true)
-    setError('')
-    try {
-      await assignRolePermissions(selectedId, payload)
-      if (isDetail || isEdit) {
-        const res = await getRoleById(selectedId)
-        const detail = res.data?.data || res.data || null
-        setRoleDetail(detail)
-        setPermDraft(sanitizeIdList(detail?.permission_ids || []))
-        setMenuDraft(sanitizeIdList(detail?.menu_ids || []))
-      }
-    } catch (err: any) {
-      const message = err?.response?.data?.error || 'Gagal mengatur permission role'
-      setError(message)
-      window.alert(message)
-    } finally {
-      setSavingAccess(false)
-    }
-  }
+  const renderPermissionTable = () => {
+    const resources = Object.keys(filteredGroupedPerms).sort((a, b) => a.localeCompare(b))
 
-  const applyMenus = async () => {
-    if (!selectedId || !canAssignMenus) return
-    const payload = sanitizeIdList(menuDraft)
-    if (payload.length === 0) {
-      window.alert('Pilih minimal 1 menu.')
-      return
+    if (!resources.length) {
+      return (
+        <div style={{ color: '#64748b', fontSize: 12 }}>
+          {canAssignMenus
+            ? 'Belum ada permission yang bisa dipilih. Pilih menu dulu agar permission terkait muncul.'
+            : 'Permission belum tersedia.'}
+        </div>
+      )
     }
-    setSavingAccess(true)
-    setError('')
-    try {
-      await assignRoleMenus(selectedId, payload)
-      if (isDetail || isEdit) {
-        const res = await getRoleById(selectedId)
-        const detail = res.data?.data || res.data || null
-        setRoleDetail(detail)
-        setPermDraft(sanitizeIdList(detail?.permission_ids || []))
-        setMenuDraft(sanitizeIdList(detail?.menu_ids || []))
-      }
-    } catch (err: any) {
-      const message = err?.response?.data?.error || 'Gagal mengatur menu role'
-      setError(message)
-      window.alert(message)
-    } finally {
-      setSavingAccess(false)
-    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+        {resources.map((resource) => (
+          <div key={resource} style={{ border: '1px solid #dde4ee', borderRadius: 10, padding: 8, background: '#f8fafc' }}>
+            <div className="perm-resource" style={{ marginBottom: 6 }}>{resource.replace(/_/g, ' ')}</div>
+            <div className="perm-table">
+              <div className="perm-row perm-head">
+                <div>Permission</div>
+                <div>Action</div>
+                <div className="perm-cell">Allow</div>
+              </div>
+              {filteredGroupedPerms[resource].map((permission) => {
+                const checked = permDraft.includes(permission.id)
+                return (
+                  <div key={permission.id} className="perm-row">
+                    <div className="perm-title">{permission.display_name || permission.name}</div>
+                    <div className="perm-meta">{permission.action || '-'}</div>
+                    <div className="perm-cell">
+                      <input
+                        type="checkbox"
+                        className="perm-checkbox"
+                        checked={checked}
+                        onChange={() => togglePermDraft(permission.id)}
+                        disabled={loading}
+                        title={permission.display_name || permission.name}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   const remove = async (id: string) => {
@@ -344,8 +454,8 @@ export default function RolesPage() {
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Role' : 'Input Role Baru'}</div>
-            <div style={{ color: '#64748b' }}>Form terpisah dari tabel role</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Role & Access' : 'Input Role Baru & Access'}</div>
+            <div style={{ color: '#64748b' }}>Role, menu, dan permission disimpan dari satu form.</div>
           </div>
           <button className="btn-ghost" onClick={() => navigate('/roles')}>Kembali ke Tabel</button>
         </div>
@@ -358,7 +468,13 @@ export default function RolesPage() {
             <div className="grid" style={{ gap: 10 }}>
               <div>
                 <label>Name</label>
-                <input value={form.name} onChange={(e) => set('name', e.target.value)} />
+                <input
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  disabled={isEdit}
+                  placeholder={isEdit ? 'Name role tidak dapat diubah' : 'Masukkan name role'}
+                />
+                {isEdit && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Name role tidak bisa diubah setelah dibuat.</div>}
               </div>
               <div>
                 <label>Display Name</label>
@@ -369,86 +485,61 @@ export default function RolesPage() {
                 <input value={form.description} onChange={(e) => set('description', e.target.value)} />
               </div>
 
-              {isEdit && selectedId && (canAssignMenus || canAssignPerms) && (
+              {(canAssignMenus || canAssignPerms) && (
                 <div style={{ marginTop: 8 }}>
+                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                    Akses akan disimpan bersamaan saat klik tombol {isEdit ? 'Update Role' : 'Create Role'}.
+                  </div>
                   <div className="grid" style={{ gridTemplateColumns: canAssignMenus && canAssignPerms ? '1fr 1fr' : '1fr', gap: 10 }}>
-                    {canAssignPerms && (
-                      <div className="card" style={{ background: '#f8fafc' }}>
-                        <h4>Assign Permissions</h4>
-                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Pilih permission berdasarkan nama, lalu tambahkan lebih dari satu.</div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                          <select value={selectedPermId} onChange={(e) => setSelectedPermId(e.target.value)} disabled={savingAccess}>
-                            <option value="">Pilih permission</option>
-                            {sortedPerms.map((perm) => (
-                              <option key={perm.id} value={perm.id}>
-                                {perm.display_name || perm.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button type="button" className="btn-ghost" onClick={addPermDraft} disabled={!selectedPermId || savingAccess}>
-                            Tambah
-                          </button>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                          {permDraft.map((id) => (
-                            <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #cbd5e1', borderRadius: 999, padding: '4px 8px', background: '#fff', fontSize: 12 }}>
-                              <span>{permissionLabel(id)}</span>
-                              <button
-                                type="button"
-                                onClick={() => removePermDraft(id)}
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#475569', padding: 0 }}
-                                disabled={savingAccess}
-                                title="Hapus"
-                              >
-                                x
-                              </button>
-                            </span>
-                          ))}
-                          {permDraft.length === 0 && <div className="muted">Belum ada permission dipilih.</div>}
-                        </div>
-                        <button type="button" className="btn-ghost" style={{ marginTop: 10 }} onClick={() => void applyPerms()} disabled={savingAccess || permDraft.length === 0}>
-                          {savingAccess ? 'Menyimpan...' : 'Simpan Permissions'}
-                        </button>
-                      </div>
-                    )}
-
                     {canAssignMenus && (
                       <div className="card" style={{ background: '#f8fafc' }}>
                         <h4>Assign Menus</h4>
-                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Pilih menu berdasarkan nama, lalu tambahkan lebih dari satu.</div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                          <select value={selectedMenuId} onChange={(e) => setSelectedMenuId(e.target.value)} disabled={savingAccess}>
-                            <option value="">Pilih menu</option>
-                            {sortedMenus.map((menu) => (
-                              <option key={menu.id} value={menu.id}>
-                                {menu.display_name || menu.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button type="button" className="btn-ghost" onClick={addMenuDraft} disabled={!selectedMenuId || savingAccess}>
-                            Tambah
-                          </button>
+                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+                          Gunakan checkbox untuk memilih menu akses role.
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                          {menuDraft.map((id) => (
-                            <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #cbd5e1', borderRadius: 999, padding: '4px 8px', background: '#fff', fontSize: 12 }}>
-                              <span>{menuLabel(id)}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeMenuDraft(id)}
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#475569', padding: 0 }}
-                                disabled={savingAccess}
-                                title="Hapus"
-                              >
-                                x
-                              </button>
-                            </span>
-                          ))}
-                          {menuDraft.length === 0 && <div className="muted">Belum ada menu dipilih.</div>}
+                        <div className="perm-table" style={{ marginTop: 8 }}>
+                          <div className="perm-row perm-head">
+                            <div>Menu</div>
+                            <div>Path</div>
+                            <div className="perm-cell">Allow</div>
+                          </div>
+                          {assignableMenus.map((menu) => {
+                            const checked = menuDraft.includes(menu.id)
+                            return (
+                              <div key={menu.id} className="perm-row">
+                                <div className="perm-title">{menu.display_name || menu.name}</div>
+                                <div className="perm-meta">{menu.path || '-'}</div>
+                                <div className="perm-cell">
+                                  <input
+                                    type="checkbox"
+                                    className="perm-checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleMenuDraft(menu.id)}
+                                    disabled={loading}
+                                    title={menu.display_name || menu.name}
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
-                        <button type="button" className="btn-ghost" style={{ marginTop: 10 }} onClick={() => void applyMenus()} disabled={savingAccess || menuDraft.length === 0}>
-                          {savingAccess ? 'Menyimpan...' : 'Simpan Menus'}
-                        </button>
+                        {assignableMenus.length === 0 && <div className="muted" style={{ marginTop: 8 }}>Menu belum tersedia.</div>}
+                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>
+                          {menuDraft.length} menu dipilih.
+                        </div>
+                      </div>
+                    )}
+
+                    {canAssignPerms && (
+                      <div className="card" style={{ background: '#f8fafc' }}>
+                        <h4>Assign Permissions</h4>
+                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+                          Permission otomatis difilter berdasarkan menu yang dipilih.
+                        </div>
+                        {renderPermissionTable()}
+                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>
+                          {permDraft.length} permission dipilih.
+                        </div>
                       </div>
                     )}
                   </div>
@@ -496,36 +587,36 @@ export default function RolesPage() {
           {canList && (
             <>
               <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Display Name</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roles.map((roleItem) => (
-                  <tr key={roleItem.id}>
-                    <td>{roleItem.name}</td>
-                    <td>{roleItem.display_name}</td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } })}>View</button>
-                      {canUpdate && (
-                        <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } })}>
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && <button className="btn-ghost" onClick={() => void remove(roleItem.id)}>Delete</button>}
-                      {!canUpdate && !canDelete && '-'}
-                    </td>
-                  </tr>
-                ))}
-                {roles.length === 0 && (
+                <thead>
                   <tr>
-                    <td colSpan={3}>Belum ada role.</td>
+                    <th>Name</th>
+                    <th>Display Name</th>
+                    <th>Action</th>
                   </tr>
-                )}
-              </tbody>
+                </thead>
+                <tbody>
+                  {roles.map((roleItem) => (
+                    <tr key={roleItem.id}>
+                      <td>{roleItem.name}</td>
+                      <td>{roleItem.display_name}</td>
+                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } })}>View</button>
+                        {canUpdate && (
+                          <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } })}>
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && <button className="btn-ghost" onClick={() => void remove(roleItem.id)}>Delete</button>}
+                        {!canUpdate && !canDelete && '-'}
+                      </td>
+                    </tr>
+                  ))}
+                  {roles.length === 0 && (
+                    <tr>
+                      <td colSpan={3}>Belum ada role.</td>
+                    </tr>
+                  )}
+                </tbody>
               </table>
 
               <Pagination
