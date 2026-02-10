@@ -12,6 +12,7 @@ type MenuItem = {
   display_name?: string
   path?: string
   icon?: string
+  order_index?: number
 }
 
 function isMenuActive(pathname: string, menuPath?: string): boolean {
@@ -20,31 +21,18 @@ function isMenuActive(pathname: string, menuPath?: string): boolean {
   return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }
 
-const PATH_LABEL_MAP: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/orders': 'Order In',
-  '/finance': 'Finance',
-  '/news': 'News',
-  '/prices': 'Prices',
-  '/credit': 'Credit',
-  '/quadrants': 'Quadrants',
-  '/jobs': 'Jobs',
-  '/motor-types': 'Motor Types',
-  '/installments': 'Installments',
-  '/master-settings': 'Master Settings',
-  '/net-income': 'Net Income',
-  '/users': 'Users',
-  '/roles': 'Roles & Access',
-  '/role-menu-access': 'Roles & Access',
-  '/menus': 'Menus',
-  '/scrape-sources': 'Scrape Sources',
-}
-
 function getMenuLabel(menu?: Partial<MenuItem> | null): string {
   if (!menu) return 'Dashboard'
-  const basePath = menuPathWithoutQuery(menu.path)
-  if (basePath && PATH_LABEL_MAP[basePath]) return PATH_LABEL_MAP[basePath]
-  return translateUiText(menu.display_name || menu.name || menu.path || 'Dashboard')
+  if (menu.display_name && String(menu.display_name).trim()) {
+    return translateUiText(menu.display_name)
+  }
+  if (menu.name && String(menu.name).trim()) {
+    return translateUiText(menu.name)
+  }
+  if (menu.path && String(menu.path).trim()) {
+    return translateUiText(menu.path.replace(/^\//, '').replace(/[-_]/g, ' ') || 'Dashboard')
+  }
+  return 'Dashboard'
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -77,6 +65,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void fetchMenus()
+  }, [fetchMenus])
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void fetchMenus()
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [fetchMenus])
 
   useEffect(() => {
@@ -129,7 +127,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       }
     })
 
-    return Array.from(dedup.values())
+    return Array.from(dedup.values()).sort((a, b) => {
+      const aOrder = Number(a.order_index ?? Number.MAX_SAFE_INTEGER)
+      const bOrder = Number(b.order_index ?? Number.MAX_SAFE_INTEGER)
+      if (aOrder !== bOrder) return aOrder - bOrder
+      const aLabel = (a.display_name || a.name || a.path || '').toLowerCase()
+      const bLabel = (b.display_name || b.name || b.path || '').toLowerCase()
+      return aLabel.localeCompare(bLabel)
+    })
   }, [menus])
 
   const activeMenu = useMemo(() => {

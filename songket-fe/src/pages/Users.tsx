@@ -29,6 +29,8 @@ type MenuItem = { id: string; name?: string; path?: string }
 
 const MENU_RESOURCE_ALIASES: Record<string, string[]> = {
   prices: ['commodities'],
+  jobs: ['net_income'],
+  installments: ['motor_types'],
   role_menu_access: ['roles', 'menus'],
 }
 

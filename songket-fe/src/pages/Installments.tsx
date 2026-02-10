@@ -2,16 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   createInstallment,
+  createMotorType,
   deleteInstallment,
+  deleteMotorType,
   fetchKabupaten,
   fetchProvinces,
   getInstallment,
   listInstallments,
-  listMotorTypes,
   updateInstallment,
+  updateMotorType,
 } from '../api'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
+
+type OptionItem = {
+  code: string
+  name: string
+}
 
 type MotorTypeItem = {
   id: string
@@ -19,6 +26,7 @@ type MotorTypeItem = {
   brand: string
   model: string
   type: string
+  otr: number
   province_code: string
   province_name: string
   regency_code: string
@@ -34,8 +42,29 @@ type InstallmentItem = {
   updated_at?: string
 }
 
-const emptyForm = {
-  motor_type_id: '',
+type FormState = {
+  name: string
+  brand: string
+  model: string
+  type: string
+  otr: number
+  province_code: string
+  province_name: string
+  regency_code: string
+  regency_name: string
+  amount: number
+}
+
+const emptyForm: FormState = {
+  name: '',
+  brand: '',
+  model: '',
+  type: '',
+  otr: 0,
+  province_code: '',
+  province_name: '',
+  regency_code: '',
+  regency_name: '',
   amount: 0,
 }
 
@@ -50,7 +79,7 @@ function formatDate(value?: string) {
   if (!value) return '-'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleString('id-ID')
+  return d.toLocaleString('en-US')
 }
 
 function formatRupiah(value: number) {
@@ -62,10 +91,9 @@ function parseCurrency(input: string) {
   return Number(input.replace(/[^0-9]/g, '')) || 0
 }
 
-function buildMotorLabel(motor?: MotorTypeItem) {
+function areaLabel(motor?: MotorTypeItem) {
   if (!motor) return '-'
-  const area = [motor.regency_name, motor.province_name].filter(Boolean).join(', ')
-  return `${motor.name || '-'} | ${[motor.brand, motor.model, motor.type].filter(Boolean).join(' / ') || '-'}${area ? ` (${area})` : ''}`
+  return [motor.regency_name, motor.province_name].filter(Boolean).join(', ') || '-'
 }
 
 function errorMessage(err: any, fallback: string) {
@@ -88,30 +116,29 @@ export default function InstallmentsPage() {
   const isDetail = mode === 'detail'
 
   const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_installments')
-  const canView = perms.includes('view_installments')
-  const canCreate = perms.includes('create_installments')
-  const canUpdate = perms.includes('update_installments')
+  const canList = perms.includes('list_installments') || perms.includes('list_motor_types')
+  const canView = perms.includes('view_installments') || perms.includes('view_motor_types')
+  const canCreate = perms.includes('create_installments') && perms.includes('create_motor_types')
+  const canUpdate = perms.includes('update_installments') && perms.includes('update_motor_types')
   const canDelete = perms.includes('delete_installments')
 
   const [items, setItems] = useState<InstallmentItem[]>([])
   const [fetchedItem, setFetchedItem] = useState<InstallmentItem | null>(null)
-  const [motorTypes, setMotorTypes] = useState<MotorTypeItem[]>([])
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [motorTypeFilter, setMotorTypeFilter] = useState('')
   const [provinceFilter, setProvinceFilter] = useState('')
   const [regencyFilter, setRegencyFilter] = useState('')
-  const [provinces, setProvinces] = useState<any[]>([])
-  const [regencies, setRegencies] = useState<any[]>([])
+  const [provinces, setProvinces] = useState<OptionItem[]>([])
+  const [regencies, setRegencies] = useState<OptionItem[]>([])
+  const [filterRegencies, setFilterRegencies] = useState<OptionItem[]>([])
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
 
-  const stateItem = (location.state as any)?.installment || null
+  const stateItem = (location.state as any)?.item || null
 
   const load = async () => {
     const res = await listInstallments({
@@ -119,57 +146,73 @@ export default function InstallmentsPage() {
       limit,
       search: search || undefined,
       filters: {
-        motor_type_id: motorTypeFilter || undefined,
         province_code: provinceFilter || undefined,
         regency_code: regencyFilter || undefined,
       },
     })
+
     setItems(res.data.data || res.data || [])
     setTotalPages(res.data.total_pages || 1)
     setTotalData(res.data.total_data || 0)
     setPage(res.data.current_page || page)
   }
 
-  const loadMotorTypes = async () => {
-    const res = await listMotorTypes({ page: 1, limit: 1000 })
-    setMotorTypes(res.data.data || res.data || [])
-  }
-
   useEffect(() => {
-    Promise.all([
-      fetchProvinces().then((res) => setProvinces(res.data.data || res.data || [])).catch(() => setProvinces([])),
-      loadMotorTypes().catch(() => setMotorTypes([])),
-    ]).catch(() => undefined)
+    fetchProvinces()
+      .then((res) => {
+        const data = res.data?.data || res.data || []
+        setProvinces(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setProvinces([]))
   }, [])
 
   useEffect(() => {
     if (!provinceFilter) {
-      setRegencies([])
+      setFilterRegencies([])
       setRegencyFilter('')
       return
     }
+
     fetchKabupaten(provinceFilter)
-      .then((res) => setRegencies(res.data.data || res.data || []))
-      .catch(() => setRegencies([]))
+      .then((res) => {
+        const data = res.data?.data || res.data || []
+        setFilterRegencies(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setFilterRegencies([]))
   }, [provinceFilter])
+
+  useEffect(() => {
+    if (!form.province_code || !(isCreate || isEdit)) {
+      setRegencies([])
+      return
+    }
+
+    fetchKabupaten(form.province_code)
+      .then((res) => {
+        const data = res.data?.data || res.data || []
+        setRegencies(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setRegencies([]))
+  }, [form.province_code, isCreate, isEdit])
 
   useEffect(() => {
     if (canList || isEdit || isDetail) {
       load().catch(() => setItems([]))
     }
-  }, [canList, isEdit, isDetail, isList, page, limit, search, motorTypeFilter, provinceFilter, regencyFilter])
+  }, [canList, isDetail, isEdit, isList, limit, page, provinceFilter, regencyFilter, search])
 
   useEffect(() => {
     setPage(1)
-  }, [search, motorTypeFilter, provinceFilter, regencyFilter])
+  }, [provinceFilter, regencyFilter, search])
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
     return items.find((item) => item.id === selectedId) || (stateItem?.id === selectedId ? stateItem : null) || fetchedItem
-  }, [items, selectedId, stateItem, fetchedItem])
+  }, [fetchedItem, items, selectedId, stateItem])
 
   useEffect(() => {
     if (!selectedId || selectedItem) return
+
     getInstallment(selectedId)
       .then((res) => {
         const data = res.data?.data || res.data
@@ -185,35 +228,119 @@ export default function InstallmentsPage() {
       return
     }
 
-    if (isEdit && selectedItem) {
+    if (isEdit && selectedItem?.motor_type) {
       setForm({
-        motor_type_id: selectedItem.motor_type_id || '',
-        amount: selectedItem.amount || 0,
+        name: selectedItem.motor_type.name || '',
+        brand: selectedItem.motor_type.brand || '',
+        model: selectedItem.motor_type.model || '',
+        type: selectedItem.motor_type.type || '',
+        otr: Number(selectedItem.motor_type.otr || 0),
+        province_code: selectedItem.motor_type.province_code || '',
+        province_name: selectedItem.motor_type.province_name || '',
+        regency_code: selectedItem.motor_type.regency_code || '',
+        regency_name: selectedItem.motor_type.regency_name || '',
+        amount: Number(selectedItem.amount || 0),
       })
       setError('')
     }
   }, [isCreate, isEdit, selectedItem])
 
+  const updateProvince = (code: string) => {
+    const province = provinces.find((item) => item.code === code)
+    setForm((prev) => ({
+      ...prev,
+      province_code: code,
+      province_name: province?.name || '',
+      regency_code: '',
+      regency_name: '',
+    }))
+  }
+
+  const updateRegency = (code: string) => {
+    const regency = regencies.find((item) => item.code === code)
+    setForm((prev) => ({
+      ...prev,
+      regency_code: code,
+      regency_name: regency?.name || '',
+    }))
+  }
+
   const save = async () => {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
+
+    const name = form.name.trim()
+    const brand = form.brand.trim()
+    const model = form.model.trim()
+    const variantType = form.type.trim()
+
+    if (!name || !brand || !model || !variantType) {
+      setError('Motor type fields are required')
+      return
+    }
+    if (!form.province_code || !form.regency_code) {
+      setError('Province and regency are required')
+      return
+    }
+    if (form.otr < 0) {
+      setError('OTR must be >= 0')
+      return
+    }
+    if (form.amount < 0) {
+      setError('Installment amount must be >= 0')
+      return
+    }
 
     setLoading(true)
     setError('')
 
     try {
-      if (isEdit && selectedId) {
-        await updateInstallment(selectedId, form)
-      } else {
-        await createInstallment(form)
+      const motorPayload = {
+        name,
+        brand,
+        model,
+        type: variantType,
+        otr: Number(form.otr || 0),
+        province_code: form.province_code,
+        province_name: form.province_name,
+        regency_code: form.regency_code,
+        regency_name: form.regency_name,
       }
+
+      if (isEdit && selectedId) {
+        const motorTypeId = selectedItem?.motor_type_id
+        if (!motorTypeId) throw new Error('Motor type not found')
+
+        await updateMotorType(motorTypeId, motorPayload)
+        await updateInstallment(selectedId, {
+          motor_type_id: motorTypeId,
+          amount: Number(form.amount || 0),
+        })
+      } else {
+        const motorRes = await createMotorType(motorPayload)
+        const motor = motorRes.data?.data || motorRes.data
+        const motorTypeId = String(motor?.id || '').trim()
+
+        if (!motorTypeId) throw new Error('Failed to create motor type')
+
+        try {
+          await createInstallment({
+            motor_type_id: motorTypeId,
+            amount: Number(form.amount || 0),
+          })
+        } catch (err) {
+          await deleteMotorType(motorTypeId).catch(() => undefined)
+          throw err
+        }
+      }
+
       if (canList) {
         await load().catch(() => undefined)
       }
       setForm(emptyForm)
       navigate('/installments')
     } catch (err: any) {
-      const message = errorMessage(err, 'Gagal menyimpan data angsuran')
+      const message = errorMessage(err, 'Failed to save motor type and installment')
       setError(message)
       window.alert(message)
     } finally {
@@ -223,40 +350,47 @@ export default function InstallmentsPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Hapus data angsuran ini?')) return
+    if (!window.confirm('Delete this installment data?')) return
 
     try {
       await deleteInstallment(id)
       await load()
     } catch (err: any) {
-      window.alert(errorMessage(err, 'Gagal menghapus data angsuran'))
+      window.alert(errorMessage(err, 'Failed to delete installment data'))
     }
   }
 
   if (isDetail) {
+    const motor = selectedItem?.motor_type
+
     return (
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Angsuran</div>
-            <div style={{ color: '#64748b' }}>Informasi nilai angsuran per jenis motor</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Type & Installment Details</div>
+            <div style={{ color: '#64748b' }}>Combined motor and installment configuration</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/installments/${selectedId}/edit`, { state: { installment: selectedItem } })}>
+              <button className="btn" onClick={() => navigate(`/installments/${selectedId}/edit`, { state: { item: selectedItem } })}>
                 Edit
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/installments')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/installments')}>Back</button>
           </div>
         </div>
 
         <div className="page">
-          {!selectedItem && <div className="alert">Data angsuran tidak ditemukan.</div>}
+          {!selectedItem && <div className="alert">Data not found.</div>}
           {selectedItem && (
-            <div className="card" style={{ maxWidth: 860 }}>
-              <DetailRow label="Jenis Motor" value={buildMotorLabel(selectedItem.motor_type)} />
-              <DetailRow label="Nilai Angsuran" value={formatRupiah(selectedItem.amount || 0)} />
+            <div className="card" style={{ maxWidth: 920 }}>
+              <DetailRow label="Motor Type" value={motor?.name || '-'} />
+              <DetailRow label="Brand" value={motor?.brand || '-'} />
+              <DetailRow label="Model" value={motor?.model || '-'} />
+              <DetailRow label="Variant" value={motor?.type || '-'} />
+              <DetailRow label="OTR" value={formatRupiah(Number(motor?.otr || 0))} />
+              <DetailRow label="Area" value={areaLabel(motor)} />
+              <DetailRow label="Installment Amount" value={formatRupiah(Number(selectedItem.amount || 0))} />
               <DetailRow label="Updated At" value={formatDate(selectedItem.updated_at)} />
             </div>
           )}
@@ -270,32 +404,71 @@ export default function InstallmentsPage() {
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Angsuran' : 'Input Angsuran'}</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>
+              {isEdit ? 'Edit Motor Type & Installment' : 'Create Motor Type & Installment'}
+            </div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/installments')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/installments')}>Back to Table</button>
         </div>
 
         <div className="page">
-          <div className="card" style={{ maxWidth: 860 }}>
-            {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat data.</div>}
-            {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah data.</div>}
+          <div className="card" style={{ maxWidth: 980 }}>
+            {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
+            {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
-            <div className="grid" style={{ gap: 10 }}>
+            <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
               <div>
-                <label>Jenis Motor</label>
-                <select
-                  value={form.motor_type_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, motor_type_id: e.target.value }))}
-                >
-                  <option value="">Pilih</option>
-                  {motorTypes.map((motor) => (
-                    <option key={motor.id} value={motor.id}>{buildMotorLabel(motor)}</option>
+                <label>Motor Type</label>
+                <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+              </div>
+
+              <div>
+                <label>Brand</label>
+                <input value={form.brand} onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))} />
+              </div>
+
+              <div>
+                <label>Model</label>
+                <input value={form.model} onChange={(e) => setForm((prev) => ({ ...prev, model: e.target.value }))} />
+              </div>
+
+              <div>
+                <label>Variant</label>
+                <input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} />
+              </div>
+
+              <div>
+                <label>OTR</label>
+                <input
+                  type="text"
+                  value={formatRupiah(form.otr)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseCurrency(e.target.value) }))}
+                  inputMode="numeric"
+                />
+              </div>
+
+              <div>
+                <label>Province</label>
+                <select value={form.province_code} onChange={(e) => updateProvince(e.target.value)}>
+                  <option value="">Select</option>
+                  {provinces.map((province) => (
+                    <option key={province.code} value={province.code}>{province.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label>Nilai Angsuran</label>
+                <label>Regency/City</label>
+                <select value={form.regency_code} onChange={(e) => updateRegency(e.target.value)} disabled={!form.province_code}>
+                  <option value="">Select</option>
+                  {regencies.map((regency) => (
+                    <option key={regency.code} value={regency.code}>{regency.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label>Installment Amount</label>
                 <input
                   type="text"
                   value={formatRupiah(form.amount)}
@@ -304,13 +477,13 @@ export default function InstallmentsPage() {
                 />
               </div>
 
-              {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
+              {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
 
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, gridColumn: '1 / -1' }}>
                 <button className="btn" onClick={() => void save()} disabled={loading}>
                   {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
                 </button>
-                <button className="btn-ghost" onClick={() => navigate('/installments')}>Batal</button>
+                <button className="btn-ghost" onClick={() => navigate('/installments')}>Cancel</button>
               </div>
             </div>
           </div>
@@ -323,9 +496,9 @@ export default function InstallmentsPage() {
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Angsuran</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Types & Installments</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/installments/create')}>Input Angsuran</button>}
+        {canCreate && <button className="btn" onClick={() => navigate('/installments/create')}>Create Motor & Installment</button>}
       </div>
 
       <div className="page">
@@ -333,34 +506,24 @@ export default function InstallmentsPage() {
           <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
             <div>
               <label>Search</label>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari jenis motor" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" />
             </div>
 
             <div>
-              <label>Filter Jenis Motor</label>
-              <select value={motorTypeFilter} onChange={(e) => setMotorTypeFilter(e.target.value)}>
-                <option value="">Semua</option>
-                {motorTypes.map((motor) => (
-                  <option key={motor.id} value={motor.id}>{buildMotorLabel(motor)}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Filter Provinsi</label>
+              <label>Filter Province</label>
               <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}>
-                <option value="">Semua</option>
-                {provinces.map((province: any) => (
+                <option value="">All</option>
+                {provinces.map((province) => (
                   <option key={province.code} value={province.code}>{province.name}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label>Filter Kabupaten</label>
+              <label>Filter Regency</label>
               <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter}>
-                <option value="">Semua</option>
-                {regencies.map((regency: any) => (
+                <option value="">All</option>
+                {filterRegencies.map((regency) => (
                   <option key={regency.code} value={regency.code}>{regency.name}</option>
                 ))}
               </select>
@@ -369,16 +532,20 @@ export default function InstallmentsPage() {
         </div>
 
         <div className="card">
-          <h3>Daftar Angsuran</h3>
-          {(!canList || !canView) && <div className="alert">Tidak ada izin melihat data angsuran.</div>}
+          <h3>Data List</h3>
+          {(!canList || !canView) && <div className="alert">No permission to view data.</div>}
           {canList && canView && (
             <>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Jenis Motor</th>
-                    <th>Wilayah</th>
-                    <th>Nilai Angsuran</th>
+                    <th>Motor Type</th>
+                    <th>Brand / Model</th>
+                    <th>Variant</th>
+                    <th>OTR</th>
+                    <th>Area</th>
+                    <th>Installment</th>
+                    <th>Updated</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -386,12 +553,16 @@ export default function InstallmentsPage() {
                   {items.map((item) => (
                     <tr key={item.id}>
                       <td>{item.motor_type?.name || '-'}</td>
-                      <td>{[item.motor_type?.regency_name, item.motor_type?.province_name].filter(Boolean).join(', ') || '-'}</td>
-                      <td>{formatRupiah(item.amount || 0)}</td>
+                      <td>{[item.motor_type?.brand, item.motor_type?.model].filter(Boolean).join(' / ') || '-'}</td>
+                      <td>{item.motor_type?.type || '-'}</td>
+                      <td>{formatRupiah(Number(item.motor_type?.otr || 0))}</td>
+                      <td>{areaLabel(item.motor_type)}</td>
+                      <td>{formatRupiah(Number(item.amount || 0))}</td>
+                      <td>{formatDate(item.updated_at)}</td>
                       <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/installments/${item.id}`, { state: { installment: item } })}>View</button>
+                        <button className="btn-ghost" onClick={() => navigate(`/installments/${item.id}`, { state: { item } })}>View</button>
                         {canUpdate && (
-                          <button className="btn-ghost" onClick={() => navigate(`/installments/${item.id}/edit`, { state: { installment: item } })}>
+                          <button className="btn-ghost" onClick={() => navigate(`/installments/${item.id}/edit`, { state: { item } })}>
                             Edit
                           </button>
                         )}
@@ -402,7 +573,7 @@ export default function InstallmentsPage() {
                   ))}
                   {items.length === 0 && (
                     <tr>
-                      <td colSpan={4}>Belum ada data angsuran.</td>
+                      <td colSpan={8}>No data available.</td>
                     </tr>
                   )}
                 </tbody>

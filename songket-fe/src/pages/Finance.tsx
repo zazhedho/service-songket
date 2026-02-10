@@ -250,7 +250,7 @@ export default function FinancePage() {
   }, [financeProvinceFilter])
 
   useEffect(() => {
-    if (!selectedDealerId || !(isList && listTab === 'dealer')) {
+    if (!selectedDealerId || !(isList && listTab === 'finance')) {
       setMetrics(null)
       return
     }
@@ -346,6 +346,7 @@ export default function FinancePage() {
   }, [dealers])
 
   const currentDealer = dealers.find((dealer) => dealer.id === selectedDealerId)
+  const selectedDealerName = currentDealer?.name || '-'
   const currentLat = Number(currentDealer?.lat ?? currentDealer?.latitude)
   const currentLng = Number(currentDealer?.lng ?? currentDealer?.longitude)
 
@@ -674,7 +675,7 @@ export default function FinancePage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Finance Company</div>
-            <div style={{ color: '#64748b' }}>Data company dan ringkasan performa</div>
+            <div style={{ color: '#64748b' }}>Data company dan ringkasan performa (tanpa peta)</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
@@ -948,14 +949,14 @@ export default function FinancePage() {
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Peta & Finance</div>
-          <div style={{ color: '#64748b' }}>Gunakan tab untuk kelola Dealer dan Finance Company</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Manajemen Dealer & Finance</div>
+          <div style={{ color: '#64748b' }}>Peta hanya ditampilkan untuk Dealer. Finance Company ditampilkan dalam bentuk tabel.</div>
         </div>
       </div>
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
         <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealer</button>
+          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealers</button>
           <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Finance</button>
         </div>
 
@@ -964,13 +965,13 @@ export default function FinancePage() {
             <div className="card">
               <div style={{ marginBottom: 10 }}>
                 <label>Search Dealer</label>
-                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Cari nama/regency/phone" />
+                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search by name/regency/phone" />
               </div>
 
               <div style={{ marginBottom: 10 }}>
-                <label>Filter Provinsi Dealer</label>
+                <label>Dealer Province Filter</label>
                 <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
-                  <option value="">Semua</option>
+                  <option value="">All</option>
                   {provinces.map((province) => (
                     <option key={province.code} value={province.code}>{province.name}</option>
                   ))}
@@ -978,14 +979,14 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3>Dealer</h3>
-                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Input Dealer</button>}
+                <h3>Dealers</h3>
+                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Create Dealer</button>}
               </div>
 
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Nama</th>
+                    <th>Name</th>
                     <th>Regency</th>
                     <th>Phone</th>
                     <th>Action</th>
@@ -993,12 +994,18 @@ export default function FinancePage() {
                 </thead>
                 <tbody>
                   {dealers.map((dealer) => (
-                    <tr key={dealer.id}>
+                    <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
                       <td>{dealer.name}</td>
                       <td>{dealer.regency || '-'}</td>
                       <td>{dealer.phone || '-'}</td>
                       <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => setSelectedDealerId(dealer.id)}>Preview</button>
+                        <button
+                          className="btn-ghost"
+                          style={dealer.id === selectedDealerId ? { borderColor: '#2563eb', color: '#1d4ed8', background: '#eff6ff' } : undefined}
+                          onClick={() => setSelectedDealerId(dealer.id)}
+                        >
+                          {dealer.id === selectedDealerId ? 'Selected' : 'Focus'}
+                        </button>
                         <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } })}>View</button>
                         {canManage && (
                           <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } })}>Edit</button>
@@ -1009,7 +1016,7 @@ export default function FinancePage() {
                   ))}
                   {dealers.length === 0 && (
                     <tr>
-                      <td colSpan={4}>Belum ada dealer.</td>
+                      <td colSpan={4}>No dealers available.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1028,158 +1035,171 @@ export default function FinancePage() {
               />
             </div>
 
-            <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 14 }}>
-              <div className="card" style={{ minHeight: 430 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Peta Dealer</h3>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{dealerPoints.length} titik dealer</div>
-                </div>
-
-                <div style={{ marginTop: 10 }}>
-                  <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
-                    <MapFly center={center as any} />
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                    {dealerPoints.map((dealer) => (
-                      <Marker
-                        key={dealer.id}
-                        position={[dealer._lat, dealer._lng]}
-                        icon={markerIcon}
-                        eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
-                      >
-                        <Popup>
-                          <strong>{dealer.name}</strong>
-                          <div>{dealer.regency}</div>
-                          <div>{dealer.phone || '-'}</div>
-                        </Popup>
-                      </Marker>
-                    ))}
-                  </MapContainer>
-                </div>
+            <div className="card" style={{ minHeight: 430 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Dealer Map</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName} • {dealerPoints.length} points</div>
               </div>
 
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Performa Dealer</h3>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{currentDealer?.name || 'Pilih dealer'}</div>
-                </div>
-
-                <div style={{ marginTop: 10 }}>
-                  <label>Filter Finance Company</label>
-                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
-                    <option value="">Semua</option>
-                    {financeCompanies.map((company) => (
-                      <option key={company.id} value={company.id}>{company.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {!metrics && <div style={{ marginTop: 12, color: '#64748b' }}>Pilih dealer untuk melihat metrik.</div>}
-
-                {metrics && (
-                  <>
-                    <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                      <Metric label="Total Order" value={metrics.total_orders} />
-                      <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                      <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
-                      <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                    </div>
-
-                    <div style={{ marginTop: 12 }}>
-                      <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Finance</th>
-                            <th>Total</th>
-                            <th>Approve</th>
-                            <th>Lead Avg</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(metrics.finance_companies || []).map((fc: any) => (
-                            <tr key={fc.finance_company_id}>
-                              <td>{fc.finance_company_name}</td>
-                              <td>{fc.total_orders}</td>
-                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
+              <div style={{ marginTop: 10 }}>
+                <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
+                  <MapFly center={center as any} />
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                  {dealerPoints.map((dealer) => (
+                    <Marker
+                      key={dealer.id}
+                      position={[dealer._lat, dealer._lng]}
+                      icon={markerIcon}
+                      eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
+                    >
+                      <Popup>
+                        <strong>{dealer.name}</strong>
+                        <div>{dealer.regency}</div>
+                        <div>{dealer.phone || '-'}</div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
               </div>
             </div>
           </>
         )}
 
         {listTab === 'finance' && (
-          <div className="card">
-            <div style={{ marginBottom: 10 }}>
-              <label>Search Finance Company</label>
-              <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Cari nama/regency/phone" />
-            </div>
+          <>
+            <div className="card">
+              <div style={{ marginBottom: 10 }}>
+                <label>Search Finance Company</label>
+                <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search by name/regency/phone" />
+              </div>
 
-            <div style={{ marginBottom: 10 }}>
-              <label>Filter Provinsi Finance</label>
-              <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
-                <option value="">Semua</option>
-                {provinces.map((province) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
-            </div>
+              <div style={{ marginBottom: 10 }}>
+                <label>Finance Province Filter</label>
+                <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
+                  <option value="">All</option>
+                  {provinces.map((province) => (
+                    <option key={province.code} value={province.code}>{province.name}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <h3>Finance Company</h3>
-              {canManage && <button className="btn" onClick={() => navigate('/finance/companies/create')}>Input Finance</button>}
-            </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <h3>Finance Company</h3>
+                {canManage && <button className="btn" onClick={() => navigate('/finance/companies/create')}>Create Finance</button>}
+              </div>
 
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nama</th>
-                  <th>Regency</th>
-                  <th>Phone</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {financeCompanies.map((company) => (
-                  <tr key={company.id}>
-                    <td>{company.name}</td>
-                    <td>{company.regency || '-'}</td>
-                    <td>{company.phone || '-'}</td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}`, { state: { company } })}>View</button>
-                      {canManage && (
-                        <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}/edit`, { state: { company } })}>Edit</button>
-                      )}
-                      {canManage && <button className="btn-ghost" onClick={() => void removeFinance(company.id)}>Delete</button>}
-                    </td>
-                  </tr>
-                ))}
-                {financeCompanies.length === 0 && (
+              <table className="table">
+                <thead>
                   <tr>
-                    <td colSpan={4}>Belum ada finance company.</td>
+                    <th>Name</th>
+                    <th>Regency</th>
+                    <th>Phone</th>
+                    <th>Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {financeCompanies.map((company) => (
+                    <tr key={company.id}>
+                      <td>{company.name}</td>
+                      <td>{company.regency || '-'}</td>
+                      <td>{company.phone || '-'}</td>
+                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}`, { state: { company } })}>View</button>
+                        {canManage && (
+                          <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}/edit`, { state: { company } })}>Edit</button>
+                        )}
+                        {canManage && <button className="btn-ghost" onClick={() => void removeFinance(company.id)}>Delete</button>}
+                      </td>
+                    </tr>
+                  ))}
+                  {financeCompanies.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>No finance company available.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
 
-            <Pagination
-              page={financePage}
-              totalPages={financeTotalPages}
-              totalData={financeTotalData}
-              limit={financeLimit}
-              onPageChange={setFinancePage}
-              onLimitChange={(next) => {
-                setFinanceLimit(next)
-                setFinancePage(1)
-              }}
-            />
-          </div>
+              <Pagination
+                page={financePage}
+                totalPages={financeTotalPages}
+                totalData={financeTotalData}
+                limit={financeLimit}
+                onPageChange={setFinancePage}
+                onLimitChange={(next) => {
+                  setFinanceLimit(next)
+                  setFinancePage(1)
+                }}
+              />
+            </div>
+
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Dealer Performance</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+              </div>
+
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label>Select Dealer</label>
+                  <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                    <option value="">Select dealer</option>
+                    {dealers.map((dealer) => (
+                      <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Finance Company Filter</label>
+                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
+                    <option value="">All</option>
+                    {financeCompanies.map((company) => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+              {metrics && (
+                <>
+                  <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                    <Metric label="Total Order" value={metrics.total_orders} />
+                    <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
+                    <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                    <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
+                  </div>
+
+                  <div style={{ marginTop: 12 }}>
+                    <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Finance</th>
+                          <th>Total</th>
+                          <th>Approve</th>
+                          <th>Lead Avg</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(metrics.finance_companies || []).map((fc: any) => (
+                          <tr key={fc.finance_company_id}>
+                            <td>{fc.finance_company_name}</td>
+                            <td>{fc.total_orders}</td>
+                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

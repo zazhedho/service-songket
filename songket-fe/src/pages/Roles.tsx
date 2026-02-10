@@ -30,6 +30,8 @@ type NamedItem = {
 const sanitizeIdList = (ids: string[]) => Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
 const MENU_RESOURCE_ALIASES: Record<string, string[]> = {
   prices: ['commodities'],
+  jobs: ['net_income'],
+  installments: ['motor_types'],
   role_menu_access: ['roles', 'menus'],
 }
 
