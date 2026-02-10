@@ -38,7 +38,6 @@ export default function ProfilePage() {
     if (chunks.length === 0) return 'U'
     return chunks.map((chunk) => chunk.charAt(0).toUpperCase()).join('')
   }, [profile.name])
-  const permissionPreview = permissions.slice(0, 6)
 
   const loadProfile = async () => {
     setLoadingProfile(true)
@@ -160,9 +159,32 @@ export default function ProfilePage() {
                   <td>{displayRole}</td>
                 </tr>
                 <tr>
-                  <th>Permission Preview</th>
-                  <td>{permissionPreview.length > 0 ? permissionPreview.join(', ') : '-'}</td>
+                  <th>Permission Count</th>
+                  <td>{permissions.length}</td>
                 </tr>
+              </tbody>
+            </table>
+
+            <h3 style={{ marginTop: 14 }}>Permissions</h3>
+            <table className="table" style={{ marginTop: 10 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 70 }}>No</th>
+                  <th>Permission</th>
+                </tr>
+              </thead>
+              <tbody>
+                {permissions.map((permission, index) => (
+                  <tr key={`${permission}-${index}`}>
+                    <td>{index + 1}</td>
+                    <td style={{ fontWeight: 600 }}>{permission}</td>
+                  </tr>
+                ))}
+                {permissions.length === 0 && (
+                  <tr>
+                    <td colSpan={2}>No permissions assigned.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

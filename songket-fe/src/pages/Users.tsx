@@ -12,6 +12,7 @@ import {
   setUserPermissions,
   updateUserById,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
@@ -93,6 +94,7 @@ export default function UsersPage() {
   const canUpdate = perms.includes('update_users')
   const canDelete = perms.includes('delete_users')
   const canSetUserPerm = role === 'superadmin'
+  const confirm = useConfirm()
 
   const [users, setUsers] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -232,6 +234,29 @@ export default function UsersPage() {
     if (!selectedId) return null
     return users.find((u) => u.id === selectedId) || (stateUser?.id === selectedId ? stateUser : null)
   }, [selectedId, stateUser, users])
+
+  const selectedRoleDisplay = useMemo(() => {
+    if (!selectedUser) return '-'
+
+    const byId = roleOptions.find((roleItem) => String(roleItem.id || '') === String(selectedUser.role_id || ''))
+    if (byId) {
+      return byId.display_name || roleLabel(byId.name || selectedUser.role || '')
+    }
+
+    const byName = roleOptions.find(
+      (roleItem) => normalizeKey(roleItem.name) === normalizeKey(selectedUser.role),
+    )
+    if (byName) {
+      return byName.display_name || roleLabel(byName.name || selectedUser.role || '')
+    }
+
+    return roleLabel(detailValue(selectedUser.role))
+  }, [roleOptions, selectedUser])
+
+  const permUserName = useMemo(() => {
+    if (!permUserId) return '-'
+    return users.find((user) => user.id === permUserId)?.name || '-'
+  }, [permUserId, users])
 
   const availableRoleNames = useMemo(() => {
     const backendRoles = roleNames(roleOptions)
@@ -431,7 +456,14 @@ export default function UsersPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Delete user?')) return
+    const ok = await confirm({
+      title: 'Delete User',
+      description: 'Are you sure you want to delete this user?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     await deleteUserById(id)
     await loadUsers()
   }
@@ -513,15 +545,7 @@ export default function UsersPage() {
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Role</th>
-                    <td style={{ fontWeight: 600 }}>{roleLabel(detailValue(selectedUser.role))}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Role ID</th>
-                    <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{detailValue(selectedUser.role_id)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>User ID</th>
-                    <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{detailValue(selectedUser.id)}</td>
+                    <td style={{ fontWeight: 600 }}>{selectedRoleDisplay}</td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
@@ -729,7 +753,7 @@ export default function UsersPage() {
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>Set Permissions User</h3>
-              <div style={{ fontSize: 12, color: '#64748b' }}>User ID: {permUserId}</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>User: {permUserName}</div>
             </div>
             {permLoading && <div>Loading permissions...</div>}
             {!permLoading && (

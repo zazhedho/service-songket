@@ -282,6 +282,7 @@ func (r *Routes) SongketRoutes() {
 
 	// Master settings (superadmin only)
 	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSetting)
+	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSettingHistory)
 	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdateNewsScrapeCronSetting)
 
 	// Finance performance

@@ -9,8 +9,10 @@ import {
   fetchScrapeResults,
   listScrapeJobs,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../utils/currency'
 
 type Job = {
   id: string
@@ -49,6 +51,7 @@ export default function PricesPage() {
   const canList = perms.includes('list_prices')
   const canScrape = perms.includes('scrape_prices')
   const canImport = perms.includes('add_price') || canScrape
+  const confirm = useConfirm()
 
   const [prices, setPrices] = useState<any[]>([])
   const [loadingPrices, setLoadingPrices] = useState(false)
@@ -169,7 +172,7 @@ export default function PricesPage() {
     }
 
     try {
-      const numeric = toNumber(manual.price)
+      const numeric = parseRupiahInput(manual.price)
       await addCommodityPrice({
         commodity_name: manual.name,
         unit: manual.unit,
@@ -219,7 +222,14 @@ export default function PricesPage() {
 
   const removePrice = async (id: string) => {
     if (!canScrape) return
-    if (!window.confirm('Hapus harga ini?')) return
+    const ok = await confirm({
+      title: 'Delete Price',
+      description: 'Are you sure you want to delete this price?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       await deletePrice(id)
       loadPrices()
@@ -244,22 +254,41 @@ export default function PricesPage() {
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Harga Pangan</div>
-            <div style={{ color: '#64748b' }}>Informasi lengkap data harga</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Price Details</div>
+            <div style={{ color: '#64748b' }}>Complete commodity price information</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/prices')}>Kembali</button>
+          <button className="btn-ghost" onClick={() => navigate('/prices')}>Back</button>
         </div>
 
         <div className="page">
-          {!selectedPrice && <div className="alert">Data harga tidak ditemukan.</div>}
+          {!selectedPrice && <div className="alert">Price data not found.</div>}
           {selectedPrice && (
             <div className="card" style={{ maxWidth: 820 }}>
-              <DetailRow label="Komoditas" value={selectedPrice.commodity?.name || '-'} />
-              <DetailRow label="Harga" value={formatRupiah(selectedPrice.price)} />
-              <DetailRow label="Satuan" value={selectedPrice.commodity?.unit || '-'} />
-              <DetailRow label="Sumber URL" value={selectedPrice.source_url || '-'} />
-              <DetailRow label="Waktu" value={selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('id-ID') : '-'} />
-              <DetailRow label="Price ID" value={selectedPrice.id} />
+              <h3 style={{ marginTop: 0 }}>Price Information</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Commodity</th>
+                    <td style={{ fontWeight: 600 }}>{selectedPrice.commodity?.name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Price</th>
+                    <td style={{ fontWeight: 600 }}>{formatRupiah(selectedPrice.price)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Unit</th>
+                    <td style={{ fontWeight: 600 }}>{selectedPrice.commodity?.unit || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Source URL</th>
+                    <td style={{ fontWeight: 600 }}>{selectedPrice.source_url || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Collected At</th>
+                    <td style={{ fontWeight: 600 }}>{selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('en-US') : '-'}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -636,32 +665,6 @@ function JobDock({
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function formatRupiah(value: number) {
-  if (!value && value !== 0) return '-'
-  return value.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })
-}
-
-function formatRupiahInput(raw: string) {
-  const digits = raw.replace(/[^\d]/g, '')
-  if (!digits) return ''
-  const numeric = Number(digits)
-  return numeric.toLocaleString('id-ID')
-}
-
-function toNumber(raw: string) {
-  const digits = raw.replace(/[^\d]/g, '')
-  return digits ? Number(digits) : 0
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
     </div>
   )
 }

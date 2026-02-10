@@ -40,6 +40,8 @@ export const updateInstallment = (id: string, body: Record<string, unknown>) => 
 export const deleteInstallment = (id: string) => api.delete(`/api/songket/installments/${id}`)
 
 export const getNewsScrapeCronSetting = () => api.get('/api/songket/master-settings/news-scrape-cron')
+export const listNewsScrapeCronSettingHistory = (params?: Record<string, unknown>) =>
+  api.get('/api/songket/master-settings/news-scrape-cron/history', { params })
 export const updateNewsScrapeCronSetting = (body: Record<string, unknown>) =>
   api.put('/api/songket/master-settings/news-scrape-cron', body)
 

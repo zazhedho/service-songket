@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchOrders, fetchPriceList, listNewsItems } from '../api'
 import dayjs from 'dayjs'
+import { formatRupiah } from '../utils/currency'
 
 export default function DashboardPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -38,19 +39,26 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="header">
-        <div>
-          <div style={{ fontSize: 14, color: '#9ca3af' }}>Halo, selamat datang</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>SONGKET PANEL : S.O.N.G.K.E.T Dashboard</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img
+            src="/songket-logo.jpeg"
+            alt="SONGKET Logo"
+            style={{ width: 54, height: 54, borderRadius: 12, objectFit: 'cover', border: '1px solid #d6deec' }}
+          />
+          <div>
+            <div style={{ fontSize: 14, color: '#9ca3af' }}>Welcome back</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>SONGKET Dashboard</div>
+          </div>
         </div>
       </div>
       <div className="page">
         <div className="hero card">
           <div>
-            <div className="big">Monitoring Order in</div>
+            <div className="big">Order In Monitoring</div>
           </div>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-            <Stat label="Order terbaru" value={`${orders.length}`} />
-            <Stat label="Commodities update" value={`${prices.length}`} />
+            <Stat label="Latest Orders" value={`${orders.length}`} />
+            <Stat label="Commodity Updates" value={`${prices.length}`} />
             <Stat label="News" value={`${news.length}`} />
           </div>
         </div>
@@ -62,7 +70,7 @@ export default function DashboardPage() {
               <thead>
                 <tr>
                   <th>Pooling</th>
-                  <th>Konsumen</th>
+                  <th>Consumer</th>
                   <th>Status</th>
                   <th>Tenor</th>
                 </tr>
@@ -73,7 +81,7 @@ export default function DashboardPage() {
                     <td>{o.pooling_number}</td>
                     <td>{o.consumer_name}</td>
                     <td><StatusBadge status={o.result_status} /></td>
-                    <td>{o.tenor} bln</td>
+                    <td>{o.tenor} months</td>
                   </tr>
                 ))}
               </tbody>
@@ -81,12 +89,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="card">
-            <h3>latest prices</h3>
+            <h3>Latest Prices</h3>
             <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
               {prices.map((p) => (
                 <div key={p.id}>
-                  <div style={{ fontWeight: 600 }}>{p.commodity?.name || 'Komoditas'}</div>
-                  <div style={{ color: '#9ca3af' }}>{p.price?.toLocaleString('id-ID')} / {p.commodity?.unit}</div>
+                  <div style={{ fontWeight: 600 }}>{p.commodity?.name || 'Commodity'}</div>
+                  <div style={{ color: '#9ca3af' }}>{formatRupiah(p.price || 0)} / {p.commodity?.unit}</div>
                 </div>
               ))}
             </div>
@@ -170,7 +178,7 @@ export default function DashboardPage() {
             </div>
           )}
           {!activeNews && (
-            <div style={{ color: '#94a3b8', fontSize: 14 }}>Belum ada berita tersimpan.</div>
+            <div style={{ color: '#94a3b8', fontSize: 14 }}>No saved news yet.</div>
           )}
           {news.length > 1 && (
             <div style={{ marginTop: 12, display: 'flex', gap: 6, justifyContent: 'center' }}>

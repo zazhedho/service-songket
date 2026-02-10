@@ -12,8 +12,10 @@ import {
   updateInstallment,
   updateMotorType,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
+import { formatRupiah, parseRupiahInput } from '../utils/currency'
 
 type OptionItem = {
   code: string
@@ -82,15 +84,6 @@ function formatDate(value?: string) {
   return d.toLocaleString('en-US')
 }
 
-function formatRupiah(value: number) {
-  const safe = Number.isNaN(value) ? 0 : value
-  return safe.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
-}
-
-function parseCurrency(input: string) {
-  return Number(input.replace(/[^0-9]/g, '')) || 0
-}
-
 function areaLabel(motor?: MotorTypeItem) {
   if (!motor) return '-'
   return [motor.regency_name, motor.province_name].filter(Boolean).join(', ') || '-'
@@ -121,6 +114,7 @@ export default function InstallmentsPage() {
   const canCreate = perms.includes('create_installments') && perms.includes('create_motor_types')
   const canUpdate = perms.includes('update_installments') && perms.includes('update_motor_types')
   const canDelete = perms.includes('delete_installments')
+  const confirm = useConfirm()
 
   const [items, setItems] = useState<InstallmentItem[]>([])
   const [fetchedItem, setFetchedItem] = useState<InstallmentItem | null>(null)
@@ -350,7 +344,14 @@ export default function InstallmentsPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Delete this installment data?')) return
+    const ok = await confirm({
+      title: 'Delete Installment',
+      description: 'Are you sure you want to delete this installment data?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
 
     try {
       await deleteInstallment(id)
@@ -384,14 +385,43 @@ export default function InstallmentsPage() {
           {!selectedItem && <div className="alert">Data not found.</div>}
           {selectedItem && (
             <div className="card" style={{ maxWidth: 920 }}>
-              <DetailRow label="Motor Type" value={motor?.name || '-'} />
-              <DetailRow label="Brand" value={motor?.brand || '-'} />
-              <DetailRow label="Model" value={motor?.model || '-'} />
-              <DetailRow label="Variant" value={motor?.type || '-'} />
-              <DetailRow label="OTR" value={formatRupiah(Number(motor?.otr || 0))} />
-              <DetailRow label="Area" value={areaLabel(motor)} />
-              <DetailRow label="Installment Amount" value={formatRupiah(Number(selectedItem.amount || 0))} />
-              <DetailRow label="Updated At" value={formatDate(selectedItem.updated_at)} />
+              <h3 style={{ marginTop: 0 }}>Motor Type & Installment Information</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>
+                    <td style={{ fontWeight: 600 }}>{motor?.name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th>
+                    <td style={{ fontWeight: 600 }}>{motor?.brand || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th>
+                    <td style={{ fontWeight: 600 }}>{motor?.model || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th>
+                    <td style={{ fontWeight: 600 }}>{motor?.type || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th>
+                    <td style={{ fontWeight: 600 }}>{formatRupiah(Number(motor?.otr || 0))}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area</th>
+                    <td style={{ fontWeight: 600 }}>{areaLabel(motor)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Installment Amount</th>
+                    <td style={{ fontWeight: 600 }}>{formatRupiah(Number(selectedItem.amount || 0))}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
+                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -442,7 +472,7 @@ export default function InstallmentsPage() {
                 <input
                   type="text"
                   value={formatRupiah(form.otr)}
-                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseCurrency(e.target.value) }))}
+                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))}
                   inputMode="numeric"
                 />
               </div>
@@ -472,7 +502,7 @@ export default function InstallmentsPage() {
                 <input
                   type="text"
                   value={formatRupiah(form.amount)}
-                  onChange={(e) => setForm((prev) => ({ ...prev, amount: parseCurrency(e.target.value) }))}
+                  onChange={(e) => setForm((prev) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))}
                   inputMode="numeric"
                 />
               </div>
@@ -594,15 +624,6 @@ export default function InstallmentsPage() {
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
     </div>
   )
 }

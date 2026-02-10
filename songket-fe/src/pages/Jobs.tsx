@@ -7,13 +7,17 @@ import {
   deleteNetIncome,
   fetchKabupaten,
   fetchProvinces,
+  getJob,
+  getNetIncome,
   listJobs,
   listNetIncome,
   updateJob,
   updateNetIncome,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../utils/currency'
 
 type OptionItem = {
   code: string
@@ -135,14 +139,6 @@ function formatDate(value?: string) {
   return d.toLocaleString('en-US')
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0))
-}
-
 function areaLabel(area: NetIncomeArea) {
   const province = area.province_name || area.province_code
   const regency = area.regency_name || area.regency_code
@@ -174,6 +170,7 @@ export default function JobsPage() {
   const canCreate = perms.includes('create_jobs') && perms.includes('create_net_income')
   const canUpdate = perms.includes('update_jobs') && (perms.includes('update_net_income') || perms.includes('create_net_income'))
   const canDelete = perms.includes('delete_jobs')
+  const confirm = useConfirm()
 
   const [items, setItems] = useState<CombinedItem[]>([])
   const [allItems, setAllItems] = useState<CombinedItem[]>([])
@@ -187,6 +184,9 @@ export default function JobsPage() {
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
+  const [detailJob, setDetailJob] = useState<any>(null)
+  const [detailNetIncome, setDetailNetIncome] = useState<any>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const stateItem = (location.state as any)?.item || null
 
@@ -265,6 +265,28 @@ export default function JobsPage() {
   }, [allItems, selectedId, stateItem])
 
   useEffect(() => {
+    if (!isDetail || !selectedItem?.job_id) {
+      setDetailJob(null)
+      setDetailNetIncome(null)
+      setDetailLoading(false)
+      return
+    }
+
+    setDetailLoading(true)
+    Promise.all([
+      getJob(selectedItem.job_id).catch(() => null),
+      selectedItem.net_income_id ? getNetIncome(selectedItem.net_income_id).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([jobRes, netRes]) => {
+        const jobData = jobRes?.data?.data || jobRes?.data || null
+        const netData = netRes?.data?.data || netRes?.data || null
+        setDetailJob(jobData)
+        setDetailNetIncome(netData)
+      })
+      .finally(() => setDetailLoading(false))
+  }, [isDetail, selectedItem?.job_id, selectedItem?.net_income_id])
+
+  useEffect(() => {
     if (isCreate) {
       setForm(emptyForm)
       setError('')
@@ -274,7 +296,7 @@ export default function JobsPage() {
     if (isEdit && selectedItem) {
       setForm({
         name: selectedItem.name || '',
-        net_income: String(selectedItem.net_income ?? 0),
+        net_income: formatRupiahInput(String(selectedItem.net_income ?? 0)),
         province_code: '',
         regency_code: '',
         selected_areas: normalizeAreaInput(selectedItem.area_net_income),
@@ -347,7 +369,7 @@ export default function JobsPage() {
     if (isEdit && !canUpdate) return
 
     const name = form.name.trim()
-    const netIncome = Number(form.net_income)
+    const netIncome = parseRupiahInput(form.net_income)
     const areas = normalizeAreaInput(form.selected_areas)
 
     if (!name) {
@@ -418,7 +440,14 @@ export default function JobsPage() {
 
   const remove = async (item: CombinedItem) => {
     if (!canDelete) return
-    if (!window.confirm('Delete this job and net income data?')) return
+    const ok = await confirm({
+      title: 'Delete Job & Net Income',
+      description: 'Are you sure you want to delete this job and net income data?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
 
     try {
       if (item.net_income_id) {
@@ -430,6 +459,12 @@ export default function JobsPage() {
       window.alert(errorMessage(err, 'Failed to delete job'))
     }
   }
+
+  const detailAreaRows = normalizeAreaInput(detailNetIncome?.area_net_income ?? selectedItem?.area_net_income)
+  const detailJobName = detailJob?.name || selectedItem?.name || '-'
+  const detailNetIncomeValue = Number(detailNetIncome?.net_income ?? selectedItem?.net_income ?? 0)
+  const detailCreatedAt = formatDate(detailNetIncome?.created_at || detailJob?.created_at || selectedItem?.created_at)
+  const detailUpdatedAt = formatDate(detailNetIncome?.updated_at || detailJob?.updated_at || selectedItem?.updated_at)
 
   if (isDetail) {
     return (
@@ -452,16 +487,43 @@ export default function JobsPage() {
         <div className="page">
           {!selectedItem && <div className="alert">Data not found.</div>}
           {selectedItem && (
-            <div className="card" style={{ maxWidth: 860 }}>
-              <DetailRow label="Job Name" value={selectedItem.name || '-'} />
-              <DetailRow label="Net Income" value={formatCurrency(Number(selectedItem.net_income || 0))} />
-              <DetailRow
-                label="Area Coverage"
-                value={selectedItem.area_net_income.length ? selectedItem.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}
+            <div className="card" style={{ maxWidth: 960 }}>
+              <h3 style={{ marginTop: 0 }}>Job & Net Income Information</h3>
+              {detailLoading && <div style={{ color: '#64748b', marginBottom: 10 }}>Loading latest relation data...</div>}
+              <DetailTable
+                rows={[
+                  { label: 'Job Name', value: detailJobName },
+                  { label: 'Net Income', value: formatRupiah(detailNetIncomeValue) },
+                  { label: 'Coverage Area Count', value: detailAreaRows.length },
+                  { label: 'Created At', value: detailCreatedAt },
+                  { label: 'Updated At', value: detailUpdatedAt },
+                ]}
               />
-              <DetailRow label="Created At" value={formatDate(selectedItem.created_at)} />
-              <DetailRow label="Updated At" value={formatDate(selectedItem.updated_at)} />
-              <DetailRow label="Job ID" value={selectedItem.job_id} />
+
+              <h3 style={{ marginTop: 14 }}>Coverage Areas</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Province</th>
+                    <th>Regency / City</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailAreaRows.map((area, index) => (
+                    <tr key={`${area.province_code}-${area.regency_code}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td>{area.province_name || '-'}</td>
+                      <td>{area.regency_name || '-'}</td>
+                    </tr>
+                  ))}
+                  {detailAreaRows.length === 0 && (
+                    <tr>
+                      <td colSpan={3}>No coverage areas.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -493,11 +555,10 @@ export default function JobsPage() {
               <div>
                 <label>Net Income</label>
                 <input
-                  type="number"
-                  min={0}
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
                   value={form.net_income}
-                  onChange={(e) => setForm((prev) => ({ ...prev, net_income: e.target.value }))}
+                  onChange={(e) => setForm((prev) => ({ ...prev, net_income: formatRupiahInput(e.target.value) }))}
                 />
               </div>
 
@@ -612,7 +673,7 @@ export default function JobsPage() {
                   {items.map((item) => (
                     <tr key={item.job_id}>
                       <td>{item.name || '-'}</td>
-                      <td>{formatCurrency(Number(item.net_income || 0))}</td>
+                      <td>{formatRupiah(Number(item.net_income || 0))}</td>
                       <td>{item.area_net_income.length ? item.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}</td>
                       <td>{formatDate(item.updated_at)}</td>
                       <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -654,11 +715,17 @@ export default function JobsPage() {
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
-    </div>
+    <table className="table" style={{ marginTop: 10 }}>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <th style={{ width: '36%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
+            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }

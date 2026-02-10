@@ -11,6 +11,7 @@ import {
   listRoles,
   updateRole,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
@@ -61,6 +62,7 @@ export default function RolesPage() {
   const canDelete = userPerms.includes('delete_roles')
   const canAssignPerms = userPerms.includes('assign_permissions')
   const canAssignMenus = userPerms.includes('assign_menus')
+  const confirm = useConfirm()
 
   const mode = parseMode(location.pathname)
   const selectedId = params.id || ''
@@ -388,7 +390,14 @@ export default function RolesPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Hapus role?')) return
+    const ok = await confirm({
+      title: 'Delete Role',
+      description: 'Are you sure you want to delete this role?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     await deleteRole(id)
     await load()
   }
@@ -400,8 +409,8 @@ export default function RolesPage() {
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Role</div>
-            <div style={{ color: '#64748b' }}>Informasi role, menu, dan permission</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Role Details</div>
+            <div style={{ color: '#64748b' }}>Role profile with related menus and permissions</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canUpdate && selectedId && (
@@ -409,41 +418,79 @@ export default function RolesPage() {
                 Edit Role
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/roles')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/roles')}>Back</button>
           </div>
         </div>
 
         <div className="page">
-          {!selectedRole && !roleDetail && <div className="alert">Role tidak ditemukan.</div>}
+          {!selectedRole && !roleDetail && <div className="alert">Role not found.</div>}
 
           {(selectedRole || roleDetail) && (
-            <div className="card">
-              <div style={{ display: 'grid', gap: 10 }}>
-                <DetailRow label="Name" value={roleDetail?.name || selectedRole?.name || '-'} />
-                <DetailRow label="Display Name" value={roleDetail?.display_name || selectedRole?.display_name || '-'} />
-                <DetailRow label="Description" value={roleDetail?.description || selectedRole?.description || '-'} />
-              </div>
+            <div className="card" style={{ maxWidth: 960 }}>
+              <h3 style={{ marginTop: 0 }}>Role Information</h3>
+              <DetailTable
+                rows={[
+                  { label: 'Name', value: roleDetail?.name || selectedRole?.name || '-' },
+                  { label: 'Display Name', value: roleDetail?.display_name || selectedRole?.display_name || '-' },
+                  { label: 'Description', value: roleDetail?.description || selectedRole?.description || '-' },
+                ]}
+              />
             </div>
           )}
 
           <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="card">
               <h3>Menu Access</h3>
-              <div style={{ maxHeight: 250, overflow: 'auto', marginTop: 8 }}>
-                {(roleDetail?.menu_ids || []).length === 0 && <div className="muted">Belum ada menu.</div>}
-                {(roleDetail?.menu_ids || []).map((id: string) => (
-                  <div key={id} style={{ fontSize: 13 }}>{menuLabel(id)}</div>
-                ))}
-              </div>
+              <table className="table" style={{ marginTop: 8 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 70 }}>No</th>
+                    <th>Menu</th>
+                    <th>Path</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(roleDetail?.menu_ids || []).map((id: string, index: number) => {
+                    const menu = menuById[id]
+                    return (
+                      <tr key={id}>
+                        <td>{index + 1}</td>
+                        <td>{menuLabel(id)}</td>
+                        <td>{menu?.path || '-'}</td>
+                      </tr>
+                    )
+                  })}
+                  {(roleDetail?.menu_ids || []).length === 0 && (
+                    <tr>
+                      <td colSpan={3}>No menu access assigned.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
             <div className="card">
               <h3>Permissions</h3>
-              <div style={{ maxHeight: 250, overflow: 'auto', marginTop: 8 }}>
-                {(roleDetail?.permission_ids || []).length === 0 && <div className="muted">Belum ada permission.</div>}
-                {(roleDetail?.permission_ids || []).map((id: string) => (
-                  <div key={id} style={{ fontSize: 13 }}>{permissionLabel(id)}</div>
-                ))}
-              </div>
+              <table className="table" style={{ marginTop: 8 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 70 }}>No</th>
+                    <th>Permission</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(roleDetail?.permission_ids || []).map((id: string, index: number) => (
+                    <tr key={id}>
+                      <td>{index + 1}</td>
+                      <td>{permissionLabel(id)}</td>
+                    </tr>
+                  ))}
+                  {(roleDetail?.permission_ids || []).length === 0 && (
+                    <tr>
+                      <td colSpan={2}>No permissions assigned.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -640,11 +687,17 @@ export default function RolesPage() {
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12 }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
-    </div>
+    <table className="table" style={{ marginTop: 8 }}>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <th style={{ width: '35%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
+            <td style={{ fontWeight: 600 }}>{row.value || '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }

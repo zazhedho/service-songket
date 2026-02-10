@@ -9,8 +9,10 @@ import {
   listMotorTypes,
   updateMotorType,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
+import { formatRupiah, parseRupiahInput } from '../utils/currency'
 
 type MotorTypeItem = {
   id: string
@@ -65,15 +67,6 @@ function formatDate(value?: string) {
   return d.toLocaleString('id-ID')
 }
 
-function formatRupiah(value: number) {
-  const safe = Number.isNaN(value) ? 0 : value
-  return safe.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
-}
-
-function parseCurrency(input: string) {
-  return Number(input.replace(/[^0-9]/g, '')) || 0
-}
-
 function errorMessage(err: any, fallback: string) {
   const raw = err?.response?.data?.error
   if (typeof raw === 'string' && raw.trim()) return raw
@@ -99,6 +92,7 @@ export default function MotorTypesPage() {
   const canCreate = perms.includes('create_motor_types')
   const canUpdate = perms.includes('update_motor_types')
   const canDelete = perms.includes('delete_motor_types')
+  const confirm = useConfirm()
 
   const [items, setItems] = useState<MotorTypeItem[]>([])
   const [fetchedItem, setFetchedItem] = useState<MotorTypeItem | null>(null)
@@ -239,7 +233,14 @@ export default function MotorTypesPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Hapus jenis motor ini?')) return
+    const ok = await confirm({
+      title: 'Delete Motor Type',
+      description: 'Are you sure you want to delete this motor type?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
 
     try {
       await deleteMotorType(id)
@@ -274,8 +275,8 @@ export default function MotorTypesPage() {
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Jenis Motor</div>
-            <div style={{ color: '#64748b' }}>Informasi data jenis motor per wilayah</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Type Details</div>
+            <div style={{ color: '#64748b' }}>Motor type data by area</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canUpdate && selectedId && (
@@ -283,22 +284,51 @@ export default function MotorTypesPage() {
                 Edit
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Back</button>
           </div>
         </div>
 
         <div className="page">
-          {!selectedItem && <div className="alert">Data jenis motor tidak ditemukan.</div>}
+          {!selectedItem && <div className="alert">Motor type data not found.</div>}
           {selectedItem && (
             <div className="card" style={{ maxWidth: 860 }}>
-              <DetailRow label="Jenis Motor" value={selectedItem.name || '-'} />
-              <DetailRow label="Merek" value={selectedItem.brand || '-'} />
-              <DetailRow label="Model" value={selectedItem.model || '-'} />
-              <DetailRow label="Type" value={selectedItem.type || '-'} />
-              <DetailRow label="OTR" value={formatRupiah(selectedItem.otr || 0)} />
-              <DetailRow label="Provinsi" value={selectedItem.province_name || selectedItem.province_code || '-'} />
-              <DetailRow label="Kabupaten" value={selectedItem.regency_name || selectedItem.regency_code || '-'} />
-              <DetailRow label="Updated At" value={formatDate(selectedItem.updated_at)} />
+              <h3 style={{ marginTop: 0 }}>Motor Type Information</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>
+                    <td style={{ fontWeight: 600 }}>{selectedItem.name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th>
+                    <td style={{ fontWeight: 600 }}>{selectedItem.brand || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th>
+                    <td style={{ fontWeight: 600 }}>{selectedItem.model || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th>
+                    <td style={{ fontWeight: 600 }}>{selectedItem.type || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th>
+                    <td style={{ fontWeight: 600 }}>{formatRupiah(selectedItem.otr || 0)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Province</th>
+                    <td style={{ fontWeight: 600 }}>{selectedItem.province_name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Regency / City</th>
+                    <td style={{ fontWeight: 600 }}>{selectedItem.regency_name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
+                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -347,7 +377,7 @@ export default function MotorTypesPage() {
                 <input
                   type="text"
                   value={formatRupiah(form.otr)}
-                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseCurrency(e.target.value) }))}
+                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))}
                   inputMode="numeric"
                 />
               </div>
@@ -485,15 +515,6 @@ export default function MotorTypesPage() {
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
     </div>
   )
 }

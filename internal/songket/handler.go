@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"starter-kit/pkg/filter"
@@ -550,7 +551,11 @@ func (h *Handler) UpdateNewsScrapeCronSetting(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.svc.UpdateNewsScrapeCronMasterSetting(req)
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.UpdateNewsScrapeCronMasterSetting(req, userID, username)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -558,6 +563,26 @@ func (h *Handler) UpdateNewsScrapeCronSetting(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/master-settings/news-scrape-cron/history
+func (h *Handler) GetNewsScrapeCronSettingHistory(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	limitRaw := ctx.DefaultQuery("limit", "100")
+	limit, err := strconv.Atoi(limitRaw)
+	if err != nil {
+		limit = 100
+	}
+
+	data, err := h.svc.ListNewsScrapeCronSettingHistory(limit)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 

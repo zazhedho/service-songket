@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { listMyMenus } from '../api'
 import { AppIcon, inferIconName, menuPathWithoutQuery } from './AppIcon'
+import { useConfirm } from './ConfirmDialog'
 import { useAuth } from '../store'
 import { translateUiText } from '../utils/uiText'
 import { MENUS_UPDATED_EVENT } from '../constants/events'
@@ -41,6 +42,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const logout = useAuth((s) => s.logout)
   const role = useAuth((s) => s.role)
   const token = useAuth((s) => s.token)
+  const confirm = useConfirm()
 
   const [menus, setMenus] = useState<MenuItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -80,6 +82,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [fetchMenus])
 
   useEffect(() => {
+    if (!token) return
+    const timer = window.setInterval(() => {
+      void fetchMenus()
+    }, 15000)
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [fetchMenus, token])
+
+  useEffect(() => {
     const handleMenusUpdated = () => {
       void fetchMenus()
     }
@@ -109,7 +121,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: 'Logout',
+      description: 'Are you sure you want to logout?',
+      confirmText: 'Logout',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     setProfileMenuOpen(false)
     logout()
     navigate('/login')
