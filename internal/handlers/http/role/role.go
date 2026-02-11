@@ -127,9 +127,19 @@ func (h *RoleHandler) Update(ctx *gin.Context) {
 	data, err := h.Service.Update(id, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; Error: %+v", logPrefix, err))
-		res := response.Response(http.StatusInternalServerError, err.Error(), logId, nil)
+		statusCode := http.StatusInternalServerError
+		lowerErr := strings.ToLower(err.Error())
+		if strings.HasPrefix(lowerErr, "access denied") {
+			statusCode = http.StatusForbidden
+		} else if strings.Contains(lowerErr, "cannot update system roles") ||
+			strings.Contains(lowerErr, "invalid") ||
+			strings.Contains(lowerErr, "required") ||
+			strings.Contains(lowerErr, "already exists") {
+			statusCode = http.StatusBadRequest
+		}
+		res := response.Response(statusCode, err.Error(), logId, nil)
 		res.Error = err.Error()
-		ctx.JSON(http.StatusInternalServerError, res)
+		ctx.JSON(statusCode, res)
 		return
 	}
 
