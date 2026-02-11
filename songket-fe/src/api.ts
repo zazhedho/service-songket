@@ -43,8 +43,21 @@ export const deleteInstallment = (id: string) => api.delete(`/api/songket/instal
 export const getNewsScrapeCronSetting = () => api.get('/api/songket/master-settings/news-scrape-cron')
 export const listNewsScrapeCronSettingHistory = (params?: Record<string, unknown>) =>
   api.get('/api/songket/master-settings/news-scrape-cron/history', { params })
+export const createNewsScrapeCronSetting = (body: Record<string, unknown>) =>
+  api.post('/api/songket/master-settings/news-scrape-cron', body)
 export const updateNewsScrapeCronSetting = (body: Record<string, unknown>) =>
   api.put('/api/songket/master-settings/news-scrape-cron', body)
+export const deleteNewsScrapeCronSetting = () =>
+  api.delete('/api/songket/master-settings/news-scrape-cron')
+export const getPriceScrapeCronSetting = () => api.get('/api/songket/master-settings/prices-scrape-cron')
+export const listPriceScrapeCronSettingHistory = (params?: Record<string, unknown>) =>
+  api.get('/api/songket/master-settings/prices-scrape-cron/history', { params })
+export const createPriceScrapeCronSetting = (body: Record<string, unknown>) =>
+  api.post('/api/songket/master-settings/prices-scrape-cron', body)
+export const updatePriceScrapeCronSetting = (body: Record<string, unknown>) =>
+  api.put('/api/songket/master-settings/prices-scrape-cron', body)
+export const deletePriceScrapeCronSetting = () =>
+  api.delete('/api/songket/master-settings/prices-scrape-cron')
 
 export const fetchDealers = (params?: Record<string, unknown>) => api.get('/api/songket/finance/dealers', { params })
 export const fetchFinanceCompanies = (params?: Record<string, unknown>) => api.get('/api/songket/finance/companies', { params })

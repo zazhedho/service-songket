@@ -337,30 +337,47 @@ func seedDefaults(db *gorm.DB) error {
 }
 
 func seedMasterSettings(db *gorm.DB) error {
-	defaultSetting := songket.MasterSetting{
-		Id:              utils.CreateUUID(),
-		Key:             songket.MasterSettingKeyNewsScrapeCron,
-		IsActive:        true,
-		IntervalMinutes: 5,
-		Description:     "Auto scrape portal berita",
+	defaultSettings := []songket.MasterSetting{
+		{
+			Id:              utils.CreateUUID(),
+			Key:             songket.MasterSettingKeyNewsScrapeCron,
+			IsActive:        true,
+			IntervalMinutes: 5,
+			Description:     "Auto scrape portal berita",
+		},
+		{
+			Id:              utils.CreateUUID(),
+			Key:             songket.MasterSettingKeyPriceScrapeCron,
+			IsActive:        true,
+			IntervalMinutes: 24 * 60,
+			Description:     "Auto scrape harga pangan",
+		},
 	}
 
-	var existing songket.MasterSetting
-	err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
-	if err == nil {
-		existing.DeletedAt = gorm.DeletedAt{}
-		if existing.IntervalMinutes <= 0 {
-			existing.IntervalMinutes = defaultSetting.IntervalMinutes
+	for _, defaultSetting := range defaultSettings {
+		var existing songket.MasterSetting
+		err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
+		if err == nil {
+			existing.DeletedAt = gorm.DeletedAt{}
+			if existing.IntervalMinutes <= 0 {
+				existing.IntervalMinutes = defaultSetting.IntervalMinutes
+			}
+			if strings.TrimSpace(existing.Description) == "" {
+				existing.Description = defaultSetting.Description
+			}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
 		}
-		if strings.TrimSpace(existing.Description) == "" {
-			existing.Description = defaultSetting.Description
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
 		}
-		return db.Save(&existing).Error
+		if err := db.Create(&defaultSetting).Error; err != nil {
+			return err
+		}
 	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-	return db.Create(&defaultSetting).Error
+	return nil
 }
 
 func ensureMotorTypeIndexes(db *gorm.DB) error {

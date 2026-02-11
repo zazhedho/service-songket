@@ -366,6 +366,32 @@ export default function PricesPage() {
         </div>
       </div>
 
+      {canScrape && (
+        <div className="page" style={{ paddingTop: 0, paddingBottom: 0 }}>
+          <JobDock
+            open={jobsOpen}
+            onToggle={() => setJobsOpen((value) => !value)}
+            jobs={jobs}
+            onSelect={(id) => {
+              setResultPage(1)
+              loadResults(id)
+            }}
+            statusColor={statusColor}
+            page={jobsPage}
+            totalPages={jobsTotalPages}
+            totalData={jobsTotalData}
+            limit={jobsLimit}
+            onPageChange={setJobsPage}
+            onLimitChange={(next) => {
+              setJobsLimit(next)
+              setJobsPage(1)
+            }}
+            search={jobSearch}
+            onSearchChange={setJobSearch}
+          />
+        </div>
+      )}
+
       {!canList && <div className="page"><div className="alert">Tidak ada izin melihat harga.</div></div>}
 
       {canList && (
@@ -513,32 +539,6 @@ export default function PricesPage() {
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {canScrape && (
-        <div className="page" style={{ paddingTop: 0 }}>
-          <JobDock
-            open={jobsOpen}
-            onToggle={() => setJobsOpen((value) => !value)}
-            jobs={jobs}
-            onSelect={(id) => {
-              setResultPage(1)
-              loadResults(id)
-            }}
-            statusColor={statusColor}
-            page={jobsPage}
-            totalPages={jobsTotalPages}
-            totalData={jobsTotalData}
-            limit={jobsLimit}
-            onPageChange={setJobsPage}
-            onLimitChange={(next) => {
-              setJobsLimit(next)
-              setJobsPage(1)
-            }}
-            search={jobSearch}
-            onSearchChange={setJobSearch}
-          />
         </div>
       )}
 

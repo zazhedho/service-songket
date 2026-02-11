@@ -567,6 +567,32 @@ func (h *Handler) GetNewsScrapeCronSetting(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// POST /api/songket/master-settings/news-scrape-cron
+func (h *Handler) CreateNewsScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req NewsScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.CreateNewsScrapeCronMasterSetting(req, userID, username)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
 // PUT /api/songket/master-settings/news-scrape-cron
 func (h *Handler) UpdateNewsScrapeCronSetting(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -610,6 +636,126 @@ func (h *Handler) GetNewsScrapeCronSettingHistory(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/master-settings/news-scrape-cron
+func (h *Handler) DeleteNewsScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	if err := h.svc.DeleteNewsScrapeCronMasterSetting(userID, username); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"key": MasterSettingKeyNewsScrapeCron})
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) GetPriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.GetPriceScrapeCronMasterSetting()
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) CreatePriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req PriceScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.CreatePriceScrapeCronMasterSetting(req, userID, username)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// PUT /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) UpdatePriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req PriceScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.UpdatePriceScrapeCronMasterSetting(req, userID, username)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/master-settings/prices-scrape-cron/history
+func (h *Handler) GetPriceScrapeCronSettingHistory(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	limitRaw := ctx.DefaultQuery("limit", "100")
+	limit, err := strconv.Atoi(limitRaw)
+	if err != nil {
+		limit = 100
+	}
+
+	data, err := h.svc.ListPriceScrapeCronSettingHistory(limit)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) DeletePriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	if err := h.svc.DeletePriceScrapeCronMasterSetting(userID, username); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"key": MasterSettingKeyPriceScrapeCron})
 	ctx.JSON(http.StatusOK, res)
 }
 

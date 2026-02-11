@@ -52,6 +52,7 @@ export default function App() {
         <Route path="/installments/:id/edit" element={<Guarded><InstallmentsPage /></Guarded>} />
 
         <Route path="/master-settings" element={<Guarded><MasterSettingsPage /></Guarded>} />
+        <Route path="/master-settings/form" element={<Guarded><MasterSettingsPage /></Guarded>} />
 
         <Route path="/finance" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/dealers/create" element={<Guarded><FinancePage /></Guarded>} />

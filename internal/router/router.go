@@ -282,9 +282,16 @@ func (r *Routes) SongketRoutes() {
 	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), h.DeleteInstallment)
 
 	// Master settings (superadmin only)
+	g.POST("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.CreateNewsScrapeCronSetting)
 	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSetting)
 	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSettingHistory)
 	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdateNewsScrapeCronSetting)
+	g.DELETE("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.DeleteNewsScrapeCronSetting)
+	g.POST("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.CreatePriceScrapeCronSetting)
+	g.GET("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetPriceScrapeCronSetting)
+	g.GET("/master-settings/prices-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetPriceScrapeCronSettingHistory)
+	g.PUT("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdatePriceScrapeCronSetting)
+	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.DeletePriceScrapeCronSetting)
 
 	// Finance performance
 	g.GET("/finance/dealers", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
