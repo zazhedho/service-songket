@@ -90,14 +90,31 @@ export default function DashboardPage() {
 
           <div className="card">
             <h3>Latest Prices</h3>
-            <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              {prices.map((p) => (
-                <div key={p.id}>
-                  <div style={{ fontWeight: 600 }}>{p.commodity?.name || 'Commodity'}</div>
-                  <div style={{ color: '#9ca3af' }}>{formatRupiah(p.price || 0)} / {p.commodity?.unit}</div>
-                </div>
-              ))}
-            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Commodity</th>
+                  <th>Price</th>
+                  <th>Unit</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prices.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.commodity?.name || '-'}</td>
+                    <td>{formatRupiah(p.price || 0)}</td>
+                    <td>{p.commodity?.unit || '-'}</td>
+                    <td>{dayjs(p.updated_at || p.created_at).format('DD MMM YYYY HH:mm')}</td>
+                  </tr>
+                ))}
+                {prices.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>No latest prices.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
