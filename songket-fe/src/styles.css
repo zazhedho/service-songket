@@ -654,6 +654,23 @@ h4 {
     vertical-align: top;
   }
 
+  .table td {
+    max-width: 20ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .table td:has(button),
+  .table td:has(input),
+  .table td:has(select),
+  .table td:has(textarea) {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .table th {
     background: #f8fafc;
     color: #475569;
