@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 type ConfirmTone = 'default' | 'danger'
 
@@ -8,6 +8,7 @@ type ConfirmOptions = {
   confirmText?: string
   cancelText?: string
   tone?: ConfirmTone
+  showCancel?: boolean
 }
 
 type ConfirmContextValue = (options: ConfirmOptions) => Promise<boolean>
@@ -25,6 +26,7 @@ const defaultState: ConfirmState = {
   confirmText: 'Confirm',
   cancelText: 'Cancel',
   tone: 'default',
+  showCancel: true,
 }
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
@@ -49,9 +51,33 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         confirmText: options.confirmText || 'Confirm',
         cancelText: options.cancelText || 'Cancel',
         tone: options.tone || 'default',
+        showCancel: options.showCancel ?? true,
       })
     })
   }, [])
+
+  const alertDialog = useCallback(
+    (message: string, options?: Omit<ConfirmOptions, 'description' | 'showCancel' | 'cancelText'>) => {
+      return confirm({
+        title: options?.title || 'Notice',
+        description: message,
+        confirmText: options?.confirmText || 'OK',
+        tone: options?.tone || 'default',
+        showCancel: false,
+      })
+    },
+    [confirm],
+  )
+
+  useEffect(() => {
+    const nativeAlert = window.alert.bind(window)
+    window.alert = (message?: any) => {
+      void alertDialog(String(message ?? ''))
+    }
+    return () => {
+      window.alert = nativeAlert
+    }
+  }, [alertDialog])
 
   const value = useMemo<ConfirmContextValue>(() => confirm, [confirm])
 
@@ -65,9 +91,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             <div className="confirm-title">{dialog.title}</div>
             <div className="confirm-description">{dialog.description}</div>
             <div className="confirm-actions">
-              <button className="btn-ghost" type="button" onClick={() => close(false)}>
-                {dialog.cancelText}
-              </button>
+              {dialog.showCancel && (
+                <button className="btn-ghost" type="button" onClick={() => close(false)}>
+                  {dialog.cancelText}
+                </button>
+              )}
               <button
                 className={`btn ${dialog.tone === 'danger' ? 'confirm-danger' : ''}`}
                 type="button"

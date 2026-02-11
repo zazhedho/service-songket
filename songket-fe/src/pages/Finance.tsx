@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -18,6 +18,7 @@ import {
   updateDealer,
   updateFinanceCompany,
 } from '../api'
+import DealerLeafletSearchMap, { type DealerLeafletPlace } from '../components/DealerLeafletSearchMap'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -29,6 +30,7 @@ const markerIcon = new L.Icon({
 })
 
 type Option = { code: string; name: string }
+type DealerLocationNames = { province: string; regency: string; district: string }
 
 type DealerForm = {
   name: string
@@ -91,6 +93,8 @@ const initialFinanceForm: FinanceForm = {
   phone: '',
   address: '',
 }
+
+const INDONESIA_CENTER: [number, number] = [-2.5489, 118.0149]
 
 function parseFinanceMode(pathname: string) {
   if (pathname.endsWith('/dealers/create')) return 'dealer_create'
@@ -159,6 +163,10 @@ export default function FinancePage() {
   const [savingDealer, setSavingDealer] = useState(false)
   const [savingFinance, setSavingFinance] = useState(false)
   const [locatingDealerAddress, setLocatingDealerAddress] = useState(false)
+  const dealerLocationReqRef = useRef(0)
+  const dealerKabupatenCacheRef = useRef<Record<string, Option[]>>({})
+  const dealerKecamatanCacheRef = useRef<Record<string, Option[]>>({})
+  const [dealerLocationNameMap, setDealerLocationNameMap] = useState<Record<string, DealerLocationNames>>({})
 
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
@@ -446,10 +454,12 @@ export default function FinancePage() {
     return Math.max(1, ...values)
   }, [financeMetricRows])
 
-  const dealerFormLat = Number(dealerForm.lat)
-  const dealerFormLng = Number(dealerForm.lng)
-  const dealerFormCenter: [number, number] =
-    Number.isFinite(dealerFormLat) && Number.isFinite(dealerFormLng) ? [dealerFormLat, dealerFormLng] : center
+  const dealerFormLat = parseCoordinateValue(dealerForm.lat)
+  const dealerFormLng = parseCoordinateValue(dealerForm.lng)
+  const dealerFormHasCoordinate = Number.isFinite(dealerFormLat) && Number.isFinite(dealerFormLng)
+  const dealerFormFallbackCenter: [number, number] = isDealerCreate ? INDONESIA_CENTER : center
+  const dealerFormCenter: [number, number] = dealerFormHasCoordinate ? [dealerFormLat, dealerFormLng] : dealerFormFallbackCenter
+  const dealerFormZoom = dealerFormHasCoordinate ? 12 : isDealerCreate ? 5 : 8
 
   const setDealerCoordinates = (lat: number, lng: number) => {
     setDealerForm((prev) => ({
@@ -459,34 +469,297 @@ export default function FinancePage() {
     }))
   }
 
-  const locateDealerByAddress = async () => {
-    const query = dealerForm.address.trim()
-    if (!query) {
-      window.alert('Isi alamat terlebih dahulu sebelum mencari titik di peta.')
-      return
-    }
+  const fetchKabupatenByProvinceCode = async (provinceCode: string) => {
+    if (!provinceCode) return []
+    const cached = dealerKabupatenCacheRef.current[provinceCode]
+    if (cached) return cached
 
-    setLocatingDealerAddress(true)
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
-      )
-      const payload = await response.json()
-      const first = Array.isArray(payload) ? payload[0] : null
-      const lat = Number(first?.lat)
-      const lng = Number(first?.lon)
+      const kabRes = await fetchKabupaten(provinceCode)
+      const list = kabRes.data.data || kabRes.data || []
+      dealerKabupatenCacheRef.current[provinceCode] = Array.isArray(list) ? list : []
+      return dealerKabupatenCacheRef.current[provinceCode]
+    } catch {
+      dealerKabupatenCacheRef.current[provinceCode] = []
+      return []
+    }
+  }
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        window.alert('Lokasi alamat tidak ditemukan. Silakan pilih titik langsung di peta.')
+  const fetchKecamatanByProvinceRegencyCode = async (provinceCode: string, regencyCode: string) => {
+    if (!provinceCode || !regencyCode) return []
+    const cacheKey = `${provinceCode}::${regencyCode}`
+    const cached = dealerKecamatanCacheRef.current[cacheKey]
+    if (cached) return cached
+
+    try {
+      const kecRes = await fetchKecamatan(provinceCode, regencyCode)
+      const list = kecRes.data.data || kecRes.data || []
+      dealerKecamatanCacheRef.current[cacheKey] = Array.isArray(list) ? list : []
+      return dealerKecamatanCacheRef.current[cacheKey]
+    } catch {
+      dealerKecamatanCacheRef.current[cacheKey] = []
+      return []
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true
+
+    const resolveDealerLocationNames = async () => {
+      if (!dealers.length) {
+        if (mounted) setDealerLocationNameMap({})
         return
       }
 
-      setDealerCoordinates(lat, lng)
-    } catch {
-      window.alert('Gagal mencari lokasi dari alamat. Silakan pilih titik langsung di peta.')
-    } finally {
-      setLocatingDealerAddress(false)
+      let provinceOptions = provinces
+      if (!provinceOptions.length) {
+        try {
+          const provRes = await fetchProvinces()
+          provinceOptions = provRes.data.data || provRes.data || []
+          if (mounted) {
+            setProvinces(provinceOptions)
+          }
+        } catch {
+          provinceOptions = []
+        }
+      }
+
+      const kabupatenByProvince: Record<string, Option[]> = {}
+      const kecamatanByRegency: Record<string, Option[]> = {}
+      const uniqueProvinceCodes = Array.from(
+        new Set(
+          dealers
+            .map((dealer) => String(dealer?.province || '').trim())
+            .filter(Boolean),
+        ),
+      )
+      await Promise.all(
+        uniqueProvinceCodes.map(async (provinceCode) => {
+          kabupatenByProvince[provinceCode] = await fetchKabupatenByProvinceCode(provinceCode)
+        }),
+      )
+
+      const uniqueRegencyKeys = Array.from(
+        new Set(
+          dealers
+            .map((dealer) => {
+              const provinceCode = String(dealer?.province || '').trim()
+              const regencyCode = String(dealer?.regency || '').trim()
+              return provinceCode && regencyCode ? `${provinceCode}::${regencyCode}` : ''
+            })
+            .filter(Boolean),
+        ),
+      )
+      await Promise.all(
+        uniqueRegencyKeys.map(async (key) => {
+          const [provinceCode, regencyCode] = key.split('::')
+          kecamatanByRegency[key] = await fetchKecamatanByProvinceRegencyCode(provinceCode, regencyCode)
+        }),
+      )
+
+      const nextMap: Record<string, DealerLocationNames> = {}
+      dealers.forEach((dealer) => {
+        const dealerId = String(dealer?.id || '').trim()
+        if (!dealerId) return
+
+        const provinceCode = String(dealer?.province || '').trim()
+        const regencyCode = String(dealer?.regency || '').trim()
+        const districtCode = String(dealer?.district || '').trim()
+
+        const provinceName = lookupOptionName(provinceOptions, provinceCode)
+        const regencyName = provinceCode
+          ? lookupOptionName(kabupatenByProvince[provinceCode] || [], regencyCode)
+          : lookupOptionName([], regencyCode)
+        const districtName = provinceCode && regencyCode
+          ? lookupOptionName(kecamatanByRegency[`${provinceCode}::${regencyCode}`] || [], districtCode)
+          : lookupOptionName([], districtCode)
+
+        nextMap[dealerId] = {
+          province: provinceName,
+          regency: regencyName,
+          district: districtName,
+        }
+      })
+
+      if (mounted) {
+        setDealerLocationNameMap(nextMap)
+      }
     }
+
+    void resolveDealerLocationNames()
+    return () => {
+      mounted = false
+    }
+  }, [dealers, provinces])
+
+  const inferProvinceFromMasterByRegency = async (
+    provinceOptions: Option[],
+    regencyCandidates: string[],
+  ) => {
+    if (!provinceOptions.length || !regencyCandidates.length) {
+      return null
+    }
+
+    for (const province of provinceOptions) {
+      const kabupatenList = await fetchKabupatenByProvinceCode(String(province.code || ''))
+      if (!kabupatenList.length) continue
+
+      const matchedRegency = findOptionCodeByNames(kabupatenList, regencyCandidates)
+      if (!matchedRegency) continue
+
+      return {
+        provinceCode: String(province.code || ''),
+        kabupatenList,
+        regencyCode: matchedRegency,
+      }
+    }
+
+    return null
+  }
+
+  const applyDealerAddressByCoordinate = async (
+    lat: number,
+    lng: number,
+    displayAddress: string,
+    address: Record<string, any>,
+  ) => {
+    const displayAddressSegments = splitDisplayAddressSegments(displayAddress)
+    const provinceName = firstFilled([
+      address.state,
+      address.province,
+      address.region,
+      address.state_district,
+    ])
+    const regencyName = firstFilled([
+      address.city,
+      address.county,
+      address.municipality,
+      address.regency,
+      address.city_district,
+      address.state_district,
+      address.town,
+      displayAddressSegments[1],
+      displayAddressSegments[2],
+    ])
+    const districtName = firstFilled([
+      address.city_district,
+      address.suburb,
+      address.district,
+      address.township,
+      address.neighbourhood,
+      address.quarter,
+      address.village,
+      displayAddressSegments[0],
+    ])
+    const villageName = firstFilled([address.village, address.hamlet, address.suburb, address.neighbourhood])
+
+    let nextProvince = ''
+    let nextRegency = ''
+    let nextDistrict = ''
+    let nextKabupaten: Option[] = []
+    let nextKecamatan: Option[] = []
+    let provinceOptions = provinces
+
+    if (!provinceOptions.length) {
+      try {
+        const provRes = await fetchProvinces()
+        provinceOptions = provRes.data.data || provRes.data || []
+        setProvinces(provinceOptions)
+      } catch {
+        provinceOptions = []
+      }
+    }
+
+    const regencyCandidates = [regencyName, ...displayAddressSegments].filter(Boolean)
+
+    if (provinceName) {
+      nextProvince = findOptionCodeByNames(provinceOptions, [provinceName, ...displayAddressSegments])
+    }
+
+    if (!nextProvince && regencyCandidates.length > 0) {
+      const inferred = await inferProvinceFromMasterByRegency(provinceOptions, regencyCandidates)
+      if (inferred?.provinceCode) {
+        nextProvince = inferred.provinceCode
+        nextKabupaten = inferred.kabupatenList
+        nextRegency = inferred.regencyCode || ''
+      }
+    }
+
+    if (nextProvince) {
+      if (!nextKabupaten.length) {
+        nextKabupaten = await fetchKabupatenByProvinceCode(nextProvince)
+      }
+      if (regencyName || displayAddressSegments.length > 0) {
+        nextRegency = findOptionCodeByNames(nextKabupaten, [regencyName, ...displayAddressSegments])
+      }
+    }
+
+    if (nextProvince && nextRegency) {
+      try {
+        const kecRes = await fetchKecamatan(nextProvince, nextRegency)
+        nextKecamatan = kecRes.data.data || kecRes.data || []
+      } catch {
+        nextKecamatan = []
+      }
+      if (districtName || displayAddressSegments.length > 0) {
+        nextDistrict = findOptionCodeByNames(nextKecamatan, [districtName, villageName, ...displayAddressSegments])
+      }
+    }
+
+    setDealerKabupaten(nextKabupaten)
+    setDealerKecamatan(nextKecamatan)
+    setDealerForm((prev) => ({
+      ...prev,
+      province: nextProvince,
+      regency: nextRegency,
+      district: nextDistrict,
+      village: villageName || prev.village,
+      address: displayAddress || prev.address,
+      lat: String(roundCoordinate(lat)),
+      lng: String(roundCoordinate(lng)),
+    }))
+  }
+
+  const resolveDealerLocationFromMap = async (
+    lat: number,
+    lng: number,
+    presetDisplayAddress?: string,
+    presetAddress?: Record<string, any>,
+  ) => {
+    dealerLocationReqRef.current += 1
+    const seq = dealerLocationReqRef.current
+    setLocatingDealerAddress(true)
+    setDealerCoordinates(lat, lng)
+
+    try {
+      let displayAddress = String(presetDisplayAddress || '').trim()
+      let address = presetAddress || {}
+
+      if (!displayAddress || Object.keys(address).length === 0 || !hasRegionAddressFields(address)) {
+        const reverseRes = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
+            String(lat),
+          )}&lon=${encodeURIComponent(String(lng))}&zoom=18&addressdetails=1`,
+        )
+        const reversePayload = await reverseRes.json()
+        displayAddress = String(reversePayload?.display_name || '').trim()
+        address = reversePayload?.address || {}
+      }
+
+      if (seq !== dealerLocationReqRef.current) return
+      await applyDealerAddressByCoordinate(lat, lng, displayAddress, address)
+    } catch {
+      if (seq !== dealerLocationReqRef.current) return
+      setDealerCoordinates(lat, lng)
+    } finally {
+      if (seq === dealerLocationReqRef.current) {
+        setLocatingDealerAddress(false)
+      }
+    }
+  }
+
+  const handleDealerPlaceChanged = (place: DealerLeafletPlace) => {
+    void resolveDealerLocationFromMap(place.lat, place.lng, place.formattedAddress, place.address)
   }
 
   const setTab = (tab: 'dealer' | 'finance') => {
@@ -648,8 +921,8 @@ export default function FinancePage() {
     e.preventDefault()
     if (!canManage) return
 
-    const lat = Number(dealerForm.lat)
-    const lng = Number(dealerForm.lng)
+    const lat = parseCoordinateValue(dealerForm.lat)
+    const lng = parseCoordinateValue(dealerForm.lng)
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       window.alert('Latitude/Longitude tidak valid')
@@ -1076,40 +1349,31 @@ export default function FinancePage() {
 
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label>Alamat</label>
-                  <input value={dealerForm.address} onChange={(e) => setDealerForm((prev) => ({ ...prev, address: e.target.value }))} />
+                  <input
+                    value={dealerForm.address}
+                    onChange={(e) => setDealerForm((prev) => ({ ...prev, address: e.target.value }))}
+                    placeholder="Address is auto-filled when location is selected"
+                  />
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <label style={{ marginBottom: 0 }}>Peta Lokasi Dealer</label>
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => void locateDealerByAddress()}
-                      disabled={locatingDealerAddress}
-                    >
-                      {locatingDealerAddress ? 'Mencari alamat...' : 'Cari alamat di peta'}
-                    </button>
+                    <label style={{ marginBottom: 0 }}>Dealer Location Map</label>
+                    {locatingDealerAddress && <span style={{ color: '#64748b', fontSize: 12 }}>Resolving location...</span>}
                   </div>
 
                   <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Klik titik di peta atau geser marker untuk mengisi latitude/longitude otomatis.
+                    Search location directly on the map or click the map to pin location.
+                    Suggestion dropdown, map movement, and autofill are available in this Leaflet map.
                   </div>
 
-                  <MapContainer
+                  <DealerLeafletSearchMap
                     center={dealerFormCenter}
-                    zoom={Number.isFinite(dealerFormLat) && Number.isFinite(dealerFormLng) ? 12 : 8}
-                    style={{ height: 320, borderRadius: 12 }}
-                    scrollWheelZoom={false}
-                  >
-                    <MapFly center={dealerFormCenter} />
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                    <DealerMapPicker
-                      lat={dealerFormLat}
-                      lng={dealerFormLng}
-                      onPick={(lat, lng) => setDealerCoordinates(lat, lng)}
-                    />
-                  </MapContainer>
+                    zoom={dealerFormZoom}
+                    lat={dealerFormLat}
+                    lng={dealerFormLng}
+                    onPick={handleDealerPlaceChanged}
+                  />
                 </div>
               </div>
 
@@ -1252,11 +1516,17 @@ export default function FinancePage() {
                 {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Create Dealer</button>}
               </div>
 
-              <table className="table">
+              <table className="table finance-dealer-table">
+                <colgroup>
+                  <col className="finance-dealer-col-name" />
+                  <col className="finance-dealer-col-location" />
+                  <col className="finance-dealer-col-phone" />
+                  <col className="finance-dealer-col-action" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Regency</th>
+                    <th>Location</th>
                     <th>Phone</th>
                     <th>Action</th>
                   </tr>
@@ -1265,7 +1535,12 @@ export default function FinancePage() {
                   {dealers.map((dealer) => (
                     <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
                       <td>{dealer.name}</td>
-                      <td>{dealer.regency || '-'}</td>
+                      <td
+                        className="finance-dealer-location-cell"
+                        title={formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
+                      >
+                        {formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
+                      </td>
                       <td>{dealer.phone || '-'}</td>
                       <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <button
@@ -1534,51 +1809,6 @@ function MapFly({ center }: { center: [number, number] }) {
   return null
 }
 
-function DealerMapPicker({
-  lat,
-  lng,
-  onPick,
-}: {
-  lat: number
-  lng: number
-  onPick: (lat: number, lng: number) => void
-}) {
-  const hasCoordinate = Number.isFinite(lat) && Number.isFinite(lng)
-  const markerPosition: [number, number] | null = hasCoordinate ? [lat, lng] : null
-
-  return (
-    <>
-      <DealerMapClickHandler onPick={onPick} />
-      {markerPosition && (
-        <Marker
-          position={markerPosition}
-          icon={markerIcon}
-          draggable
-          eventHandlers={{
-            dragend: (event: any) => {
-              const next = event?.target?.getLatLng?.()
-              if (!next) return
-              onPick(next.lat, next.lng)
-            },
-          }}
-        >
-          <Popup>Drag marker to set dealer location.</Popup>
-        </Marker>
-      )}
-    </>
-  )
-}
-
-function DealerMapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (event) => {
-      onPick(event.latlng.lat, event.latlng.lng)
-    },
-  })
-
-  return null
-}
-
 function Metric({ label, value }: { label: string; value: any }) {
   return (
     <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
@@ -1613,6 +1843,167 @@ function lookupOptionName(list: Option[] | undefined, code?: string) {
   return found?.name || rawCode
 }
 
+function formatDealerLocationSummary(dealer: any, names?: DealerLocationNames) {
+  const normalizeValue = (value: unknown) => {
+    const text = String(value || '').trim()
+    if (!text || text === '-' || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
+      return ''
+    }
+    return text
+  }
+
+  const address = normalizeValue(dealer?.address)
+  const village = normalizeValue(dealer?.village)
+  const district = normalizeValue(names?.district || dealer?.district)
+  const regency = normalizeValue(names?.regency || dealer?.regency)
+  const province = normalizeValue(names?.province || dealer?.province)
+
+  const parts = [address, village, district, regency, province].filter(Boolean)
+  return parts.join(', ') || '-'
+}
+
+function findOptionCodeByNames(list: Option[] | undefined, names: Array<string | undefined>) {
+  const options = Array.isArray(list) ? list : []
+  const candidates = names
+    .map((name) => normalizeLocationName(name))
+    .filter(Boolean)
+
+  if (!candidates.length || !options.length) return ''
+
+  for (const candidate of candidates) {
+    const exact = options.find((item) => normalizeLocationName(item?.name) === candidate)
+    if (exact?.code) return String(exact.code)
+  }
+
+  let bestCode = ''
+  let bestScore = 0
+
+  for (const candidate of candidates) {
+    const candidateTokens = tokenizeLocationName(candidate)
+    if (!candidateTokens.length) continue
+
+    const genericSingleToken = candidateTokens.length === 1 && isGenericLocationToken(candidateTokens[0])
+
+    for (const option of options) {
+      const optionName = normalizeLocationName(option?.name)
+      const optionTokens = tokenizeLocationName(optionName)
+      if (!optionTokens.length) continue
+
+      const matched = candidateTokens.filter((token) => optionTokens.includes(token)).length
+      if (matched === 0) continue
+
+      const coverage = matched / candidateTokens.length
+      const density = matched / optionTokens.length
+      let score = coverage * 70 + density * 30
+
+      if (candidateTokens.length >= 2 && coverage >= 0.75) score += 15
+      if (!genericSingleToken && candidate.length >= 6 && optionName.includes(candidate)) score += 10
+      if (genericSingleToken && coverage < 1) continue
+
+      if (score > bestScore && option?.code) {
+        bestScore = score
+        bestCode = String(option.code)
+      }
+    }
+  }
+
+  return bestScore >= 55 ? bestCode : ''
+}
+
+function normalizeLocationName(value?: string) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\//g, ' ')
+    .replace(/\(/g, ' ')
+    .replace(/\)/g, ' ')
+    .replace(/\./g, ' ')
+    .replace(/,/g, ' ')
+    .replace(/\badministrasi\b/g, ' ')
+    .replace(/\badm\b/g, ' ')
+    .replace(/\bkotamadya\b/g, ' ')
+    .replace(/\bkab\s*adm\b/g, ' ')
+    .replace(/\bkota\s*adm\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^provinsi\s+/, '')
+    .replace(/^prov\s+/, '')
+    .replace(/^kota administrasi\s+/, '')
+    .replace(/^kabupaten administrasi\s+/, '')
+    .replace(/^kabupaten\s+/, '')
+    .replace(/^kab\s+/, '')
+    .replace(/^kab\s*\.\s+/, '')
+    .replace(/^kota\s+/, '')
+    .replace(/^kecamatan\s+/, '')
+    .replace(/^kec\s+/, '')
+    .replace(/^daerah khusus ibukota\s+/, '')
+    .replace(/^daerah istimewa\s+/, '')
+    .replace(/^dki\s+/, '')
+    .replace(/^di\s+/, '')
+}
+
+function firstFilled(values: Array<string | undefined>) {
+  for (const value of values) {
+    const trimmed = String(value || '').trim()
+    if (trimmed) return trimmed
+  }
+  return ''
+}
+
+function tokenizeLocationName(value?: string) {
+  return normalizeLocationName(value)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean)
+}
+
+function isGenericLocationToken(token: string) {
+  const generic = new Set([
+    'jawa',
+    'sumatera',
+    'kalimantan',
+    'sulawesi',
+    'papua',
+    'nusa',
+    'kepulauan',
+    'daerah',
+    'khusus',
+    'ibukota',
+    'provinsi',
+    'kota',
+    'kabupaten',
+    'kecamatan',
+    'indonesia',
+  ])
+  return generic.has(String(token || '').trim())
+}
+
+function splitDisplayAddressSegments(displayAddress: string) {
+  return String(displayAddress || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function hasRegionAddressFields(address: Record<string, any>) {
+  if (!address || typeof address !== 'object') return false
+  return Boolean(
+    firstFilled([
+      address.state,
+      address.province,
+      address.region,
+      address.state_district,
+      address.city,
+      address.county,
+      address.municipality,
+      address.regency,
+      address.city_district,
+      address.district,
+    ]),
+  )
+}
+
 function formatDateTime(value?: string) {
   if (!value) return '-'
   const date = new Date(value)
@@ -1622,4 +2013,11 @@ function formatDateTime(value?: string) {
 
 function roundCoordinate(value: number) {
   return Number(value.toFixed(6))
+}
+
+function parseCoordinateValue(value: unknown) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return Number.NaN
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
 }

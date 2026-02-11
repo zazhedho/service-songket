@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
@@ -80,6 +80,8 @@ export default function OrdersPage() {
   const [provinces, setProvinces] = useState<any[]>([])
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
+  const [kabupatenLookup, setKabupatenLookup] = useState<Record<string, string>>({})
+  const [kecamatanLookup, setKecamatanLookup] = useState<Record<string, string>>({})
   const [detailKabupaten, setDetailKabupaten] = useState<any[]>([])
   const [detailKecamatan, setDetailKecamatan] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -89,6 +91,8 @@ export default function OrdersPage() {
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
+  const fetchedKabupatenRef = useRef<Set<string>>(new Set())
+  const fetchedKecamatanRef = useRef<Set<string>>(new Set())
 
   const stateOrder = (location.state as any)?.order || null
 
@@ -129,6 +133,79 @@ export default function OrdersPage() {
       })
     }
   }, [filters, isList, limit, page, showTable])
+
+  useEffect(() => {
+    if (!list.length) return
+
+    const provinceCodes = Array.from(
+      new Set(
+        list
+          .map((order) => String(order?.province || '').trim())
+          .filter(Boolean),
+      ),
+    )
+
+    provinceCodes.forEach((provinceCode) => {
+      if (fetchedKabupatenRef.current.has(provinceCode)) return
+      fetchedKabupatenRef.current.add(provinceCode)
+
+      fetchKabupaten(provinceCode)
+        .then((res) => {
+          const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
+          const provinceKey = normalizeCode(provinceCode)
+          setKabupatenLookup((prev) => {
+            const next = { ...prev }
+            rows.forEach((row: any) => {
+              const codeKey = normalizeCode(row?.code || row?.id || row?.name)
+              if (!codeKey) return
+              next[`${provinceKey}|${codeKey}`] = String(row?.name || row?.code || '').trim()
+            })
+            return next
+          })
+        })
+        .catch(() => {
+          fetchedKabupatenRef.current.delete(provinceCode)
+        })
+    })
+
+    const regencyPairs = Array.from(
+      new Set(
+        list
+          .map((order) => {
+            const provinceCode = String(order?.province || '').trim()
+            const regencyCode = String(order?.regency || '').trim()
+            if (!provinceCode || !regencyCode) return ''
+            return `${provinceCode}|||${regencyCode}`
+          })
+          .filter(Boolean),
+      ),
+    )
+
+    regencyPairs.forEach((pair) => {
+      if (fetchedKecamatanRef.current.has(pair)) return
+      fetchedKecamatanRef.current.add(pair)
+
+      const [provinceCode, regencyCode] = pair.split('|||')
+      fetchKecamatan(provinceCode, regencyCode)
+        .then((res) => {
+          const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
+          const provinceKey = normalizeCode(provinceCode)
+          const regencyKey = normalizeCode(regencyCode)
+          setKecamatanLookup((prev) => {
+            const next = { ...prev }
+            rows.forEach((row: any) => {
+              const codeKey = normalizeCode(row?.code || row?.id || row?.name)
+              if (!codeKey) return
+              next[`${provinceKey}|${regencyKey}|${codeKey}`] = String(row?.name || row?.code || '').trim()
+            })
+            return next
+          })
+        })
+        .catch(() => {
+          fetchedKecamatanRef.current.delete(pair)
+        })
+    })
+  }, [list])
 
   useEffect(() => {
     if (isEdit || isDetail) {
@@ -382,6 +459,31 @@ export default function OrdersPage() {
   const detailRegencyName = lookupOptionName(detailKabupaten, selectedOrder?.regency)
   const detailDistrictName = lookupOptionName(detailKecamatan, selectedOrder?.district)
   const detailVillageName = selectedOrder?.village || '-'
+  const orderLocationLabel = (order: any) => {
+    const provinceCode = String(order?.province || '').trim()
+    const regencyCode = String(order?.regency || '').trim()
+    const districtCode = String(order?.district || '').trim()
+    const village = String(order?.village || '').trim()
+    const address = String(order?.address || '').trim()
+
+    const provinceName = lookupOptionName(provinces, provinceCode)
+    const provinceKey = normalizeCode(provinceCode)
+    const regencyKey = normalizeCode(regencyCode)
+    const districtKey = normalizeCode(districtCode)
+
+    const regencyName = regencyCode
+      ? kabupatenLookup[`${provinceKey}|${regencyKey}`] || regencyCode
+      : '-'
+    const districtName = districtCode
+      ? kecamatanLookup[`${provinceKey}|${regencyKey}|${districtKey}`] || districtCode
+      : '-'
+
+    return (
+      [provinceName, regencyName, districtName, village, address]
+        .filter((item) => String(item || '').trim() && item !== '-')
+        .join(' / ') || '-'
+    )
+  }
 
   if (isDetail) {
     return (
@@ -818,7 +920,7 @@ export default function OrdersPage() {
         </div>
 
         <div className="card">
-          <h3>Order Tersimpan</h3>
+          <h3>Order List</h3>
           {!showTable && <div className="alert">Anda tidak punya izin melihat order.</div>}
           {showTable && (
             <>
@@ -839,7 +941,7 @@ export default function OrdersPage() {
                   <tr key={order.id}>
                     <td>{order.pooling_number}</td>
                     <td>{order.consumer_name}</td>
-                    <td>{[order.province, order.regency, order.district, order.village].filter(Boolean).join(' / ')}</td>
+                    <td>{orderLocationLabel(order)}</td>
                     <td>
                       <div>{lookupName(lookups?.finance_companies, getAttempt(order, 1)?.finance_company_id)}</div>
                       {getAttempt(order, 2)?.finance_company_id && (
@@ -892,6 +994,10 @@ export default function OrdersPage() {
 function getAttempt(order: any, attemptNo: number) {
   const attempts = Array.isArray(order?.attempts) ? order.attempts : []
   return attempts.find((attempt: any) => Number(attempt?.attempt_no) === Number(attemptNo)) || null
+}
+
+function normalizeCode(value?: string) {
+  return String(value || '').trim().toLowerCase()
 }
 
 function lookupName(list: any[] | undefined, id: string) {

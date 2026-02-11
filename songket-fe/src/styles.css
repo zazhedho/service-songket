@@ -654,6 +654,23 @@ h4 {
     vertical-align: top;
   }
 
+  .table td {
+    max-width: 20ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .table td:has(button),
+  .table td:has(input),
+  .table td:has(select),
+  .table td:has(textarea) {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .table th {
     background: #f8fafc;
     color: #475569;
@@ -673,6 +690,33 @@ h4 {
 
   .table tbody tr:last-child td {
     border-bottom: 0;
+  }
+
+  .finance-dealer-table {
+    table-layout: fixed;
+  }
+
+  .finance-dealer-col-name {
+    width: 16%;
+  }
+
+  .finance-dealer-col-location {
+    width: 44%;
+  }
+
+  .finance-dealer-col-phone {
+    width: 14%;
+  }
+
+  .finance-dealer-col-action {
+    width: 26%;
+  }
+
+  .finance-dealer-table td.finance-dealer-location-cell {
+    max-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .badge {
@@ -876,6 +920,85 @@ h4 {
   .confirm-danger {
     background: linear-gradient(135deg, #dc2626, #ef4444);
     box-shadow: 0 10px 22px rgba(220, 38, 38, 0.24);
+  }
+
+  .leaflet-search-panel {
+    position: relative;
+    border: 1px solid #dbe3ef;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .leaflet-search-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+
+  .leaflet-search-input {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+    color: #0f172a;
+    font-size: 13px;
+  }
+
+  .leaflet-search-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  }
+
+  .leaflet-search-suggestions {
+    position: absolute;
+    top: 58px;
+    left: 10px;
+    right: 94px;
+    z-index: 700;
+    max-height: 250px;
+    overflow: auto;
+    border: 1px solid #dbe3ef;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.14);
+  }
+
+  .leaflet-search-item {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+    color: #0f172a;
+    cursor: pointer;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .leaflet-search-item:last-child {
+    border-bottom: 0;
+  }
+
+  .leaflet-search-item:hover {
+    background: #f8fafc;
+  }
+
+  .leaflet-search-empty {
+    padding: 10px 12px;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .leaflet-search-panel .leaflet-container {
+    height: 320px;
+    width: 100%;
   }
 
   .perm-grid {

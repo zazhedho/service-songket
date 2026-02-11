@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/go-resty/resty/v2"
 
@@ -17,6 +19,11 @@ import (
 
 const (
 	defaultSipedasBaseURL = "https://sipedas.pertanian.go.id/api/wilayah"
+)
+
+var (
+	errEmptySipedasResponse = errors.New("empty response from sipedas")
+	errParseSipedasResponse = errors.New("unable to parse sipedas response")
 )
 
 // WilayahItem represents a code-name pair returned by Sipedas.
@@ -50,17 +57,7 @@ func NewWilayahService() *WilayahService {
 // GetProvinsi returns province list for a given year (defaults to current year).
 func (s *WilayahService) GetProvinsi(ctx context.Context, year string) ([]WilayahItem, error) {
 	y := normalizeYear(year)
-	resp, err := s.client.R().
-		SetContext(ctx).
-		SetQueryParam("thn", y).
-		Get("/list_pro")
-	if err != nil {
-		return nil, err
-	}
-	if resp.IsError() {
-		return nil, fmt.Errorf("sipedas returned %d", resp.StatusCode())
-	}
-	return parseWilayah(resp.Body())
+	return s.fetchWilayah(ctx, "/list_pro", map[string]string{"thn": y})
 }
 
 // GetKabupaten returns regencies/cities for the given province code.
@@ -70,20 +67,27 @@ func (s *WilayahService) GetKabupaten(ctx context.Context, year, provCode string
 	}
 
 	y := normalizeYear(year)
-	resp, err := s.client.R().
-		SetContext(ctx).
-		SetQueryParams(map[string]string{
-			"thn": y,
-			"pro": provCode,
-		}).
-		Get("/list_kab")
-	if err != nil {
-		return nil, err
+	pro := strings.TrimSpace(provCode)
+
+	items, err := s.fetchWilayah(ctx, "/list_kab", map[string]string{
+		"thn": y,
+		"pro": pro,
+	})
+	if err == nil {
+		return items, nil
 	}
-	if resp.IsError() {
-		return nil, fmt.Errorf("sipedas returned %d", resp.StatusCode())
+
+	// Backward compatibility for legacy callers that still send province name.
+	if !isNumericCode(pro) {
+		resolved, resolveErr := s.resolveProvinceCode(ctx, y, pro)
+		if resolveErr == nil && resolved != "" && resolved != pro {
+			return s.fetchWilayah(ctx, "/list_kab", map[string]string{
+				"thn": y,
+				"pro": resolved,
+			})
+		}
 	}
-	return parseWilayah(resp.Body())
+	return nil, err
 }
 
 // GetKecamatan returns districts for the given province + regency codes.
@@ -93,21 +97,55 @@ func (s *WilayahService) GetKecamatan(ctx context.Context, year, provCode, kabCo
 	}
 
 	y := normalizeYear(year)
-	resp, err := s.client.R().
-		SetContext(ctx).
-		SetQueryParams(map[string]string{
-			"thn": y,
-			"pro": provCode,
-			"kab": kabCode,
-		}).
-		Get("/list_kec")
-	if err != nil {
+	pro := strings.TrimSpace(provCode)
+	kab := strings.TrimSpace(kabCode)
+
+	// First attempt: as-is (fast path for code-based calls).
+	items, err := s.fetchWilayah(ctx, "/list_kec", map[string]string{
+		"thn": y,
+		"pro": pro,
+		"kab": kab,
+	})
+	if err == nil {
+		return items, nil
+	}
+
+	// Fallback for legacy name-based params (e.g. "NTB", "Kota Mataram").
+	resolvedPro := pro
+	if !isNumericCode(pro) || errors.Is(err, errParseSipedasResponse) || errors.Is(err, errEmptySipedasResponse) {
+		if code, resolveErr := s.resolveProvinceCode(ctx, y, pro); resolveErr == nil && code != "" {
+			resolvedPro = code
+		}
+	}
+
+	resolvedKab := kab
+	if resolvedPro != "" && (!isNumericCode(kab) || errors.Is(err, errParseSipedasResponse) || errors.Is(err, errEmptySipedasResponse)) {
+		if code, resolveErr := s.resolveKabupatenCode(ctx, y, resolvedPro, kab); resolveErr == nil && code != "" {
+			resolvedKab = code
+		}
+	}
+
+	if resolvedPro == "" || resolvedKab == "" {
+		return []WilayahItem{}, nil
+	}
+	if resolvedPro == pro && resolvedKab == kab {
 		return nil, err
 	}
-	if resp.IsError() {
-		return nil, fmt.Errorf("sipedas returned %d", resp.StatusCode())
+
+	items, retryErr := s.fetchWilayah(ctx, "/list_kec", map[string]string{
+		"thn": y,
+		"pro": resolvedPro,
+		"kab": resolvedKab,
+	})
+	if retryErr == nil {
+		return items, nil
 	}
-	return parseWilayah(resp.Body())
+
+	// For unresolved external payload edge-cases, return empty list instead of 502.
+	if errors.Is(retryErr, errParseSipedasResponse) || errors.Is(retryErr, errEmptySipedasResponse) {
+		return []WilayahItem{}, nil
+	}
+	return nil, retryErr
 }
 
 // normalizeYear returns a 4-digit year string; defaults to current year when empty/invalid.
@@ -126,9 +164,158 @@ func normalizeYear(year string) string {
 	return y
 }
 
+func (s *WilayahService) fetchWilayah(ctx context.Context, endpoint string, query map[string]string) ([]WilayahItem, error) {
+	resp, err := s.client.R().
+		SetContext(ctx).
+		SetQueryParams(query).
+		Get(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	if resp.IsError() {
+		return nil, fmt.Errorf("sipedas returned %d", resp.StatusCode())
+	}
+	return parseWilayah(resp.Body())
+}
+
+func (s *WilayahService) resolveProvinceCode(ctx context.Context, year, province string) (string, error) {
+	needle := strings.TrimSpace(province)
+	if needle == "" {
+		return "", nil
+	}
+	if isNumericCode(needle) {
+		return needle, nil
+	}
+
+	items, err := s.fetchWilayah(ctx, "/list_pro", map[string]string{"thn": normalizeYear(year)})
+	if err != nil {
+		return "", err
+	}
+	return findWilayahCode(items, needle), nil
+}
+
+func (s *WilayahService) resolveKabupatenCode(ctx context.Context, year, provCode, kabupaten string) (string, error) {
+	needle := strings.TrimSpace(kabupaten)
+	if needle == "" {
+		return "", nil
+	}
+	if isNumericCode(needle) {
+		return needle, nil
+	}
+	if strings.TrimSpace(provCode) == "" {
+		return "", nil
+	}
+
+	items, err := s.fetchWilayah(ctx, "/list_kab", map[string]string{
+		"thn": normalizeYear(year),
+		"pro": strings.TrimSpace(provCode),
+	})
+	if err != nil {
+		return "", err
+	}
+	return findWilayahCode(items, needle), nil
+}
+
+func findWilayahCode(items []WilayahItem, input string) string {
+	raw := strings.TrimSpace(input)
+	if raw == "" {
+		return ""
+	}
+
+	// Allow passing the code directly even if response is cached as list.
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Code), raw) {
+			return strings.TrimSpace(item.Code)
+		}
+	}
+
+	target := normalizeWilayahName(raw)
+	if target == "" {
+		return ""
+	}
+
+	for _, item := range items {
+		if normalizeWilayahName(item.Name) == target {
+			return strings.TrimSpace(item.Code)
+		}
+	}
+
+	// Match well-known abbreviations/acronyms (e.g. "NTB" -> "Nusa Tenggara Barat").
+	if len(target) >= 2 && len(target) <= 6 {
+		for _, item := range items {
+			if acronym(normalizeWilayahName(item.Name)) == target {
+				return strings.TrimSpace(item.Code)
+			}
+		}
+	}
+
+	for _, item := range items {
+		name := normalizeWilayahName(item.Name)
+		if name == "" {
+			continue
+		}
+		if strings.Contains(name, target) || strings.Contains(target, name) {
+			return strings.TrimSpace(item.Code)
+		}
+	}
+	return ""
+}
+
+func normalizeWilayahName(value string) string {
+	s := strings.ToLower(strings.TrimSpace(value))
+	if s == "" {
+		return ""
+	}
+
+	replacer := strings.NewReplacer(
+		".", " ",
+		",", " ",
+		"/", " ",
+		"-", " ",
+		"(", " ",
+		")", " ",
+		"_", " ",
+	)
+	s = replacer.Replace(s)
+	s = strings.Join(strings.Fields(s), " ")
+
+	trimPrefixes := []string{
+		"provinsi ",
+		"prov ",
+		"kabupaten ",
+		"kab ",
+		"kota ",
+		"kecamatan ",
+		"kec ",
+		"daerah khusus ibukota ",
+		"daerah istimewa ",
+		"dki ",
+		"di ",
+	}
+	for _, prefix := range trimPrefixes {
+		if strings.HasPrefix(s, prefix) {
+			s = strings.TrimSpace(strings.TrimPrefix(s, prefix))
+		}
+	}
+	return s
+}
+
+func isNumericCode(value string) bool {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return false
+	}
+	for _, r := range v {
+		if !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
+}
+
 func parseWilayah(body []byte) ([]WilayahItem, error) {
 	if len(body) == 0 {
-		return nil, errors.New("empty response from sipedas")
+		return nil, errEmptySipedasResponse
 	}
 
 	// Common shape: {"11":"ACEH", ...}
@@ -170,7 +357,7 @@ func parseWilayah(body []byte) ([]WilayahItem, error) {
 		}
 	}
 
-	return nil, errors.New("unable to parse sipedas response")
+	return nil, fmt.Errorf("%w (body=%s)", errParseSipedasResponse, compactBody(body, 220))
 }
 
 func mapToItems(m map[string]string) []WilayahItem {
@@ -217,4 +404,34 @@ func lessCode(a, b string) bool {
 		}
 	}
 	return a < b
+}
+
+func compactBody(body []byte, limit int) string {
+	if limit <= 0 {
+		limit = 120
+	}
+	s := strings.Join(strings.Fields(string(body)), " ")
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + "..."
+}
+
+func acronym(value string) string {
+	tokens := strings.Fields(value)
+	if len(tokens) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, token := range tokens {
+		if token == "" {
+			continue
+		}
+		r, _ := utf8.DecodeRuneInString(token)
+		if r == utf8.RuneError {
+			continue
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return b.String()
 }
