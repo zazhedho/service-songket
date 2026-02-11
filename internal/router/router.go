@@ -261,6 +261,7 @@ func (r *Routes) SongketRoutes() {
 	g := r.App.Group("/api/songket").Use(mdw.AuthMiddleware())
 
 	// Orders
+	g.GET("/dashboard/orders", h.DashboardOrders)
 	g.POST("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "create"), h.CreateOrder)
 	g.GET("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.ListOrders)
 	g.PUT("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "update"), h.UpdateOrder)
@@ -318,6 +319,7 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), h.QuadrantSummary)
 
 	// News
+	g.GET("/dashboard/news-items", h.DashboardNewsItems)
 	g.POST("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), h.UpsertNewsSource)
 	g.GET("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), h.ListNewsSources)
 	g.POST("/news/scrape", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), h.ScrapeNews)
@@ -327,6 +329,7 @@ func (r *Routes) SongketRoutes() {
 	g.DELETE("/news/items/:id", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), h.DeleteNewsItem)
 
 	// Commodity prices
+	g.GET("/dashboard/prices", h.DashboardPrices)
 	g.POST("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "upsert"), h.UpsertCommodity)
 	g.POST("/commodities/price", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), h.AddPrice)
 	g.GET("/commodities/prices/latest", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), h.LatestPrices)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchOrders, fetchPriceList, listNewsItems } from '../api'
+import { listDashboardNewsItems, listDashboardOrders, listDashboardPrices } from '../api'
 import dayjs from 'dayjs'
 import { formatRupiah } from '../utils/currency'
 
@@ -10,9 +10,15 @@ export default function DashboardPage() {
   const [activeNewsIndex, setActiveNewsIndex] = useState(0)
 
   useEffect(() => {
-    fetchOrders({ limit: 5 }).then((res) => setOrders(res.data.data || res.data))
-    fetchPriceList({ limit: 5 }).then((res) => setPrices(res.data.data || res.data))
-    listNewsItems({ limit: 5 }).then((res) => setNews((res.data.data || res.data || []).slice(0, 5)))
+    listDashboardOrders({ limit: 5 })
+      .then((res) => setOrders(res.data.data || res.data || []))
+      .catch(() => setOrders([]))
+    listDashboardPrices({ limit: 5 })
+      .then((res) => setPrices(res.data.data || res.data || []))
+      .catch(() => setPrices([]))
+    listDashboardNewsItems({ limit: 5 })
+      .then((res) => setNews((res.data.data || res.data || []).slice(0, 5)))
+      .catch(() => setNews([]))
   }, [])
 
   useEffect(() => {

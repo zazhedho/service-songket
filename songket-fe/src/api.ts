@@ -23,6 +23,7 @@ export const login = (email: string, password: string) =>
 export const register = (body: Record<string, unknown>) => api.post('/api/user/register', body)
 
 export const fetchOrders = (params: Record<string, unknown>) => api.get('/api/songket/orders', { params })
+export const listDashboardOrders = (params?: Record<string, unknown>) => api.get('/api/songket/dashboard/orders', { params })
 export const createOrder = (body: Record<string, unknown>) => api.post('/api/songket/orders', body)
 export const updateOrder = (id: string, body: Record<string, unknown>) => api.put(`/api/songket/orders/${id}`, body)
 export const deleteOrder = (id: string) => api.delete(`/api/songket/orders/${id}`)
@@ -70,11 +71,14 @@ export const deleteNetIncome = (id: string) => api.delete(`/api/songket/net-inco
 
 export const fetchNews = (category?: string) => api.get('/api/songket/news/latest', { params: { category } })
 export const listNewsItems = (params?: Record<string, unknown>) => api.get('/api/songket/news/items', { params })
+export const listDashboardNewsItems = (params?: Record<string, unknown>) => api.get('/api/songket/dashboard/news-items', { params })
 export const deleteNewsItem = (id: string) => api.delete(`/api/songket/news/items/${id}`)
 export const listNewsSources = (params?: Record<string, unknown>) => api.get('/api/songket/news/sources', { params })
 export const scrapeNews = (body?: Record<string, unknown>) => api.post('/api/songket/news/scrape', body)
 export const importNews = (body: Record<string, unknown>) => api.post('/api/songket/news/import', body)
 export const fetchPricesLatest = () => api.get('/api/songket/commodities/prices/latest')
+export const listDashboardPrices = (params?: Record<string, unknown>) =>
+  api.get('/api/songket/dashboard/prices', { params })
 export const fetchPriceList = (params?: Record<string, unknown>) =>
   api.get('/api/songket/commodities/prices', { params })
 export const listCommodities = () => api.get('/api/songket/commodities')
