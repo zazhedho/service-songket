@@ -14,6 +14,7 @@ import {
   updateJob,
   updateNetIncome,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -676,15 +677,29 @@ export default function JobsPage() {
                       <td>{formatRupiah(Number(item.net_income || 0))}</td>
                       <td>{item.area_net_income.length ? item.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}</td>
                       <td>{formatDate(item.updated_at)}</td>
-                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/jobs/${item.job_id}`, { state: { item } })}>View</button>
-                        {canUpdate && (
-                          <button className="btn-ghost" onClick={() => navigate(`/jobs/${item.job_id}/edit`, { state: { item } })}>
-                            Edit
-                          </button>
-                        )}
-                        {canDelete && <button className="btn-ghost" onClick={() => void remove(item)}>Delete</button>}
-                        {!canUpdate && !canDelete && '-'}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/jobs/${item.job_id}`, { state: { item } }),
+                            },
+                            {
+                              key: 'edit',
+                              label: 'Edit',
+                              onClick: () => navigate(`/jobs/${item.job_id}/edit`, { state: { item } }),
+                              hidden: !canUpdate,
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void remove(item),
+                              hidden: !canDelete,
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

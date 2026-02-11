@@ -19,6 +19,7 @@ import {
   updateFinanceCompany,
 } from '../api'
 import DealerLeafletSearchMap, { type DealerLeafletPlace } from '../components/DealerLeafletSearchMap'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -1542,19 +1543,35 @@ export default function FinancePage() {
                         {formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
                       </td>
                       <td>{dealer.phone || '-'}</td>
-                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button
-                          className="btn-ghost"
-                          style={dealer.id === selectedDealerId ? { borderColor: '#2563eb', color: '#1d4ed8', background: '#eff6ff' } : undefined}
-                          onClick={() => setSelectedDealerId(dealer.id)}
-                        >
-                          {dealer.id === selectedDealerId ? 'Selected' : 'Focus'}
-                        </button>
-                        <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } })}>View</button>
-                        {canManage && (
-                          <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } })}>Edit</button>
-                        )}
-                        {canManage && <button className="btn-ghost" onClick={() => void removeDealer(dealer.id)}>Delete</button>}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'focus',
+                              label: dealer.id === selectedDealerId ? 'Selected' : 'Focus',
+                              onClick: () => setSelectedDealerId(dealer.id),
+                              disabled: dealer.id === selectedDealerId,
+                            },
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } }),
+                            },
+                            {
+                              key: 'edit',
+                              label: 'Edit',
+                              onClick: () => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } }),
+                              hidden: !canManage,
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void removeDealer(dealer.id),
+                              hidden: !canManage,
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -1680,12 +1697,29 @@ export default function FinancePage() {
                       <td>{company.name}</td>
                       <td>{company.regency || '-'}</td>
                       <td>{company.phone || '-'}</td>
-                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}`, { state: { company } })}>View</button>
-                        {canManage && (
-                          <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}/edit`, { state: { company } })}>Edit</button>
-                        )}
-                        {canManage && <button className="btn-ghost" onClick={() => void removeFinance(company.id)}>Delete</button>}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/finance/companies/${company.id}`, { state: { company } }),
+                            },
+                            {
+                              key: 'edit',
+                              label: 'Edit',
+                              onClick: () => navigate(`/finance/companies/${company.id}/edit`, { state: { company } }),
+                              hidden: !canManage,
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void removeFinance(company.id),
+                              hidden: !canManage,
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

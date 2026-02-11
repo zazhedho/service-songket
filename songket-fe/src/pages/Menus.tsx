@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { createMenu, deleteMenu, listMenus, updateMenu } from '../api'
 import { AppIcon, ICON_LABELS, MENU_ICON_OPTIONS, normalizeIconName } from '../components/AppIcon'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { MENUS_UPDATED_EVENT } from '../constants/events'
@@ -387,15 +388,29 @@ export default function MenusPage() {
                     <td>{item.display_name || item.name}</td>
                     <td>{item.path || '-'}</td>
                     <td>{item.is_active ? 'Active' : 'Inactive'}</td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/menus/${item.id}`, { state: { menu: item } })}>View</button>
-                      {canUpdate && (
-                        <button className="btn-ghost" onClick={() => navigate(`/menus/${item.id}/edit`, { state: { menu: item } })}>
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && <button className="btn-ghost" onClick={() => void remove(item.id)}>Delete</button>}
-                      {!canUpdate && !canDelete && '-'}
+                    <td className="action-cell">
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/menus/${item.id}`, { state: { menu: item } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/menus/${item.id}/edit`, { state: { menu: item } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(item.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

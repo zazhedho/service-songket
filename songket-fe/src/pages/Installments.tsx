@@ -12,6 +12,7 @@ import {
   updateInstallment,
   updateMotorType,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -589,15 +590,29 @@ export default function InstallmentsPage() {
                       <td>{areaLabel(item.motor_type)}</td>
                       <td>{formatRupiah(Number(item.amount || 0))}</td>
                       <td>{formatDate(item.updated_at)}</td>
-                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/installments/${item.id}`, { state: { item } })}>View</button>
-                        {canUpdate && (
-                          <button className="btn-ghost" onClick={() => navigate(`/installments/${item.id}/edit`, { state: { item } })}>
-                            Edit
-                          </button>
-                        )}
-                        {canDelete && <button className="btn-ghost" onClick={() => void remove(item.id)}>Delete</button>}
-                        {!canUpdate && !canDelete && '-'}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/installments/${item.id}`, { state: { item } }),
+                            },
+                            {
+                              key: 'edit',
+                              label: 'Edit',
+                              onClick: () => navigate(`/installments/${item.id}/edit`, { state: { item } }),
+                              hidden: !canUpdate,
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void remove(item.id),
+                              hidden: !canDelete,
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

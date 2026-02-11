@@ -11,6 +11,7 @@ import {
   listRoles,
   updateRole,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -671,15 +672,29 @@ export default function RolesPage() {
                     <tr key={roleItem.id}>
                       <td>{roleItem.name}</td>
                       <td>{roleItem.display_name}</td>
-                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } })}>View</button>
-                        {canUpdate && (
-                          <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } })}>
-                            Edit
-                          </button>
-                        )}
-                        {canDelete && <button className="btn-ghost" onClick={() => void remove(roleItem.id)}>Delete</button>}
-                        {!canUpdate && !canDelete && '-'}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } }),
+                            },
+                            {
+                              key: 'edit',
+                              label: 'Edit',
+                              onClick: () => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } }),
+                              hidden: !canUpdate,
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void remove(roleItem.id),
+                              hidden: !canDelete,
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

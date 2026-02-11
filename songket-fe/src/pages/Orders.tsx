@@ -11,6 +11,7 @@ import {
   fetchProvinces,
   updateOrder,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -952,15 +953,29 @@ export default function OrdersPage() {
                     </td>
                     <td><span className={`badge ${order.result_status}`}>{order.result_status}</span></td>
                     <td>{order.tenor} bln</td>
-                    <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/orders/${order.id}`, { state: { order } })}>View</button>
-                      {canUpdate && (
-                        <button className="btn-ghost" onClick={() => navigate(`/orders/${order.id}/edit`, { state: { order } })}>
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && <button className="btn-ghost" onClick={() => void removeOrder(order.id)}>Delete</button>}
-                      {!canUpdate && !canDelete && '-'}
+                    <td className="action-cell">
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/orders/${order.id}`, { state: { order } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/orders/${order.id}/edit`, { state: { order } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void removeOrder(order.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
