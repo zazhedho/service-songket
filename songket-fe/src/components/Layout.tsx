@@ -82,16 +82,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [fetchMenus])
 
   useEffect(() => {
-    if (!token) return
-    const timer = window.setInterval(() => {
-      void fetchMenus()
-    }, 15000)
-    return () => {
-      window.clearInterval(timer)
-    }
-  }, [fetchMenus, token])
-
-  useEffect(() => {
     const handleMenusUpdated = () => {
       void fetchMenus()
     }
