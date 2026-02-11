@@ -480,9 +480,9 @@ export default function OrdersPage() {
       : '-'
 
     return (
-      [provinceName, regencyName, districtName, village, address]
+      [districtName, regencyName, provinceName]
         .filter((item) => String(item || '').trim() && item !== '-')
-        .join(' / ') || '-'
+        .join(', ') || '-'
     )
   }
 

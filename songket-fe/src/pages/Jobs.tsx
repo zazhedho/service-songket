@@ -143,7 +143,7 @@ function formatDate(value?: string) {
 function areaLabel(area: NetIncomeArea) {
   const province = area.province_name || area.province_code
   const regency = area.regency_name || area.regency_code
-  if (province) return `${province} - ${regency}`
+  if (province) return `${regency}`
   return regency || '-'
 }
 
