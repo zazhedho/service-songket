@@ -10,6 +10,7 @@ import (
 	"starter-kit/pkg/logger"
 	"starter-kit/utils"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -17,6 +18,11 @@ type NewsScrapeCronSetting struct {
 	Enabled         bool
 	IntervalMinutes int
 }
+
+const (
+	minCronIntervalMinutes = 1
+	maxCronIntervalMinutes = 43200
+)
 
 func defaultNewsScrapeMasterSetting() MasterSetting {
 	return MasterSetting{
@@ -29,11 +35,11 @@ func defaultNewsScrapeMasterSetting() MasterSetting {
 }
 
 func normalizeCronIntervalMinutes(value int) int {
-	if value <= 0 {
-		return 5
+	if value < minCronIntervalMinutes {
+		return minCronIntervalMinutes
 	}
-	if value > 10080 {
-		return 10080
+	if value > maxCronIntervalMinutes {
+		return maxCronIntervalMinutes
 	}
 	return value
 }
@@ -79,29 +85,100 @@ func (s *Service) GetNewsScrapeCronSetting() (NewsScrapeCronSetting, error) {
 	}, nil
 }
 
-func (s *Service) UpdateNewsScrapeCronMasterSetting(req NewsScrapeCronSettingRequest) (MasterSetting, error) {
+func normalizeHistoryActorUserID(actorUserID string) *string {
+	trimmed := strings.TrimSpace(actorUserID)
+	if trimmed == "" {
+		return nil
+	}
+	if _, err := uuid.Parse(trimmed); err != nil {
+		return nil
+	}
+	return &trimmed
+}
+
+func normalizeHistoryActorName(actorName string) string {
+	trimmed := strings.TrimSpace(actorName)
+	if trimmed == "" {
+		return "-"
+	}
+	return trimmed
+}
+
+func (s *Service) UpdateNewsScrapeCronMasterSetting(req NewsScrapeCronSettingRequest, actorUserID string, actorName string) (MasterSetting, error) {
 	if s == nil || s.db == nil {
 		return MasterSetting{}, fmt.Errorf("service is not initialized")
 	}
-	if req.IntervalMinutes <= 0 {
-		return MasterSetting{}, fmt.Errorf("interval_minutes must be greater than 0")
+	nextInterval := req.IntervalMinutes
+	nextIsActive := req.IsActive
+	if nextInterval <= 0 {
+		nextInterval = minCronIntervalMinutes
+		nextIsActive = false
 	}
-	interval := normalizeCronIntervalMinutes(req.IntervalMinutes)
+	interval := normalizeCronIntervalMinutes(nextInterval)
 
 	setting, err := s.GetNewsScrapeCronMasterSetting()
 	if err != nil {
 		return MasterSetting{}, err
 	}
 
-	setting.IsActive = req.IsActive
+	previousActive := setting.IsActive
+	previousInterval := normalizeCronIntervalMinutes(setting.IntervalMinutes)
+
+	setting.IsActive = nextIsActive
 	setting.IntervalMinutes = interval
 	if strings.TrimSpace(setting.Description) == "" {
 		setting.Description = "Auto scrape portal berita"
 	}
-	if err := s.db.Save(&setting).Error; err != nil {
+
+	history := MasterSettingHistory{
+		Id:                      utils.CreateUUID(),
+		SettingID:               setting.Id,
+		Key:                     setting.Key,
+		PreviousIsActive:        previousActive,
+		PreviousIntervalMinutes: previousInterval,
+		NewIsActive:             setting.IsActive,
+		NewIntervalMinutes:      setting.IntervalMinutes,
+		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
+		ChangedByName:           normalizeHistoryActorName(actorName),
+	}
+
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&setting).Error; err != nil {
+			return err
+		}
+		if previousActive != setting.IsActive || previousInterval != setting.IntervalMinutes {
+			if err := tx.Create(&history).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return MasterSetting{}, err
 	}
+
 	return setting, nil
+}
+
+func (s *Service) ListNewsScrapeCronSettingHistory(limit int) ([]MasterSettingHistory, error) {
+	if s == nil || s.db == nil {
+		return nil, fmt.Errorf("service is not initialized")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	histories := make([]MasterSettingHistory, 0, limit)
+	if err := s.db.
+		Where("key = ?", MasterSettingKeyNewsScrapeCron).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&histories).Error; err != nil {
+		return nil, err
+	}
+	return histories, nil
 }
 
 func (s *Service) RunNewsScrapeAutoImport(ctx context.Context) (int, int, error) {

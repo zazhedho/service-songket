@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { listMyMenus } from '../api'
 import { AppIcon, inferIconName, menuPathWithoutQuery } from './AppIcon'
+import { useConfirm } from './ConfirmDialog'
 import { useAuth } from '../store'
 import { translateUiText } from '../utils/uiText'
+import { MENUS_UPDATED_EVENT } from '../constants/events'
 
 type MenuItem = {
   id: string
@@ -11,6 +13,7 @@ type MenuItem = {
   display_name?: string
   path?: string
   icon?: string
+  order_index?: number
 }
 
 function isMenuActive(pathname: string, menuPath?: string): boolean {
@@ -19,31 +22,18 @@ function isMenuActive(pathname: string, menuPath?: string): boolean {
   return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }
 
-const PATH_LABEL_MAP: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/orders': 'Order In',
-  '/finance': 'Finance',
-  '/news': 'News',
-  '/prices': 'Prices',
-  '/credit': 'Credit',
-  '/quadrants': 'Quadrants',
-  '/jobs': 'Jobs',
-  '/motor-types': 'Motor Types',
-  '/installments': 'Installments',
-  '/master-settings': 'Master Settings',
-  '/net-income': 'Net Income',
-  '/users': 'Users',
-  '/roles': 'Roles & Access',
-  '/role-menu-access': 'Roles & Access',
-  '/menus': 'Menus',
-  '/scrape-sources': 'Scrape Sources',
-}
-
 function getMenuLabel(menu?: Partial<MenuItem> | null): string {
   if (!menu) return 'Dashboard'
-  const basePath = menuPathWithoutQuery(menu.path)
-  if (basePath && PATH_LABEL_MAP[basePath]) return PATH_LABEL_MAP[basePath]
-  return translateUiText(menu.display_name || menu.name || menu.path || 'Dashboard')
+  if (menu.display_name && String(menu.display_name).trim()) {
+    return translateUiText(menu.display_name)
+  }
+  if (menu.name && String(menu.name).trim()) {
+    return translateUiText(menu.name)
+  }
+  if (menu.path && String(menu.path).trim()) {
+    return translateUiText(menu.path.replace(/^\//, '').replace(/[-_]/g, ' ') || 'Dashboard')
+  }
+  return 'Dashboard'
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -52,13 +42,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const logout = useAuth((s) => s.logout)
   const role = useAuth((s) => s.role)
   const token = useAuth((s) => s.token)
+  const confirm = useConfirm()
 
   const [menus, setMenus] = useState<MenuItem[]>([])
   const [loading, setLoading] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
+  const fetchMenus = useCallback(async () => {
     if (!token) {
       setMenus([])
       return
@@ -75,10 +68,70 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [token])
 
   useEffect(() => {
+    void fetchMenus()
+  }, [fetchMenus])
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void fetchMenus()
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [fetchMenus])
+
+  useEffect(() => {
+    if (!token) return
+    const timer = window.setInterval(() => {
+      void fetchMenus()
+    }, 15000)
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [fetchMenus, token])
+
+  useEffect(() => {
+    const handleMenusUpdated = () => {
+      void fetchMenus()
+    }
+
+    window.addEventListener(MENUS_UPDATED_EVENT, handleMenusUpdated)
+    return () => {
+      window.removeEventListener(MENUS_UPDATED_EVENT, handleMenusUpdated)
+    }
+  }, [fetchMenus])
+
+  useEffect(() => {
     setMobileOpen(false)
+    setProfileMenuOpen(false)
   }, [location.pathname])
 
-  const handleLogout = () => {
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current) return
+      if (!profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: 'Logout',
+      description: 'Are you sure you want to logout?',
+      confirmText: 'Logout',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
+
+    setProfileMenuOpen(false)
     logout()
     navigate('/login')
   }
@@ -113,7 +166,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       }
     })
 
-    return Array.from(dedup.values())
+    return Array.from(dedup.values()).sort((a, b) => {
+      const aOrder = Number(a.order_index ?? Number.MAX_SAFE_INTEGER)
+      const bOrder = Number(b.order_index ?? Number.MAX_SAFE_INTEGER)
+      if (aOrder !== bOrder) return aOrder - bOrder
+      const aLabel = (a.display_name || a.name || a.path || '').toLowerCase()
+      const bLabel = (b.display_name || b.name || b.path || '').toLowerCase()
+      return aLabel.localeCompare(bLabel)
+    })
   }, [menus])
 
   const activeMenu = useMemo(() => {
@@ -125,7 +185,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sidebar-brand-row">
-          <div className="brand-mark">SG</div>
+          <div className="brand-mark">
+            <img src="/songket-logo.jpeg" alt="SONGKET Logo" className="brand-mark-img" />
+          </div>
           <div className="brand-copy">
             <div className="brand">Songket Panel</div>
             <div className="brand-role">Role: {role || '-'}</div>
@@ -176,10 +238,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="topbar-subtitle">Admin workspace for Songket operational flow</div>
             </div>
           </div>
-          <button className="btn-ghost topbar-logout" onClick={handleLogout}>
-            <AppIcon name="logout" className="topbar-icon" />
-            Logout
-          </button>
+          <div className="topbar-actions" ref={profileMenuRef}>
+            <button className="btn-ghost topbar-profile-btn" onClick={() => setProfileMenuOpen((open) => !open)}>
+              <AppIcon name="users" className="topbar-icon" />
+              Account
+            </button>
+
+            {profileMenuOpen && (
+              <div className="topbar-profile-menu">
+                <button
+                  className="topbar-profile-item"
+                  onClick={() => {
+                    setProfileMenuOpen(false)
+                    navigate('/profile')
+                  }}
+                >
+                  Profile
+                </button>
+                <button className="topbar-profile-item danger" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <main>{children}</main>
       </div>

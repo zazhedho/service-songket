@@ -60,6 +60,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&songket.NewsSource{},
 		&songket.NewsItem{},
 		&songket.MasterSetting{},
+		&songket.MasterSettingHistory{},
 		&songket.ScrapeSource{},
 		&songket.ScrapeJob{},
 		&songket.ScrapeResult{},
@@ -106,6 +107,9 @@ func seedDefaults(db *gorm.DB) error {
 		return err
 	}
 	if err := cleanupLegacyJobNetIncome(db); err != nil {
+		return err
+	}
+	if err := cleanupDeprecatedSongketMenus(db); err != nil {
 		return err
 	}
 	if err := seedMasterSettings(db); err != nil {
@@ -443,6 +447,22 @@ func cleanupLegacyJobNetIncome(db *gorm.DB) error {
 	return nil
 }
 
+func cleanupDeprecatedSongketMenus(db *gorm.DB) error {
+	deprecatedMenus := []string{"net_income", "motor_types"}
+	if err := db.Where(
+		"menu_item_id IN (?)",
+		db.Model(&domainmenu.MenuItem{}).Select("id").Where("name IN ?", deprecatedMenus),
+	).Delete(&domainrole.RoleMenu{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where("name IN ?", deprecatedMenus).Delete(&domainmenu.MenuItem{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func seedRoles(db *gorm.DB) (map[string]string, error) {
 	roles := []domainrole.Role{
 		{Id: utils.CreateUUID(), Name: utils.RoleSuperAdmin, DisplayName: "Superadmin", IsSystem: true},
@@ -628,22 +648,20 @@ func seedPermissions(db *gorm.DB) (map[string]string, error) {
 func seedMenus(db *gorm.DB) (map[string]string, error) {
 	menus := []domainmenu.MenuItem{
 		{Name: "dashboard", DisplayName: "Dashboard", Path: "/dashboard", Icon: "bi-speedometer2", OrderIndex: 1},
-		{Name: "orders", DisplayName: "Form Order In", Path: "/orders", Icon: "bi-journal-text", OrderIndex: 2},
-		{Name: "finance", DisplayName: "Peta & Finance", Path: "/finance", Icon: "bi-geo-alt", OrderIndex: 3},
+		{Name: "orders", DisplayName: "Order In", Path: "/orders", Icon: "bi-journal-text", OrderIndex: 2},
+		{Name: "finance", DisplayName: "Finance", Path: "/finance", Icon: "bi-geo-alt", OrderIndex: 3},
 		{Name: "credit", DisplayName: "Credit Capability", Path: "/credit", Icon: "bi-credit-card", OrderIndex: 4},
-		{Name: "quadrants", DisplayName: "Kuadran", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5},
-		{Name: "prices", DisplayName: "Harga Pangan", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6},
-		{Name: "news", DisplayName: "Portal Berita", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7},
-		{Name: "jobs", DisplayName: "Nama Pekerjaan", Path: "/jobs", Icon: "bi-briefcase", OrderIndex: 8},
-		{Name: "net_income", DisplayName: "Net Income", Path: "/net-income", Icon: "bi-cash-coin", OrderIndex: 9},
-		{Name: "motor_types", DisplayName: "Jenis Motor", Path: "/motor-types", Icon: "bi-bicycle", OrderIndex: 10},
-		{Name: "installments", DisplayName: "Angsuran", Path: "/installments", Icon: "bi-wallet2", OrderIndex: 11},
+		{Name: "quadrants", DisplayName: "Quadrants", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5},
+		{Name: "prices", DisplayName: "Commodity Prices", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6},
+		{Name: "news", DisplayName: "News Portal", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7},
+		{Name: "jobs", DisplayName: "Jobs & Net Income", Path: "/jobs", Icon: "bi-briefcase", OrderIndex: 8},
+		{Name: "installments", DisplayName: "Motor Types & Installments", Path: "/installments", Icon: "bi-wallet2", OrderIndex: 9},
 		{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 90},
 		{Name: "roles", DisplayName: "Roles & Access", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 91},
 		{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92},
 		{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 93},
-		{Name: "scrape_sources", DisplayName: "Scrape URL", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94},
-		{Name: "master_settings", DisplayName: "Master Setting", Path: "/master-settings", Icon: "bi-sliders", OrderIndex: 95},
+		{Name: "scrape_sources", DisplayName: "Scrape Sources", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94},
+		{Name: "master_settings", DisplayName: "Master Settings", Path: "/master-settings", Icon: "bi-sliders", OrderIndex: 95},
 	}
 
 	result := make(map[string]string)
@@ -840,13 +858,13 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 	// admin: semua kecuali menu khusus superadmin/main dealer
-	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
+	adminMenus := excludeMenus(allMenus, []string{"role_menu_access", "jobs", "installments", "master_settings"})
 	if err := assign(utils.RoleAdmin, adminMenus); err != nil {
 		return err
 	}
 
 	// main dealer: dashboard + operational menus
-	mainDealerMenus := []string{"dashboard", "orders", "motor_types", "installments", "finance", "credit", "quadrants", "prices", "news", "jobs", "net_income"}
+	mainDealerMenus := []string{"dashboard", "orders", "installments", "finance", "credit", "quadrants", "prices", "news", "jobs"}
 	if err := assign(utils.RoleMainDealer, mainDealerMenus); err != nil {
 		return err
 	}
@@ -857,17 +875,17 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 		return err
 	}
 
-	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
+	staffMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "installments", "master_settings"})
 	if err := assign(utils.RoleStaff, staffMenus); err != nil {
 		return err
 	}
 
-	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "net_income", "motor_types", "installments", "master_settings"})
+	viewerMenus := excludeMenus(allMenus, []string{"users", "roles", "menus", "role_menu_access", "jobs", "installments", "master_settings"})
 	if err := assign(utils.RoleViewer, viewerMenus); err != nil {
 		return err
 	}
 
-	restrictedMenus := []string{"motor_types", "installments", "master_settings"}
+	restrictedMenus := []string{"installments", "master_settings"}
 	disallowedRoles := []string{utils.RoleAdmin, utils.RoleStaff, utils.RoleViewer, utils.RoleDealer}
 	for _, roleName := range disallowedRoles {
 		roleID, ok := roleIDs[roleName]

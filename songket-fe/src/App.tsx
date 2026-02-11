@@ -9,11 +9,10 @@ import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
 import MasterSettingsPage from './pages/MasterSettings'
 import MenusPage from './pages/Menus'
-import MotorTypesPage from './pages/MotorTypes'
-import NetIncomePage from './pages/NetIncome'
 import NewsPage from './pages/News'
 import OrdersPage from './pages/Orders'
 import PricesPage from './pages/Prices'
+import ProfilePage from './pages/Profile'
 import QuadrantsPage from './pages/Quadrants'
 import RolesPage from './pages/Roles'
 import ScrapeSourcesPage from './pages/ScrapeSources'
@@ -42,10 +41,10 @@ export default function App() {
         <Route path="/orders/:id" element={<Guarded><OrdersPage /></Guarded>} />
         <Route path="/orders/:id/edit" element={<Guarded><OrdersPage /></Guarded>} />
 
-        <Route path="/motor-types" element={<Guarded><MotorTypesPage /></Guarded>} />
-        <Route path="/motor-types/create" element={<Guarded><MotorTypesPage /></Guarded>} />
-        <Route path="/motor-types/:id" element={<Guarded><MotorTypesPage /></Guarded>} />
-        <Route path="/motor-types/:id/edit" element={<Guarded><MotorTypesPage /></Guarded>} />
+        <Route path="/motor-types" element={<Guarded><Navigate to="/installments" replace /></Guarded>} />
+        <Route path="/motor-types/create" element={<Guarded><Navigate to="/installments/create" replace /></Guarded>} />
+        <Route path="/motor-types/:id" element={<Guarded><Navigate to="/installments" replace /></Guarded>} />
+        <Route path="/motor-types/:id/edit" element={<Guarded><Navigate to="/installments" replace /></Guarded>} />
 
         <Route path="/installments" element={<Guarded><InstallmentsPage /></Guarded>} />
         <Route path="/installments/create" element={<Guarded><InstallmentsPage /></Guarded>} />
@@ -76,15 +75,17 @@ export default function App() {
         <Route path="/jobs/create" element={<Guarded><JobsPage /></Guarded>} />
         <Route path="/jobs/:id" element={<Guarded><JobsPage /></Guarded>} />
         <Route path="/jobs/:id/edit" element={<Guarded><JobsPage /></Guarded>} />
-        <Route path="/net-income" element={<Guarded><NetIncomePage /></Guarded>} />
-        <Route path="/net-income/create" element={<Guarded><NetIncomePage /></Guarded>} />
-        <Route path="/net-income/:id" element={<Guarded><NetIncomePage /></Guarded>} />
-        <Route path="/net-income/:id/edit" element={<Guarded><NetIncomePage /></Guarded>} />
+        <Route path="/net-income" element={<Guarded><Navigate to="/jobs" replace /></Guarded>} />
+        <Route path="/net-income/create" element={<Guarded><Navigate to="/jobs/create" replace /></Guarded>} />
+        <Route path="/net-income/:id" element={<Guarded><Navigate to="/jobs" replace /></Guarded>} />
+        <Route path="/net-income/:id/edit" element={<Guarded><Navigate to="/jobs" replace /></Guarded>} />
 
         <Route path="/users" element={<Guarded><UsersPage /></Guarded>} />
         <Route path="/users/create" element={<Guarded><UsersPage /></Guarded>} />
         <Route path="/users/:id" element={<Guarded><UsersPage /></Guarded>} />
         <Route path="/users/:id/edit" element={<Guarded><UsersPage /></Guarded>} />
+
+        <Route path="/profile" element={<Guarded><ProfilePage /></Guarded>} />
 
         <Route path="/roles" element={<Guarded><RolesPage /></Guarded>} />
         <Route path="/roles/create" element={<Guarded><RolesPage /></Guarded>} />

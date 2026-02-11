@@ -64,6 +64,67 @@ export default function QuadrantsPage() {
     [items, filter],
   )
 
+  const chart = useMemo(() => {
+    const baseWidth = 920
+    const baseHeight = 430
+    const padding = { top: 24, right: 28, bottom: 52, left: 56 }
+    const plotWidth = baseWidth - padding.left - padding.right
+    const plotHeight = baseHeight - padding.top - padding.bottom
+
+    const points = filtered.map((item, idx) => ({
+      id: `${item.province || ''}-${item.regency || ''}-${item.district || ''}-${item.village || ''}-${idx}`,
+      x: Number(item.total_orders || 0),
+      y: Number(item.score || 0),
+      label: [item.province, item.regency, item.district, item.village].filter(Boolean).join(' / ') || `Row ${idx + 1}`,
+    }))
+
+    if (points.length === 0) {
+      return {
+        width: baseWidth,
+        height: baseHeight,
+        axisX: baseWidth / 2,
+        axisY: baseHeight / 2,
+        xTicks: [] as number[],
+        yTicks: [] as number[],
+        points: [] as Array<{ id: string; sx: number; sy: number; label: string; x: number; y: number }>,
+      }
+    }
+
+    let minX = Math.min(...points.map((point) => point.x))
+    let maxX = Math.max(...points.map((point) => point.x))
+    let minY = Math.min(...points.map((point) => point.y))
+    let maxY = Math.max(...points.map((point) => point.y))
+
+    if (minX === maxX) {
+      minX -= 1
+      maxX += 1
+    }
+    if (minY === maxY) {
+      minY -= 1
+      maxY += 1
+    }
+
+    const toX = (value: number) => padding.left + ((value - minX) / (maxX - minX)) * plotWidth
+    const toY = (value: number) => padding.top + ((maxY - value) / (maxY - minY)) * plotHeight
+
+    const axisCenterX = (minX + maxX) / 2
+    const axisCenterY = (minY + maxY) / 2
+
+    return {
+      width: baseWidth,
+      height: baseHeight,
+      axisX: toX(axisCenterX),
+      axisY: toY(axisCenterY),
+      xTicks: [minX, axisCenterX, maxX],
+      yTicks: [minY, axisCenterY, maxY],
+      points: points.map((point) => ({
+        ...point,
+        sx: toX(point.x),
+        sy: toY(point.y),
+      })),
+    }
+  }, [filtered])
+
   const paged = useMemo(() => {
     const from = (page - 1) * limit
     const to = from + limit
@@ -92,6 +153,69 @@ export default function QuadrantsPage() {
       </div>
 
       <div className="page">
+        <div className="card">
+          <h3>Quadrant Chart</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+            X axis: total orders, Y axis: score. Axes are crossed as plus (+).
+          </div>
+
+          {chart.points.length === 0 && (
+            <div style={{ marginTop: 12, color: '#64748b' }}>No chart data available for current filter.</div>
+          )}
+
+          {chart.points.length > 0 && (
+            <div style={{ marginTop: 12, overflowX: 'auto' }}>
+              <svg
+                viewBox={`0 0 ${chart.width} ${chart.height}`}
+                width="100%"
+                style={{ minWidth: 700, display: 'block', background: '#f8fafc', border: '1px solid #dbe3ef', borderRadius: 12 }}
+              >
+                <line x1={56} y1={chart.axisY} x2={chart.width - 28} y2={chart.axisY} stroke="#2563eb" strokeWidth={2.2} />
+                <line x1={chart.axisX} y1={24} x2={chart.axisX} y2={chart.height - 52} stroke="#2563eb" strokeWidth={2.2} />
+
+                {chart.xTicks.map((tick, idx) => {
+                  const x = 56 + ((chart.width - 84) * idx) / Math.max(1, chart.xTicks.length - 1)
+                  return (
+                    <g key={`x-${idx}`}>
+                      <line x1={x} y1={chart.height - 52} x2={x} y2={chart.height - 46} stroke="#64748b" strokeWidth={1} />
+                      <text x={x} y={chart.height - 30} textAnchor="middle" fontSize={11} fill="#475569">
+                        {tick.toFixed(1)}
+                      </text>
+                    </g>
+                  )
+                })}
+
+                {chart.yTicks.map((tick, idx) => {
+                  const y = 24 + ((chart.height - 76) * idx) / Math.max(1, chart.yTicks.length - 1)
+                  return (
+                    <g key={`y-${idx}`}>
+                      <line x1={50} y1={y} x2={56} y2={y} stroke="#64748b" strokeWidth={1} />
+                      <text x={44} y={y + 3} textAnchor="end" fontSize={11} fill="#475569">
+                        {chart.yTicks[chart.yTicks.length - 1 - idx].toFixed(1)}
+                      </text>
+                    </g>
+                  )
+                })}
+
+                {chart.points.map((point) => (
+                  <g key={point.id}>
+                    <circle cx={point.sx} cy={point.sy} r={5.2} fill="#0ea5e9" stroke="#0c4a6e" strokeWidth={1.2}>
+                      <title>{`${point.label} | Orders: ${point.x} | Score: ${point.y}`}</title>
+                    </circle>
+                  </g>
+                ))}
+
+                <text x={chart.width - 30} y={chart.axisY - 8} textAnchor="end" fontSize={11} fill="#1d4ed8">
+                  X
+                </text>
+                <text x={chart.axisX + 8} y={34} textAnchor="start" fontSize={11} fill="#1d4ed8">
+                  Y
+                </text>
+              </svg>
+            </div>
+          )}
+        </div>
+
         <div className="card">
           <h3>Daftar Wilayah</h3>
 

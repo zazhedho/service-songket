@@ -8,8 +8,10 @@ import {
   scrapePrices,
   updateScrapeSource,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
+import { formatRupiah } from '../utils/currency'
 
 const empty = { name: '', url: '', category: '', type: 'prices', is_active: true }
 
@@ -52,6 +54,7 @@ export default function ScrapeSourcesPage() {
   const canUpdate = perms.includes('update_scrape_source')
   const canDelete = perms.includes('delete_scrape_source')
   const canScrape = perms.includes('scrape_prices')
+  const confirm = useConfirm()
 
   const stateSource = (location.state as any)?.source || null
 
@@ -132,7 +135,14 @@ export default function ScrapeSourcesPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Hapus URL ini?')) return
+    const ok = await confirm({
+      title: 'Delete Scrape Source',
+      description: 'Are you sure you want to delete this scrape source URL?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     await deleteScrapeSource(id)
     await load()
   }
@@ -166,8 +176,8 @@ export default function ScrapeSourcesPage() {
       <div>
         <div className="header">
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Scrape Source</div>
-            <div style={{ color: '#64748b' }}>Lihat konfigurasi URL scraping</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape Source Details</div>
+            <div style={{ color: '#64748b' }}>Scraping URL configuration</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canUpdate && selectedId && (
@@ -175,20 +185,39 @@ export default function ScrapeSourcesPage() {
                 Edit Source
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Back</button>
           </div>
         </div>
 
         <div className="page">
-          {!selectedSource && <div className="alert">Data source tidak ditemukan.</div>}
+          {!selectedSource && <div className="alert">Source data not found.</div>}
           {selectedSource && (
             <div className="card" style={{ maxWidth: 820 }}>
-              <DetailRow label="Nama" value={selectedSource.name} />
-              <DetailRow label="URL" value={selectedSource.url} />
-              <DetailRow label="Type" value={selectedSource.type || '-'} />
-              <DetailRow label="Kategori" value={selectedSource.category || '-'} />
-              <DetailRow label="Aktif" value={selectedSource.is_active ? 'Ya' : 'Tidak'} />
-              <DetailRow label="Source ID" value={selectedSource.id} />
+              <h3 style={{ marginTop: 0 }}>Source Information</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
+                    <td style={{ fontWeight: 600 }}>{selectedSource.name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>URL</th>
+                    <td style={{ fontWeight: 600 }}>{selectedSource.url || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Type</th>
+                    <td style={{ fontWeight: 600 }}>{selectedSource.type || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Category</th>
+                    <td style={{ fontWeight: 600 }}>{selectedSource.category || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Status</th>
+                    <td style={{ fontWeight: 600 }}>{selectedSource.is_active ? 'Active' : 'Inactive'}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -354,7 +383,7 @@ export default function ScrapeSourcesPage() {
                 <div key={price.id} style={{ background: '#f8fafc', padding: 10, borderRadius: 10, border: '1px solid #dde4ee' }}>
                   <div style={{ fontWeight: 700 }}>{price.commodity?.name || 'Komoditas'}</div>
                   <div style={{ color: '#64748b' }}>
-                    {price.price?.toLocaleString('id-ID')} / {price.commodity?.unit}
+                    {formatRupiah(price.price || 0)} / {price.commodity?.unit}
                   </div>
                 </div>
               ))}
@@ -363,15 +392,6 @@ export default function ScrapeSourcesPage() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
     </div>
   )
 }

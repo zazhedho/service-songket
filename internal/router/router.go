@@ -267,11 +267,11 @@ func (r *Routes) SongketRoutes() {
 	g.DELETE("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "delete"), h.DeleteOrder)
 
 	// Motor types
-	g.GET("/motor-types", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "list"), h.ListMotorTypes)
-	g.GET("/motor-types/:id", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "view"), h.GetMotorTypeByID)
-	g.POST("/motor-types", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "create"), h.CreateMotorType)
-	g.PUT("/motor-types/:id", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "update"), h.UpdateMotorType)
-	g.DELETE("/motor-types/:id", menuAccess("/motor-types"), mdw.PermissionMiddleware("motor_types", "delete"), h.DeleteMotorType)
+	g.GET("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "list"), h.ListMotorTypes)
+	g.GET("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "view"), h.GetMotorTypeByID)
+	g.POST("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "create"), h.CreateMotorType)
+	g.PUT("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "update"), h.UpdateMotorType)
+	g.DELETE("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "delete"), h.DeleteMotorType)
 
 	// Installments
 	g.GET("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "list"), h.ListInstallments)
@@ -282,6 +282,7 @@ func (r *Routes) SongketRoutes() {
 
 	// Master settings (superadmin only)
 	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSetting)
+	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSettingHistory)
 	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdateNewsScrapeCronSetting)
 
 	// Finance performance
@@ -302,11 +303,11 @@ func (r *Routes) SongketRoutes() {
 	g.PUT("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "update"), h.UpdateJob)
 	g.DELETE("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "delete"), h.DeleteJob)
 
-	g.GET("/net-income", menuAccess("/net-income"), mdw.PermissionMiddleware("net_income", "list"), h.ListNetIncomes)
-	g.GET("/net-income/:id", menuAccess("/net-income"), mdw.PermissionMiddleware("net_income", "view"), h.GetNetIncomeByID)
-	g.POST("/net-income", menuAccess("/net-income"), mdw.PermissionMiddleware("net_income", "create"), h.CreateNetIncome)
-	g.PUT("/net-income/:id", menuAccess("/net-income"), mdw.PermissionMiddleware("net_income", "update"), h.UpdateNetIncome)
-	g.DELETE("/net-income/:id", menuAccess("/net-income"), mdw.PermissionMiddleware("net_income", "delete"), h.DeleteNetIncome)
+	g.GET("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "list"), h.ListNetIncomes)
+	g.GET("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "view"), h.GetNetIncomeByID)
+	g.POST("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "create"), h.CreateNetIncome)
+	g.PUT("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "update"), h.UpdateNetIncome)
+	g.DELETE("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "delete"), h.DeleteNetIncome)
 
 	// Credit capability & quadrants
 	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -18,6 +18,7 @@ import {
   updateDealer,
   updateFinanceCompany,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
@@ -127,6 +128,7 @@ export default function FinancePage() {
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('list_finance_dealers')
   const canManage = canView
+  const confirm = useConfirm()
 
   const [dealers, setDealers] = useState<any[]>([])
   const [financeCompanies, setFinanceCompanies] = useState<any[]>([])
@@ -141,7 +143,6 @@ export default function FinancePage() {
 
   const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
-  const [fcFilter, setFcFilter] = useState('')
   const [dealerSearch, setDealerSearch] = useState('')
   const [financeSearch, setFinanceSearch] = useState('')
   const [dealerProvinceFilter, setDealerProvinceFilter] = useState('')
@@ -157,9 +158,16 @@ export default function FinancePage() {
   const [financeForm, setFinanceForm] = useState<FinanceForm>(initialFinanceForm)
   const [savingDealer, setSavingDealer] = useState(false)
   const [savingFinance, setSavingFinance] = useState(false)
+  const [locatingDealerAddress, setLocatingDealerAddress] = useState(false)
 
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
+  const [dealerDetailMetrics, setDealerDetailMetrics] = useState<any>(null)
+  const [dealerDetailMetricsLoading, setDealerDetailMetricsLoading] = useState(false)
+  const [detailDealerKabupaten, setDetailDealerKabupaten] = useState<Option[]>([])
+  const [detailDealerKecamatan, setDetailDealerKecamatan] = useState<Option[]>([])
+  const [detailCompanyKabupaten, setDetailCompanyKabupaten] = useState<Option[]>([])
+  const [detailCompanyKecamatan, setDetailCompanyKecamatan] = useState<Option[]>([])
 
   const stateDealer = (location.state as any)?.dealer || null
   const stateCompany = (location.state as any)?.company || null
@@ -250,14 +258,14 @@ export default function FinancePage() {
   }, [financeProvinceFilter])
 
   useEffect(() => {
-    if (!selectedDealerId || !(isList && listTab === 'dealer')) {
+    if (!selectedDealerId || !(isList && (listTab === 'dealer' || listTab === 'finance'))) {
       setMetrics(null)
       return
     }
-    fetchDealerMetrics(selectedDealerId, fcFilter ? { finance_company_id: fcFilter } : undefined)
+    fetchDealerMetrics(selectedDealerId)
       .then((res) => setMetrics(res.data.data || res.data || null))
       .catch(() => setMetrics(null))
-  }, [fcFilter, isList, listTab, selectedDealerId])
+  }, [isList, listTab, selectedDealerId])
 
   useEffect(() => {
     if (dealers.length === 0) {
@@ -278,6 +286,70 @@ export default function FinancePage() {
     if (!selectedId) return null
     return financeCompanies.find((company) => company.id === selectedId) || (stateCompany?.id === selectedId ? stateCompany : null)
   }, [financeCompanies, selectedId, stateCompany])
+
+  useEffect(() => {
+    if (!isDealerDetail || !selectedDealer?.id) {
+      setDealerDetailMetrics(null)
+      setDealerDetailMetricsLoading(false)
+      return
+    }
+
+    setDealerDetailMetricsLoading(true)
+    fetchDealerMetrics(selectedDealer.id)
+      .then((res) => setDealerDetailMetrics(res.data.data || res.data || null))
+      .catch(() => setDealerDetailMetrics(null))
+      .finally(() => setDealerDetailMetricsLoading(false))
+  }, [isDealerDetail, selectedDealer?.id])
+
+  useEffect(() => {
+    if (!isDealerDetail || !selectedDealer?.province) {
+      setDetailDealerKabupaten([])
+      setDetailDealerKecamatan([])
+      return
+    }
+
+    fetchKabupaten(String(selectedDealer.province))
+      .then((res) => {
+        const kabupaten = res.data.data || res.data || []
+        setDetailDealerKabupaten(kabupaten)
+        if (!selectedDealer?.regency) {
+          setDetailDealerKecamatan([])
+          return
+        }
+        return fetchKecamatan(String(selectedDealer.province), String(selectedDealer.regency))
+          .then((kecRes) => setDetailDealerKecamatan(kecRes.data.data || kecRes.data || []))
+          .catch(() => setDetailDealerKecamatan([]))
+      })
+      .catch(() => {
+        setDetailDealerKabupaten([])
+        setDetailDealerKecamatan([])
+      })
+  }, [isDealerDetail, selectedDealer?.province, selectedDealer?.regency])
+
+  useEffect(() => {
+    if (!isCompanyDetail || !selectedCompany?.province) {
+      setDetailCompanyKabupaten([])
+      setDetailCompanyKecamatan([])
+      return
+    }
+
+    fetchKabupaten(String(selectedCompany.province))
+      .then((res) => {
+        const kabupaten = res.data.data || res.data || []
+        setDetailCompanyKabupaten(kabupaten)
+        if (!selectedCompany?.regency) {
+          setDetailCompanyKecamatan([])
+          return
+        }
+        return fetchKecamatan(String(selectedCompany.province), String(selectedCompany.regency))
+          .then((kecRes) => setDetailCompanyKecamatan(kecRes.data.data || kecRes.data || []))
+          .catch(() => setDetailCompanyKecamatan([]))
+      })
+      .catch(() => {
+        setDetailCompanyKabupaten([])
+        setDetailCompanyKecamatan([])
+      })
+  }, [isCompanyDetail, selectedCompany?.province, selectedCompany?.regency])
 
   useEffect(() => {
     if (!isCompanyDetail || !selectedCompany?.id || dealers.length === 0) {
@@ -346,6 +418,7 @@ export default function FinancePage() {
   }, [dealers])
 
   const currentDealer = dealers.find((dealer) => dealer.id === selectedDealerId)
+  const selectedDealerName = currentDealer?.name || '-'
   const currentLat = Number(currentDealer?.lat ?? currentDealer?.latitude)
   const currentLng = Number(currentDealer?.lng ?? currentDealer?.longitude)
 
@@ -355,6 +428,66 @@ export default function FinancePage() {
       : dealerPoints.length > 0
         ? [dealerPoints[0]._lat, dealerPoints[0]._lng]
         : [-8.58, 116.12]
+
+  const selectedDealerProvinceName = lookupOptionName(provinces, selectedDealer?.province)
+  const selectedDealerRegencyName = lookupOptionName(detailDealerKabupaten, selectedDealer?.regency)
+  const selectedDealerDistrictName = lookupOptionName(detailDealerKecamatan, selectedDealer?.district)
+  const selectedCompanyProvinceName = lookupOptionName(provinces, selectedCompany?.province)
+  const selectedCompanyRegencyName = lookupOptionName(detailCompanyKabupaten, selectedCompany?.regency)
+  const selectedCompanyDistrictName = lookupOptionName(detailCompanyKecamatan, selectedCompany?.district)
+
+  const financeMetricRows = useMemo(() => {
+    const rows = Array.isArray(metrics?.finance_companies) ? metrics.finance_companies : []
+    return [...rows].sort((a: any, b: any) => Number(b?.total_orders || 0) - Number(a?.total_orders || 0))
+  }, [metrics?.finance_companies])
+
+  const financeMetricMaxTotal = useMemo(() => {
+    const values = financeMetricRows.map((item: any) => Number(item?.total_orders || 0))
+    return Math.max(1, ...values)
+  }, [financeMetricRows])
+
+  const dealerFormLat = Number(dealerForm.lat)
+  const dealerFormLng = Number(dealerForm.lng)
+  const dealerFormCenter: [number, number] =
+    Number.isFinite(dealerFormLat) && Number.isFinite(dealerFormLng) ? [dealerFormLat, dealerFormLng] : center
+
+  const setDealerCoordinates = (lat: number, lng: number) => {
+    setDealerForm((prev) => ({
+      ...prev,
+      lat: String(roundCoordinate(lat)),
+      lng: String(roundCoordinate(lng)),
+    }))
+  }
+
+  const locateDealerByAddress = async () => {
+    const query = dealerForm.address.trim()
+    if (!query) {
+      window.alert('Isi alamat terlebih dahulu sebelum mencari titik di peta.')
+      return
+    }
+
+    setLocatingDealerAddress(true)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+      )
+      const payload = await response.json()
+      const first = Array.isArray(payload) ? payload[0] : null
+      const lat = Number(first?.lat)
+      const lng = Number(first?.lon)
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        window.alert('Lokasi alamat tidak ditemukan. Silakan pilih titik langsung di peta.')
+        return
+      }
+
+      setDealerCoordinates(lat, lng)
+    } catch {
+      window.alert('Gagal mencari lokasi dari alamat. Silakan pilih titik langsung di peta.')
+    } finally {
+      setLocatingDealerAddress(false)
+    }
+  }
 
   const setTab = (tab: 'dealer' | 'finance') => {
     const next = new URLSearchParams(searchParams)
@@ -577,7 +710,14 @@ export default function FinancePage() {
 
   const removeDealer = async (id: string) => {
     if (!canManage) return
-    if (!window.confirm('Hapus dealer ini?')) return
+    const ok = await confirm({
+      title: 'Delete Dealer',
+      description: 'Are you sure you want to delete this dealer?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteDealer(id)
       await loadBaseData()
@@ -588,7 +728,14 @@ export default function FinancePage() {
 
   const removeFinance = async (id: string) => {
     if (!canManage) return
-    if (!window.confirm('Hapus finance company ini?')) return
+    const ok = await confirm({
+      title: 'Delete Finance Company',
+      description: 'Are you sure you want to delete this finance company?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteFinanceCompany(id)
       await loadBaseData()
@@ -614,7 +761,7 @@ export default function FinancePage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Dealer</div>
-            <div style={{ color: '#64748b' }}>Informasi dealer dan peta lokasi</div>
+            <div style={{ color: '#64748b' }}>Dealer profile and location map</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
@@ -630,20 +777,92 @@ export default function FinancePage() {
           {!selectedDealer && <div className="alert">Dealer tidak ditemukan.</div>}
           {selectedDealer && (
             <>
-              <div className="card" style={{ maxWidth: 860 }}>
-                <DetailRow label="Nama" value={selectedDealer.name} />
-                <DetailRow label="Telepon" value={selectedDealer.phone || '-'} />
-                <DetailRow label="Provinsi" value={selectedDealer.province || '-'} />
-                <DetailRow label="Kab/Kota" value={selectedDealer.regency || '-'} />
-                <DetailRow label="Kecamatan" value={selectedDealer.district || '-'} />
-                <DetailRow label="Kelurahan" value={selectedDealer.village || '-'} />
-                <DetailRow label="Alamat" value={selectedDealer.address || '-'} />
-                <DetailRow label="Latitude" value={String(selectedDealer.lat ?? selectedDealer.latitude ?? '-')} />
-                <DetailRow label="Longitude" value={String(selectedDealer.lng ?? selectedDealer.longitude ?? '-')} />
+              <div className="card" style={{ maxWidth: 960 }}>
+                <h3>Dealer Information</h3>
+                <DetailTable
+                  rows={[
+                    { label: 'Name', value: selectedDealer.name || '-' },
+                    { label: 'Phone', value: selectedDealer.phone || '-' },
+                    { label: 'Province', value: selectedDealerProvinceName },
+                    { label: 'Regency / City', value: selectedDealerRegencyName },
+                    { label: 'District', value: selectedDealerDistrictName },
+                    { label: 'Village', value: selectedDealer.village || '-' },
+                    { label: 'Address', value: selectedDealer.address || '-' },
+                    { label: 'Latitude', value: String(selectedDealer.lat ?? selectedDealer.latitude ?? '-') },
+                    { label: 'Longitude', value: String(selectedDealer.lng ?? selectedDealer.longitude ?? '-') },
+                    { label: 'Created At', value: formatDateTime(selectedDealer.created_at) },
+                    { label: 'Updated At', value: formatDateTime(selectedDealer.updated_at) },
+                  ]}
+                />
+              </div>
+
+              <div className="card">
+                <h3>Dealer Performance</h3>
+                {dealerDetailMetricsLoading && <div className="muted">Loading dealer performance...</div>}
+                {!dealerDetailMetricsLoading && !dealerDetailMetrics && (
+                  <div className="muted">No performance data for this dealer yet.</div>
+                )}
+                {!dealerDetailMetricsLoading && dealerDetailMetrics && (
+                  <>
+                    <DetailTable
+                      rows={[
+                        { label: 'Total Orders', value: Number(dealerDetailMetrics.total_orders || 0) },
+                        {
+                          label: 'Approval Rate',
+                          value: `${(Number(dealerDetailMetrics.approval_rate || 0) * 100).toFixed(1)}%`,
+                        },
+                        {
+                          label: 'Lead Time Avg (s)',
+                          value:
+                            dealerDetailMetrics.lead_time_seconds_avg == null
+                              ? '-'
+                              : Number(dealerDetailMetrics.lead_time_seconds_avg).toFixed(1),
+                        },
+                        { label: 'Rescue FC2', value: Number(dealerDetailMetrics.rescue_approved_fc2 || 0) },
+                        {
+                          label: 'Finance Companies',
+                          value: Array.isArray(dealerDetailMetrics.finance_companies)
+                            ? dealerDetailMetrics.finance_companies.length
+                            : 0,
+                        },
+                      ]}
+                    />
+
+                    <div style={{ marginTop: 12 }}>
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Finance Company</th>
+                            <th>Total Orders</th>
+                            <th>Approval Rate</th>
+                            <th>Lead Avg (s)</th>
+                            <th>Rescue FC2</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(dealerDetailMetrics.finance_companies || []).map((item: any) => (
+                            <tr key={item.finance_company_id}>
+                              <td>{item.finance_company_name || '-'}</td>
+                              <td>{Number(item.total_orders || 0)}</td>
+                              <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
+                              <td>{item.lead_time_seconds_avg ? Number(item.lead_time_seconds_avg).toFixed(1) : '-'}</td>
+                              <td>{Number(item.rescue_approved_fc2 || 0)}</td>
+                            </tr>
+                          ))}
+                          {(dealerDetailMetrics.finance_companies || []).length === 0 && (
+                            <tr>
+                              <td colSpan={5}>No related finance company data for this dealer.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="card" style={{ minHeight: 360 }}>
-                <h3>Peta Dealer</h3>
+                <h3>Dealer Map</h3>
                 <div style={{ marginTop: 10 }}>
                   <MapContainer
                     center={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
@@ -674,7 +893,7 @@ export default function FinancePage() {
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Finance Company</div>
-            <div style={{ color: '#64748b' }}>Data company dan ringkasan performa</div>
+            <div style={{ color: '#64748b' }}>Company profile and performance summary</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
@@ -690,21 +909,27 @@ export default function FinancePage() {
           {!selectedCompany && <div className="alert">Finance company tidak ditemukan.</div>}
           {selectedCompany && (
             <>
-              <div className="card" style={{ maxWidth: 860 }}>
-                <DetailRow label="Nama" value={selectedCompany.name} />
-                <DetailRow label="Telepon" value={selectedCompany.phone || '-'} />
-                <DetailRow label="Provinsi" value={selectedCompany.province || '-'} />
-                <DetailRow label="Kab/Kota" value={selectedCompany.regency || '-'} />
-                <DetailRow label="Kecamatan" value={selectedCompany.district || '-'} />
-                <DetailRow label="Kelurahan" value={selectedCompany.village || '-'} />
-                <DetailRow label="Alamat" value={selectedCompany.address || '-'} />
-                <DetailRow label="Company ID" value={selectedCompany.id || '-'} />
+              <div className="card" style={{ maxWidth: 960 }}>
+                <h3>Finance Company Information</h3>
+                <DetailTable
+                  rows={[
+                    { label: 'Name', value: selectedCompany.name || '-' },
+                    { label: 'Phone', value: selectedCompany.phone || '-' },
+                    { label: 'Province', value: selectedCompanyProvinceName },
+                    { label: 'Regency / City', value: selectedCompanyRegencyName },
+                    { label: 'District', value: selectedCompanyDistrictName },
+                    { label: 'Village', value: selectedCompany.village || '-' },
+                    { label: 'Address', value: selectedCompany.address || '-' },
+                    { label: 'Created At', value: formatDateTime(selectedCompany.created_at) },
+                    { label: 'Updated At', value: formatDateTime(selectedCompany.updated_at) },
+                  ]}
+                />
               </div>
 
               <div className="card">
-                <h3>Summary Performa Finance</h3>
-                {companySummaryLoading && <div className="muted">Memuat summary performa...</div>}
-                {!companySummaryLoading && !companySummary && <div className="muted">Belum ada data performa.</div>}
+                <h3>Finance Performence Summary</h3>
+                {companySummaryLoading && <div className="muted">Loading performance summary...</div>}
+                {!companySummaryLoading && !companySummary && <div className="muted">No performance data yet.</div>}
 
                 {!companySummaryLoading && companySummary && (
                   <>
@@ -742,7 +967,7 @@ export default function FinancePage() {
                           ))}
                           {companySummary.dealer_rows.length === 0 && (
                             <tr>
-                              <td colSpan={5}>Belum ada data performa per dealer.</td>
+                              <td colSpan={5}>No dealer performance data yet.</td>
                             </tr>
                           )}
                         </tbody>
@@ -829,17 +1054,62 @@ export default function FinancePage() {
 
                 <div>
                   <label>Latitude</label>
-                  <input type="number" step="any" value={dealerForm.lat} onChange={(e) => setDealerForm((prev) => ({ ...prev, lat: e.target.value }))} required />
+                  <input
+                    type="number"
+                    step="any"
+                    value={dealerForm.lat}
+                    onChange={(e) => setDealerForm((prev) => ({ ...prev, lat: e.target.value }))}
+                    required
+                  />
                 </div>
 
                 <div>
                   <label>Longitude</label>
-                  <input type="number" step="any" value={dealerForm.lng} onChange={(e) => setDealerForm((prev) => ({ ...prev, lng: e.target.value }))} required />
+                  <input
+                    type="number"
+                    step="any"
+                    value={dealerForm.lng}
+                    onChange={(e) => setDealerForm((prev) => ({ ...prev, lng: e.target.value }))}
+                    required
+                  />
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label>Alamat</label>
                   <input value={dealerForm.address} onChange={(e) => setDealerForm((prev) => ({ ...prev, address: e.target.value }))} />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <label style={{ marginBottom: 0 }}>Peta Lokasi Dealer</label>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => void locateDealerByAddress()}
+                      disabled={locatingDealerAddress}
+                    >
+                      {locatingDealerAddress ? 'Mencari alamat...' : 'Cari alamat di peta'}
+                    </button>
+                  </div>
+
+                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                    Klik titik di peta atau geser marker untuk mengisi latitude/longitude otomatis.
+                  </div>
+
+                  <MapContainer
+                    center={dealerFormCenter}
+                    zoom={Number.isFinite(dealerFormLat) && Number.isFinite(dealerFormLng) ? 12 : 8}
+                    style={{ height: 320, borderRadius: 12 }}
+                    scrollWheelZoom={false}
+                  >
+                    <MapFly center={dealerFormCenter} />
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                    <DealerMapPicker
+                      lat={dealerFormLat}
+                      lng={dealerFormLng}
+                      onPick={(lat, lng) => setDealerCoordinates(lat, lng)}
+                    />
+                  </MapContainer>
                 </div>
               </div>
 
@@ -947,15 +1217,15 @@ export default function FinancePage() {
   return (
     <div>
       <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Peta & Finance</div>
-          <div style={{ color: '#64748b' }}>Gunakan tab untuk kelola Dealer dan Finance Company</div>
+          <div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Dealer & Finance Management</div>
+          <div style={{ color: '#64748b' }}>Map is shown for Dealer only. Finance Company is shown in table format.</div>
         </div>
       </div>
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
         <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealer</button>
+          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealers</button>
           <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Finance</button>
         </div>
 
@@ -964,13 +1234,13 @@ export default function FinancePage() {
             <div className="card">
               <div style={{ marginBottom: 10 }}>
                 <label>Search Dealer</label>
-                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Cari nama/regency/phone" />
+                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search by name/regency/phone" />
               </div>
 
               <div style={{ marginBottom: 10 }}>
-                <label>Filter Provinsi Dealer</label>
+                <label>Dealer Province Filter</label>
                 <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
-                  <option value="">Semua</option>
+                  <option value="">All</option>
                   {provinces.map((province) => (
                     <option key={province.code} value={province.code}>{province.name}</option>
                   ))}
@@ -978,14 +1248,14 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3>Dealer</h3>
-                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Input Dealer</button>}
+                <h3>Dealers</h3>
+                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Create Dealer</button>}
               </div>
 
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Nama</th>
+                    <th>Name</th>
                     <th>Regency</th>
                     <th>Phone</th>
                     <th>Action</th>
@@ -993,12 +1263,18 @@ export default function FinancePage() {
                 </thead>
                 <tbody>
                   {dealers.map((dealer) => (
-                    <tr key={dealer.id}>
+                    <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
                       <td>{dealer.name}</td>
                       <td>{dealer.regency || '-'}</td>
                       <td>{dealer.phone || '-'}</td>
                       <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => setSelectedDealerId(dealer.id)}>Preview</button>
+                        <button
+                          className="btn-ghost"
+                          style={dealer.id === selectedDealerId ? { borderColor: '#2563eb', color: '#1d4ed8', background: '#eff6ff' } : undefined}
+                          onClick={() => setSelectedDealerId(dealer.id)}
+                        >
+                          {dealer.id === selectedDealerId ? 'Selected' : 'Focus'}
+                        </button>
                         <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } })}>View</button>
                         {canManage && (
                           <button className="btn-ghost" onClick={() => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } })}>Edit</button>
@@ -1009,7 +1285,7 @@ export default function FinancePage() {
                   ))}
                   {dealers.length === 0 && (
                     <tr>
-                      <td colSpan={4}>Belum ada dealer.</td>
+                      <td colSpan={4}>No dealers available.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1028,158 +1304,222 @@ export default function FinancePage() {
               />
             </div>
 
-            <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 14 }}>
-              <div className="card" style={{ minHeight: 430 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Peta Dealer</h3>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{dealerPoints.length} titik dealer</div>
-                </div>
-
-                <div style={{ marginTop: 10 }}>
-                  <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
-                    <MapFly center={center as any} />
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                    {dealerPoints.map((dealer) => (
-                      <Marker
-                        key={dealer.id}
-                        position={[dealer._lat, dealer._lng]}
-                        icon={markerIcon}
-                        eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
-                      >
-                        <Popup>
-                          <strong>{dealer.name}</strong>
-                          <div>{dealer.regency}</div>
-                          <div>{dealer.phone || '-'}</div>
-                        </Popup>
-                      </Marker>
-                    ))}
-                  </MapContainer>
-                </div>
+            <div className="card" style={{ minHeight: 430 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Dealer Map</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName} • {dealerPoints.length} points</div>
               </div>
 
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Performa Dealer</h3>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{currentDealer?.name || 'Pilih dealer'}</div>
-                </div>
+              <div style={{ marginTop: 10 }}>
+                <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
+                  <MapFly center={center as any} />
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                  {dealerPoints.map((dealer) => (
+                    <Marker
+                      key={dealer.id}
+                      position={[dealer._lat, dealer._lng]}
+                      icon={markerIcon}
+                      eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
+                    >
+                      <Popup>
+                        <strong>{dealer.name}</strong>
+                        <div>{dealer.regency}</div>
+                        <div>{dealer.phone || '-'}</div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+              </div>
+            </div>
 
-                <div style={{ marginTop: 10 }}>
-                  <label>Filter Finance Company</label>
-                  <select value={fcFilter} onChange={(e) => setFcFilter(e.target.value)}>
-                    <option value="">Semua</option>
-                    {financeCompanies.map((company) => (
-                      <option key={company.id} value={company.id}>{company.name}</option>
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Dealer Performance</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+              </div>
+
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label>Select Dealer</label>
+                  <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                    <option value="">Select dealer</option>
+                    {dealers.map((dealer) => (
+                      <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
                     ))}
                   </select>
                 </div>
-
-                {!metrics && <div style={{ marginTop: 12, color: '#64748b' }}>Pilih dealer untuk melihat metrik.</div>}
-
-                {metrics && (
-                  <>
-                    <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                      <Metric label="Total Order" value={metrics.total_orders} />
-                      <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                      <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
-                      <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                    </div>
-
-                    <div style={{ marginTop: 12 }}>
-                      <h4 style={{ margin: '0 0 6px 0' }}>Per Finance Company</h4>
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Finance</th>
-                            <th>Total</th>
-                            <th>Approve</th>
-                            <th>Lead Avg</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(metrics.finance_companies || []).map((fc: any) => (
-                            <tr key={fc.finance_company_id}>
-                              <td>{fc.finance_company_name}</td>
-                              <td>{fc.total_orders}</td>
-                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
               </div>
+
+              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+              {metrics && (
+                <>
+                  <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                    <Metric label="Total Order" value={metrics.total_orders} />
+                    <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
+                    <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                    <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}
 
         {listTab === 'finance' && (
-          <div className="card">
-            <div style={{ marginBottom: 10 }}>
-              <label>Search Finance Company</label>
-              <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Cari nama/regency/phone" />
-            </div>
+          <>
+            <div className="card">
+              <div style={{ marginBottom: 10 }}>
+                <label>Search Finance Company</label>
+                <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search by name/regency/phone" />
+              </div>
 
-            <div style={{ marginBottom: 10 }}>
-              <label>Filter Provinsi Finance</label>
-              <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
-                <option value="">Semua</option>
-                {provinces.map((province) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
-            </div>
+              <div style={{ marginBottom: 10 }}>
+                <label>Finance Province Filter</label>
+                <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
+                  <option value="">All</option>
+                  {provinces.map((province) => (
+                    <option key={province.code} value={province.code}>{province.name}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <h3>Finance Company</h3>
-              {canManage && <button className="btn" onClick={() => navigate('/finance/companies/create')}>Input Finance</button>}
-            </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <h3>Finance Company</h3>
+                {canManage && <button className="btn" onClick={() => navigate('/finance/companies/create')}>Create Finance</button>}
+              </div>
 
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nama</th>
-                  <th>Regency</th>
-                  <th>Phone</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {financeCompanies.map((company) => (
-                  <tr key={company.id}>
-                    <td>{company.name}</td>
-                    <td>{company.regency || '-'}</td>
-                    <td>{company.phone || '-'}</td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}`, { state: { company } })}>View</button>
-                      {canManage && (
-                        <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}/edit`, { state: { company } })}>Edit</button>
-                      )}
-                      {canManage && <button className="btn-ghost" onClick={() => void removeFinance(company.id)}>Delete</button>}
-                    </td>
-                  </tr>
-                ))}
-                {financeCompanies.length === 0 && (
+              <table className="table">
+                <thead>
                   <tr>
-                    <td colSpan={4}>Belum ada finance company.</td>
+                    <th>Name</th>
+                    <th>Regency</th>
+                    <th>Phone</th>
+                    <th>Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {financeCompanies.map((company) => (
+                    <tr key={company.id}>
+                      <td>{company.name}</td>
+                      <td>{company.regency || '-'}</td>
+                      <td>{company.phone || '-'}</td>
+                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}`, { state: { company } })}>View</button>
+                        {canManage && (
+                          <button className="btn-ghost" onClick={() => navigate(`/finance/companies/${company.id}/edit`, { state: { company } })}>Edit</button>
+                        )}
+                        {canManage && <button className="btn-ghost" onClick={() => void removeFinance(company.id)}>Delete</button>}
+                      </td>
+                    </tr>
+                  ))}
+                  {financeCompanies.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>No finance company available.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
 
-            <Pagination
-              page={financePage}
-              totalPages={financeTotalPages}
-              totalData={financeTotalData}
-              limit={financeLimit}
-              onPageChange={setFinancePage}
-              onLimitChange={(next) => {
-                setFinanceLimit(next)
-                setFinancePage(1)
-              }}
-            />
-          </div>
+              <Pagination
+                page={financePage}
+                totalPages={financeTotalPages}
+                totalData={financeTotalData}
+                limit={financeLimit}
+                onPageChange={setFinancePage}
+                onLimitChange={(next) => {
+                  setFinanceLimit(next)
+                  setFinancePage(1)
+                }}
+              />
+            </div>
+
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Finance Performence</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+              </div>
+
+              <div style={{ marginTop: 12, maxWidth: 360 }}>
+                <label>Select Dealer</label>
+                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                  <option value="">Select dealer</option>
+                  {dealers.map((dealer) => (
+                    <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance company performance.</div>}
+              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+              {metrics && (
+                <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 12, marginTop: 12 }}>
+                  <div>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Finance</th>
+                          <th>Total</th>
+                          <th>Approve</th>
+                          <th>Lead Avg</th>
+                          <th>Rescue FC2</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {financeMetricRows.map((fc: any) => (
+                          <tr key={fc.finance_company_id}>
+                            <td>{fc.finance_company_name}</td>
+                            <td>{fc.total_orders}</td>
+                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                            <td>{fc.rescue_approved_fc2 || 0}</td>
+                          </tr>
+                        ))}
+                        {financeMetricRows.length === 0 && (
+                          <tr>
+                            <td colSpan={5}>No finance company metric for this dealer.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
+                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Summary Chart</div>
+                    {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
+                    {financeMetricRows.map((fc: any) => {
+                      const total = Number(fc?.total_orders || 0)
+                      const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
+                      return (
+                        <div key={`chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
+                            <span style={{ fontWeight: 600 }}>{fc.finance_company_name || '-'}</span>
+                            <span>{total}</span>
+                          </div>
+                          <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
+                            <div
+                              style={{
+                                width: `${Math.min(100, width)}%`,
+                                height: '100%',
+                                borderRadius: 999,
+                                background: '#2563eb',
+                                transition: 'width .25s ease',
+                              }}
+                            />
+                          </div>
+                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+                            Approval {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -1194,6 +1534,51 @@ function MapFly({ center }: { center: [number, number] }) {
   return null
 }
 
+function DealerMapPicker({
+  lat,
+  lng,
+  onPick,
+}: {
+  lat: number
+  lng: number
+  onPick: (lat: number, lng: number) => void
+}) {
+  const hasCoordinate = Number.isFinite(lat) && Number.isFinite(lng)
+  const markerPosition: [number, number] | null = hasCoordinate ? [lat, lng] : null
+
+  return (
+    <>
+      <DealerMapClickHandler onPick={onPick} />
+      {markerPosition && (
+        <Marker
+          position={markerPosition}
+          icon={markerIcon}
+          draggable
+          eventHandlers={{
+            dragend: (event: any) => {
+              const next = event?.target?.getLatLng?.()
+              if (!next) return
+              onPick(next.lat, next.lng)
+            },
+          }}
+        >
+          <Popup>Drag marker to set dealer location.</Popup>
+        </Marker>
+      )}
+    </>
+  )
+}
+
+function DealerMapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (event) => {
+      onPick(event.latlng.lat, event.latlng.lng)
+    },
+  })
+
+  return null
+}
+
 function Metric({ label, value }: { label: string; value: any }) {
   return (
     <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
@@ -1203,11 +1588,38 @@ function Metric({ label, value }: { label: string; value: any }) {
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, padding: '6px 0' }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value || '-'}</div>
-    </div>
+    <table className="table" style={{ marginTop: 10 }}>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <th style={{ width: '36%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
+            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
+}
+
+function lookupOptionName(list: Option[] | undefined, code?: string) {
+  if (!code) return '-'
+  const rawCode = String(code).trim()
+  const normalized = rawCode.toLowerCase()
+  const found =
+    list?.find((item) => String(item?.code || '').trim().toLowerCase() === normalized) ||
+    list?.find((item) => String(item?.name || '').trim().toLowerCase() === normalized)
+  return found?.name || rawCode
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString('en-US')
+}
+
+function roundCoordinate(value: number) {
+  return Number(value.toFixed(6))
 }

@@ -48,7 +48,7 @@ export default function LoginPage() {
         (typeof rawError === 'string' && rawError.trim()) ||
         (rawError && typeof rawError === 'object' && typeof rawError.message === 'string' && rawError.message.trim()) ||
         (typeof err?.response?.data?.message === 'string' && err.response.data.message.trim()) ||
-        'Gagal memproses autentikasi'
+        'Failed to process authentication'
       setError(message)
     } finally {
       setLoading(false)
@@ -88,6 +88,26 @@ export default function LoginPage() {
           }}
         >
           <div>
+            <div
+              style={{
+                width: 200,
+                height: 200,
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.28)',
+                background: '#1e40af',
+                display: 'grid',
+                placeItems: 'center',
+                padding: 12,
+                marginBottom: 14,
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+              }}
+            >
+              <img
+                src="/songket-logo.jpeg"
+                alt="SONGKET Logo"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 14 }}
+              />
+            </div>
             <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9 }}>Songket Suite</div>
             <h1 style={{ margin: '8px 0 0', fontSize: 34, lineHeight: 1.2 }}>Songket Console</h1>
           </div>
@@ -96,14 +116,14 @@ export default function LoginPage() {
         <div style={{ padding: 28 }}>
           <h2 style={{ marginTop: 0 }}>{isRegister ? 'Register Account' : 'Sign In'}</h2>
           <div style={{ color: '#64748b', marginBottom: 14 }}>
-            {isRegister ? 'Buat akun baru untuk akses sistem.' : 'Masuk untuk melanjutkan ke dashboard.'}
+            {isRegister ? 'Create a new account to access the system.' : 'Sign in to continue to the dashboard.'}
           </div>
 
           <form onSubmit={handleSubmit} className="grid" style={{ gap: 12 }}>
             {isRegister && (
               <>
                 <div>
-                  <label>Nama</label>
+                  <label>Name</label>
                   <input value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
 
@@ -117,7 +137,7 @@ export default function LoginPage() {
                   <select value={role} onChange={(e) => setRole(e.target.value)}>
                     <option value="dealer">Dealer</option>
                     <option value="main_dealer">Main Dealer</option>
-                    <option value="superadmin">Superadmin</option>
+                    <option value="superadmin">Super Admin</option>
                   </select>
                 </div>
               </>
@@ -172,7 +192,7 @@ export default function LoginPage() {
           </form>
 
           <button className="btn-ghost" style={{ marginTop: 10 }} onClick={() => setIsRegister((value) => !value)}>
-            {isRegister ? 'Sudah punya akun? Login' : 'Belum punya akun? Register'}
+            {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
           </button>
         </div>
       </div>
@@ -195,23 +215,5 @@ function EyeOffIcon() {
       <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       <path d="M10.6 6.2A11.6 11.6 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.1 3.7M6.1 9.1A18.4 18.4 0 0 0 2 12s3.5 6 10 6c1.2 0 2.3-.2 3.3-.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
-  )
-}
-
-function InfoBullet({ text }: { text: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 999,
-          background: '#bfdbfe',
-          boxShadow: '0 0 0 6px rgba(191, 219, 254, 0.18)',
-          flex: '0 0 auto',
-        }}
-      />
-      <span style={{ fontSize: 14 }}>{text}</span>
-    </div>
   )
 }

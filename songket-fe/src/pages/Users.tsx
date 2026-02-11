@@ -12,6 +12,7 @@ import {
   setUserPermissions,
   updateUserById,
 } from '../api'
+import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
@@ -24,11 +25,13 @@ type Perm = {
   resource?: string
   action?: string
 }
-type RoleItem = { id: string; name?: string }
+type RoleItem = { id: string; name?: string; display_name?: string }
 type MenuItem = { id: string; name?: string; path?: string }
 
 const MENU_RESOURCE_ALIASES: Record<string, string[]> = {
   prices: ['commodities'],
+  jobs: ['net_income'],
+  installments: ['motor_types'],
   role_menu_access: ['roles', 'menus'],
 }
 
@@ -55,6 +58,22 @@ function sanitizeIdList(ids: string[]) {
   return Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
 }
 
+function roleLabel(value: string) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function roleNames(items: RoleItem[]) {
+  return Array.from(
+    new Set(
+      items
+        .map((item) => String(item?.name || '').trim())
+        .filter(Boolean),
+    ),
+  )
+}
+
 export default function UsersPage() {
   const navigate = useNavigate()
   const params = useParams()
@@ -75,6 +94,7 @@ export default function UsersPage() {
   const canUpdate = perms.includes('update_users')
   const canDelete = perms.includes('delete_users')
   const canSetUserPerm = role === 'superadmin'
+  const confirm = useConfirm()
 
   const [users, setUsers] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -88,13 +108,13 @@ export default function UsersPage() {
   const [error, setError] = useState('')
 
   const [allPerms, setAllPerms] = useState<Perm[]>([])
-  const [permUserId, setPermUserId] = useState<string | null>(null)
-  const [permTargetRole, setPermTargetRole] = useState<string | null>(null)
-  const [permChecked, setPermChecked] = useState<string[]>([])
   const [permDraft, setPermDraft] = useState<string[]>([])
   const [permLoading, setPermLoading] = useState(false)
   const [roleResourceMap, setRoleResourceMap] = useState<Record<string, string[]>>({})
   const [roleResourceLoading, setRoleResourceLoading] = useState(false)
+  const [roleOptions, setRoleOptions] = useState<RoleItem[]>([])
+  const [detailPermissions, setDetailPermissions] = useState<string[]>([])
+  const [detailPermLoading, setDetailPermLoading] = useState(false)
 
   const stateUser = (location.state as any)?.user || null
 
@@ -111,6 +131,12 @@ export default function UsersPage() {
       loadUsers().catch(() => setUsers([]))
     }
   }, [canList, isDetail, isEdit, isList, limit, page, search])
+
+  useEffect(() => {
+    listRoles({ page: 1, limit: 500 })
+      .then((res: any) => setRoleOptions(res.data.data || res.data || []))
+      .catch(() => setRoleOptions([]))
+  }, [])
 
   const menuToResources = (menu?: MenuItem) => {
     const resources = new Set<string>()
@@ -206,10 +232,72 @@ export default function UsersPage() {
     return users.find((u) => u.id === selectedId) || (stateUser?.id === selectedId ? stateUser : null)
   }, [selectedId, stateUser, users])
 
+  const selectedRoleDisplay = useMemo(() => {
+    if (!selectedUser) return '-'
+
+    const byId = roleOptions.find((roleItem) => String(roleItem.id || '') === String(selectedUser.role_id || ''))
+    if (byId) {
+      return byId.display_name || roleLabel(byId.name || selectedUser.role || '')
+    }
+
+    const byName = roleOptions.find(
+      (roleItem) => normalizeKey(roleItem.name) === normalizeKey(selectedUser.role),
+    )
+    if (byName) {
+      return byName.display_name || roleLabel(byName.name || selectedUser.role || '')
+    }
+
+    return roleLabel(detailValue(selectedUser.role))
+  }, [roleOptions, selectedUser])
+
+  const availableRoleNames = useMemo(() => {
+    const backendRoles = roleNames(roleOptions)
+    if (form.role && !backendRoles.includes(form.role)) {
+      return [form.role, ...backendRoles]
+    }
+    if (backendRoles.length > 0) return backendRoles
+    return ['superadmin', 'admin', 'main_dealer', 'dealer']
+  }, [form.role, roleOptions])
+
+  useEffect(() => {
+    if (!isDetail || !selectedUser?.id) {
+      setDetailPermissions([])
+      setDetailPermLoading(false)
+      return
+    }
+
+    const fallback = Array.isArray(selectedUser?.permissions)
+      ? selectedUser.permissions.map((item: any) => String(item)).filter(Boolean)
+      : []
+
+    if (!canSetUserPerm) {
+      setDetailPermissions(fallback)
+      setDetailPermLoading(false)
+      return
+    }
+
+    setDetailPermLoading(true)
+    getUserPermissions(selectedUser.id)
+      .then((res: any) => {
+        const raw = res.data?.data || res.data || []
+        const labels = Array.isArray(raw)
+          ? raw
+              .map((perm: any) => String(perm?.display_name || perm?.name || perm?.id || '').trim())
+              .filter(Boolean)
+          : []
+        setDetailPermissions(labels)
+      })
+      .catch(() => {
+        setDetailPermissions(fallback)
+      })
+      .finally(() => setDetailPermLoading(false))
+  }, [canSetUserPerm, isDetail, selectedUser?.id, selectedUser?.permissions])
+
   useEffect(() => {
     if (isCreate) {
       setEditingId(null)
       setForm(emptyForm)
+      setPermDraft([])
       return
     }
     if (isEdit && selectedId) {
@@ -227,6 +315,20 @@ export default function UsersPage() {
     }
   }, [isCreate, isEdit, selectedId, selectedUser])
 
+  useEffect(() => {
+    if (!canSetUserPerm) return
+    if (!isEdit || !selectedUser?.id) return
+
+    setPermLoading(true)
+    getUserPermissions(selectedUser.id)
+      .then((res: any) => {
+        const ids = sanitizeIdList((res.data?.data || res.data || []).map((permission: any) => permission.id))
+        setPermDraft(ids)
+      })
+      .catch(() => setPermDraft([]))
+      .finally(() => setPermLoading(false))
+  }, [canSetUserPerm, isEdit, selectedUser?.id])
+
   const groupPerms = (items: Perm[]) => {
     const grouped: Record<string, Perm[]> = {}
     items.forEach((p) => {
@@ -240,7 +342,7 @@ export default function UsersPage() {
     return grouped
   }
 
-  const groupedAll = groupPerms(allPerms)
+  const groupedAll = useMemo(() => groupPerms(allPerms), [allPerms])
 
   const filterResourcesByTargetRole = (
     targetRole: string,
@@ -337,6 +439,9 @@ export default function UsersPage() {
         const body: any = { ...form }
         if (!body.password) delete body.password
         await updateUserById(editingId, body)
+        if (canSetUserPerm) {
+          await setUserPermissions(editingId, sanitizeIdList(permDraft))
+        }
       } else {
         const body: any = { ...form }
         const permissionIds = sanitizeIdList(permDraft)
@@ -361,46 +466,16 @@ export default function UsersPage() {
 
   const remove = async (id: string) => {
     if (!canDelete) return
-    if (!window.confirm('Delete user?')) return
+    const ok = await confirm({
+      title: 'Delete User',
+      description: 'Are you sure you want to delete this user?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
     await deleteUserById(id)
     await loadUsers()
-  }
-
-  const openPermModal = async (user: any) => {
-    if (!canSetUserPerm) return
-    setPermLoading(true)
-    setPermUserId(user.id)
-    setPermTargetRole(user.role)
-    try {
-      const latestRoleResourceMap = await loadRoleResourceMap()
-      const res = await getUserPermissions(user.id)
-      const ids = sanitizeIdList((res.data?.data || res.data || []).map((p: any) => p.id))
-      if (allPerms.length === 0) {
-        setPermChecked(ids)
-        return
-      }
-      const allowed = allowedPermissionIdsForRole(user.role, latestRoleResourceMap)
-      setPermChecked(ids.filter((id: string) => allowed.has(id)))
-    } finally {
-      setPermLoading(false)
-    }
-  }
-
-  const togglePerm = (id: string) => {
-    setPermChecked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
-
-  const saveUserPerms = async () => {
-    if (!permUserId) return
-    const payload = sanitizeIdList(permChecked)
-    setPermLoading(true)
-    try {
-      await setUserPermissions(permUserId, payload)
-    } catch (err: any) {
-      window.alert(err?.response?.data?.error || err?.message || 'Gagal menyimpan permissions')
-    } finally {
-      setPermLoading(false)
-    }
   }
 
   const set = (key: keyof typeof emptyForm, value: string) => setForm((prev) => ({ ...prev, [key]: value }))
@@ -425,14 +500,68 @@ export default function UsersPage() {
         <div className="page">
           {!selectedUser && <div className="alert">Data user tidak ditemukan.</div>}
           {selectedUser && (
-            <div className="card" style={{ maxWidth: 720 }}>
-              <div style={{ display: 'grid', gap: 10 }}>
-                <DetailRow label="Nama" value={detailValue(selectedUser.name)} />
-                <DetailRow label="Email" value={detailValue(selectedUser.email)} />
-                <DetailRow label="Phone" value={detailValue(selectedUser.phone)} />
-                <DetailRow label="Role" value={detailValue(selectedUser.role)} />
-                <DetailRow label="User ID" value={detailValue(selectedUser.id)} />
-              </div>
+            <div className="card" style={{ maxWidth: 940 }}>
+              <h3>User Information</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <tbody>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
+                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.name)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Email</th>
+                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.email)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Phone</th>
+                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.phone)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Role</th>
+                    <td style={{ fontWeight: 600 }}>{selectedRoleDisplay}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
+                    <td style={{ fontWeight: 600 }}>{formatDateTime(selectedUser.created_at)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
+                    <td style={{ fontWeight: 600 }}>{formatDateTime(selectedUser.updated_at)}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Permission Count</th>
+                    <td style={{ fontWeight: 600 }}>{detailPermissions.length}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3 style={{ marginTop: 14 }}>Permissions</h3>
+              <table className="table" style={{ marginTop: 10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 70 }}>No</th>
+                    <th>Permission</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailPermLoading && (
+                    <tr>
+                      <td colSpan={2}>Loading permissions...</td>
+                    </tr>
+                  )}
+                  {!detailPermLoading && detailPermissions.length === 0 && (
+                    <tr>
+                      <td colSpan={2}>No permissions assigned.</td>
+                    </tr>
+                  )}
+                  {!detailPermLoading && detailPermissions.map((permission, index) => (
+                    <tr key={`${permission}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td style={{ fontWeight: 600 }}>{permission}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -474,10 +603,11 @@ export default function UsersPage() {
               <div>
                 <label>Role</label>
                 <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-                  <option value="superadmin">Superadmin</option>
-                  <option value="admin">Admin</option>
-                  <option value="main_dealer">Main Dealer</option>
-                  <option value="dealer">Dealer</option>
+                  {availableRoleNames.map((roleName) => (
+                    <option key={roleName} value={roleName}>
+                      {roleLabel(roleName)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -487,6 +617,11 @@ export default function UsersPage() {
                   {roleResourceLoading && (
                     <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
                       Sinkronisasi permission berdasarkan role menu...
+                    </div>
+                  )}
+                  {permLoading && (
+                    <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                      Loading existing user permissions...
                     </div>
                   )}
                   {renderPermTable(
@@ -564,8 +699,7 @@ export default function UsersPage() {
                         </button>
                       )}
                       {canDelete && <button className="btn-ghost" onClick={() => void remove(user.id)}>Delete</button>}
-                      {canSetUserPerm && <button className="btn-ghost" onClick={() => void openPermModal(user)}>Permissions</button>}
-                      {!canUpdate && !canDelete && !canSetUserPerm && '-'}
+                      {!canUpdate && !canDelete && '-'}
                     </td>
                   </tr>
                 ))}
@@ -592,54 +726,14 @@ export default function UsersPage() {
           )}
         </div>
 
-        {canSetUserPerm && permUserId && (
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Set Permissions User</h3>
-              <div style={{ fontSize: 12, color: '#64748b' }}>User ID: {permUserId}</div>
-            </div>
-            {permLoading && <div>Loading permissions...</div>}
-            {!permLoading && (
-              <>
-                {roleResourceLoading && (
-                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Sinkronisasi permission berdasarkan role menu...
-                  </div>
-                )}
-                {renderPermTable(
-                  permChecked,
-                  togglePerm,
-                  permTargetRole ? filterResourcesByTargetRole(permTargetRole, groupedAll) : groupedAll,
-                )}
-                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                  <button className="btn" onClick={saveUserPerms} disabled={permLoading}>
-                    {permLoading ? 'Saving...' : 'Save Permissions'}
-                  </button>
-                  <button
-                    className="btn-ghost"
-                    onClick={() => {
-                      setPermUserId(null)
-                      setPermTargetRole(null)
-                      setPermChecked([])
-                    }}
-                  >
-                    Tutup
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12 }}>
-      <div style={{ color: '#64748b', fontWeight: 600 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value}</div>
-    </div>
-  )
+function formatDateTime(value: unknown) {
+  if (!value) return '-'
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('en-US')
 }

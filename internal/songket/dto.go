@@ -26,6 +26,9 @@ type CreateOrderRequest struct {
 	FinanceCompany2ID string  `json:"finance_company2_id"`
 	ResultStatus2     string  `json:"result_status2"`
 	ResultNotes2      string  `json:"result_notes2"`
+	FinanceCompany3ID string  `json:"finance_company3_id"`
+	ResultStatus3     string  `json:"result_status3"`
+	ResultNotes3      string  `json:"result_notes3"`
 }
 
 type UpdateOrderRequest struct {
@@ -51,6 +54,9 @@ type UpdateOrderRequest struct {
 	FinanceCompany2ID *string  `json:"finance_company2_id"`
 	ResultStatus2     *string  `json:"result_status2"`
 	ResultNotes2      *string  `json:"result_notes2"`
+	FinanceCompany3ID *string  `json:"finance_company3_id"`
+	ResultStatus3     *string  `json:"result_status3"`
+	ResultNotes3      *string  `json:"result_notes3"`
 }
 
 type CreditCapabilityRequest struct {
@@ -111,7 +117,7 @@ type InstallmentRequest struct {
 
 type NewsScrapeCronSettingRequest struct {
 	IsActive        bool `json:"is_active"`
-	IntervalMinutes int  `json:"interval_minutes" binding:"required,min=1,max=10080"`
+	IntervalMinutes int  `json:"interval_minutes" binding:"required,min=0,max=43200"`
 }
 
 type JobRequest struct {
