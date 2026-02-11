@@ -339,9 +339,20 @@ export default function NetIncomePage() {
       setForm(emptyForm)
       navigate('/net-income')
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Gagal menyimpan net income'
+      const rawError = err?.response?.data?.error
+      const message =
+        (typeof rawError === 'string' && rawError.trim()) ||
+        (rawError && typeof rawError === 'object' && typeof rawError.message === 'string' && rawError.message.trim()) ||
+        (typeof err?.response?.data?.message === 'string' && err.response.data.message.trim()) ||
+        'Gagal menyimpan net income'
       setError(message)
-      window.alert(message)
+      await confirm({
+        title: 'Save Failed',
+        description: message,
+        confirmText: 'OK',
+        cancelText: 'Close',
+        tone: 'danger',
+      })
     } finally {
       setLoading(false)
     }
