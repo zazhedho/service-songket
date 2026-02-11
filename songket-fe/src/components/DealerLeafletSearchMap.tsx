@@ -83,11 +83,15 @@ function buildViewBox(map: LeafletMap | null) {
 }
 
 async function searchPlaces(query: string, limit: number, map: LeafletMap | null) {
+  const queryVariants = buildSearchQueryVariants(query)
+
   const runNominatim = async ({
+    queryText,
     includeCountry,
     includeViewbox,
     appendIndonesia,
   }: {
+    queryText: string
     includeCountry: boolean
     includeViewbox: boolean
     appendIndonesia: boolean
@@ -96,7 +100,7 @@ async function searchPlaces(query: string, limit: number, map: LeafletMap | null
       format: 'jsonv2',
       addressdetails: '1',
       limit: String(limit),
-      q: appendIndonesia ? `${query}, Indonesia` : query,
+      q: appendIndonesia ? `${queryText}, Indonesia` : queryText,
       dedupe: '1',
       'accept-language': 'id,en',
     })
@@ -120,9 +124,9 @@ async function searchPlaces(query: string, limit: number, map: LeafletMap | null
       .filter(Boolean) as DealerLeafletPlace[]
   }
 
-  const runPhoton = async () => {
+  const runPhoton = async (queryText: string) => {
     const params = new URLSearchParams({
-      q: query,
+      q: queryText,
       limit: String(limit),
     })
 
@@ -190,23 +194,31 @@ async function searchPlaces(query: string, limit: number, map: LeafletMap | null
   ] as const
 
   let nominatimResult: DealerLeafletPlace[] = []
-  for (const strategy of strategies) {
-    try {
-      const result = await runNominatim(strategy)
-      if (result.length > 0) {
-        nominatimResult = result
-        break
+  for (const queryText of queryVariants) {
+    for (const strategy of strategies) {
+      try {
+        const result = await runNominatim({ ...strategy, queryText })
+        if (result.length > 0) {
+          nominatimResult = result
+          break
+        }
+      } catch {
+        // Try next strategy
       }
-    } catch {
-      // Try next strategy
+    }
+    if (nominatimResult.length > 0) {
+      break
     }
   }
 
   let photonResult: DealerLeafletPlace[] = []
-  try {
-    photonResult = await runPhoton()
-  } catch {
-    photonResult = []
+  for (const queryText of queryVariants) {
+    try {
+      photonResult = await runPhoton(queryText)
+      if (photonResult.length > 0) break
+    } catch {
+      photonResult = []
+    }
   }
 
   const merged = [...nominatimResult, ...photonResult]
@@ -219,7 +231,88 @@ async function searchPlaces(query: string, limit: number, map: LeafletMap | null
       dedup.set(key, item)
     }
   }
-  return Array.from(dedup.values())
+  return rankPlacesByQuery(queryVariants[0], Array.from(dedup.values()))
+}
+
+function buildSearchQueryVariants(query: string) {
+  const raw = String(query || '').trim()
+  if (!raw) return []
+
+  const variants = [raw]
+  const expanded = raw
+    .replace(/\bsman\b/gi, 'sma negeri')
+    .replace(/\bsmpn\b/gi, 'smp negeri')
+    .replace(/\bsdn\b/gi, 'sd negeri')
+    .replace(/\bsmk\b/gi, 'smk')
+
+  if (expanded.toLowerCase() !== raw.toLowerCase()) {
+    variants.push(expanded)
+  }
+
+  return Array.from(new Set(variants))
+}
+
+function normalizeSearchText(value?: string) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function tokenizeSearchText(value?: string) {
+  return normalizeSearchText(value)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean)
+}
+
+function extractNumberTokens(tokens: string[]) {
+  return tokens.filter((token) => /^[0-9]+$/.test(token))
+}
+
+function rankPlacesByQuery(query: string, places: DealerLeafletPlace[]) {
+  if (!places.length) return places
+  const queryNorm = normalizeSearchText(query)
+  const queryTokens = tokenizeSearchText(query)
+  const queryNumbers = extractNumberTokens(queryTokens)
+
+  const scored = places.map((place) => {
+    const nameNorm = normalizeSearchText(place.name)
+    const candidate = normalizeSearchText(`${place.name} ${place.formattedAddress}`)
+    const candidateTokens = tokenizeSearchText(candidate)
+    const candidateNumbers = extractNumberTokens(candidateTokens)
+    let score = 0
+
+    if (candidate.includes(queryNorm)) score += 140
+    if (nameNorm.includes(queryNorm)) score += 90
+
+    let matchedTokens = 0
+    for (const token of queryTokens) {
+      if (token.length <= 1 && !/^[0-9]+$/.test(token)) continue
+      if (candidateTokens.includes(token)) {
+        matchedTokens += 1
+        score += 16
+      } else {
+        score -= 10
+      }
+    }
+
+    if (queryNumbers.length > 0) {
+      const allNumbersMatch = queryNumbers.every((num) => candidateNumbers.includes(num))
+      score += allNumbersMatch ? 70 : -130
+    }
+
+    const coverage = queryTokens.length > 0 ? matchedTokens / queryTokens.length : 0
+    if (coverage < 0.5) score -= 90
+    if (nameNorm.startsWith(queryTokens[0] || '')) score += 20
+
+    return { place, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  const filtered = scored.filter((item, index) => item.score >= -20 || index < 2)
+  return filtered.map((item) => item.place)
 }
 
 function LeafletMapBridge({
@@ -342,8 +435,8 @@ export default function DealerLeafletSearchMap({
       keepMultiResultRef.current = false
       setMarkers([place])
       setSuggestions([])
-      setSearchFocused(false)
       setQuery(place.formattedAddress || place.name)
+      setSearchFocused(true)
       fitMapToPlaces([place])
       onPick(place)
     },
@@ -449,7 +542,17 @@ export default function DealerLeafletSearchMap({
         <input
           className="leaflet-search-input"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            if (!searchFocused) {
+              setSearchFocused(true)
+            }
+          }}
+          onClick={() => {
+            if (!searchFocused) {
+              setSearchFocused(true)
+            }
+          }}
           onKeyDown={(event) => {
             if (event.key !== 'Enter') return
             event.preventDefault()

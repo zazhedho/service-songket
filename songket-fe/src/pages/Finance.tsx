@@ -30,6 +30,7 @@ const markerIcon = new L.Icon({
 })
 
 type Option = { code: string; name: string }
+type DealerLocationNames = { province: string; regency: string; district: string }
 
 type DealerForm = {
   name: string
@@ -164,6 +165,8 @@ export default function FinancePage() {
   const [locatingDealerAddress, setLocatingDealerAddress] = useState(false)
   const dealerLocationReqRef = useRef(0)
   const dealerKabupatenCacheRef = useRef<Record<string, Option[]>>({})
+  const dealerKecamatanCacheRef = useRef<Record<string, Option[]>>({})
+  const [dealerLocationNameMap, setDealerLocationNameMap] = useState<Record<string, DealerLocationNames>>({})
 
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
@@ -481,6 +484,113 @@ export default function FinancePage() {
       return []
     }
   }
+
+  const fetchKecamatanByProvinceRegencyCode = async (provinceCode: string, regencyCode: string) => {
+    if (!provinceCode || !regencyCode) return []
+    const cacheKey = `${provinceCode}::${regencyCode}`
+    const cached = dealerKecamatanCacheRef.current[cacheKey]
+    if (cached) return cached
+
+    try {
+      const kecRes = await fetchKecamatan(provinceCode, regencyCode)
+      const list = kecRes.data.data || kecRes.data || []
+      dealerKecamatanCacheRef.current[cacheKey] = Array.isArray(list) ? list : []
+      return dealerKecamatanCacheRef.current[cacheKey]
+    } catch {
+      dealerKecamatanCacheRef.current[cacheKey] = []
+      return []
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true
+
+    const resolveDealerLocationNames = async () => {
+      if (!dealers.length) {
+        if (mounted) setDealerLocationNameMap({})
+        return
+      }
+
+      let provinceOptions = provinces
+      if (!provinceOptions.length) {
+        try {
+          const provRes = await fetchProvinces()
+          provinceOptions = provRes.data.data || provRes.data || []
+          if (mounted) {
+            setProvinces(provinceOptions)
+          }
+        } catch {
+          provinceOptions = []
+        }
+      }
+
+      const kabupatenByProvince: Record<string, Option[]> = {}
+      const kecamatanByRegency: Record<string, Option[]> = {}
+      const uniqueProvinceCodes = Array.from(
+        new Set(
+          dealers
+            .map((dealer) => String(dealer?.province || '').trim())
+            .filter(Boolean),
+        ),
+      )
+      await Promise.all(
+        uniqueProvinceCodes.map(async (provinceCode) => {
+          kabupatenByProvince[provinceCode] = await fetchKabupatenByProvinceCode(provinceCode)
+        }),
+      )
+
+      const uniqueRegencyKeys = Array.from(
+        new Set(
+          dealers
+            .map((dealer) => {
+              const provinceCode = String(dealer?.province || '').trim()
+              const regencyCode = String(dealer?.regency || '').trim()
+              return provinceCode && regencyCode ? `${provinceCode}::${regencyCode}` : ''
+            })
+            .filter(Boolean),
+        ),
+      )
+      await Promise.all(
+        uniqueRegencyKeys.map(async (key) => {
+          const [provinceCode, regencyCode] = key.split('::')
+          kecamatanByRegency[key] = await fetchKecamatanByProvinceRegencyCode(provinceCode, regencyCode)
+        }),
+      )
+
+      const nextMap: Record<string, DealerLocationNames> = {}
+      dealers.forEach((dealer) => {
+        const dealerId = String(dealer?.id || '').trim()
+        if (!dealerId) return
+
+        const provinceCode = String(dealer?.province || '').trim()
+        const regencyCode = String(dealer?.regency || '').trim()
+        const districtCode = String(dealer?.district || '').trim()
+
+        const provinceName = lookupOptionName(provinceOptions, provinceCode)
+        const regencyName = provinceCode
+          ? lookupOptionName(kabupatenByProvince[provinceCode] || [], regencyCode)
+          : lookupOptionName([], regencyCode)
+        const districtName = provinceCode && regencyCode
+          ? lookupOptionName(kecamatanByRegency[`${provinceCode}::${regencyCode}`] || [], districtCode)
+          : lookupOptionName([], districtCode)
+
+        nextMap[dealerId] = {
+          province: provinceName,
+          regency: regencyName,
+          district: districtName,
+        }
+      })
+
+      if (mounted) {
+        setDealerLocationNameMap(nextMap)
+      }
+    }
+
+    void resolveDealerLocationNames()
+    return () => {
+      mounted = false
+    }
+  }, [dealers, provinces])
 
   const inferProvinceFromMasterByRegency = async (
     provinceOptions: Option[],
@@ -1410,7 +1520,7 @@ export default function FinancePage() {
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Regency</th>
+                    <th>Location</th>
                     <th>Phone</th>
                     <th>Action</th>
                   </tr>
@@ -1419,7 +1529,12 @@ export default function FinancePage() {
                   {dealers.map((dealer) => (
                     <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
                       <td>{dealer.name}</td>
-                      <td>{dealer.regency || '-'}</td>
+                      <td
+                        style={{ maxWidth: '70ch' }}
+                        title={formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
+                      >
+                        {formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
+                      </td>
                       <td>{dealer.phone || '-'}</td>
                       <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <button
@@ -1722,6 +1837,25 @@ function lookupOptionName(list: Option[] | undefined, code?: string) {
   return found?.name || rawCode
 }
 
+function formatDealerLocationSummary(dealer: any, names?: DealerLocationNames) {
+  const normalizeValue = (value: unknown) => {
+    const text = String(value || '').trim()
+    if (!text || text === '-' || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
+      return ''
+    }
+    return text
+  }
+
+  const address = normalizeValue(dealer?.address)
+  const village = normalizeValue(dealer?.village)
+  const district = normalizeValue(names?.district || dealer?.district)
+  const regency = normalizeValue(names?.regency || dealer?.regency)
+  const province = normalizeValue(names?.province || dealer?.province)
+
+  const parts = [address, village, district, regency, province].filter(Boolean)
+  return parts.join(', ') || '-'
+}
+
 function findOptionCodeByNames(list: Option[] | undefined, names: Array<string | undefined>) {
   const options = Array.isArray(list) ? list : []
   const candidates = names
@@ -1735,15 +1869,39 @@ function findOptionCodeByNames(list: Option[] | undefined, names: Array<string |
     if (exact?.code) return String(exact.code)
   }
 
+  let bestCode = ''
+  let bestScore = 0
+
   for (const candidate of candidates) {
-    const fuzzy = options.find((item) => {
-      const optionName = normalizeLocationName(item?.name)
-      return optionName.includes(candidate) || candidate.includes(optionName)
-    })
-    if (fuzzy?.code) return String(fuzzy.code)
+    const candidateTokens = tokenizeLocationName(candidate)
+    if (!candidateTokens.length) continue
+
+    const genericSingleToken = candidateTokens.length === 1 && isGenericLocationToken(candidateTokens[0])
+
+    for (const option of options) {
+      const optionName = normalizeLocationName(option?.name)
+      const optionTokens = tokenizeLocationName(optionName)
+      if (!optionTokens.length) continue
+
+      const matched = candidateTokens.filter((token) => optionTokens.includes(token)).length
+      if (matched === 0) continue
+
+      const coverage = matched / candidateTokens.length
+      const density = matched / optionTokens.length
+      let score = coverage * 70 + density * 30
+
+      if (candidateTokens.length >= 2 && coverage >= 0.75) score += 15
+      if (!genericSingleToken && candidate.length >= 6 && optionName.includes(candidate)) score += 10
+      if (genericSingleToken && coverage < 1) continue
+
+      if (score > bestScore && option?.code) {
+        bestScore = score
+        bestCode = String(option.code)
+      }
+    }
   }
 
-  return ''
+  return bestScore >= 55 ? bestCode : ''
 }
 
 function normalizeLocationName(value?: string) {
@@ -1785,6 +1943,34 @@ function firstFilled(values: Array<string | undefined>) {
     if (trimmed) return trimmed
   }
   return ''
+}
+
+function tokenizeLocationName(value?: string) {
+  return normalizeLocationName(value)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean)
+}
+
+function isGenericLocationToken(token: string) {
+  const generic = new Set([
+    'jawa',
+    'sumatera',
+    'kalimantan',
+    'sulawesi',
+    'papua',
+    'nusa',
+    'kepulauan',
+    'daerah',
+    'khusus',
+    'ibukota',
+    'provinsi',
+    'kota',
+    'kabupaten',
+    'kecamatan',
+    'indonesia',
+  ])
+  return generic.has(String(token || '').trim())
 }
 
 function splitDisplayAddressSegments(displayAddress: string) {
