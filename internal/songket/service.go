@@ -1971,6 +1971,7 @@ func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 			return nil, err
 		}
 		if item.Id != "" {
+			item.Content = sanitizeNewsContent(item.Content)
 			result[src.Name] = item
 		}
 	}
@@ -2025,6 +2026,7 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 				rows[i].SourceName = strings.TrimSpace(hostFromURL(rows[i].URL))
 			}
 		}
+		rows[i].Content = sanitizeNewsContent(rows[i].Content)
 	}
 
 	return rows, total, nil
@@ -2351,7 +2353,7 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 		urlRaw = normalized
 	}
 	title := strings.TrimSpace(row.Title)
-	content := strings.TrimSpace(row.Content)
+	content := sanitizeNewsContent(row.Content)
 	sourceName := strings.TrimSpace(row.Source)
 	if sourceName == "" {
 		sourceName = strings.TrimSpace(hostFromURL(urlRaw))
@@ -2548,7 +2550,7 @@ func parsePythonNewsArticles(output []byte) ([]NewsScrapedArticle, error) {
 	for _, row := range rows {
 		item := NewsScrapedArticle{
 			Title:     strings.TrimSpace(firstString(row, "judul", "title")),
-			Content:   strings.TrimSpace(firstString(row, "isi", "content", "body")),
+			Content:   sanitizeNewsContent(firstString(row, "isi", "content", "body")),
 			CreatedAt: strings.TrimSpace(firstString(row, "created_at", "published_at", "date")),
 			Source:    strings.TrimSpace(firstString(row, "sumber", "source")),
 			URL:       strings.TrimSpace(firstString(row, "url", "link")),
@@ -2571,6 +2573,76 @@ func parsePythonNewsArticles(output []byte) ([]NewsScrapedArticle, error) {
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func sanitizeNewsContent(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	lines := strings.Split(text, "\n")
+
+	normalized := make([]string, 0, len(lines))
+	lastEmpty := false
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if t == "" {
+			if !lastEmpty && len(normalized) > 0 {
+				normalized = append(normalized, "")
+				lastEmpty = true
+			}
+			continue
+		}
+		normalized = append(normalized, t)
+		lastEmpty = false
+	}
+
+	for i := 0; i < 3 && len(normalized) > 0; i++ {
+		if !looksLikeNewsBreadcrumbLine(normalized[0]) {
+			break
+		}
+		normalized = normalized[1:]
+	}
+
+	return strings.TrimSpace(strings.Join(normalized, "\n"))
+}
+
+func looksLikeNewsBreadcrumbLine(line string) bool {
+	t := strings.TrimSpace(strings.ToLower(line))
+	if t == "" {
+		return false
+	}
+
+	replacer := strings.NewReplacer(">", "/", "|", "/", "»", "/", "\\", "/", "•", "/", " - ", "/", ":", "/")
+	t = replacer.Replace(t)
+	partsRaw := strings.Split(t, "/")
+	parts := make([]string, 0, len(partsRaw))
+	for _, p := range partsRaw {
+		p = strings.TrimSpace(strings.Trim(p, ".,-"))
+		if p == "" {
+			continue
+		}
+		parts = append(parts, p)
+	}
+
+	if len(parts) == 0 {
+		return false
+	}
+	if parts[0] != "beranda" && parts[0] != "home" {
+		return false
+	}
+	if len(parts) > 8 {
+		return false
+	}
+	for _, p := range parts {
+		if len([]rune(p)) > 40 {
+			return false
+		}
+	}
+	return true
 }
 
 func parseNewsTime(raw string) (time.Time, bool) {
