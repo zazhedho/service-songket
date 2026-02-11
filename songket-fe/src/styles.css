@@ -692,6 +692,33 @@ h4 {
     border-bottom: 0;
   }
 
+  .finance-dealer-table {
+    table-layout: fixed;
+  }
+
+  .finance-dealer-col-name {
+    width: 16%;
+  }
+
+  .finance-dealer-col-location {
+    width: 44%;
+  }
+
+  .finance-dealer-col-phone {
+    width: 14%;
+  }
+
+  .finance-dealer-col-action {
+    width: 26%;
+  }
+
+  .finance-dealer-table td.finance-dealer-location-cell {
+    max-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .badge {
     display: inline-flex;
     align-items: center;

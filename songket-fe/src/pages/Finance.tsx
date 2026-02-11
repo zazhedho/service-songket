@@ -1516,7 +1516,13 @@ export default function FinancePage() {
                 {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Create Dealer</button>}
               </div>
 
-              <table className="table">
+              <table className="table finance-dealer-table">
+                <colgroup>
+                  <col className="finance-dealer-col-name" />
+                  <col className="finance-dealer-col-location" />
+                  <col className="finance-dealer-col-phone" />
+                  <col className="finance-dealer-col-action" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -1530,7 +1536,7 @@ export default function FinancePage() {
                     <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
                       <td>{dealer.name}</td>
                       <td
-                        style={{ maxWidth: '70ch' }}
+                        className="finance-dealer-location-cell"
                         title={formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
                       >
                         {formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
