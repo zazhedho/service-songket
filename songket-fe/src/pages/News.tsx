@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { deleteNewsItem, importNews, listNewsItems, listScrapeSources, scrapeNews } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
@@ -383,13 +384,22 @@ export default function NewsPage() {
                       <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(row.isi, 180)}</td>
                       <td>{row.created_at ? dayjs(row.created_at).format('DD MMM YYYY HH:mm') : '-'}</td>
                       <td>{row.sumber || '-'}</td>
-                      <td style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } })}>
-                          View
-                        </button>
-                        <button className="btn" onClick={() => void addToNews(row)} disabled={!!adding[row.url] || !!added[row.url]}>
-                          {added[row.url] ? 'Added' : adding[row.url] ? 'Adding...' : 'Add to News'}
-                        </button>
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } }),
+                            },
+                            {
+                              key: 'add',
+                              label: added[row.url] ? 'Added' : adding[row.url] ? 'Adding...' : 'Add to News',
+                              onClick: () => void addToNews(row),
+                              disabled: !!adding[row.url] || !!added[row.url],
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -475,23 +485,28 @@ export default function NewsPage() {
                       <td>
                         <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Buka Link</a>
                       </td>
-                      <td style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/news/${item.id}`, { state: { detail: detailRow } })}>
-                          View Detail
-                        </button>
-                        {canDelete && (
-                          <button
-                            className="btn-ghost"
-                            onClick={() => {
-                              const id = String(item.id || '')
-                              if (!id) return
-                              setConfirmDeleteId(id)
-                            }}
-                            disabled={!item.id || !!deleting[String(item.id)]}
-                          >
-                            {!!deleting[String(item.id)] ? 'Deleting...' : 'Delete'}
-                          </button>
-                        )}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view-detail',
+                              label: 'View Detail',
+                              onClick: () => navigate(`/news/${item.id}`, { state: { detail: detailRow } }),
+                            },
+                            {
+                              key: 'delete',
+                              label: !!deleting[String(item.id)] ? 'Deleting...' : 'Delete',
+                              onClick: () => {
+                                const id = String(item.id || '')
+                                if (!id) return
+                                setConfirmDeleteId(id)
+                              },
+                              hidden: !canDelete,
+                              disabled: !item.id || !!deleting[String(item.id)],
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   )

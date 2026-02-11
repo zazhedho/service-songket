@@ -9,6 +9,7 @@ import {
   fetchScrapeResults,
   listScrapeJobs,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -401,9 +402,23 @@ export default function PricesPage() {
                         <td>{formatRupiah(price.price)} {price.commodity?.unit ? `/ ${price.commodity?.unit}` : ''}</td>
                         <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{price.source_url || '-'}</td>
                         <td>{price.collected_at ? new Date(price.collected_at).toLocaleString('id-ID') : '-'}</td>
-                        <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button className="btn-ghost" onClick={() => navigate(`/prices/${price.id}`, { state: { price } })}>View</button>
-                          {canScrape && <button className="btn-ghost" onClick={() => void removePrice(price.id)}>Delete</button>}
+                        <td className="action-cell">
+                          <ActionMenu
+                            items={[
+                              {
+                                key: 'view',
+                                label: 'View',
+                                onClick: () => navigate(`/prices/${price.id}`, { state: { price } }),
+                              },
+                              {
+                                key: 'delete',
+                                label: 'Delete',
+                                onClick: () => void removePrice(price.id),
+                                hidden: !canScrape,
+                                danger: true,
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     ))}

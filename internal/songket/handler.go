@@ -72,6 +72,33 @@ func (h *Handler) ListOrders(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/dashboard/orders
+func (h *Handler) DashboardOrders(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 5)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"dealer_id", "finance_company_id", "status"})
+
+	auth := utils.GetAuthData(ctx)
+	userId := utils.InterfaceString(auth["user_id"])
+	role := utils.InterfaceString(auth["role"])
+
+	data, total, err := h.svc.ListOrders(params, role, userId)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // PUT /api/songket/orders/:id
 func (h *Handler) UpdateOrder(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -1026,6 +1053,30 @@ func (h *Handler) LatestNews(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/dashboard/news-items
+func (h *Handler) DashboardNewsItems(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	category := ctx.Query("category")
+	params, err := filter.GetBaseParams(ctx, "published_at", "desc", 5)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"source_id", "source_name"})
+
+	data, total, err := h.svc.ListNewsItems(category, params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // GET /api/songket/news/items
 func (h *Handler) ListNewsItems(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -1176,6 +1227,29 @@ func (h *Handler) LatestPrices(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/dashboard/prices
+func (h *Handler) DashboardPrices(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "collected_at", "desc", 5)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistFilter(params.Filters, []string{"commodity_id"})
+
+	data, total, err := h.svc.ListCommodityPrices(params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 

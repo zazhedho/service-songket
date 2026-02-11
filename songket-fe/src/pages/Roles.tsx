@@ -11,6 +11,7 @@ import {
   listRoles,
   updateRole,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -129,6 +130,17 @@ export default function RolesPage() {
     if (!selectedId) return null
     return roles.find((r) => r.id === selectedId) || (stateRole?.id === selectedId ? stateRole : null)
   }, [roles, selectedId, stateRole])
+
+  const isSystemRole = useMemo(() => {
+    const explicit = Boolean(roleDetail?.is_system || selectedRole?.is_system)
+    if (explicit) return true
+
+    const roleName = String(roleDetail?.name || selectedRole?.name || form.name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+    return ['superadmin', 'admin', 'staff', 'viewer', 'dealer', 'main_dealer'].includes(roleName)
+  }, [roleDetail?.is_system, roleDetail?.name, selectedRole?.is_system, selectedRole?.name, form.name])
 
   const sortedMenus = useMemo(
     () => [...menus].sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),
@@ -286,10 +298,12 @@ export default function RolesPage() {
 
     try {
       if (isEdit && selectedId) {
-        await updateRole(selectedId, {
-          display_name: form.display_name,
-          description: form.description,
-        })
+        if (!isSystemRole) {
+          await updateRole(selectedId, {
+            display_name: form.display_name,
+            description: form.description,
+          })
+        }
         roleId = selectedId
       } else {
         const created = await createRole({
@@ -658,15 +672,29 @@ export default function RolesPage() {
                     <tr key={roleItem.id}>
                       <td>{roleItem.name}</td>
                       <td>{roleItem.display_name}</td>
-                      <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } })}>View</button>
-                        {canUpdate && (
-                          <button className="btn-ghost" onClick={() => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } })}>
-                            Edit
-                          </button>
-                        )}
-                        {canDelete && <button className="btn-ghost" onClick={() => void remove(roleItem.id)}>Delete</button>}
-                        {!canUpdate && !canDelete && '-'}
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } }),
+                            },
+                            {
+                              key: 'edit',
+                              label: 'Edit',
+                              onClick: () => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } }),
+                              hidden: !canUpdate,
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void remove(roleItem.id),
+                              hidden: !canDelete,
+                              danger: true,
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

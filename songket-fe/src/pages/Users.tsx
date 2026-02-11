@@ -12,6 +12,7 @@ import {
   setUserPermissions,
   updateUserById,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -691,15 +692,29 @@ export default function UsersPage() {
                     <td>{user.name}</td>
                     <td>{user.email}</td>
                     <td><span className="badge pending">{user.role}</span></td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/users/${user.id}`, { state: { user } })}>View</button>
-                      {canUpdate && (
-                        <button className="btn-ghost" onClick={() => navigate(`/users/${user.id}/edit`, { state: { user } })}>
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && <button className="btn-ghost" onClick={() => void remove(user.id)}>Delete</button>}
-                      {!canUpdate && !canDelete && '-'}
+                    <td className="action-cell">
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/users/${user.id}`, { state: { user } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/users/${user.id}/edit`, { state: { user } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(user.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

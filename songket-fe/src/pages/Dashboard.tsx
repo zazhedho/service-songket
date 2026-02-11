@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchOrders, fetchPriceList, listNewsItems } from '../api'
+import { listDashboardNewsItems, listDashboardOrders, listDashboardPrices } from '../api'
 import dayjs from 'dayjs'
 import { formatRupiah } from '../utils/currency'
 
@@ -10,9 +10,15 @@ export default function DashboardPage() {
   const [activeNewsIndex, setActiveNewsIndex] = useState(0)
 
   useEffect(() => {
-    fetchOrders({ limit: 5 }).then((res) => setOrders(res.data.data || res.data))
-    fetchPriceList({ limit: 5 }).then((res) => setPrices(res.data.data || res.data))
-    listNewsItems({ limit: 5 }).then((res) => setNews((res.data.data || res.data || []).slice(0, 5)))
+    listDashboardOrders({ limit: 5 })
+      .then((res) => setOrders(res.data.data || res.data || []))
+      .catch(() => setOrders([]))
+    listDashboardPrices({ limit: 5 })
+      .then((res) => setPrices(res.data.data || res.data || []))
+      .catch(() => setPrices([]))
+    listDashboardNewsItems({ limit: 5 })
+      .then((res) => setNews((res.data.data || res.data || []).slice(0, 5)))
+      .catch(() => setNews([]))
   }, [])
 
   useEffect(() => {
@@ -90,14 +96,31 @@ export default function DashboardPage() {
 
           <div className="card">
             <h3>Latest Prices</h3>
-            <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              {prices.map((p) => (
-                <div key={p.id}>
-                  <div style={{ fontWeight: 600 }}>{p.commodity?.name || 'Commodity'}</div>
-                  <div style={{ color: '#9ca3af' }}>{formatRupiah(p.price || 0)} / {p.commodity?.unit}</div>
-                </div>
-              ))}
-            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Commodity</th>
+                  <th>Price</th>
+                  <th>Unit</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prices.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.commodity?.name || '-'}</td>
+                    <td>{formatRupiah(p.price || 0)}</td>
+                    <td>{p.commodity?.unit || '-'}</td>
+                    <td>{dayjs(p.updated_at || p.created_at).format('DD MMM YYYY HH:mm')}</td>
+                  </tr>
+                ))}
+                {prices.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>No latest prices.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 

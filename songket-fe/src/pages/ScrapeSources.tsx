@@ -8,6 +8,7 @@ import {
   scrapePrices,
   updateScrapeSource,
 } from '../api'
+import ActionMenu from '../components/ActionMenu'
 import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
@@ -322,15 +323,29 @@ export default function ScrapeSourcesPage() {
                     <td style={{ maxWidth: 300, wordBreak: 'break-word' }}>{source.url}</td>
                     <td>{source.type || '-'}</td>
                     <td>{source.is_active ? 'Ya' : 'Tidak'}</td>
-                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn-ghost" onClick={() => navigate(`/scrape-sources/${source.id}`, { state: { source } })}>View</button>
-                      {canUpdate && (
-                        <button className="btn-ghost" onClick={() => navigate(`/scrape-sources/${source.id}/edit`, { state: { source } })}>
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && <button className="btn-ghost" onClick={() => void remove(source.id)}>Delete</button>}
-                      {!canUpdate && !canDelete && '-'}
+                    <td className="action-cell">
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/scrape-sources/${source.id}`, { state: { source } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/scrape-sources/${source.id}/edit`, { state: { source } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(source.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
