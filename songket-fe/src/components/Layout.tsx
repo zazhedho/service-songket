@@ -100,6 +100,63 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [location.pathname])
 
   useEffect(() => {
+    const root = document.querySelector('.app-main')
+    if (!root) return
+
+    const applyResponsiveTableLabels = () => {
+      const tables = Array.from(root.querySelectorAll('table.table')) as HTMLTableElement[]
+      tables.forEach((table) => {
+        const headerCells = Array.from(table.querySelectorAll(':scope > thead > tr > th')) as HTMLTableCellElement[]
+        const headerLabels = headerCells.map((cell) => cell.textContent?.trim() || '')
+        const hasBodyTh = table.querySelector(':scope > tbody > tr > th') !== null
+
+        if (headerLabels.length > 0 && !hasBodyTh) {
+          table.classList.add('responsive-stack')
+        } else {
+          table.classList.remove('responsive-stack')
+        }
+
+        if (headerLabels.length === 0) return
+
+        const rows = Array.from(table.querySelectorAll(':scope > tbody > tr')) as HTMLTableRowElement[]
+        rows.forEach((row) => {
+          let colIndex = 0
+          const cells = Array.from(row.children) as HTMLElement[]
+          cells.forEach((cell) => {
+            if (!(cell instanceof HTMLTableCellElement)) return
+            if (cell.tagName !== 'TD') return
+            if (cell.hasAttribute('colspan') && Number(cell.getAttribute('colspan')) > 1) {
+              cell.removeAttribute('data-label')
+              colIndex += Number(cell.getAttribute('colspan')) || 1
+              return
+            }
+
+            const label = headerLabels[Math.min(colIndex, headerLabels.length - 1)] || ''
+            if (label) {
+              cell.setAttribute('data-label', label)
+            } else {
+              cell.removeAttribute('data-label')
+            }
+            colIndex += Math.max(1, cell.colSpan || 1)
+          })
+        })
+      })
+    }
+
+    applyResponsiveTableLabels()
+    const timer = window.setTimeout(applyResponsiveTableLabels, 50)
+    const observer = new MutationObserver(() => applyResponsiveTableLabels())
+    observer.observe(root, { childList: true, subtree: true })
+    window.addEventListener('resize', applyResponsiveTableLabels)
+
+    return () => {
+      window.clearTimeout(timer)
+      observer.disconnect()
+      window.removeEventListener('resize', applyResponsiveTableLabels)
+    }
+  }, [location.pathname])
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!profileMenuRef.current) return
       if (!profileMenuRef.current.contains(event.target as Node)) {
@@ -323,7 +380,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="topbar-actions" ref={profileMenuRef}>
             <button className="btn-ghost topbar-profile-btn" onClick={() => setProfileMenuOpen((open) => !open)}>
               <AppIcon name="users" className="topbar-icon" />
-              Account
+              <span className="topbar-profile-label">Account</span>
             </button>
 
             {profileMenuOpen && (

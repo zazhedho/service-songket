@@ -448,6 +448,7 @@ export default function FinanceReportPage() {
       <div className="page" style={{ overflowX: 'hidden' }}>
         <div className="card" style={{ minWidth: 0, maxWidth: '100%' }}>
           <div
+            className="mobile-filter-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'minmax(0, 1.3fr) minmax(120px, 150px) minmax(120px, 150px) auto',

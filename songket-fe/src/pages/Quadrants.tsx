@@ -38,6 +38,7 @@ function quadrantColor(value: number) {
 }
 
 export default function QuadrantsPage() {
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 767 : false))
   const [items, setItems] = useState<QuadrantItem[]>([])
   const [activePointId, setActivePointId] = useState<string>('')
   const [filter, setFilter] = useState({ province: '', regency: '', search: '' })
@@ -54,6 +55,15 @@ export default function QuadrantsPage() {
     fetchQuadrantSummary()
       .then((res) => setItems(res.data.data || res.data || []))
       .catch(() => setItems([]))
+  }, [])
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 767)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+    }
   }, [])
 
   useEffect(() => {
@@ -232,9 +242,9 @@ export default function QuadrantsPage() {
   }, [filtered, page, limit])
 
   const chart = useMemo(() => {
-    const width = 920
-    const height = 470
-    const padding = { top: 28, right: 28, bottom: 74, left: 84 }
+    const width = isMobile ? 560 : 920
+    const height = isMobile ? 360 : 470
+    const padding = isMobile ? { top: 24, right: 16, bottom: 60, left: 54 } : { top: 28, right: 28, bottom: 74, left: 84 }
     const plotWidth = width - padding.left - padding.right
     const plotHeight = height - padding.top - padding.bottom
     const pointInset = 10
@@ -242,7 +252,9 @@ export default function QuadrantsPage() {
     const minXFromAxis = 2
     const minYFromAxis = 1
 
-    const xTicks = Array.from({ length: 21 }, (_, index) => (index - 10) * 10) // -100 .. 100
+    const xTicks = isMobile
+      ? Array.from({ length: 11 }, (_, index) => (index - 5) * 20) // -100 .. 100
+      : Array.from({ length: 21 }, (_, index) => (index - 10) * 10) // -100 .. 100
     const maxOrderValue = Math.max(...filtered.map((item) => Number(item.total_orders || 0)), 0)
     const yMax = Math.max(10, maxOrderValue)
     const yTickStep = yMax <= 12 ? 1 : yMax <= 30 ? 2 : yMax <= 60 ? 5 : 10
@@ -345,7 +357,7 @@ export default function QuadrantsPage() {
       yMax,
       points,
     }
-  }, [filtered, provinceNameMap, provinceCodeMap, regencyNameMap])
+  }, [filtered, isMobile, provinceNameMap, provinceCodeMap, regencyNameMap])
 
   const activePoint = useMemo(
     () => chart.points.find((point) => point.id === activePointId) || null,
@@ -427,12 +439,11 @@ export default function QuadrantsPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 14, overflowX: 'auto' }}>
+          <div style={{ marginTop: 14 }}>
             <svg
               viewBox={`0 0 ${chart.width} ${chart.height}`}
               width="100%"
               style={{
-                minWidth: 760,
                 display: 'block',
                 background: '#fff',
                 border: '1px solid #e2e8f0',
@@ -460,7 +471,7 @@ export default function QuadrantsPage() {
                   x={chart.toX(tick)}
                   y={chart.originY - 8}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={isMobile ? 8.5 : 11}
                   fontWeight={700}
                   fill="#111827"
                 >
@@ -474,7 +485,7 @@ export default function QuadrantsPage() {
                   x={chart.originX + 8}
                   y={chart.toY(tick) + 4}
                   textAnchor="start"
-                  fontSize={11}
+                  fontSize={isMobile ? 8.5 : 11}
                   fontWeight={700}
                   fill="#111827"
                 >
@@ -487,41 +498,84 @@ export default function QuadrantsPage() {
                   x={chart.originX + 8}
                   y={chart.toY(-tick) + 4}
                   textAnchor="start"
-                  fontSize={11}
+                  fontSize={isMobile ? 8.5 : 11}
                   fontWeight={700}
                   fill="#111827"
                 >
                   {tick}
                 </text>
               ))}
-              <text x={chart.originX + 8} y={chart.originY + 4} textAnchor="start" fontSize={11} fontWeight={700} fill="#111827">
+              <text x={chart.originX + 8} y={chart.originY + 4} textAnchor="start" fontSize={isMobile ? 8.5 : 11} fontWeight={700} fill="#111827">
                 0
               </text>
 
-              <text x={(chart.left + chart.right) / 2} y={chart.bottom + 56} textAnchor="middle" fontSize={16} fontWeight={700} fill="#111827">
+              <text
+                x={(chart.left + chart.right) / 2}
+                y={chart.bottom + (isMobile ? 44 : 56)}
+                textAnchor="middle"
+                fontSize={isMobile ? 12 : 16}
+                fontWeight={700}
+                fill="#111827"
+              >
                 Credit Capability
               </text>
               <text
-                transform={`translate(${chart.left - 58}, ${(chart.top + chart.bottom) / 2}) rotate(-90)`}
+                transform={`translate(${chart.left - (isMobile ? 38 : 58)}, ${(chart.top + chart.bottom) / 2}) rotate(-90)`}
                 textAnchor="middle"
-                fontSize={16}
+                fontSize={isMobile ? 12 : 16}
                 fontWeight={700}
                 fill="#111827"
               >
                 Order In
               </text>
 
-              <text x={(chart.left + chart.originX) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#16a34a">Kuadran 1</text>
-              <text x={(chart.originX + chart.right) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f97316">Kuadran 3</text>
-              <text x={(chart.left + chart.originX) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f59e0b">Kuadran 2</text>
-              <text x={(chart.originX + chart.right) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#ef4444">Kuadran 4</text>
+              <text
+                x={(chart.left + chart.originX) / 2}
+                y={chart.top - (isMobile ? 6 : 10)}
+                textAnchor="middle"
+                fontSize={isMobile ? 11 : 20}
+                fontWeight={700}
+                fill="#16a34a"
+              >
+                Kuadran 1
+              </text>
+              <text
+                x={(chart.originX + chart.right) / 2}
+                y={chart.top - (isMobile ? 6 : 10)}
+                textAnchor="middle"
+                fontSize={isMobile ? 11 : 20}
+                fontWeight={700}
+                fill="#f97316"
+              >
+                Kuadran 3
+              </text>
+              <text
+                x={(chart.left + chart.originX) / 2}
+                y={chart.bottom + (isMobile ? 20 : 28)}
+                textAnchor="middle"
+                fontSize={isMobile ? 11 : 20}
+                fontWeight={700}
+                fill="#f59e0b"
+              >
+                Kuadran 2
+              </text>
+              <text
+                x={(chart.originX + chart.right) / 2}
+                y={chart.bottom + (isMobile ? 20 : 28)}
+                textAnchor="middle"
+                fontSize={isMobile ? 11 : 20}
+                fontWeight={700}
+                fill="#ef4444"
+              >
+                Kuadran 4
+              </text>
 
               {chart.points.map((point) => (
                 <g key={point.id}>
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={point.id === activePointId ? 8 : 6}
+                    r={point.id === activePointId ? (isMobile ? 7 : 8) : isMobile ? 5 : 6}
                     fill={quadrantColor(point.quadrant)}
                     stroke="#ffffff"
                     strokeWidth={2}
@@ -535,7 +589,7 @@ export default function QuadrantsPage() {
               {activePoint && tooltip && (
                 <g pointerEvents="none">
                   <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={6} fill="#0f172a" opacity={0.94} />
-                  <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={12} fill="#fff" fontWeight={700}>
+                  <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={isMobile ? 11 : 12} fill="#fff" fontWeight={700}>
                     {`${activePoint.provinceLabel} - ${activePoint.regencyLabel}`}
                   </text>
                 </g>

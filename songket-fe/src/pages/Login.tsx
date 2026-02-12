@@ -61,7 +61,7 @@ export default function LoginPage() {
         minHeight: '100vh',
         display: 'grid',
         placeItems: 'center',
-        padding: 18,
+        padding: 'clamp(10px, 3vw, 18px)',
         background: 'linear-gradient(130deg, #dbeafe, #f0f9ff 45%, #e2e8f0)',
       }}
     >
@@ -69,7 +69,7 @@ export default function LoginPage() {
         style={{
           width: 'min(980px, 100%)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
           background: '#ffffff',
           borderRadius: 18,
           overflow: 'hidden',
@@ -79,7 +79,7 @@ export default function LoginPage() {
       >
         <div
           style={{
-            padding: 28,
+            padding: 'clamp(16px, 4vw, 28px)',
             background: 'linear-gradient(155deg, #1d4ed8, #2563eb 58%, #0ea5e9)',
             color: '#eaf2ff',
             display: 'grid',
@@ -90,8 +90,8 @@ export default function LoginPage() {
           <div>
             <div
               style={{
-                width: 200,
-                height: 200,
+                width: 'clamp(140px, 36vw, 220px)',
+                height: 'clamp(140px, 36vw, 220px)',
                 borderRadius: 20,
                 border: '1px solid rgba(255,255,255,0.28)',
                 background: '#1e40af',
@@ -109,11 +109,11 @@ export default function LoginPage() {
               />
             </div>
             <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9 }}>Songket Suite</div>
-            <h1 style={{ margin: '8px 0 0', fontSize: 34, lineHeight: 1.2 }}>Songket Console</h1>
+            <h1 style={{ margin: '8px 0 0', fontSize: 'clamp(26px, 4vw, 34px)', lineHeight: 1.2 }}>Songket Console</h1>
           </div>
         </div>
 
-        <div style={{ padding: 28 }}>
+        <div style={{ padding: 'clamp(16px, 4vw, 28px)' }}>
           <h2 style={{ marginTop: 0 }}>{isRegister ? 'Register Account' : 'Sign In'}</h2>
           <div style={{ color: '#64748b', marginBottom: 14 }}>
             {isRegister ? 'Create a new account to access the system.' : 'Sign in to continue to the dashboard.'}
