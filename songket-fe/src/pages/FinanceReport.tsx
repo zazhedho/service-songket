@@ -10,6 +10,7 @@ type FinanceMigrationRow = {
   order_id: string
   pooling_number: string
   pooling_at: string
+  result_at?: string
   dealer_name: string
   consumer_name: string
   consumer_phone: string
@@ -21,11 +22,22 @@ type FinanceMigrationRow = {
   job_name: string
   motor_type_name: string
   otr: number
+  dp_gross: number
+  dp_paid: number
+  dp_pct: number
+  tenor: number
+  order_result_status: string
+  order_result_notes: string
   finance_1_name: string
   finance_1_status: string
+  finance_1_notes?: string
   finance_2_name: string
   finance_2_status: string
   finance_2_notes: string
+  order_created_at?: string
+  order_updated_at?: string
+  finance_1_decision_at?: string
+  finance_2_decision_at?: string
 }
 
 type OptionItem = {
@@ -91,6 +103,7 @@ export default function FinanceReportPage() {
 
   const [rows, setRows] = useState<FinanceMigrationRow[]>([])
   const [detailRow, setDetailRow] = useState<FinanceMigrationRow | null>(null)
+  const [orderDetailModalOpen, setOrderDetailModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [locationNamesByOrderId, setLocationNamesByOrderId] = useState<Record<string, LocationNames>>({})
@@ -336,17 +349,72 @@ export default function FinanceReportPage() {
           {item && (
             <>
               <div className="card">
+                <h3>Order In Data</h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="table" style={{ minWidth: 1280 }}>
+                    <thead>
+                      <tr>
+                        <th>Pooling Number</th>
+                        <th>Pooling Date</th>
+                        <th>Dealer</th>
+                        <th>Consumer</th>
+                        <th>Location</th>
+                        <th>Motor / OTR</th>
+                        <th>Status 1</th>
+                        <th>Status 2</th>
+                        <th>Order Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{item.pooling_number || '-'}</td>
+                        <td>{formatDateTime(item.pooling_at)}</td>
+                        <td>{item.dealer_name || '-'}</td>
+                        <td>{item.consumer_name || '-'}</td>
+                        <td>{locationText}</td>
+                        <td>{motorOtrText}</td>
+                        <td>{statusBadge(item.finance_1_status || '')}</td>
+                        <td>{statusBadge(item.finance_2_status || '')}</td>
+                        <td>{statusBadge(item.order_result_status || '')}</td>
+                        <td className="action-cell">
+                          <ActionMenu
+                            items={[
+                              {
+                                key: 'view_order_in',
+                                label: 'View',
+                                onClick: () => setOrderDetailModalOpen(true),
+                              },
+                            ]}
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="card">
                 <h3>Order Information</h3>
                 <DetailTable
                   rows={[
                     { label: 'Pooling Number', value: item.pooling_number || '-' },
                     { label: 'Pooling Date', value: formatDateTime(item.pooling_at) },
+                    { label: 'Result Date', value: formatDateTime(item.result_at) },
+                    { label: 'Created At', value: formatDateTime(item.order_created_at) },
+                    { label: 'Updated At', value: formatDateTime(item.order_updated_at) },
                     { label: 'Dealer', value: item.dealer_name || '-' },
                     { label: 'Consumer Name', value: item.consumer_name || '-' },
                     { label: 'Consumer Phone', value: item.consumer_phone || '-' },
                     { label: 'Location', value: locationText },
                     { label: 'Job', value: item.job_name || '-' },
                     { label: 'Motor Type / OTR', value: motorOtrText },
+                    { label: 'DP Gross', value: formatRupiah(Number(item.dp_gross || 0)) },
+                    { label: 'DP Paid', value: formatRupiah(Number(item.dp_paid || 0)) },
+                    { label: 'DP Percentage', value: `${Number(item.dp_pct || 0).toFixed(2)}%` },
+                    { label: 'Tenor', value: `${Number(item.tenor || 0)} months` },
+                    { label: 'Order Status', value: statusBadge(item.order_result_status || '') },
+                    { label: 'Order Notes', value: item.order_result_notes || '-' },
                   ]}
                 />
               </div>
@@ -357,12 +425,87 @@ export default function FinanceReportPage() {
                   rows={[
                     { label: 'Finance 1', value: item.finance_1_name || '-' },
                     { label: 'Status 1', value: statusBadge(item.finance_1_status) },
+                    { label: 'Decision At 1', value: formatDateTime(item.finance_1_decision_at) },
+                    { label: 'Notes Finance 1', value: item.finance_1_notes || '-' },
                     { label: 'Finance 2', value: item.finance_2_name || '-' },
                     { label: 'Status 2', value: statusBadge(item.finance_2_status) },
+                    { label: 'Decision At 2', value: formatDateTime(item.finance_2_decision_at) },
                     { label: 'Notes Finance 2', value: item.finance_2_notes || '-' },
                   ]}
                 />
               </div>
+
+              {orderDetailModalOpen && (
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Order In detail modal">
+                  <div className="modal">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                      <h3>Order In Detail</h3>
+                      <button className="btn-ghost" onClick={() => setOrderDetailModalOpen(false)}>
+                        Close
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+                      <DetailTable
+                        rows={[
+                          { label: 'Pooling Number', value: item.pooling_number || '-' },
+                          { label: 'Pooling Date', value: formatDateTime(item.pooling_at) },
+                          { label: 'Result Date', value: formatDateTime(item.result_at) },
+                          { label: 'Created At', value: formatDateTime(item.order_created_at) },
+                          { label: 'Updated At', value: formatDateTime(item.order_updated_at) },
+                          { label: 'Dealer', value: item.dealer_name || '-' },
+                          { label: 'Consumer Name', value: item.consumer_name || '-' },
+                          { label: 'Consumer Phone', value: item.consumer_phone || '-' },
+                          { label: 'Location', value: locationText },
+                          { label: 'Address', value: item.address || '-' },
+                          { label: 'Job', value: item.job_name || '-' },
+                          { label: 'Motor Type', value: item.motor_type_name || '-' },
+                          { label: 'OTR', value: formatRupiah(Number(item.otr || 0)) },
+                          { label: 'DP Gross', value: formatRupiah(Number(item.dp_gross || 0)) },
+                          { label: 'DP Paid', value: formatRupiah(Number(item.dp_paid || 0)) },
+                          { label: 'DP Percentage', value: `${Number(item.dp_pct || 0).toFixed(2)}%` },
+                          { label: 'Tenor', value: `${Number(item.tenor || 0)} months` },
+                          { label: 'Order Status', value: statusBadge(item.order_result_status || '') },
+                          { label: 'Order Notes', value: item.order_result_notes || '-' },
+                        ]}
+                      />
+
+                      <div>
+                        <h4 style={{ margin: '4px 0 8px' }}>Finance Attempt Detail</h4>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table" style={{ minWidth: 820 }}>
+                            <thead>
+                              <tr>
+                                <th>Attempt</th>
+                                <th>Finance Company</th>
+                                <th>Status</th>
+                                <th>Decision At</th>
+                                <th>Notes</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td>1</td>
+                                <td>{item.finance_1_name || '-'}</td>
+                                <td>{statusBadge(item.finance_1_status || '')}</td>
+                                <td>{formatDateTime(item.finance_1_decision_at)}</td>
+                                <td>{item.finance_1_notes || '-'}</td>
+                              </tr>
+                              <tr>
+                                <td>2</td>
+                                <td>{item.finance_2_name || '-'}</td>
+                                <td>{statusBadge(item.finance_2_status || '')}</td>
+                                <td>{formatDateTime(item.finance_2_decision_at)}</td>
+                                <td>{item.finance_2_notes || '-'}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

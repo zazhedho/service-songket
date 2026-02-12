@@ -1160,29 +1160,37 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 }
 
 type FinanceMigrationReportItem struct {
-	OrderID          string    `gorm:"column:order_id" json:"order_id"`
-	PoolingNumber    string    `gorm:"column:pooling_number" json:"pooling_number"`
-	PoolingAt        time.Time `gorm:"column:pooling_at" json:"pooling_at"`
-	DealerName       string    `gorm:"column:dealer_name" json:"dealer_name"`
-	ConsumerName     string    `gorm:"column:consumer_name" json:"consumer_name"`
-	ConsumerPhone    string    `gorm:"column:consumer_phone" json:"consumer_phone"`
-	Province         string    `gorm:"column:province" json:"province"`
-	Regency          string    `gorm:"column:regency" json:"regency"`
-	District         string    `gorm:"column:district" json:"district"`
-	Village          string    `gorm:"column:village" json:"village"`
-	Address          string    `gorm:"column:address" json:"address"`
-	JobName          string    `gorm:"column:job_name" json:"job_name"`
-	MotorTypeName    string    `gorm:"column:motor_type_name" json:"motor_type_name"`
-	OTR              float64   `gorm:"column:otr" json:"otr"`
-	Finance1Name     string    `gorm:"column:finance_1_name" json:"finance_1_name"`
-	Finance1Status   string    `gorm:"column:finance_1_status" json:"finance_1_status"`
-	Finance1Notes    string    `gorm:"column:finance_1_notes" json:"finance_1_notes"`
-	Finance2Name     string    `gorm:"column:finance_2_name" json:"finance_2_name"`
-	Finance2Status   string    `gorm:"column:finance_2_status" json:"finance_2_status"`
-	Finance2Notes    string    `gorm:"column:finance_2_notes" json:"finance_2_notes"`
-	OrderCreatedAt   time.Time `gorm:"column:order_created_at" json:"order_created_at"`
-	OrderUpdatedAt   time.Time `gorm:"column:order_updated_at" json:"order_updated_at"`
-	Finance2Decision time.Time `gorm:"column:finance_2_decision_at" json:"finance_2_decision_at"`
+	OrderID           string     `gorm:"column:order_id" json:"order_id"`
+	PoolingNumber     string     `gorm:"column:pooling_number" json:"pooling_number"`
+	PoolingAt         time.Time  `gorm:"column:pooling_at" json:"pooling_at"`
+	ResultAt          *time.Time `gorm:"column:result_at" json:"result_at"`
+	DealerName        string     `gorm:"column:dealer_name" json:"dealer_name"`
+	ConsumerName      string     `gorm:"column:consumer_name" json:"consumer_name"`
+	ConsumerPhone     string     `gorm:"column:consumer_phone" json:"consumer_phone"`
+	Province          string     `gorm:"column:province" json:"province"`
+	Regency           string     `gorm:"column:regency" json:"regency"`
+	District          string     `gorm:"column:district" json:"district"`
+	Village           string     `gorm:"column:village" json:"village"`
+	Address           string     `gorm:"column:address" json:"address"`
+	JobName           string     `gorm:"column:job_name" json:"job_name"`
+	MotorTypeName     string     `gorm:"column:motor_type_name" json:"motor_type_name"`
+	OTR               float64    `gorm:"column:otr" json:"otr"`
+	DPGross           float64    `gorm:"column:dp_gross" json:"dp_gross"`
+	DPPaid            float64    `gorm:"column:dp_paid" json:"dp_paid"`
+	DPPct             float64    `gorm:"column:dp_pct" json:"dp_pct"`
+	Tenor             int        `gorm:"column:tenor" json:"tenor"`
+	OrderResultStatus string     `gorm:"column:order_result_status" json:"order_result_status"`
+	OrderResultNotes  string     `gorm:"column:order_result_notes" json:"order_result_notes"`
+	Finance1Name      string     `gorm:"column:finance_1_name" json:"finance_1_name"`
+	Finance1Status    string     `gorm:"column:finance_1_status" json:"finance_1_status"`
+	Finance1Notes     string     `gorm:"column:finance_1_notes" json:"finance_1_notes"`
+	Finance2Name      string     `gorm:"column:finance_2_name" json:"finance_2_name"`
+	Finance2Status    string     `gorm:"column:finance_2_status" json:"finance_2_status"`
+	Finance2Notes     string     `gorm:"column:finance_2_notes" json:"finance_2_notes"`
+	OrderCreatedAt    time.Time  `gorm:"column:order_created_at" json:"order_created_at"`
+	OrderUpdatedAt    time.Time  `gorm:"column:order_updated_at" json:"order_updated_at"`
+	Finance1Decision  time.Time  `gorm:"column:finance_1_decision_at" json:"finance_1_decision_at"`
+	Finance2Decision  time.Time  `gorm:"column:finance_2_decision_at" json:"finance_2_decision_at"`
 }
 
 // ListFinanceMigrationReport returns migration rows when finance 1 was rejected and finance 2 was filled.
@@ -1348,6 +1356,7 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			o.id AS order_id,
 			o.pooling_number AS pooling_number,
 			o.pooling_at AS pooling_at,
+			o.result_at AS result_at,
 			COALESCE(d.name, '-') AS dealer_name,
 			COALESCE(o.consumer_name, '-') AS consumer_name,
 			COALESCE(o.consumer_phone, '-') AS consumer_phone,
@@ -1359,6 +1368,12 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			COALESCE(j.name, '-') AS job_name,
 			COALESCE(mt.name, '-') AS motor_type_name,
 			COALESCE(o.otr, 0) AS otr,
+			COALESCE(o.dp_gross, 0) AS dp_gross,
+			COALESCE(o.dp_paid, 0) AS dp_paid,
+			COALESCE(o.dp_pct, 0) AS dp_pct,
+			COALESCE(o.tenor, 0) AS tenor,
+			COALESCE(o.result_status, '-') AS order_result_status,
+			COALESCE(o.result_notes, '') AS order_result_notes,
 			COALESCE(fc1.name, '-') AS finance_1_name,
 			COALESCE(a1.status, '-') AS finance_1_status,
 			COALESCE(a1.notes, '') AS finance_1_notes,
@@ -1367,6 +1382,7 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			COALESCE(NULLIF(a2.notes, ''), NULLIF(o2a1.notes, ''), NULLIF(o2.result_notes, ''), '') AS finance_2_notes,
 			o.created_at AS order_created_at,
 			o.updated_at AS order_updated_at,
+			a1.created_at AS finance_1_decision_at,
 			COALESCE(a2.created_at, o2a1.created_at, o2.created_at, o.updated_at) AS finance_2_decision_at
 		`).
 		Order(fmt.Sprintf("%s %s", orderColumn, orderDirection)).
