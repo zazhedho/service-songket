@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	//"io"
 	//"net/http"
@@ -738,6 +739,10 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 	approvalRate := 0.0
 	if totalOrders > 0 {
 		approvalRate = float64(approvedOrders) / float64(totalOrders)
+		log.Println("approvalRate ", approvalRate)
+		log.Println("approvedOrders ", approvedOrders)
+		log.Println("totalOrders ", totalOrders)
+
 	}
 
 	qRescue := s.db.Model(&Order{}).
@@ -804,12 +809,15 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 			qApproveFc = qApproveFc.Where("o.pooling_at <= ?", dr.To)
 		}
 		var fcApproved int64
-		if err := qApproveFc.Distinct("o.id").Count(&fcApproved).Error; err != nil {
+		if err := qApproveFc.Distinct("order_finance_attempts.finance_company_id").Debug().Count(&fcApproved).Error; err != nil {
 			return nil, err
 		}
 		fcApproval := 0.0
 		if fcTotal > 0 {
 			fcApproval = float64(fcApproved) / float64(fcTotal)
+			log.Println("fcApproval ", fcApproval)
+			log.Println("fcApproved ", fcApproved)
+			log.Println("fcTotal ", fcTotal)
 		}
 
 		qRescueFc := s.db.Model(&Order{}).
