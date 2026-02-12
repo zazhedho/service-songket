@@ -2310,14 +2310,21 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		}
 
 		quadrant := 4
-		orderHigh := orderPct > orderThresholdPct
-		creditLow := capabilityPct <= creditThresholdPct
 		switch {
-		case orderHigh && creditLow:
+		// Q3: order in > 20% and credit capability >= 35%
+		case orderPct > orderThresholdPct && capabilityPct >= creditThresholdPct:
+			quadrant = 3
+		// Q1: order in >= 20% and credit capability <= 35%
+		case orderPct >= orderThresholdPct && capabilityPct <= creditThresholdPct:
 			quadrant = 1
-		case !orderHigh && creditLow:
+		// Q4: order in < 20% and credit capability > 35%
+		case orderPct < orderThresholdPct && capabilityPct > creditThresholdPct:
+			quadrant = 4
+		// Q2: order in <= 20% and credit capability <= 35%
+		case orderPct <= orderThresholdPct && capabilityPct <= creditThresholdPct:
 			quadrant = 2
-		case orderHigh && !creditLow:
+		// Tie-breakers for boundary values not fully covered by strict rules.
+		case orderPct >= orderThresholdPct:
 			quadrant = 3
 		default:
 			quadrant = 4
