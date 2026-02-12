@@ -2549,7 +2549,10 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 			for _, motor := range motors {
 				capabilityRate := 0.0
 				if job.NetIncome > 0 {
-					capabilityRate = motor.Installment / job.NetIncome
+					capabilityRate = (motor.Installment / job.NetIncome) * 100
+					log.Println("capabilityRate ", capabilityRate)
+					log.Println("Installment ", motor.Installment)
+					log.Println("NetIncome ", job.NetIncome)
 				}
 
 				programSuggestion := 0.0
