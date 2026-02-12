@@ -774,6 +774,8 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 		FinanceCompanyID   string   `json:"finance_company_id"`
 		FinanceCompanyName string   `json:"finance_company_name"`
 		TotalOrders        int64    `json:"total_orders"`
+		ApprovedCount      int64    `json:"approved_count"`
+		RejectedCount      int64    `json:"rejected_count"`
 		LeadTimeSecondsAvg *float64 `json:"lead_time_seconds_avg"`
 		ApprovalRate       float64  `json:"approval_rate"`
 		RescueApprovedFc2  int64    `json:"rescue_approved_fc2"`
@@ -797,21 +799,37 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 			return nil, err
 		}
 
-		qApproveFc := s.db.Model(&OrderFinanceAttempt{}).
-			Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
-			Where("o.dealer_id = ?", dealerId).
-			Where("order_finance_attempts.status = ?", "approve").
-			Where("order_finance_attempts.finance_company_id = ?", fc.Id)
-		if !dr.From.IsZero() {
-			qApproveFc = qApproveFc.Where("o.pooling_at >= ?", dr.From)
+		attemptOneBase := func() *gorm.DB {
+			q := s.db.Model(&OrderFinanceAttempt{}).
+				Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
+				Where("o.dealer_id = ?", dealerId).
+				Where("order_finance_attempts.attempt_no = ?", 1).
+				Where("order_finance_attempts.finance_company_id = ?", fc.Id)
+			if !dr.From.IsZero() {
+				q = q.Where("o.pooling_at >= ?", dr.From)
+			}
+			if !dr.To.IsZero() {
+				q = q.Where("o.pooling_at <= ?", dr.To)
+			}
+			return q
 		}
-		if !dr.To.IsZero() {
-			qApproveFc = qApproveFc.Where("o.pooling_at <= ?", dr.To)
-		}
+
 		var fcApproved int64
-		if err := qApproveFc.Distinct("order_finance_attempts.finance_company_id").Debug().Count(&fcApproved).Error; err != nil {
+		if err := attemptOneBase().
+			Where("order_finance_attempts.status = ?", "approve").
+			Distinct("order_finance_attempts.order_id").
+			Count(&fcApproved).Error; err != nil {
 			return nil, err
 		}
+
+		var fcRejected int64
+		if err := attemptOneBase().
+			Where("order_finance_attempts.status = ?", "reject").
+			Distinct("order_finance_attempts.order_id").
+			Count(&fcRejected).Error; err != nil {
+			return nil, err
+		}
+
 		fcApproval := 0.0
 		if fcTotal > 0 {
 			fcApproval = float64(fcApproved) / float64(fcTotal)
@@ -842,6 +860,8 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 			FinanceCompanyID:   fc.Id,
 			FinanceCompanyName: fc.Name,
 			TotalOrders:        fcTotal,
+			ApprovedCount:      fcApproved,
+			RejectedCount:      fcRejected,
 			LeadTimeSecondsAvg: fcLead,
 			ApprovalRate:       fcApproval,
 			RescueApprovedFc2:  fcRescued,

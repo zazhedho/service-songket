@@ -140,6 +140,8 @@ export default function FinancePage() {
   const [financeLimit, setFinanceLimit] = useState(20)
   const [financeTotalPages, setFinanceTotalPages] = useState(1)
   const [financeTotalData, setFinanceTotalData] = useState(0)
+  const [dealerFinancePage, setDealerFinancePage] = useState(1)
+  const [dealerFinanceLimit, setDealerFinanceLimit] = useState(10)
 
   const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
@@ -449,6 +451,23 @@ export default function FinancePage() {
     const values = financeMetricRows.map((item: any) => Number(item?.total_orders || 0))
     return Math.max(1, ...values)
   }, [financeMetricRows])
+
+  const dealerFinanceTotalData = financeMetricRows.length
+  const dealerFinanceTotalPages = Math.max(1, Math.ceil(dealerFinanceTotalData / dealerFinanceLimit))
+  const dealerFinanceRows = useMemo(() => {
+    const start = (dealerFinancePage - 1) * dealerFinanceLimit
+    return financeMetricRows.slice(start, start + dealerFinanceLimit)
+  }, [dealerFinanceLimit, dealerFinancePage, financeMetricRows])
+
+  useEffect(() => {
+    setDealerFinancePage(1)
+  }, [selectedDealerId])
+
+  useEffect(() => {
+    if (dealerFinancePage > dealerFinanceTotalPages) {
+      setDealerFinancePage(dealerFinanceTotalPages)
+    }
+  }, [dealerFinancePage, dealerFinanceTotalPages])
 
   const dealerFormLat = parseCoordinateValue(dealerForm.lat)
   const dealerFormLng = parseCoordinateValue(dealerForm.lng)
@@ -1611,37 +1630,143 @@ export default function FinancePage() {
               </div>
             </div>
 
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Dealer Performance</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
-              </div>
-
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
-                <div>
-                  <label>Select Dealer</label>
-                  <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                    <option value="">Select dealer</option>
-                    {dealers.map((dealer) => (
-                      <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                    ))}
-                  </select>
+            <div className="dealer-performance-grid">
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Dealer Performance</h3>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
                 </div>
-              </div>
 
-              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
-              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
+                  <div>
+                    <label>Select Dealer</label>
+                    <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                      <option value="">Select dealer</option>
+                      {dealers.map((dealer) => (
+                        <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-              {metrics && (
-                <>
+                {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+                {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+                {metrics && (
                   <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
                     <Metric label="Total Order" value={metrics.total_orders} />
                     <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
                     <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
                     <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
                   </div>
-                </>
-              )}
+                )}
+              </div>
+
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Finance Approval</h3>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+                </div>
+
+                {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance approval stats.</div>}
+                {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+                {metrics && (
+                  <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 12, marginTop: 12 }}>
+                    <div>
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Finance</th>
+                            <th>Total</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dealerFinanceRows.map((fc: any) => {
+                            const total = Number(fc?.total_orders || 0)
+                            const approvedRaw = fc?.approved_count
+                            const rejectedRaw = fc?.rejected_count
+                            const approved = Number.isFinite(Number(approvedRaw))
+                              ? Number(approvedRaw)
+                              : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                            const rejected = Number.isFinite(Number(rejectedRaw))
+                              ? Number(rejectedRaw)
+                              : Math.max(0, total - approved)
+                            return (
+                              <tr key={`dealer-approval-${fc.finance_company_id}`}>
+                                <td>{fc.finance_company_name}</td>
+                                <td>{total}</td>
+                                <td>{approved}</td>
+                                <td>{rejected}</td>
+                              </tr>
+                            )
+                          })}
+                          {financeMetricRows.length === 0 && (
+                            <tr>
+                              <td colSpan={4}>No finance company metric for this dealer.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      {dealerFinanceTotalData > 0 && (
+                        <Pagination
+                          page={dealerFinancePage}
+                          totalPages={dealerFinanceTotalPages}
+                          totalData={dealerFinanceTotalData}
+                          limit={dealerFinanceLimit}
+                          onPageChange={setDealerFinancePage}
+                          onLimitChange={(next) => {
+                            setDealerFinanceLimit(next)
+                            setDealerFinancePage(1)
+                          }}
+                          limitOptions={[5, 10, 20, 50]}
+                        />
+                      )}
+                    </div>
+
+                    <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Approval Summary</div>
+                      {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
+                      {dealerFinanceRows.map((fc: any) => {
+                        const total = Number(fc?.total_orders || 0)
+                        const approvedRaw = fc?.approved_count
+                        const rejectedRaw = fc?.rejected_count
+                        const approved = Number.isFinite(Number(approvedRaw))
+                          ? Number(approvedRaw)
+                          : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                        const rejected = Number.isFinite(Number(rejectedRaw))
+                          ? Number(rejectedRaw)
+                          : Math.max(0, total - approved)
+                        const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
+                        return (
+                          <div key={`dealer-approval-chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
+                              <span style={{ fontWeight: 600 }}>{fc.finance_company_name || '-'}</span>
+                              <span>{total}</span>
+                            </div>
+                            <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
+                              <div
+                                style={{
+                                  width: `${Math.min(100, width)}%`,
+                                  height: '100%',
+                                  borderRadius: 999,
+                                  background: '#2563eb',
+                                  transition: 'width .25s ease',
+                                }}
+                              />
+                            </div>
+                            <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+                              Approve {approved} | Reject {rejected} | {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -1758,24 +1883,39 @@ export default function FinancePage() {
                         <tr>
                           <th>Finance</th>
                           <th>Total</th>
-                          <th>Approve</th>
+                          <th>Approved</th>
+                          <th>Rejected</th>
+                          <th>Approve %</th>
                           <th>Lead Avg</th>
                           <th>Rescue FC2</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {financeMetricRows.map((fc: any) => (
-                          <tr key={fc.finance_company_id}>
-                            <td>{fc.finance_company_name}</td>
-                            <td>{fc.total_orders}</td>
-                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                            <td>{fc.rescue_approved_fc2 || 0}</td>
-                          </tr>
-                        ))}
+                        {financeMetricRows.map((fc: any) => {
+                          const total = Number(fc?.total_orders || 0)
+                          const approvedRaw = fc?.approved_count
+                          const rejectedRaw = fc?.rejected_count
+                          const approved = Number.isFinite(Number(approvedRaw))
+                            ? Number(approvedRaw)
+                            : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                          const rejected = Number.isFinite(Number(rejectedRaw))
+                            ? Number(rejectedRaw)
+                            : Math.max(0, total - approved)
+                          return (
+                            <tr key={fc.finance_company_id}>
+                              <td>{fc.finance_company_name}</td>
+                              <td>{total}</td>
+                              <td>{approved}</td>
+                              <td>{rejected}</td>
+                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                              <td>{fc.rescue_approved_fc2 || 0}</td>
+                            </tr>
+                          )
+                        })}
                         {financeMetricRows.length === 0 && (
                           <tr>
-                            <td colSpan={5}>No finance company metric for this dealer.</td>
+                            <td colSpan={7}>No finance company metric for this dealer.</td>
                           </tr>
                         )}
                       </tbody>
@@ -1787,6 +1927,14 @@ export default function FinancePage() {
                     {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
                     {financeMetricRows.map((fc: any) => {
                       const total = Number(fc?.total_orders || 0)
+                      const approvedRaw = fc?.approved_count
+                      const rejectedRaw = fc?.rejected_count
+                      const approved = Number.isFinite(Number(approvedRaw))
+                        ? Number(approvedRaw)
+                        : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                      const rejected = Number.isFinite(Number(rejectedRaw))
+                        ? Number(rejectedRaw)
+                        : Math.max(0, total - approved)
                       const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
                       return (
                         <div key={`chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
@@ -1806,7 +1954,7 @@ export default function FinancePage() {
                             />
                           </div>
                           <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                            Approval {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
+                            Approve {approved} | Reject {rejected} | {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
                           </div>
                         </div>
                       )

@@ -447,6 +447,12 @@ h4 {
     align-items: start;
   }
 
+  .dealer-performance-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
   .profile-summary-card {
     background:
       radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.12), transparent 36%),
@@ -1289,6 +1295,10 @@ h4 {
   }
 
   .profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dealer-performance-grid {
     grid-template-columns: 1fr;
   }
 
