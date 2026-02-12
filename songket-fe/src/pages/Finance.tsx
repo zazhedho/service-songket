@@ -1757,9 +1757,34 @@ export default function FinancePage() {
                 {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
 
                 {metrics && (
-                  <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 12, marginTop: 12 }}>
-                    <div>
-                      <table className="table">
+                  <div className="finance-approval-compact">
+                    <div className="finance-approval-top">
+                      <div className="finance-approval-filter">
+                        <label>Select Finance 1</label>
+                        <select
+                          value={selectedTransitionFromFinanceID}
+                          onChange={(e) => setSelectedTransitionFromFinanceID(e.target.value)}
+                        >
+                          {transitionFromFinanceOptions.length === 0 && <option value="">No data</option>}
+                          {transitionFromFinanceOptions.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="finance-approval-kpi-grid">
+                        <MiniMetric label="Finance 1" value={selectedTransitionFromFinanceName} />
+                        <MiniMetric label="Total" value={selectedTransitionSummary.total} />
+                        <MiniMetric label="Approved" value={selectedTransitionSummary.approved} />
+                        <MiniMetric label="Rejected" value={selectedTransitionSummary.rejected} />
+                        <MiniMetric label="Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
+                      </div>
+                    </div>
+
+                    <div className="compact-section">
+                      <div className="compact-section-title">Finance Snapshot</div>
+                      <table className="table compact-table">
                         <thead>
                           <tr>
                             <th>Finance</th>
@@ -1809,120 +1834,50 @@ export default function FinancePage() {
                           limitOptions={[5, 10, 20, 50]}
                         />
                       )}
-
-                      <div style={{ marginTop: 14, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance 1 Reject to Finance 2 Outcome</div>
-                        <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                          Pick rejected Finance 1, then see its Finance 2 distribution and approval rate.
-                        </div>
-                        <div style={{ maxWidth: 320, marginBottom: 8 }}>
-                          <label>Select Finance 1 (Rejected)</label>
-                          <select
-                            value={selectedTransitionFromFinanceID}
-                            onChange={(e) => setSelectedTransitionFromFinanceID(e.target.value)}
-                          >
-                            {transitionFromFinanceOptions.length === 0 && <option value="">No data</option>}
-                            {transitionFromFinanceOptions.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <table className="table">
-                          <thead>
-                            <tr>
-                              <th>Finance 2 Name</th>
-                              <th>Total Data</th>
-                              <th>Approved</th>
-                              <th>Rejected</th>
-                              <th>Approval Rate</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dealerTransitionRows.map((item: any) => (
-                              <tr key={`${item.finance_1_company_id}-${item.finance_2_company_id}`}>
-                                <td>{item.finance_2_company_name || '-'}</td>
-                                <td>{Number(item.total_data || 0)}</td>
-                                <td>{Number(item.approved_count || 0)}</td>
-                                <td>{Number(item.rejected_count || 0)}</td>
-                                <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              </tr>
-                            ))}
-                            {filteredTransitionRows.length === 0 && (
-                              <tr>
-                                <td colSpan={5}>No finance transition data for this dealer.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                        {dealerTransitionTotalData > 0 && (
-                          <Pagination
-                            page={dealerTransitionPage}
-                            totalPages={dealerTransitionTotalPages}
-                            totalData={dealerTransitionTotalData}
-                            limit={dealerTransitionLimit}
-                            onPageChange={setDealerTransitionPage}
-                            onLimitChange={(next) => {
-                              setDealerTransitionLimit(next)
-                              setDealerTransitionPage(1)
-                            }}
-                            limitOptions={[5, 10, 20, 50]}
-                          />
-                        )}
-                      </div>
                     </div>
 
-                    <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Transition Summary</div>
-                      {filteredTransitionRows.length === 0 && (
-                        <div style={{ color: '#64748b', fontSize: 13 }}>No transition summary yet.</div>
-                      )}
-                      {filteredTransitionRows.length > 0 && (
-                        <>
-                          <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
-                            Finance 1: <strong>{selectedTransitionFromFinanceName}</strong>
-                          </div>
-                          <div className="grid" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8, marginBottom: 10 }}>
-                            <Metric label="Total Data" value={selectedTransitionSummary.total} />
-                            <Metric label="Approval Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
-                            <Metric label="Approved" value={selectedTransitionSummary.approved} />
-                            <Metric label="Rejected" value={selectedTransitionSummary.rejected} />
-                          </div>
-                          {filteredTransitionRows.slice(0, 6).map((item: any) => {
-                            const max = Math.max(
-                              1,
-                              ...filteredTransitionRows.map((row: any) => Number(row?.total_data || 0)),
-                            )
-                            const width = Math.max(8, (Number(item?.total_data || 0) / max) * 100)
-                            return (
-                              <div
-                                key={`transition-chart-${item.finance_1_company_id}-${item.finance_2_company_id}`}
-                                style={{ marginBottom: 10 }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-                                  <span style={{ fontWeight: 600 }}>{item.finance_2_company_name || '-'}</span>
-                                  <span>{Number(item.total_data || 0)}</span>
-                                </div>
-                                <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
-                                  <div
-                                    style={{
-                                      width: `${Math.min(100, width)}%`,
-                                      height: '100%',
-                                      borderRadius: 999,
-                                      background: '#2563eb',
-                                      transition: 'width .25s ease',
-                                    }}
-                                  />
-                                </div>
-                                <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                                  Approve {Number(item.approved_count || 0)} | Reject {Number(item.rejected_count || 0)} |{' '}
-                                  {(Number(item.approval_rate || 0) * 100).toFixed(1)}%
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </>
+                    <div className="compact-section">
+                      <div className="compact-section-title">Finance 1 Reject to Finance 2 Outcome</div>
+                      <table className="table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Finance 2 Name</th>
+                            <th>Total Data</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                            <th>Approval Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dealerTransitionRows.map((item: any) => (
+                            <tr key={`${item.finance_1_company_id}-${item.finance_2_company_id}`}>
+                              <td>{item.finance_2_company_name || '-'}</td>
+                              <td>{Number(item.total_data || 0)}</td>
+                              <td>{Number(item.approved_count || 0)}</td>
+                              <td>{Number(item.rejected_count || 0)}</td>
+                              <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
+                            </tr>
+                          ))}
+                          {filteredTransitionRows.length === 0 && (
+                            <tr>
+                              <td colSpan={5}>No finance transition data for this dealer.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      {dealerTransitionTotalData > 0 && (
+                        <Pagination
+                          page={dealerTransitionPage}
+                          totalPages={dealerTransitionTotalPages}
+                          totalData={dealerTransitionTotalData}
+                          limit={dealerTransitionLimit}
+                          onPageChange={setDealerTransitionPage}
+                          onLimitChange={(next) => {
+                            setDealerTransitionLimit(next)
+                            setDealerTransitionPage(1)
+                          }}
+                          limitOptions={[5, 10, 20, 50]}
+                        />
                       )}
                     </div>
                   </div>
@@ -2137,6 +2092,15 @@ function MapFly({ center }: { center: [number, number] }) {
     if (center?.length === 2) map.flyTo(center, map.getZoom(), { duration: 0.5 })
   }, [center, map])
   return null
+}
+
+function MiniMetric({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="mini-metric">
+      <div className="mini-metric-label">{label}</div>
+      <div className="mini-metric-value">{value}</div>
+    </div>
+  )
 }
 
 function Metric({ label, value }: { label: string; value: any }) {

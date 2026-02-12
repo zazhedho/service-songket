@@ -807,6 +807,86 @@ h4 {
     border-bottom: 0;
   }
 
+  .finance-approval-compact {
+    margin-top: 10px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .finance-approval-top {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .finance-approval-filter {
+    min-width: 0;
+    max-width: 320px;
+  }
+
+  .finance-approval-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 8px;
+  }
+
+  .finance-approval-kpi-grid .mini-metric:first-child {
+    grid-column: span 2;
+  }
+
+  .mini-metric {
+    border: 1px solid #dbe3ef;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 8px;
+    min-width: 0;
+  }
+
+  .mini-metric-label {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .mini-metric-value {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .compact-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+  }
+
+  .compact-section-title {
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .table.compact-table {
+    font-size: 12px;
+  }
+
+  .table.compact-table th,
+  .table.compact-table td {
+    padding: 7px 8px;
+  }
+
+  .table.compact-table td {
+    max-width: 22ch;
+  }
+
   .finance-dealer-table {
     table-layout: fixed;
   }
@@ -1300,6 +1380,18 @@ h4 {
 
   .dealer-performance-grid {
     grid-template-columns: 1fr;
+  }
+
+  .finance-approval-top {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-approval-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-approval-kpi-grid .mini-metric:first-child {
+    grid-column: span 1;
   }
 
   .profile-form-grid {
