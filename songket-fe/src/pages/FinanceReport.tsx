@@ -226,7 +226,7 @@ export default function FinanceReportPage() {
   if (!canList) {
     return (
       <div className="page">
-        <div className="card">
+        <div className="card" style={{ minWidth: 0 }}>
           <h3>Report Finance</h3>
           <div className="alert">No access permission for finance migration report.</div>
         </div>
@@ -235,7 +235,7 @@ export default function FinanceReportPage() {
   }
 
   return (
-    <div>
+    <div style={{ overflowX: 'hidden' }}>
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance</div>
@@ -243,9 +243,16 @@ export default function FinanceReportPage() {
         </div>
       </div>
 
-      <div className="page">
-        <div className="card">
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.3fr) 150px 150px auto', gap: 10, alignItems: 'end' }}>
+      <div className="page" style={{ overflowX: 'hidden' }}>
+        <div className="card" style={{ minWidth: 0, maxWidth: '100%' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1.3fr) minmax(120px, 150px) minmax(120px, 150px) auto',
+              gap: 10,
+              alignItems: 'end',
+            }}
+          >
             <div>
               <label>Search</label>
               <input
@@ -287,7 +294,7 @@ export default function FinanceReportPage() {
 
           {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
-          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+          <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
             <table className="table" style={{ minWidth: 1890, tableLayout: 'fixed' }}>
               <thead>
                 <tr>
@@ -347,7 +354,10 @@ export default function FinanceReportPage() {
                             {
                               key: 'view',
                               label: 'View',
-                              onClick: () => navigate(`/orders/${item.order_id}`),
+                              onClick: () =>
+                                navigate(`/orders/${item.order_id}`, {
+                                  state: { back_to: '/finance-report' },
+                                }),
                             },
                           ]}
                         />

@@ -93,6 +93,8 @@ export default function OrdersPage() {
   const fetchedKecamatanRef = useRef<Set<string>>(new Set())
 
   const stateOrder = (location.state as any)?.order || null
+  const stateBackTo = (location.state as any)?.back_to
+  const backTo = typeof stateBackTo === 'string' && stateBackTo.trim() ? stateBackTo : '/orders'
 
   const loadList = async (params?: Record<string, unknown>) => {
     const request = params || { page, limit }
@@ -483,11 +485,14 @@ export default function OrdersPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/orders/${selectedId}/edit`, { state: { order: selectedOrder } })}>
+              <button
+                className="btn"
+                onClick={() => navigate(`/orders/${selectedId}/edit`, { state: { order: selectedOrder, back_to: backTo } })}
+              >
                 Edit Order
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/orders')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate(backTo)}>Kembali</button>
           </div>
         </div>
 
