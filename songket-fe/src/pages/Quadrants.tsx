@@ -238,44 +238,111 @@ export default function QuadrantsPage() {
     const plotWidth = width - padding.left - padding.right
     const plotHeight = height - padding.top - padding.bottom
     const pointInset = 10
-    const ticks = Array.from({ length: 11 }, (_, index) => index * 10)
+    const axisGap = 9
+    const minXFromAxis = 2
+    const minYFromAxis = 1
 
-    const toX = (percent: number) => padding.left + (clampPercent(percent) / 100) * plotWidth
-    const toY = (percent: number) => padding.top + ((100 - clampPercent(percent)) / 100) * plotHeight
+    const xTicks = Array.from({ length: 21 }, (_, index) => (index - 10) * 10) // -100 .. 100
+    const maxOrderValue = Math.max(...filtered.map((item) => Number(item.total_orders || 0)), 0)
+    const yMax = Math.max(10, maxOrderValue)
+    const yTickStep = yMax <= 12 ? 1 : yMax <= 30 ? 2 : yMax <= 60 ? 5 : 10
+    const yTicks: number[] = []
+    for (let value = yTickStep; value <= yMax; value += yTickStep) {
+      yTicks.push(value)
+    }
 
     const crisp = (value: number) => Math.round(value) + 0.5
-    const axisX = crisp(toX(35))
-    const axisY = crisp(toY(20))
     const left = crisp(padding.left)
     const top = crisp(padding.top)
     const right = crisp(width - padding.right)
     const bottom = crisp(height - padding.bottom)
+    const originX = crisp((left + right) / 2)
+    const originY = crisp((top + bottom) / 2)
 
-    const points = filtered.map((item, idx) => ({
-      id: `${item.province || ''}-${item.regency || ''}-${idx}`,
-      areaLabel: displayRegency(item.province, item.regency),
-      provinceLabel: displayProvince(item.province),
-      regencyLabel: displayRegency(item.province, item.regency),
-      totalOrders: item.total_orders,
-      x: Math.min(Math.max(toX(item.credit_capability), left + pointInset), right - pointInset),
-      y: Math.min(Math.max(toY(item.order_in_percent), top + pointInset), bottom - pointInset),
-      quadrant: item.quadrant,
-      orderInPercent: item.order_in_percent,
-      creditCapability: item.credit_capability,
-    }))
+    const toX = (signedPercent: number) => originX + (signedPercent / 100) * ((right - left) / 2)
+    const toY = (signedOrder: number) => originY - (signedOrder / yMax) * ((bottom - top) / 2)
+
+    const resolveSignedPosition = (item: QuadrantItem) => {
+      const xRaw = clampPercent(item.credit_capability)
+      const yRaw = Math.max(0, Math.min(yMax, Number(item.total_orders || 0)))
+
+      let xSign = 1
+      let ySign = 1
+      switch (item.quadrant) {
+        case 1:
+          xSign = -1
+          ySign = 1
+          break
+        case 2:
+          xSign = -1
+          ySign = -1
+          break
+        case 3:
+          xSign = 1
+          ySign = 1
+          break
+        case 4:
+          xSign = 1
+          ySign = -1
+          break
+        default:
+          xSign = 1
+          ySign = 1
+      }
+
+      let xSigned = xRaw * xSign
+      let ySigned = yRaw * ySign
+
+      if (Math.abs(xSigned) < minXFromAxis) xSigned = xSign * minXFromAxis
+      if (Math.abs(ySigned) < minYFromAxis) ySigned = ySign * minYFromAxis
+
+      return { xSigned, ySigned, xSign, ySign, yRaw, xRaw }
+    }
+
+    const points = filtered.map((item, idx) => {
+      const { xSigned, ySigned, xSign, ySign, yRaw, xRaw } = resolveSignedPosition(item)
+
+      let x = toX(xSigned)
+      let y = toY(ySigned)
+
+      x = Math.min(Math.max(x, left + pointInset), right - pointInset)
+      y = Math.min(Math.max(y, top + pointInset), bottom - pointInset)
+
+      if (xSign > 0 && x < originX + axisGap) x = originX + axisGap
+      if (xSign < 0 && x > originX - axisGap) x = originX - axisGap
+      if (ySign > 0 && y > originY - axisGap) y = originY - axisGap
+      if (ySign < 0 && y < originY + axisGap) y = originY + axisGap
+
+      return {
+        id: `${item.province || ''}-${item.regency || ''}-${idx}`,
+        areaLabel: displayRegency(item.province, item.regency),
+        provinceLabel: displayProvince(item.province),
+        regencyLabel: displayRegency(item.province, item.regency),
+        totalOrders: item.total_orders,
+        x,
+        y,
+        quadrant: item.quadrant,
+        orderInPercent: item.order_in_percent,
+        creditCapability: item.credit_capability,
+        axisOrderValue: yRaw,
+        axisCreditValue: xRaw,
+      }
+    })
 
     return {
       width,
       height,
       toX,
       toY,
-      axisX,
-      axisY,
+      originX,
+      originY,
       left,
       top,
       right,
       bottom,
-      ticks,
+      xTicks,
+      yTicks,
+      yMax,
       points,
     }
   }, [filtered, provinceNameMap, provinceCodeMap, regencyNameMap])
@@ -384,27 +451,27 @@ export default function QuadrantsPage() {
                 rx={10}
               />
 
-              <line x1={chart.axisX} y1={chart.top} x2={chart.axisX} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
-              <line x1={chart.left} y1={chart.axisY} x2={chart.right} y2={chart.axisY} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
+              <line x1={chart.originX} y1={chart.top} x2={chart.originX} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
+              <line x1={chart.left} y1={chart.originY} x2={chart.right} y2={chart.originY} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
 
-              {chart.ticks.map((tick) => (
+              {chart.xTicks.map((tick) => (
                 <text
-                  key={`x-tick-${tick}`}
+                  key={`x-tick-${String(tick)}`}
                   x={chart.toX(tick)}
-                  y={chart.axisY - 8}
+                  y={chart.originY - 8}
                   textAnchor="middle"
                   fontSize={11}
                   fontWeight={700}
                   fill="#111827"
                 >
-                  {tick}%
+                  {tick === 0 ? '0' : `${Math.abs(tick)}%`}
                 </text>
               ))}
 
-              {chart.ticks.map((tick) => (
+              {chart.yTicks.map((tick) => (
                 <text
-                  key={`y-tick-${tick}`}
-                  x={chart.axisX + 8}
+                  key={`y-tick-pos-${String(tick)}`}
+                  x={chart.originX + 8}
                   y={chart.toY(tick) + 4}
                   textAnchor="start"
                   fontSize={11}
@@ -414,6 +481,22 @@ export default function QuadrantsPage() {
                   {tick}
                 </text>
               ))}
+              {chart.yTicks.map((tick) => (
+                <text
+                  key={`y-tick-neg-${String(tick)}`}
+                  x={chart.originX + 8}
+                  y={chart.toY(-tick) + 4}
+                  textAnchor="start"
+                  fontSize={11}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {tick}
+                </text>
+              ))}
+              <text x={chart.originX + 8} y={chart.originY + 4} textAnchor="start" fontSize={11} fontWeight={700} fill="#111827">
+                0
+              </text>
 
               <text x={(chart.left + chart.right) / 2} y={chart.bottom + 56} textAnchor="middle" fontSize={16} fontWeight={700} fill="#111827">
                 Credit Capability
@@ -428,10 +511,10 @@ export default function QuadrantsPage() {
                 Order In
               </text>
 
-              <text x={(chart.left + chart.axisX) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#16a34a">Kuadran 1</text>
-              <text x={(chart.axisX + chart.right) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f97316">Kuadran 3</text>
-              <text x={(chart.left + chart.axisX) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f59e0b">Kuadran 2</text>
-              <text x={(chart.axisX + chart.right) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#ef4444">Kuadran 4</text>
+              <text x={(chart.left + chart.originX) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#16a34a">Kuadran 1</text>
+              <text x={(chart.originX + chart.right) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f97316">Kuadran 3</text>
+              <text x={(chart.left + chart.originX) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f59e0b">Kuadran 2</text>
+              <text x={(chart.originX + chart.right) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#ef4444">Kuadran 4</text>
 
               {chart.points.map((point) => (
                 <g key={point.id}>
