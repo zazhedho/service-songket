@@ -2186,8 +2186,18 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 	return summaries, nil
 }
 
-// CreditCapabilityWorksheet builds worksheet-style capability matrix per area.
+// CreditCapabilityWorksheet builds worksheet-style capability matrix based on Order In data.
 func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (map[string]interface{}, error) {
+	type worksheetOrderAnchorRow struct {
+		JobID         string `gorm:"column:job_id"`
+		JobName       string `gorm:"column:job_name"`
+		MotorTypeID   string `gorm:"column:motor_type_id"`
+		MotorTypeName string `gorm:"column:motor_type_name"`
+		ProvinceCode  string `gorm:"column:province_code"`
+		ProvinceName  string `gorm:"column:province_name"`
+		RegencyCode   string `gorm:"column:regency_code"`
+		RegencyName   string `gorm:"column:regency_name"`
+	}
 	type worksheetJobIncomeRow struct {
 		JobID         string         `gorm:"column:job_id"`
 		JobName       string         `gorm:"column:job_name"`
@@ -2212,45 +2222,76 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		JobsByID     map[string]CreditWorksheetJob
 		MotorsByID   map[string]CreditWorksheetMotor
 	}
+	type jobIncomeValue struct {
+		Name      string
+		NetIncome float64
+	}
+	type motorInstallmentValue struct {
+		Name        string
+		Installment float64
+	}
 
 	provinceFilter := strings.TrimSpace(provinceCode)
 	regencyFilter := strings.TrimSpace(regencyCode)
-	matchesArea := func(province, regency string) bool {
-		if provinceFilter != "" && !strings.EqualFold(strings.TrimSpace(province), provinceFilter) {
+	matchFilterValue := func(filterValue, codeValue, nameValue string) bool {
+		filter := strings.ToLower(strings.TrimSpace(filterValue))
+		if filter == "" {
+			return true
+		}
+		code := strings.ToLower(strings.TrimSpace(codeValue))
+		name := strings.ToLower(strings.TrimSpace(nameValue))
+		return code == filter || name == filter
+	}
+	matchesArea := func(provCode, provName, regCode, regName string) bool {
+		if !matchFilterValue(provinceFilter, provCode, provName) {
 			return false
 		}
-		if regencyFilter != "" && !strings.EqualFold(strings.TrimSpace(regency), regencyFilter) {
+		if !matchFilterValue(regencyFilter, regCode, regName) {
 			return false
 		}
 		return true
 	}
-	buildAreaKey := func(province, regency string) string {
-		return strings.ToLower(strings.TrimSpace(province) + "|" + strings.TrimSpace(regency))
+	areaPart := func(code, name string) string {
+		if trimmed := strings.ToLower(strings.TrimSpace(code)); trimmed != "" {
+			return trimmed
+		}
+		return strings.ToLower(strings.TrimSpace(name))
+	}
+	buildAreaKey := func(provCode, provName, regCode, regName string) string {
+		return areaPart(provCode, provName) + "|" + areaPart(regCode, regName)
+	}
+	jobAreaKey := func(jobID, regCode, regName string) string {
+		return strings.ToLower(strings.TrimSpace(jobID)) + "|" + areaPart(regCode, regName)
+	}
+	motorAreaKey := func(motorID, regCode, regName string) string {
+		return strings.ToLower(strings.TrimSpace(motorID)) + "|" + areaPart(regCode, regName)
 	}
 
 	areasByKey := make(map[string]*worksheetAreaAggregate)
-	jobsMaster := make([]CreditWorksheetJobMaster, 0)
-	jobsMasterSeen := map[string]struct{}{}
-	motorsMaster := make([]CreditWorksheetMotorMaster, 0)
-	motorsMasterSeen := map[string]struct{}{}
-	ensureArea := func(provinceCode, provinceName, regencyCode, regencyName string) *worksheetAreaAggregate {
-		areaKey := buildAreaKey(provinceCode, regencyCode)
+	ensureArea := func(provCode, provName, regCode, regName string) *worksheetAreaAggregate {
+		areaKey := buildAreaKey(provCode, provName, regCode, regName)
 		if area, ok := areasByKey[areaKey]; ok {
+			if strings.TrimSpace(area.ProvinceCode) == "" {
+				area.ProvinceCode = strings.TrimSpace(provCode)
+			}
 			if strings.TrimSpace(area.ProvinceName) == "" {
-				area.ProvinceName = strings.TrimSpace(provinceName)
+				area.ProvinceName = strings.TrimSpace(provName)
+			}
+			if strings.TrimSpace(area.RegencyCode) == "" {
+				area.RegencyCode = strings.TrimSpace(regCode)
 			}
 			if strings.TrimSpace(area.RegencyName) == "" {
-				area.RegencyName = strings.TrimSpace(regencyName)
+				area.RegencyName = strings.TrimSpace(regName)
 			}
 			return area
 		}
 
 		area := &worksheetAreaAggregate{
 			AreaKey:      areaKey,
-			ProvinceCode: strings.TrimSpace(provinceCode),
-			ProvinceName: strings.TrimSpace(provinceName),
-			RegencyCode:  strings.TrimSpace(regencyCode),
-			RegencyName:  strings.TrimSpace(regencyName),
+			ProvinceCode: strings.TrimSpace(provCode),
+			ProvinceName: strings.TrimSpace(provName),
+			RegencyCode:  strings.TrimSpace(regCode),
+			RegencyName:  strings.TrimSpace(regName),
 			JobsByID:     map[string]CreditWorksheetJob{},
 			MotorsByID:   map[string]CreditWorksheetMotor{},
 		}
@@ -2264,6 +2305,71 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		return area
 	}
 
+	// 1) Anchor matrix dimension from Order In rows to guarantee worksheet matches transactional data.
+	var anchors []worksheetOrderAnchorRow
+	if err := s.db.
+		Table("orders o").
+		Select(`
+			o.job_id AS job_id,
+			COALESCE(j.name, '') AS job_name,
+			o.motor_type_id AS motor_type_id,
+			COALESCE(mt.name, '') AS motor_type_name,
+			COALESCE(NULLIF(mt.province_code, ''), '') AS province_code,
+			COALESCE(NULLIF(mt.province_name, ''), NULLIF(o.province, ''), '') AS province_name,
+			COALESCE(NULLIF(mt.regency_code, ''), '') AS regency_code,
+			COALESCE(NULLIF(mt.regency_name, ''), NULLIF(o.regency, ''), '') AS regency_name
+		`).
+		Joins("LEFT JOIN jobs j ON j.id::text = NULLIF(TRIM(o.job_id::text), '') AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN motor_types mt ON mt.id::text = NULLIF(TRIM(o.motor_type_id::text), '') AND mt.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("NULLIF(TRIM(o.job_id::text), '') IS NOT NULL").
+		Where("NULLIF(TRIM(o.motor_type_id::text), '') IS NOT NULL").
+		Group(`
+			o.job_id, j.name,
+			o.motor_type_id, mt.name,
+			mt.province_code, mt.province_name,
+			mt.regency_code, mt.regency_name,
+			o.province, o.regency
+		`).
+		Scan(&anchors).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range anchors {
+		jobID := strings.TrimSpace(row.JobID)
+		motorID := strings.TrimSpace(row.MotorTypeID)
+		if jobID == "" || motorID == "" {
+			continue
+		}
+		if strings.TrimSpace(row.RegencyCode) == "" && strings.TrimSpace(row.RegencyName) == "" {
+			continue
+		}
+		if !matchesArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName) {
+			continue
+		}
+
+		area := ensureArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName)
+		if _, exists := area.JobsByID[jobID]; !exists {
+			area.JobsByID[jobID] = CreditWorksheetJob{
+				JobID:     jobID,
+				JobName:   strings.TrimSpace(row.JobName),
+				NetIncome: 0,
+				Area:      area.RegencyName,
+			}
+		}
+		if _, exists := area.MotorsByID[motorID]; !exists {
+			area.MotorsByID[motorID] = CreditWorksheetMotor{
+				MotorTypeID:   motorID,
+				MotorTypeName: strings.TrimSpace(row.MotorTypeName),
+				Installment:   0,
+				Area:          area.RegencyName,
+			}
+		}
+	}
+
+	// 2) Lookup net income values from job master (with area-specific mapping and fallback by job).
+	jobIncomeByArea := map[string]jobIncomeValue{}
+	jobIncomeByJob := map[string]jobIncomeValue{}
 	var jobRows []worksheetJobIncomeRow
 	if err := s.db.
 		Table("job_net_incomes").
@@ -2279,52 +2385,36 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		Scan(&jobRows).Error; err != nil {
 		return nil, err
 	}
-
 	for _, row := range jobRows {
-		areas := decodeAreaNetIncome(row.AreaNetIncome)
-		if len(areas) == 0 {
+		jobID := strings.TrimSpace(row.JobID)
+		if jobID == "" {
 			continue
 		}
-
-		for _, area := range areas {
-			pCode := strings.TrimSpace(area.ProvinceCode)
-			rCode := strings.TrimSpace(area.RegencyCode)
-			if pCode == "" || rCode == "" {
-				continue
-			}
-			if !matchesArea(pCode, rCode) {
-				continue
-			}
-
-			agg := ensureArea(pCode, area.ProvinceName, rCode, area.RegencyName)
-			jobID := strings.TrimSpace(row.JobID)
-			if jobID == "" {
-				continue
-			}
-			jobKey := strings.ToLower(strings.TrimSpace(jobID) + "|" + strings.TrimSpace(rCode))
-			if _, ok := jobsMasterSeen[jobKey]; !ok {
-				jobsMasterSeen[jobKey] = struct{}{}
-				jobsMaster = append(jobsMaster, CreditWorksheetJobMaster{
-					JobID:       jobID,
-					JobName:     strings.TrimSpace(row.JobName),
-					NetIncome:   row.NetIncome,
-					RegencyCode: rCode,
-					RegencyName: agg.RegencyName,
-				})
-			}
-			if _, ok := agg.JobsByID[jobID]; ok {
-				continue
-			}
-			agg.JobsByID[jobID] = CreditWorksheetJob{
-				JobID:     jobID,
-				JobName:   strings.TrimSpace(row.JobName),
+		if _, ok := jobIncomeByJob[jobID]; !ok {
+			jobIncomeByJob[jobID] = jobIncomeValue{
+				Name:      strings.TrimSpace(row.JobName),
 				NetIncome: row.NetIncome,
-				Area:      agg.RegencyName,
+			}
+		}
+
+		areas := decodeAreaNetIncome(row.AreaNetIncome)
+		for _, area := range areas {
+			key := jobAreaKey(jobID, area.RegencyCode, area.RegencyName)
+			if key == strings.ToLower(jobID)+"|" {
+				continue
+			}
+			jobIncomeByArea[key] = jobIncomeValue{
+				Name:      strings.TrimSpace(row.JobName),
+				NetIncome: row.NetIncome,
 			}
 		}
 	}
 
-	motorQuery := s.db.
+	// 3) Lookup installment values from motor + installment master (area-specific with fallback by motor id).
+	motorInstallmentByArea := map[string]motorInstallmentValue{}
+	motorInstallmentByID := map[string]motorInstallmentValue{}
+	var motorRows []worksheetMotorRow
+	if err := s.db.
 		Table("installments").
 		Select(`
 			installments.motor_type_id,
@@ -2337,59 +2427,38 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		`).
 		Joins("JOIN motor_types ON motor_types.id = installments.motor_type_id").
 		Where("installments.deleted_at IS NULL").
-		Where("motor_types.deleted_at IS NULL")
-	if provinceFilter != "" {
-		motorQuery = motorQuery.Where("motor_types.province_code = ?", provinceFilter)
-	}
-	if regencyFilter != "" {
-		motorQuery = motorQuery.Where("motor_types.regency_code = ?", regencyFilter)
-	}
-
-	var motorRows []worksheetMotorRow
-	if err := motorQuery.Scan(&motorRows).Error; err != nil {
+		Where("motor_types.deleted_at IS NULL").
+		Scan(&motorRows).Error; err != nil {
 		return nil, err
 	}
-
 	for _, row := range motorRows {
-		pCode := strings.TrimSpace(row.ProvinceCode)
-		rCode := strings.TrimSpace(row.RegencyCode)
-		if pCode == "" || rCode == "" {
+		motorID := strings.TrimSpace(row.MotorTypeID)
+		if motorID == "" {
 			continue
 		}
-		if !matchesArea(pCode, rCode) {
-			continue
+		value := motorInstallmentValue{
+			Name:        strings.TrimSpace(row.MotorTypeName),
+			Installment: row.Installment,
+		}
+		if _, ok := motorInstallmentByID[motorID]; !ok {
+			motorInstallmentByID[motorID] = value
 		}
 
-		agg := ensureArea(pCode, row.ProvinceName, rCode, row.RegencyName)
-		motorTypeID := strings.TrimSpace(row.MotorTypeID)
-		if motorTypeID == "" {
+		key := motorAreaKey(motorID, row.RegencyCode, row.RegencyName)
+		if key == strings.ToLower(motorID)+"|" {
 			continue
 		}
-		motorKey := strings.ToLower(strings.TrimSpace(motorTypeID) + "|" + strings.TrimSpace(rCode))
-		if _, ok := motorsMasterSeen[motorKey]; !ok {
-			motorsMasterSeen[motorKey] = struct{}{}
-			motorsMaster = append(motorsMaster, CreditWorksheetMotorMaster{
-				MotorTypeID:   motorTypeID,
-				MotorTypeName: strings.TrimSpace(row.MotorTypeName),
-				Installment:   row.Installment,
-				RegencyCode:   rCode,
-				RegencyName:   agg.RegencyName,
-			})
-		}
-		if _, ok := agg.MotorsByID[motorTypeID]; ok {
-			continue
-		}
-		agg.MotorsByID[motorTypeID] = CreditWorksheetMotor{
-			MotorTypeID:   motorTypeID,
-			MotorTypeName: strings.TrimSpace(row.MotorTypeName),
-			Installment:   row.Installment,
-			Area:          agg.RegencyName,
-		}
+		motorInstallmentByArea[key] = value
 	}
 
 	const capabilityThreshold = 0.35
 	const suggestionCap = 250000.0
 	areasOut := make([]CreditWorksheetArea, 0, len(areasByKey))
+	jobsMaster := make([]CreditWorksheetJobMaster, 0)
+	motorsMaster := make([]CreditWorksheetMotorMaster, 0)
+	jobsMasterSeen := map[string]struct{}{}
+	motorsMasterSeen := map[string]struct{}{}
+
 	for _, area := range areasByKey {
 		if len(area.JobsByID) == 0 || len(area.MotorsByID) == 0 {
 			continue
@@ -2397,10 +2466,35 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 
 		jobs := make([]CreditWorksheetJob, 0, len(area.JobsByID))
 		for _, job := range area.JobsByID {
+			lookupKey := jobAreaKey(job.JobID, area.RegencyCode, area.RegencyName)
+			if v, ok := jobIncomeByArea[lookupKey]; ok {
+				job.NetIncome = v.NetIncome
+				if strings.TrimSpace(job.JobName) == "" {
+					job.JobName = v.Name
+				}
+			} else if v, ok := jobIncomeByJob[job.JobID]; ok {
+				job.NetIncome = v.NetIncome
+				if strings.TrimSpace(job.JobName) == "" {
+					job.JobName = v.Name
+				}
+			}
 			if strings.TrimSpace(job.JobName) == "" {
 				job.JobName = job.JobID
 			}
+
 			jobs = append(jobs, job)
+
+			jobMasterKey := strings.ToLower(strings.TrimSpace(job.JobID) + "|" + area.AreaKey)
+			if _, exists := jobsMasterSeen[jobMasterKey]; !exists {
+				jobsMasterSeen[jobMasterKey] = struct{}{}
+				jobsMaster = append(jobsMaster, CreditWorksheetJobMaster{
+					JobID:       job.JobID,
+					JobName:     job.JobName,
+					NetIncome:   job.NetIncome,
+					RegencyCode: area.RegencyCode,
+					RegencyName: area.RegencyName,
+				})
+			}
 		}
 		sort.Slice(jobs, func(i, j int) bool {
 			return strings.ToLower(strings.TrimSpace(jobs[i].JobName)) < strings.ToLower(strings.TrimSpace(jobs[j].JobName))
@@ -2408,10 +2502,35 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 
 		motors := make([]CreditWorksheetMotor, 0, len(area.MotorsByID))
 		for _, motor := range area.MotorsByID {
+			lookupKey := motorAreaKey(motor.MotorTypeID, area.RegencyCode, area.RegencyName)
+			if v, ok := motorInstallmentByArea[lookupKey]; ok {
+				motor.Installment = v.Installment
+				if strings.TrimSpace(motor.MotorTypeName) == "" {
+					motor.MotorTypeName = v.Name
+				}
+			} else if v, ok := motorInstallmentByID[motor.MotorTypeID]; ok {
+				motor.Installment = v.Installment
+				if strings.TrimSpace(motor.MotorTypeName) == "" {
+					motor.MotorTypeName = v.Name
+				}
+			}
 			if strings.TrimSpace(motor.MotorTypeName) == "" {
 				motor.MotorTypeName = motor.MotorTypeID
 			}
+
 			motors = append(motors, motor)
+
+			motorMasterKey := strings.ToLower(strings.TrimSpace(motor.MotorTypeID) + "|" + area.AreaKey)
+			if _, exists := motorsMasterSeen[motorMasterKey]; !exists {
+				motorsMasterSeen[motorMasterKey] = struct{}{}
+				motorsMaster = append(motorsMaster, CreditWorksheetMotorMaster{
+					MotorTypeID:   motor.MotorTypeID,
+					MotorTypeName: motor.MotorTypeName,
+					Installment:   motor.Installment,
+					RegencyCode:   area.RegencyCode,
+					RegencyName:   area.RegencyName,
+				})
+			}
 		}
 		sort.Slice(motors, func(i, j int) bool {
 			return strings.ToLower(strings.TrimSpace(motors[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motors[j].MotorTypeName))
