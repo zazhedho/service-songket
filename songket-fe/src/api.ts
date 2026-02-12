@@ -61,6 +61,8 @@ export const deletePriceScrapeCronSetting = () =>
 
 export const fetchDealers = (params?: Record<string, unknown>) => api.get('/api/songket/finance/dealers', { params })
 export const fetchFinanceCompanies = (params?: Record<string, unknown>) => api.get('/api/songket/finance/companies', { params })
+export const listFinanceMigrationReport = (params?: Record<string, unknown>) =>
+  api.get('/api/songket/finance/report/migrations', { params })
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>
   api.get(`/api/songket/finance/dealers/${id}/metrics`, { params })
 export const createDealer = (body: Record<string, unknown>) => api.post('/api/songket/finance/dealers', body)

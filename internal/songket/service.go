@@ -1159,6 +1159,220 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 	}, nil
 }
 
+type FinanceMigrationReportItem struct {
+	OrderID          string    `gorm:"column:order_id" json:"order_id"`
+	PoolingNumber    string    `gorm:"column:pooling_number" json:"pooling_number"`
+	PoolingAt        time.Time `gorm:"column:pooling_at" json:"pooling_at"`
+	DealerName       string    `gorm:"column:dealer_name" json:"dealer_name"`
+	ConsumerName     string    `gorm:"column:consumer_name" json:"consumer_name"`
+	ConsumerPhone    string    `gorm:"column:consumer_phone" json:"consumer_phone"`
+	Province         string    `gorm:"column:province" json:"province"`
+	Regency          string    `gorm:"column:regency" json:"regency"`
+	District         string    `gorm:"column:district" json:"district"`
+	Village          string    `gorm:"column:village" json:"village"`
+	Address          string    `gorm:"column:address" json:"address"`
+	JobName          string    `gorm:"column:job_name" json:"job_name"`
+	MotorTypeName    string    `gorm:"column:motor_type_name" json:"motor_type_name"`
+	OTR              float64   `gorm:"column:otr" json:"otr"`
+	Finance1Name     string    `gorm:"column:finance_1_name" json:"finance_1_name"`
+	Finance1Status   string    `gorm:"column:finance_1_status" json:"finance_1_status"`
+	Finance1Notes    string    `gorm:"column:finance_1_notes" json:"finance_1_notes"`
+	Finance2Name     string    `gorm:"column:finance_2_name" json:"finance_2_name"`
+	Finance2Status   string    `gorm:"column:finance_2_status" json:"finance_2_status"`
+	Finance2Notes    string    `gorm:"column:finance_2_notes" json:"finance_2_notes"`
+	OrderCreatedAt   time.Time `gorm:"column:order_created_at" json:"order_created_at"`
+	OrderUpdatedAt   time.Time `gorm:"column:order_updated_at" json:"order_updated_at"`
+	Finance2Decision time.Time `gorm:"column:finance_2_decision_at" json:"finance_2_decision_at"`
+}
+
+// ListFinanceMigrationReport returns migration rows when finance 1 was rejected and finance 2 was filled.
+func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, year int) ([]FinanceMigrationReportItem, int64, error) {
+	query := s.db.
+		Table("orders o").
+		Joins(`
+			JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a1 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 2
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					o2.id AS order_id,
+					o2.result_status,
+					o2.result_notes,
+					o2.created_at
+				FROM orders o2
+				WHERE o2.deleted_at IS NULL
+					AND o2.pooling_number = o.pooling_number
+					AND o2.dealer_id = o.dealer_id
+					AND o2.id <> o.id
+				ORDER BY o2.created_at ASC, o2.id ASC
+				LIMIT 1
+			) o2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o2.order_id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) o2a1 ON TRUE
+		`).
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2.finance_company_id AND fc2.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc2_clone ON fc2_clone.id = o2a1.finance_company_id AND fc2_clone.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("a1.status = ?", "reject").
+		Where("(a2.finance_company_id IS NOT NULL OR o2a1.finance_company_id IS NOT NULL)").
+		Where(`
+			NOT EXISTS (
+				SELECT 1
+				FROM orders prev
+				WHERE prev.deleted_at IS NULL
+					AND prev.pooling_number = o.pooling_number
+					AND prev.dealer_id = o.dealer_id
+					AND prev.id <> o.id
+					AND (
+						prev.created_at < o.created_at
+						OR (prev.created_at = o.created_at AND prev.id < o.id)
+					)
+			)
+		`)
+
+	if month > 0 {
+		query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", month)
+	}
+	if year > 0 {
+		query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", year)
+	}
+
+	if v, ok := params.Filters["dealer_id"]; ok {
+		dealerID := strings.TrimSpace(fmt.Sprint(v))
+		if dealerID != "" {
+			query = query.Where("o.dealer_id = ?", dealerID)
+		}
+	}
+	if v, ok := params.Filters["finance_1_company_id"]; ok {
+		finance1ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance1ID != "" {
+			query = query.Where("a1.finance_company_id = ?", finance1ID)
+		}
+	}
+	if v, ok := params.Filters["finance_2_company_id"]; ok {
+		finance2ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance2ID != "" {
+			query = query.Where("COALESCE(a2.finance_company_id, o2a1.finance_company_id) = ?", finance2ID)
+		}
+	}
+
+	if strings.TrimSpace(params.Search) != "" {
+		search := "%" + strings.ToLower(strings.TrimSpace(params.Search)) + "%"
+		query = query.Where(`
+			LOWER(o.pooling_number) LIKE ?
+			OR LOWER(o.consumer_name) LIKE ?
+			OR LOWER(o.consumer_phone) LIKE ?
+			OR LOWER(d.name) LIKE ?
+			OR LOWER(fc1.name) LIKE ?
+			OR LOWER(fc2.name) LIKE ?
+			OR LOWER(fc2_clone.name) LIKE ?
+			OR LOWER(mt.name) LIKE ?
+		`, search, search, search, search, search, search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderByMap := map[string]string{
+		"pooling_at":      "o.pooling_at",
+		"dealer_name":     "d.name",
+		"consumer_name":   "o.consumer_name",
+		"finance_1_name":  "fc1.name",
+		"finance_2_name":  "COALESCE(fc2.name, fc2_clone.name)",
+		"created_at":      "o.created_at",
+		"updated_at":      "o.updated_at",
+		"finance_2_notes": "COALESCE(NULLIF(a2.notes, ''), NULLIF(o2a1.notes, ''), NULLIF(o2.result_notes, ''))",
+	}
+	orderColumn, ok := orderByMap[strings.TrimSpace(params.OrderBy)]
+	if !ok || orderColumn == "" {
+		orderColumn = "o.pooling_at"
+	}
+
+	orderDirection := strings.ToUpper(strings.TrimSpace(params.OrderDirection))
+	if orderDirection != "ASC" {
+		orderDirection = "DESC"
+	}
+
+	rows := make([]FinanceMigrationReportItem, 0, params.Limit)
+	if err := query.
+		Select(`
+			o.id AS order_id,
+			o.pooling_number AS pooling_number,
+			o.pooling_at AS pooling_at,
+			COALESCE(d.name, '-') AS dealer_name,
+			COALESCE(o.consumer_name, '-') AS consumer_name,
+			COALESCE(o.consumer_phone, '-') AS consumer_phone,
+			COALESCE(o.province, '-') AS province,
+			COALESCE(o.regency, '-') AS regency,
+			COALESCE(o.district, '-') AS district,
+			COALESCE(o.village, '-') AS village,
+			COALESCE(o.address, '-') AS address,
+			COALESCE(j.name, '-') AS job_name,
+			COALESCE(mt.name, '-') AS motor_type_name,
+			COALESCE(o.otr, 0) AS otr,
+			COALESCE(fc1.name, '-') AS finance_1_name,
+			COALESCE(a1.status, '-') AS finance_1_status,
+			COALESCE(a1.notes, '') AS finance_1_notes,
+			COALESCE(fc2.name, fc2_clone.name, '-') AS finance_2_name,
+			COALESCE(NULLIF(a2.status, ''), NULLIF(o2a1.status, ''), LOWER(NULLIF(o2.result_status, '')), '-') AS finance_2_status,
+			COALESCE(NULLIF(a2.notes, ''), NULLIF(o2a1.notes, ''), NULLIF(o2.result_notes, ''), '') AS finance_2_notes,
+			o.created_at AS order_created_at,
+			o.updated_at AS order_updated_at,
+			COALESCE(a2.created_at, o2a1.created_at, o2.created_at, o.updated_at) AS finance_2_decision_at
+		`).
+		Order(fmt.Sprintf("%s %s", orderColumn, orderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return rows, total, nil
+}
+
 // ListDealers returns dealers with pagination support.
 func (s *Service) ListDealers(params filter.BaseParams) ([]Dealer, int64, error) {
 	query := s.db.Model(&Dealer{})

@@ -1,0 +1,378 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { fetchKabupaten, fetchKecamatan, fetchProvinces, listFinanceMigrationReport } from '../api'
+import ActionMenu from '../components/ActionMenu'
+import Pagination from '../components/Pagination'
+import { useAuth } from '../store'
+import { formatRupiah } from '../utils/currency'
+
+type FinanceMigrationRow = {
+  order_id: string
+  pooling_number: string
+  pooling_at: string
+  dealer_name: string
+  consumer_name: string
+  consumer_phone: string
+  province: string
+  regency: string
+  district: string
+  village: string
+  address: string
+  job_name: string
+  motor_type_name: string
+  otr: number
+  finance_1_name: string
+  finance_1_status: string
+  finance_2_name: string
+  finance_2_status: string
+  finance_2_notes: string
+}
+
+type OptionItem = {
+  code: string
+  name: string
+}
+
+type LocationNames = {
+  province: string
+  regency: string
+  district: string
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleString('en-US')
+}
+
+function normalizeText(value: unknown) {
+  return String(value || '').trim()
+}
+
+function lookupOptionName(options: OptionItem[], codeOrName: string) {
+  const needle = normalizeText(codeOrName)
+  if (!needle) return '-'
+  const found = options.find((opt) => normalizeText(opt.code) === needle)
+  if (found) return normalizeText(found.name) || needle
+  return needle
+}
+
+function statusBadge(status: string) {
+  const s = String(status || '').toLowerCase().trim()
+  if (!s) return '-'
+  return <span className={`badge ${s}`}>{s}</span>
+}
+
+export default function FinanceReportPage() {
+  const navigate = useNavigate()
+  const perms = useAuth((s) => s.permissions)
+  const canList = perms.includes('list_finance_dealers')
+
+  const [rows, setRows] = useState<FinanceMigrationRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [locationNamesByOrderId, setLocationNamesByOrderId] = useState<Record<string, LocationNames>>({})
+
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [totalData, setTotalData] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  const [searchInput, setSearchInput] = useState('')
+  const [monthInput, setMonthInput] = useState('')
+  const [yearInput, setYearInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [month, setMonth] = useState('')
+  const [year, setYear] = useState('')
+
+  const yearOptions = useMemo(() => {
+    const now = new Date().getFullYear()
+    return Array.from({ length: 8 }, (_, idx) => String(now - idx))
+  }, [])
+
+  const load = async () => {
+    if (!canList) return
+    setLoading(true)
+    setError('')
+
+    try {
+      const params: Record<string, unknown> = {
+        page,
+        limit,
+        order_by: 'pooling_at',
+        order_direction: 'desc',
+      }
+
+      if (search.trim()) params.search = search.trim()
+      if (month) params.month = Number(month)
+      if (year) params.year = Number(year)
+
+      const res = await listFinanceMigrationReport(params)
+      const payload = res?.data || {}
+      const data = payload?.data || []
+
+      setRows(Array.isArray(data) ? data : [])
+      setTotalPages(Number(payload?.total_pages || 1))
+      setTotalData(Number(payload?.total_data || 0))
+      setPage(Number(payload?.current_page || page))
+    } catch (err: any) {
+      setRows([])
+      setTotalPages(1)
+      setTotalData(0)
+      setError(err?.response?.data?.error || 'Failed to load finance migration report.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [canList, page, limit, search, month, year])
+
+  useEffect(() => {
+    let mounted = true
+
+    const resolveLocationNames = async () => {
+      if (!rows.length) {
+        if (mounted) setLocationNamesByOrderId({})
+        return
+      }
+
+      let provinceOptions: OptionItem[] = []
+      try {
+        const provRes = await fetchProvinces()
+        const raw = provRes.data?.data || provRes.data || []
+        provinceOptions = Array.isArray(raw) ? raw : []
+      } catch {
+        provinceOptions = []
+      }
+
+      const kabupatenCache: Record<string, OptionItem[]> = {}
+      const kecamatanCache: Record<string, OptionItem[]> = {}
+      const nextMap: Record<string, LocationNames> = {}
+
+      for (const item of rows) {
+        const provinceCode = normalizeText(item.province)
+        const regencyCode = normalizeText(item.regency)
+        const districtCode = normalizeText(item.district)
+
+        const provinceName = lookupOptionName(provinceOptions, provinceCode)
+
+        let regencyName = regencyCode || '-'
+        if (provinceCode) {
+          if (!kabupatenCache[provinceCode]) {
+            try {
+              const kabRes = await fetchKabupaten(provinceCode)
+              const rawKab = kabRes.data?.data || kabRes.data || []
+              kabupatenCache[provinceCode] = Array.isArray(rawKab) ? rawKab : []
+            } catch {
+              kabupatenCache[provinceCode] = []
+            }
+          }
+          regencyName = lookupOptionName(kabupatenCache[provinceCode], regencyCode)
+        }
+
+        let districtName = districtCode || '-'
+        if (provinceCode && regencyCode) {
+          const cacheKey = `${provinceCode}::${regencyCode}`
+          if (!kecamatanCache[cacheKey]) {
+            try {
+              const kecRes = await fetchKecamatan(provinceCode, regencyCode)
+              const rawKec = kecRes.data?.data || kecRes.data || []
+              kecamatanCache[cacheKey] = Array.isArray(rawKec) ? rawKec : []
+            } catch {
+              kecamatanCache[cacheKey] = []
+            }
+          }
+          districtName = lookupOptionName(kecamatanCache[cacheKey], districtCode)
+        }
+
+        nextMap[item.order_id] = {
+          province: provinceName,
+          regency: regencyName,
+          district: districtName,
+        }
+      }
+
+      if (mounted) {
+        setLocationNamesByOrderId(nextMap)
+      }
+    }
+
+    void resolveLocationNames()
+    return () => {
+      mounted = false
+    }
+  }, [rows])
+
+  const applyFilters = () => {
+    setSearch(searchInput)
+    setMonth(monthInput)
+    setYear(yearInput)
+    setPage(1)
+  }
+
+  const resetFilters = () => {
+    setSearchInput('')
+    setMonthInput('')
+    setYearInput('')
+    setSearch('')
+    setMonth('')
+    setYear('')
+    setPage(1)
+  }
+
+  if (!canList) {
+    return (
+      <div className="page">
+        <div className="card">
+          <h3>Report Finance</h3>
+          <div className="alert">No access permission for finance migration report.</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="header">
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance</div>
+          <div style={{ color: '#64748b' }}>Finance 1 reject migration report to finance 2</div>
+        </div>
+      </div>
+
+      <div className="page">
+        <div className="card">
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.3fr) 150px 150px auto', gap: 10, alignItems: 'end' }}>
+            <div>
+              <label>Search</label>
+              <input
+                placeholder="Pooling number, dealer, consumer, finance..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') applyFilters()
+                }}
+              />
+            </div>
+            <div>
+              <label>Month</label>
+              <select value={monthInput} onChange={(e) => setMonthInput(e.target.value)}>
+                <option value="">All Months</option>
+                {Array.from({ length: 12 }, (_, idx) => (
+                  <option key={idx + 1} value={String(idx + 1)}>
+                    {String(idx + 1).padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Year</label>
+              <select value={yearInput} onChange={(e) => setYearInput(e.target.value)}>
+                <option value="">All Years</option>
+                {yearOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={applyFilters}>Apply</button>
+              <button className="btn-ghost" onClick={resetFilters}>Reset</button>
+            </div>
+          </div>
+
+          {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
+
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+            <table className="table" style={{ minWidth: 1890, tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 56 }}>No</th>
+                  <th style={{ width: 130 }}>Pooling Number</th>
+                  <th style={{ width: 165 }}>Pooling Date</th>
+                  <th style={{ width: 170 }}>Dealer</th>
+                  <th style={{ width: 170 }}>Consumer Name</th>
+                  <th style={{ width: 140 }}>Consumer Phone</th>
+                  <th style={{ width: 340 }}>Location</th>
+                  <th style={{ width: 150 }}>Job</th>
+                  <th style={{ width: 220 }}>Motor Type / OTR</th>
+                  <th style={{ width: 150 }}>Finance 1</th>
+                  <th style={{ width: 130 }}>Status 1</th>
+                  <th style={{ width: 150 }}>Finance 2</th>
+                  <th style={{ width: 130 }}>Status 2</th>
+                  <th style={{ width: 240 }}>Notes Finance 2</th>
+                  <th style={{ width: 120 }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={15}>No finance migration data.</td>
+                  </tr>
+                )}
+                {rows.map((item, idx) => {
+                  const rowNumber = (page - 1) * limit + idx + 1
+                  const namedLocation = locationNamesByOrderId[item.order_id]
+                  const locationText = [
+                    namedLocation?.province || item.province || '-',
+                    namedLocation?.regency || item.regency || '-',
+                    namedLocation?.district || item.district || '-',
+                    item.village || '-',
+                    item.address || '-',
+                  ].join(', ')
+                  const motorOtrText = `${item.motor_type_name || '-'} | ${formatRupiah(Number(item.otr || 0))}`
+                  return (
+                    <tr key={`${item.order_id}-${idx}`}>
+                      <td>{rowNumber}</td>
+                      <td title={item.pooling_number || '-'}>{item.pooling_number || '-'}</td>
+                      <td title={formatDateTime(item.pooling_at)}>{formatDateTime(item.pooling_at)}</td>
+                      <td title={item.dealer_name || '-'}>{item.dealer_name || '-'}</td>
+                      <td title={item.consumer_name || '-'}>{item.consumer_name || '-'}</td>
+                      <td title={item.consumer_phone || '-'}>{item.consumer_phone || '-'}</td>
+                      <td title={locationText}>{locationText}</td>
+                      <td title={item.job_name || '-'}>{item.job_name || '-'}</td>
+                      <td title={motorOtrText}>{motorOtrText}</td>
+                      <td title={item.finance_1_name || '-'}>{item.finance_1_name || '-'}</td>
+                      <td>{statusBadge(item.finance_1_status)}</td>
+                      <td title={item.finance_2_name || '-'}>{item.finance_2_name || '-'}</td>
+                      <td>{statusBadge(item.finance_2_status)}</td>
+                      <td title={item.finance_2_notes || '-'}>{item.finance_2_notes || '-'}</td>
+                      <td className="action-cell">
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/orders/${item.order_id}`),
+                            },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalData={totalData}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={(next) => {
+              setLimit(next)
+              setPage(1)
+            }}
+            disabled={loading}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

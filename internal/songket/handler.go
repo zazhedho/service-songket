@@ -202,6 +202,54 @@ func (h *Handler) FinanceCompanies(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/finance/report/migrations
+func (h *Handler) FinanceMigrationReport(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "pooling_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"dealer_id", "finance_1_company_id", "finance_2_company_id"})
+
+	month := 0
+	if rawMonth := strings.TrimSpace(ctx.Query("month")); rawMonth != "" {
+		parsedMonth, convErr := strconv.Atoi(rawMonth)
+		if convErr != nil || parsedMonth < 1 || parsedMonth > 12 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "month must be between 1 and 12"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		month = parsedMonth
+	}
+
+	year := 0
+	if rawYear := strings.TrimSpace(ctx.Query("year")); rawYear != "" {
+		parsedYear, convErr := strconv.Atoi(rawYear)
+		if convErr != nil || parsedYear < 1 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year must be a valid positive number"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		year = parsedYear
+	}
+
+	data, total, err := h.svc.ListFinanceMigrationReport(params, month, year)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // POST /api/songket/finance/dealers
 func (h *Handler) CreateDealer(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

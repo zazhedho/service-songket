@@ -674,6 +674,7 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 		{MenuItem: domainmenu.MenuItem{Name: "business", DisplayName: "Business", Path: "/business", Icon: "bi-briefcase", OrderIndex: 3}},
 		{MenuItem: domainmenu.MenuItem{Name: "finance", DisplayName: "Finance", Path: "/finance", Icon: "bi-bank", OrderIndex: 31}, ParentName: "business"},
 		{MenuItem: domainmenu.MenuItem{Name: "dealer", DisplayName: "Dealer", Path: "/dealer", Icon: "bi-shop", OrderIndex: 32}, ParentName: "business"},
+		{MenuItem: domainmenu.MenuItem{Name: "finance_report", DisplayName: "Report Finance", Path: "/finance-report", Icon: "bi-file-earmark-bar-graph", OrderIndex: 33}, ParentName: "business"},
 		{MenuItem: domainmenu.MenuItem{Name: "credit", DisplayName: "Credit Capability", Path: "/credit", Icon: "bi-credit-card", OrderIndex: 4}},
 		{MenuItem: domainmenu.MenuItem{Name: "quadrants", DisplayName: "Quadrants", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5}},
 		{MenuItem: domainmenu.MenuItem{Name: "prices", DisplayName: "Commodity Prices", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6}},
@@ -729,7 +730,7 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 
 	businessID := result["business"]
 	if strings.TrimSpace(businessID) != "" {
-		if err := db.Model(&domainmenu.MenuItem{}).Where("name IN ?", []string{"finance", "dealer"}).Updates(map[string]interface{}{"parent_id": businessID}).Error; err != nil {
+		if err := db.Model(&domainmenu.MenuItem{}).Where("name IN ?", []string{"finance", "dealer", "finance_report"}).Updates(map[string]interface{}{"parent_id": businessID}).Error; err != nil {
 			return nil, err
 		}
 	}
@@ -902,7 +903,7 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 	}
 
 	// main dealer: dashboard + operational menus
-	mainDealerMenus := []string{"dashboard", "orders", "business", "finance", "dealer", "installments", "credit", "quadrants", "prices", "news", "jobs"}
+	mainDealerMenus := []string{"dashboard", "orders", "business", "finance", "dealer", "finance_report", "installments", "credit", "quadrants", "prices", "news", "jobs"}
 	if err := assign(utils.RoleMainDealer, mainDealerMenus); err != nil {
 		return err
 	}
