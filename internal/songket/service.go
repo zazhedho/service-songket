@@ -224,6 +224,14 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		var poolingCount int64
+		if err := tx.Model(&Order{}).Where("pooling_number = ?", order.PoolingNumber).Count(&poolingCount).Error; err != nil {
+			return err
+		}
+		if poolingCount >= 2 {
+			return fmt.Errorf("pooling number already has maximum 2 orders")
+		}
+
 		if err := tx.Create(&order).Error; err != nil {
 			return err
 		}
@@ -252,20 +260,6 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 			}
 			if err := tx.Create(&secondAttempt).Error; err != nil {
 				return err
-			}
-
-			if status2 == "reject" && req.FinanceCompany3ID != "" && req.ResultStatus3 != "" {
-				thirdAttempt := OrderFinanceAttempt{
-					Id:               utils.CreateUUID(),
-					OrderID:          order.Id,
-					FinanceCompanyID: req.FinanceCompany3ID,
-					AttemptNo:        3,
-					Status:           strings.ToLower(req.ResultStatus3),
-					Notes:            req.ResultNotes3,
-				}
-				if err := tx.Create(&thirdAttempt).Error; err != nil {
-					return err
-				}
 			}
 		}
 
@@ -323,11 +317,6 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	}
 
 	financeCompany2ID, err := normalizeOptionalUUID(req.FinanceCompany2ID, "finance_company2_id")
-	if err != nil {
-		return Order{}, err
-	}
-
-	financeCompany3ID, err := normalizeOptionalUUID(req.FinanceCompany3ID, "finance_company3_id")
 	if err != nil {
 		return Order{}, err
 	}
@@ -418,23 +407,6 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	}
 
 	primaryRejected := strings.ToLower(order.ResultStatus) == "reject"
-	secondRejected := false
-	if req.ResultStatus2 != nil {
-		secondRejected = strings.ToLower(strings.TrimSpace(*req.ResultStatus2)) == "reject"
-	} else {
-		for _, att := range order.Attempts {
-			if att.AttemptNo == 2 && strings.ToLower(strings.TrimSpace(att.Status)) == "reject" {
-				secondRejected = true
-				break
-			}
-		}
-	}
-	if !primaryRejected {
-		secondRejected = false
-	}
-	if req.FinanceCompany2ID != nil && financeCompany2ID == nil {
-		secondRejected = false
-	}
 
 	if order.MotorTypeID != "" {
 		if selectedMotor == nil {
@@ -453,6 +425,14 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		var poolingCount int64
+		if err := tx.Model(&Order{}).Where("pooling_number = ? AND id <> ?", order.PoolingNumber, order.Id).Count(&poolingCount).Error; err != nil {
+			return err
+		}
+		if poolingCount >= 2 {
+			return fmt.Errorf("pooling number already has maximum 2 orders")
+		}
+
 		if err := tx.Save(&order).Error; err != nil {
 			return err
 		}
@@ -498,29 +478,8 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 					return err
 				}
 			}
-			if att.AttemptNo == 3 {
-				if !primaryRejected || !secondRejected {
-					if err := tx.Delete(&att).Error; err != nil {
-						return err
-					}
-					continue
-				}
-				if req.FinanceCompany3ID != nil && financeCompany3ID == nil {
-					if err := tx.Delete(&att).Error; err != nil {
-						return err
-					}
-					continue
-				}
-				if financeCompany3ID != nil {
-					att.FinanceCompanyID = *financeCompany3ID
-				}
-				if req.ResultStatus3 != nil && *req.ResultStatus3 != "" {
-					att.Status = strings.ToLower(*req.ResultStatus3)
-				}
-				if req.ResultNotes3 != nil {
-					att.Notes = *req.ResultNotes3
-				}
-				if err := tx.Save(&att).Error; err != nil {
+			if att.AttemptNo >= 3 {
+				if err := tx.Delete(&att).Error; err != nil {
 					return err
 				}
 			}
@@ -539,26 +498,6 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 				AttemptNo:        2,
 				Status:           status2,
 				Notes:            utils.ValueOrDefault(req.ResultNotes2, ""),
-			}
-			if err := tx.Create(&newAttempt).Error; err != nil {
-				return err
-			}
-			order.Attempts = append(order.Attempts, newAttempt)
-		}
-
-		// Add attempt 3 if missing and provided
-		if primaryRejected && secondRejected && financeCompany3ID != nil && !s.hasAttempt(order.Attempts, 3) {
-			status3 := ""
-			if req.ResultStatus3 != nil {
-				status3 = strings.ToLower(*req.ResultStatus3)
-			}
-			newAttempt := OrderFinanceAttempt{
-				Id:               utils.CreateUUID(),
-				OrderID:          order.Id,
-				FinanceCompanyID: *financeCompany3ID,
-				AttemptNo:        3,
-				Status:           status3,
-				Notes:            utils.ValueOrDefault(req.ResultNotes3, ""),
 			}
 			if err := tx.Create(&newAttempt).Error; err != nil {
 				return err
@@ -615,6 +554,15 @@ func (s *Service) hasAttempt(atts []OrderFinanceAttempt, num int) bool {
 }
 
 func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, cloneNotes, financeCompanyID string) error {
+	var poolingCount int64
+	if err := tx.Model(&Order{}).Where("pooling_number = ?", source.PoolingNumber).Count(&poolingCount).Error; err != nil {
+		return err
+	}
+	// One pooling number can only have 2 rows: original + cloned follow-up.
+	if poolingCount >= 2 {
+		return nil
+	}
+
 	status := strings.ToLower(strings.TrimSpace(cloneStatus))
 	if status == "" {
 		status = strings.ToLower(strings.TrimSpace(source.ResultStatus))
