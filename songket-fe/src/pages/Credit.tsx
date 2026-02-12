@@ -84,6 +84,10 @@ function paginate<T>(items: T[], page: number, limit: number) {
   }
 }
 
+function normalizeNeedle(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
 function rateCellStyle(rate: number) {
   const value = Number(rate || 0)
   if (value > 0.4) {
@@ -99,7 +103,7 @@ export default function CreditPage() {
   const [worksheet, setWorksheet] = useState<WorksheetPayload>(EMPTY_WORKSHEET)
   const [selectedJobId, setSelectedJobId] = useState('')
   const [selectedAreaKey, setSelectedAreaKey] = useState('')
-  const [areaSearch, setAreaSearch] = useState('')
+  const [motorSearch, setMotorSearch] = useState('')
 
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(5)
@@ -171,18 +175,16 @@ export default function CreditPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [selectedJobId, selectedAreaKey, areaSearch])
+  }, [selectedJobId, selectedAreaKey, motorSearch])
 
   const filteredRows = useMemo(() => {
     if (!selectedJobId) return [] as AreaRow[]
-    const needle = areaSearch.trim().toLowerCase()
 
     const out: AreaRow[] = []
     for (const area of areas) {
       if (selectedAreaKey && area.area_key !== selectedAreaKey) continue
 
       const areaName = area.regency_name || area.regency_code || '-'
-      if (needle && !areaName.toLowerCase().includes(needle)) continue
 
       const matrixRow = (area.matrix || []).find((row) => row.job_id === selectedJobId)
       if (!matrixRow) continue
@@ -200,7 +202,7 @@ export default function CreditPage() {
       })
     }
     return out
-  }, [areas, selectedAreaKey, selectedJobId, areaSearch])
+  }, [areas, selectedAreaKey, selectedJobId])
 
   const motorColumns = useMemo(() => {
     const map = new Map<string, MotorOption>()
@@ -213,8 +215,11 @@ export default function CreditPage() {
         })
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.motor_type_name.localeCompare(b.motor_type_name))
-  }, [filteredRows])
+    const all = Array.from(map.values()).sort((a, b) => a.motor_type_name.localeCompare(b.motor_type_name))
+    const needle = normalizeNeedle(motorSearch)
+    if (!needle) return all
+    return all.filter((item) => normalizeNeedle(item.motor_type_name).includes(needle))
+  }, [filteredRows, motorSearch])
 
   const matrixPagination = useMemo(() => paginate(filteredRows, page, limit), [filteredRows, page, limit])
   useEffect(() => setPage(matrixPagination.safePage), [matrixPagination.safePage])
@@ -273,12 +278,12 @@ export default function CreditPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="credit-area-search">Search by Area</label>
+                  <label htmlFor="credit-motor-search">Search by Tipe Motor</label>
                   <input
-                    id="credit-area-search"
-                    value={areaSearch}
-                    onChange={(e) => setAreaSearch(e.target.value)}
-                    placeholder="Ketik nama kabupaten"
+                    id="credit-motor-search"
+                    value={motorSearch}
+                    onChange={(e) => setMotorSearch(e.target.value)}
+                    placeholder="Ketik nama tipe motor"
                   />
                 </div>
               </div>
