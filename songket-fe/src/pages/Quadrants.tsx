@@ -1,148 +1,300 @@
-import { useEffect, useMemo, useState } from 'react'
-import { fetchKabupaten, fetchKecamatan, fetchProvinces, fetchQuadrantSummary } from '../api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { fetchKabupaten, fetchProvinces, fetchQuadrantSummary } from '../api'
 import Pagination from '../components/Pagination'
 
-export default function QuadrantsPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [filter, setFilter] = useState({ province: '', regency: '', district: '' })
-  const [provinces, setProvinces] = useState<any[]>([])
-  const [kabupaten, setKabupaten] = useState<any[]>([])
-  const [kecamatan, setKecamatan] = useState<any[]>([])
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
+type QuadrantItem = {
+  province: string
+  regency: string
+  total_orders: number
+  order_in_percent: number
+  credit_capability: number
+  quadrant: number
+}
 
-  const load = () => fetchQuadrantSummary().then((res) => setItems(res.data.data || res.data || []))
+type OptionItem = { value: string; label: string }
+
+function normalizeToken(value?: string) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function clampPercent(value: number) {
+  const number = Number(value || 0)
+  if (number < 0) return 0
+  if (number > 100) return 100
+  return number
+}
+
+function quadrantColor(value: number) {
+  switch (value) {
+    case 1:
+      return '#16a34a'
+    case 2:
+      return '#f59e0b'
+    case 3:
+      return '#f97316'
+    default:
+      return '#ef4444'
+  }
+}
+
+export default function QuadrantsPage() {
+  const [items, setItems] = useState<QuadrantItem[]>([])
+  const [activePointId, setActivePointId] = useState<string>('')
+  const [filter, setFilter] = useState({ province: '', regency: '', search: '' })
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+
+  const [provincesRaw, setProvincesRaw] = useState<any[]>([])
+  const [provinceNameMap, setProvinceNameMap] = useState<Record<string, string>>({})
+  const [provinceCodeMap, setProvinceCodeMap] = useState<Record<string, string>>({})
+  const [regencyNameMap, setRegencyNameMap] = useState<Record<string, string>>({})
+  const fetchedKabupatenRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    load()
-    fetchProvinces().then((res) => setProvinces(res.data.data || res.data || [])).catch(() => setProvinces([]))
+    fetchQuadrantSummary()
+      .then((res) => setItems(res.data.data || res.data || []))
+      .catch(() => setItems([]))
   }, [])
 
-  const handleProvince = async (code: string) => {
-    setFilter({ province: code, regency: '', district: '' })
-    setKecamatan([])
+  useEffect(() => {
+    fetchProvinces()
+      .then((res) => {
+        const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
+        const nextNameMap: Record<string, string> = {}
+        const nextCodeMap: Record<string, string> = {}
 
-    if (!code) {
-      setKabupaten([])
-      return
-    }
+        rows.forEach((row: any) => {
+          const code = String(row?.code || row?.id || row?.name || '').trim()
+          const name = String(row?.name || row?.code || row?.id || '').trim()
+          if (!code || !name) return
 
-    try {
-      const res = await fetchKabupaten(code)
-      setKabupaten(res.data.data || res.data || [])
-    } catch {
-      setKabupaten([])
-    }
-  }
+          const codeKey = normalizeToken(code)
+          const nameKey = normalizeToken(name)
+          nextNameMap[codeKey] = name
+          nextNameMap[nameKey] = name
+          nextCodeMap[codeKey] = code
+          nextCodeMap[nameKey] = code
+        })
 
-  const handleRegency = async (code: string) => {
-    setFilter((prev) => ({ ...prev, regency: code, district: '' }))
+        setProvincesRaw(rows)
+        setProvinceNameMap(nextNameMap)
+        setProvinceCodeMap(nextCodeMap)
+      })
+      .catch(() => {
+        setProvincesRaw([])
+        setProvinceNameMap({})
+        setProvinceCodeMap({})
+      })
+  }, [])
 
-    if (!filter.province || !code) {
-      setKecamatan([])
-      return
-    }
+  useEffect(() => {
+    const uniqueProvinces = Array.from(
+      new Set(
+        items
+          .map((item) => String(item?.province || '').trim())
+          .filter(Boolean),
+      ),
+    )
 
-    try {
-      const res = await fetchKecamatan(filter.province, code)
-      setKecamatan(res.data.data || res.data || [])
-    } catch {
-      setKecamatan([])
-    }
-  }
+    uniqueProvinces.forEach((provinceRaw) => {
+      const provinceRawKey = normalizeToken(provinceRaw)
+      const mappedCode = String(provinceCodeMap[provinceRawKey] || provinceRaw).trim()
+      const mappedCodeKey = normalizeToken(mappedCode)
+      if (!mappedCodeKey || fetchedKabupatenRef.current.has(mappedCodeKey)) return
 
-  const nameFrom = (code: string, list: any[]) => list.find((entry) => entry.code === code)?.name || code
+      fetchedKabupatenRef.current.add(mappedCodeKey)
 
-  const filtered = useMemo(
-    () =>
-      items.filter((item) => {
-        if (filter.province && item.province !== filter.province) return false
-        if (filter.regency && item.regency !== filter.regency) return false
-        if (filter.district && item.district !== filter.district) return false
-        return true
-      }),
-    [items, filter],
-  )
+      const provinceRow =
+        provincesRaw.find((row: any) => normalizeToken(row?.code || row?.id || row?.name) === mappedCodeKey) ||
+        provincesRaw.find((row: any) => normalizeToken(row?.name) === provinceRawKey)
 
-  const chart = useMemo(() => {
-    const baseWidth = 920
-    const baseHeight = 430
-    const padding = { top: 24, right: 28, bottom: 52, left: 56 }
-    const plotWidth = baseWidth - padding.left - padding.right
-    const plotHeight = baseHeight - padding.top - padding.bottom
-
-    const points = filtered.map((item, idx) => ({
-      id: `${item.province || ''}-${item.regency || ''}-${item.district || ''}-${item.village || ''}-${idx}`,
-      x: Number(item.total_orders || 0),
-      y: Number(item.score || 0),
-      label: [item.province, item.regency, item.district, item.village].filter(Boolean).join(' / ') || `Row ${idx + 1}`,
-    }))
-
-    if (points.length === 0) {
-      return {
-        width: baseWidth,
-        height: baseHeight,
-        axisX: baseWidth / 2,
-        axisY: baseHeight / 2,
-        xTicks: [] as number[],
-        yTicks: [] as number[],
-        points: [] as Array<{ id: string; sx: number; sy: number; label: string; x: number; y: number }>,
+      const provinceAliases = [provinceRaw]
+      if (provinceRow) {
+        provinceAliases.push(String(provinceRow?.code || provinceRow?.id || '').trim())
+        provinceAliases.push(String(provinceRow?.name || '').trim())
       }
+
+      fetchKabupaten(mappedCode)
+        .then((res) => {
+          const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
+          setRegencyNameMap((prev) => {
+            const next = { ...prev }
+            rows.forEach((row: any) => {
+              const regCode = String(row?.code || row?.id || row?.name || '').trim()
+              const regName = String(row?.name || row?.code || row?.id || '').trim()
+              if (!regCode || !regName) return
+
+              const regCodeKey = normalizeToken(regCode)
+              const regNameKey = normalizeToken(regName)
+
+              provinceAliases
+                .map((value) => normalizeToken(value))
+                .filter(Boolean)
+                .forEach((provinceKey) => {
+                  next[`${provinceKey}|${regCodeKey}`] = regName
+                  next[`${provinceKey}|${regNameKey}`] = regName
+                })
+            })
+            return next
+          })
+        })
+        .catch(() => {
+          fetchedKabupatenRef.current.delete(mappedCodeKey)
+        })
+    })
+  }, [items, provinceCodeMap, provincesRaw])
+
+  const displayProvince = (provinceValue?: string) => {
+    const raw = String(provinceValue || '').trim()
+    if (!raw) return '-'
+    return provinceNameMap[normalizeToken(raw)] || raw
+  }
+
+  const displayRegency = (provinceValue?: string, regencyValue?: string) => {
+    const regRaw = String(regencyValue || '').trim()
+    if (!regRaw) return '-'
+
+    const provinceRaw = String(provinceValue || '').trim()
+    const provinceName = displayProvince(provinceRaw)
+    const provinceCode = provinceCodeMap[normalizeToken(provinceRaw)] || provinceRaw
+
+    const lookupKeys = [provinceRaw, provinceName, provinceCode]
+      .map((value) => normalizeToken(value))
+      .filter(Boolean)
+    const regKey = normalizeToken(regRaw)
+
+    for (const key of lookupKeys) {
+      const found = regencyNameMap[`${key}|${regKey}`]
+      if (found) return found
     }
 
-    let minX = Math.min(...points.map((point) => point.x))
-    let maxX = Math.max(...points.map((point) => point.x))
-    let minY = Math.min(...points.map((point) => point.y))
-    let maxY = Math.max(...points.map((point) => point.y))
+    return regRaw
+  }
 
-    if (minX === maxX) {
-      minX -= 1
-      maxX += 1
+  const provinceOptions = useMemo<OptionItem[]>(() => {
+    const unique = Array.from(
+      new Set(
+        items
+          .map((item) => String(item?.province || '').trim())
+          .filter(Boolean),
+      ),
+    )
+
+    return unique
+      .map((value) => ({ value, label: displayProvince(value) }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [items, provinceNameMap])
+
+  const regencyOptions = useMemo<OptionItem[]>(() => {
+    const unique = Array.from(
+      new Set(
+        items
+          .filter((item) => !filter.province || item.province === filter.province)
+          .map((item) => String(item?.regency || '').trim())
+          .filter(Boolean),
+      ),
+    )
+
+    return unique
+      .map((value) => ({ value, label: displayRegency(filter.province, value) }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [items, filter.province, regencyNameMap, provinceNameMap, provinceCodeMap])
+
+  useEffect(() => {
+    if (!filter.regency) return
+    if (!regencyOptions.some((option) => option.value === filter.regency)) {
+      setFilter((prev) => ({ ...prev, regency: '' }))
     }
-    if (minY === maxY) {
-      minY -= 1
-      maxY += 1
-    }
+  }, [filter.regency, regencyOptions])
 
-    const toX = (value: number) => padding.left + ((value - minX) / (maxX - minX)) * plotWidth
-    const toY = (value: number) => padding.top + ((maxY - value) / (maxY - minY)) * plotHeight
-
-    const axisCenterX = (minX + maxX) / 2
-    const axisCenterY = (minY + maxY) / 2
-
-    return {
-      width: baseWidth,
-      height: baseHeight,
-      axisX: toX(axisCenterX),
-      axisY: toY(axisCenterY),
-      xTicks: [minX, axisCenterX, maxX],
-      yTicks: [minY, axisCenterY, maxY],
-      points: points.map((point) => ({
-        ...point,
-        sx: toX(point.x),
-        sy: toY(point.y),
-      })),
-    }
-  }, [filtered])
-
-  const paged = useMemo(() => {
-    const from = (page - 1) * limit
-    const to = from + limit
-    return filtered.slice(from, to)
-  }, [filtered, limit, page])
-
-  const totalPages = useMemo(() => {
-    if (!filtered.length) return 1
-    return Math.ceil(filtered.length / limit)
-  }, [filtered.length, limit])
+  const filtered = useMemo(() => {
+    const needle = filter.search.trim().toLowerCase()
+    return items.filter((item) => {
+      if (filter.province && item.province !== filter.province) return false
+      if (filter.regency && item.regency !== filter.regency) return false
+      if (needle && !`${displayProvince(item.province)} ${displayRegency(item.province, item.regency)}`.toLowerCase().includes(needle)) return false
+      return true
+    })
+  }, [items, filter, provinceNameMap, provinceCodeMap, regencyNameMap])
 
   useEffect(() => {
     setPage(1)
-  }, [filter.district, filter.province, filter.regency])
+  }, [filter.province, filter.regency, filter.search])
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit))
   useEffect(() => {
     if (page > totalPages) setPage(1)
   }, [page, totalPages])
+
+  const paged = useMemo(() => {
+    const from = (page - 1) * limit
+    return filtered.slice(from, from + limit)
+  }, [filtered, page, limit])
+
+  const chart = useMemo(() => {
+    const width = 920
+    const height = 470
+    const padding = { top: 28, right: 28, bottom: 74, left: 84 }
+    const plotWidth = width - padding.left - padding.right
+    const plotHeight = height - padding.top - padding.bottom
+    const pointInset = 10
+    const ticks = Array.from({ length: 11 }, (_, index) => index * 10)
+
+    const toX = (percent: number) => padding.left + (clampPercent(percent) / 100) * plotWidth
+    const toY = (percent: number) => padding.top + ((100 - clampPercent(percent)) / 100) * plotHeight
+
+    const crisp = (value: number) => Math.round(value) + 0.5
+    const axisX = crisp(toX(35))
+    const axisY = crisp(toY(20))
+    const left = crisp(padding.left)
+    const top = crisp(padding.top)
+    const right = crisp(width - padding.right)
+    const bottom = crisp(height - padding.bottom)
+
+    const points = filtered.map((item, idx) => ({
+      id: `${item.province || ''}-${item.regency || ''}-${idx}`,
+      areaLabel: displayRegency(item.province, item.regency),
+      provinceLabel: displayProvince(item.province),
+      regencyLabel: displayRegency(item.province, item.regency),
+      totalOrders: item.total_orders,
+      x: Math.min(Math.max(toX(item.credit_capability), left + pointInset), right - pointInset),
+      y: Math.min(Math.max(toY(item.order_in_percent), top + pointInset), bottom - pointInset),
+      quadrant: item.quadrant,
+      orderInPercent: item.order_in_percent,
+      creditCapability: item.credit_capability,
+    }))
+
+    return {
+      width,
+      height,
+      toX,
+      toY,
+      axisX,
+      axisY,
+      left,
+      top,
+      right,
+      bottom,
+      ticks,
+      points,
+    }
+  }, [filtered, provinceNameMap, provinceCodeMap, regencyNameMap])
+
+  const activePoint = useMemo(
+    () => chart.points.find((point) => point.id === activePointId) || null,
+    [activePointId, chart.points],
+  )
+
+  const tooltip = useMemo(() => {
+    if (!activePoint) return null
+    const offsetX = 12
+    const offsetY = -12
+    const width = 220
+    const height = 34
+    const x = Math.min(Math.max(activePoint.x + offsetX, chart.left + 4), chart.right - width - 4)
+    const y = Math.min(Math.max(activePoint.y + offsetY, chart.top + 4), chart.bottom - height - 4)
+    return { x, y, width, height }
+  }, [activePoint, chart.bottom, chart.left, chart.right, chart.top])
 
   return (
     <div>
@@ -154,146 +306,192 @@ export default function QuadrantsPage() {
 
       <div className="page">
         <div className="card">
-          <h3>Quadrant Chart</h3>
+          <h3>Quadrant Flow</h3>
           <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            X axis: total orders, Y axis: score. Axes are crossed as plus (+).
+            Area-based points (kabupaten/kota). Vertical axis: Order In (integer scale). Horizontal axis: Credit Capability (%).
           </div>
 
-          {chart.points.length === 0 && (
-            <div style={{ marginTop: 12, color: '#64748b' }}>No chart data available for current filter.</div>
-          )}
-
-          {chart.points.length > 0 && (
-            <div style={{ marginTop: 12, overflowX: 'auto' }}>
-              <svg
-                viewBox={`0 0 ${chart.width} ${chart.height}`}
-                width="100%"
-                style={{ minWidth: 700, display: 'block', background: '#f8fafc', border: '1px solid #dbe3ef', borderRadius: 12 }}
-              >
-                <line x1={56} y1={chart.axisY} x2={chart.width - 28} y2={chart.axisY} stroke="#2563eb" strokeWidth={2.2} />
-                <line x1={chart.axisX} y1={24} x2={chart.axisX} y2={chart.height - 52} stroke="#2563eb" strokeWidth={2.2} />
-
-                {chart.xTicks.map((tick, idx) => {
-                  const x = 56 + ((chart.width - 84) * idx) / Math.max(1, chart.xTicks.length - 1)
-                  return (
-                    <g key={`x-${idx}`}>
-                      <line x1={x} y1={chart.height - 52} x2={x} y2={chart.height - 46} stroke="#64748b" strokeWidth={1} />
-                      <text x={x} y={chart.height - 30} textAnchor="middle" fontSize={11} fill="#475569">
-                        {tick.toFixed(1)}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                {chart.yTicks.map((tick, idx) => {
-                  const y = 24 + ((chart.height - 76) * idx) / Math.max(1, chart.yTicks.length - 1)
-                  return (
-                    <g key={`y-${idx}`}>
-                      <line x1={50} y1={y} x2={56} y2={y} stroke="#64748b" strokeWidth={1} />
-                      <text x={44} y={y + 3} textAnchor="end" fontSize={11} fill="#475569">
-                        {chart.yTicks[chart.yTicks.length - 1 - idx].toFixed(1)}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                {chart.points.map((point) => (
-                  <g key={point.id}>
-                    <circle cx={point.sx} cy={point.sy} r={5.2} fill="#0ea5e9" stroke="#0c4a6e" strokeWidth={1.2}>
-                      <title>{`${point.label} | Orders: ${point.x} | Score: ${point.y}`}</title>
-                    </circle>
-                  </g>
-                ))}
-
-                <text x={chart.width - 30} y={chart.axisY - 8} textAnchor="end" fontSize={11} fill="#1d4ed8">
-                  X
-                </text>
-                <text x={chart.axisX + 8} y={34} textAnchor="start" fontSize={11} fill="#1d4ed8">
-                  Y
-                </text>
-              </svg>
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <h3>Daftar Wilayah</h3>
-
           <div
-            className="grid"
             style={{
+              display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: 10,
-              marginTop: 10,
-              marginBottom: 12,
+              marginTop: 12,
             }}
           >
             <div>
-              <label>Provinsi</label>
-              <select value={filter.province} onChange={(e) => void handleProvince(e.target.value)}>
-                <option value="">Semua</option>
-                {provinces.map((province: any) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Kabupaten/Kota</label>
-              <select value={filter.regency} onChange={(e) => void handleRegency(e.target.value)} disabled={!filter.province}>
-                <option value="">Semua</option>
-                {kabupaten.map((kab: any) => (
-                  <option key={kab.code} value={kab.code}>{kab.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Kecamatan</label>
+              <label>Province</label>
               <select
-                value={filter.district}
-                onChange={(e) => setFilter((prev) => ({ ...prev, district: e.target.value }))}
-                disabled={!filter.regency}
+                value={filter.province}
+                onChange={(e) => setFilter((prev) => ({ ...prev, province: e.target.value, regency: '' }))}
               >
-                <option value="">Semua</option>
-                {kecamatan.map((kec: any) => (
-                  <option key={kec.code} value={kec.code}>{kec.name}</option>
+                <option value="">All</option>
+                {provinceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'end' }}>
-              <button className="btn-ghost" type="button" onClick={() => { setFilter({ province: '', regency: '', district: '' }); setKabupaten([]); setKecamatan([]) }}>
-                Reset Filter
-              </button>
+            <div>
+              <label>Regency/City</label>
+              <select
+                value={filter.regency}
+                onChange={(e) => setFilter((prev) => ({ ...prev, regency: e.target.value }))}
+                disabled={!regencyOptions.length}
+              >
+                <option value="">All</option>
+                {regencyOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Search Area</label>
+              <input
+                value={filter.search}
+                onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))}
+                placeholder="Search province / regency"
+              />
             </div>
           </div>
 
-          <table className="table">
+          <div style={{ marginTop: 14, overflowX: 'auto' }}>
+            <svg
+              viewBox={`0 0 ${chart.width} ${chart.height}`}
+              width="100%"
+              style={{
+                minWidth: 760,
+                display: 'block',
+                background: '#fff',
+                border: '1px solid #e2e8f0',
+                borderRadius: 14,
+              }}
+            >
+              <rect
+                x={chart.left}
+                y={chart.top}
+                width={chart.right - chart.left}
+                height={chart.bottom - chart.top}
+                fill="#f8fafc"
+                stroke="#111827"
+                strokeWidth={1.8}
+                strokeDasharray="2 8"
+                rx={10}
+              />
+
+              <line x1={chart.axisX} y1={chart.top} x2={chart.axisX} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
+              <line x1={chart.left} y1={chart.axisY} x2={chart.right} y2={chart.axisY} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
+
+              {chart.ticks.map((tick) => (
+                <text
+                  key={`x-tick-${tick}`}
+                  x={chart.toX(tick)}
+                  y={chart.axisY - 8}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {tick}%
+                </text>
+              ))}
+
+              {chart.ticks.map((tick) => (
+                <text
+                  key={`y-tick-${tick}`}
+                  x={chart.axisX + 8}
+                  y={chart.toY(tick) + 4}
+                  textAnchor="start"
+                  fontSize={11}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {tick}
+                </text>
+              ))}
+
+              <text x={(chart.left + chart.right) / 2} y={chart.bottom + 56} textAnchor="middle" fontSize={16} fontWeight={700} fill="#111827">
+                Credit Capability
+              </text>
+              <text
+                transform={`translate(${chart.left - 58}, ${(chart.top + chart.bottom) / 2}) rotate(-90)`}
+                textAnchor="middle"
+                fontSize={16}
+                fontWeight={700}
+                fill="#111827"
+              >
+                Order In
+              </text>
+
+              <text x={(chart.left + chart.axisX) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#16a34a">Kuadran 1</text>
+              <text x={(chart.axisX + chart.right) / 2} y={chart.top - 10} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f97316">Kuadran 3</text>
+              <text x={(chart.left + chart.axisX) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#f59e0b">Kuadran 2</text>
+              <text x={(chart.axisX + chart.right) / 2} y={chart.bottom + 28} textAnchor="middle" fontSize={20} fontWeight={700} fill="#ef4444">Kuadran 4</text>
+
+              {chart.points.map((point) => (
+                <g key={point.id}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={point.id === activePointId ? 8 : 6}
+                    fill={quadrantColor(point.quadrant)}
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    style={{ cursor: 'default' }}
+                    onMouseEnter={() => setActivePointId(point.id)}
+                    onMouseLeave={() => setActivePointId('')}
+                  />
+                </g>
+              ))}
+
+              {activePoint && tooltip && (
+                <g pointerEvents="none">
+                  <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={6} fill="#0f172a" opacity={0.94} />
+                  <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={12} fill="#fff" fontWeight={700}>
+                    {`${activePoint.provinceLabel} - ${activePoint.regencyLabel}`}
+                  </text>
+                </g>
+              )}
+            </svg>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Area Points</h3>
+          <table className="table" style={{ marginTop: 10 }}>
             <thead>
               <tr>
-                <th>Provinsi</th>
-                <th>Kab/Kota</th>
-                <th>Kecamatan</th>
-                <th>Kelurahan</th>
-                <th>Total Order</th>
-                <th>Score</th>
+                <th>Province</th>
+                <th>Regency/City</th>
+                <th>Total Order In</th>
+                <th>Order In %</th>
+                <th>Credit Capability %</th>
+                <th>Quadrant</th>
               </tr>
             </thead>
             <tbody>
               {paged.map((row, idx) => (
-                <tr key={idx}>
-                  <td>{nameFrom(row.province, provinces)}</td>
-                  <td>{nameFrom(row.regency, kabupaten)}</td>
-                  <td>{nameFrom(row.district, kecamatan)}</td>
-                  <td>{row.village || '-'}</td>
-                  <td>{row.total_orders ?? '-'}</td>
-                  <td>{row.score}</td>
+                <tr key={`${row.province}-${row.regency}-${idx}`}>
+                  <td>{displayProvince(row.province)}</td>
+                  <td>{displayRegency(row.province, row.regency)}</td>
+                  <td>{row.total_orders}</td>
+                  <td>{row.order_in_percent.toFixed(2)}%</td>
+                  <td>{row.credit_capability.toFixed(2)}%</td>
+                  <td>
+                    <span className="badge" style={{ background: quadrantColor(row.quadrant), color: '#fff' }}>
+                      Q{row.quadrant}
+                    </span>
+                  </td>
                 </tr>
               ))}
               {paged.length === 0 && (
                 <tr>
-                  <td colSpan={6}>Data tidak ditemukan.</td>
+                  <td colSpan={6}>No data found.</td>
                 </tr>
               )}
             </tbody>
@@ -309,6 +507,7 @@ export default function QuadrantsPage() {
               setLimit(next)
               setPage(1)
             }}
+            limitOptions={[10, 20, 50]}
           />
         </div>
       </div>

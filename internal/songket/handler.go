@@ -1082,11 +1082,10 @@ func (h *Handler) CreditWorksheet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
-// GET /api/songket/quadrants/summary (score by wilayah)
+// GET /api/songket/quadrants/summary (order-in% vs credit capability)
 func (h *Handler) QuadrantSummary(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	threshold := utils.GetEnv("CREDIT_ORDER_THRESHOLD", 5).(int)
-	data, err := h.svc.CreditCapabilitySummary(int64(threshold))
+	data, err := h.svc.QuadrantSummaryFlow()
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()

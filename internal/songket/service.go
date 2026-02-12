@@ -2060,6 +2060,21 @@ type CreditSummary struct {
 	Score        int    `json:"score"`
 }
 
+type QuadrantFlowSummary struct {
+	OrderID          string  `json:"order_id"`
+	PoolingNumber    string  `json:"pooling_number"`
+	Province         string  `json:"province"`
+	Regency          string  `json:"regency"`
+	JobID            string  `json:"job_id"`
+	JobName          string  `json:"job_name"`
+	MotorTypeID      string  `json:"motor_type_id"`
+	MotorTypeName    string  `json:"motor_type_name"`
+	TotalOrders      int64   `json:"total_orders"`
+	OrderInPercent   float64 `json:"order_in_percent"`
+	CreditCapability float64 `json:"credit_capability"`
+	Quadrant         int     `json:"quadrant"`
+}
+
 type CreditWorksheetJob struct {
 	JobID     string  `json:"job_id"`
 	JobName   string  `json:"job_name"`
@@ -2184,6 +2199,151 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 	}
 
 	return summaries, nil
+}
+
+// QuadrantFlowSummary computes quadrant points with fixed thresholds:
+// - Order In percentage threshold: 20%
+// - Credit Capability threshold: 35%
+func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
+	const orderThresholdPct = 20.0
+	const creditThresholdPct = 35.0
+
+	type orderAggregate struct {
+		Province string `gorm:"column:province"`
+		Regency  string `gorm:"column:regency"`
+		Total    int64  `gorm:"column:total"`
+	}
+
+	var orderRows []orderAggregate
+	if err := s.db.
+		Table("orders").
+		Select(`
+			COALESCE(NULLIF(TRIM(province), ''), '') AS province,
+			COALESCE(NULLIF(TRIM(regency), ''), '') AS regency,
+			COUNT(*) AS total
+		`).
+		Where("deleted_at IS NULL").
+		Where("NULLIF(TRIM(regency), '') IS NOT NULL").
+		Group("province, regency").
+		Scan(&orderRows).Error; err != nil {
+		return nil, err
+	}
+
+	totalOrders := int64(0)
+	for _, row := range orderRows {
+		totalOrders += row.Total
+	}
+	if totalOrders <= 0 {
+		return []QuadrantFlowSummary{}, nil
+	}
+
+	worksheetRaw, err := s.CreditCapabilityWorksheet("", "")
+	if err != nil {
+		return nil, err
+	}
+
+	areas, ok := worksheetRaw["areas"].([]CreditWorksheetArea)
+	if !ok {
+		return nil, fmt.Errorf("invalid worksheet area format")
+	}
+
+	normalize := func(value string) string {
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+	makeKey := func(province, regency string) string {
+		return normalize(province) + "|" + normalize(regency)
+	}
+	appendUnique := func(values []string, candidate string) []string {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			return values
+		}
+		for _, existing := range values {
+			if strings.EqualFold(existing, candidate) {
+				return values
+			}
+		}
+		return append(values, candidate)
+	}
+	capabilityByArea := map[string]float64{}
+	for _, area := range areas {
+		sumRate := 0.0
+		countRate := 0
+		for _, row := range area.Matrix {
+			for _, cell := range row.Cells {
+				sumRate += cell.CapabilityRate
+				countRate++
+			}
+		}
+		if countRate == 0 {
+			continue
+		}
+
+		capabilityPct := (sumRate / float64(countRate)) * 100
+		provinceCandidates := []string{}
+		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceCode)
+		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceName)
+		regencyCandidates := []string{}
+		regencyCandidates = appendUnique(regencyCandidates, area.RegencyCode)
+		regencyCandidates = appendUnique(regencyCandidates, area.RegencyName)
+
+		for _, reg := range regencyCandidates {
+			capabilityByArea[makeKey("", reg)] = capabilityPct
+			for _, prov := range provinceCandidates {
+				capabilityByArea[makeKey(prov, reg)] = capabilityPct
+			}
+		}
+	}
+
+	results := make([]QuadrantFlowSummary, 0, len(orderRows))
+	for _, row := range orderRows {
+		if strings.TrimSpace(row.Regency) == "" {
+			continue
+		}
+
+		orderPct := (float64(row.Total) / float64(totalOrders)) * 100
+		capabilityPct := 0.0
+		if value, exists := capabilityByArea[makeKey(row.Province, row.Regency)]; exists {
+			capabilityPct = value
+		} else if value, exists := capabilityByArea[makeKey("", row.Regency)]; exists {
+			capabilityPct = value
+		}
+
+		quadrant := 4
+		orderHigh := orderPct > orderThresholdPct
+		creditLow := capabilityPct <= creditThresholdPct
+		switch {
+		case orderHigh && creditLow:
+			quadrant = 1
+		case !orderHigh && creditLow:
+			quadrant = 2
+		case orderHigh && !creditLow:
+			quadrant = 3
+		default:
+			quadrant = 4
+		}
+
+		results = append(results, QuadrantFlowSummary{
+			Province:         row.Province,
+			Regency:          row.Regency,
+			TotalOrders:      row.Total,
+			OrderInPercent:   orderPct,
+			CreditCapability: capabilityPct,
+			Quadrant:         quadrant,
+		})
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].OrderInPercent != results[j].OrderInPercent {
+			return results[i].OrderInPercent > results[j].OrderInPercent
+		}
+		if !strings.EqualFold(results[i].Province, results[j].Province) {
+			return strings.ToLower(results[i].Province) < strings.ToLower(results[j].Province)
+		}
+		return strings.ToLower(results[i].Regency) < strings.ToLower(results[j].Regency)
+	})
+
+	return results, nil
 }
 
 // CreditCapabilityWorksheet builds worksheet-style capability matrix based on Order In data.
