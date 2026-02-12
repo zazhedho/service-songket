@@ -269,6 +269,18 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 			}
 		}
 
+		if strings.ToLower(strings.TrimSpace(order.ResultStatus)) == "reject" {
+			cloneStatus, cloneNotes := deriveCloneResult(
+				order.ResultStatus,
+				order.ResultNotes,
+				req.ResultStatus2,
+				req.ResultNotes2,
+			)
+			if err := s.duplicateOrderRow(tx, order, cloneStatus, cloneNotes, req.FinanceCompany2ID); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}); err != nil {
 		return Order{}, err
@@ -324,6 +336,7 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if err := s.db.Preload("Attempts").First(&order, "id = ?", normalizedID).Error; err != nil {
 		return Order{}, err
 	}
+	previousPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
 	var selectedMotor *MotorType
 
 	if role == utils.RoleDealer && order.CreatedBy != userId {
@@ -552,6 +565,38 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 			}
 			order.Attempts = append(order.Attempts, newAttempt)
 		}
+
+		currentPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
+		if currentPrimaryStatus == "reject" && previousPrimaryStatus != "reject" {
+			secondStatus := ""
+			secondNotes := ""
+			if req.ResultStatus2 != nil {
+				secondStatus = *req.ResultStatus2
+			}
+			if req.ResultNotes2 != nil {
+				secondNotes = *req.ResultNotes2
+			}
+			if strings.TrimSpace(secondStatus) == "" || strings.TrimSpace(secondNotes) == "" {
+				if att, ok := findAttempt(order.Attempts, 2); ok {
+					if strings.TrimSpace(secondStatus) == "" {
+						secondStatus = att.Status
+					}
+					if strings.TrimSpace(secondNotes) == "" {
+						secondNotes = att.Notes
+					}
+				}
+			}
+			secondFinanceCompanyID := ""
+			if financeCompany2ID != nil {
+				secondFinanceCompanyID = *financeCompany2ID
+			} else if att, ok := findAttempt(order.Attempts, 2); ok {
+				secondFinanceCompanyID = att.FinanceCompanyID
+			}
+			cloneStatus, cloneNotes := deriveCloneResult(order.ResultStatus, order.ResultNotes, secondStatus, secondNotes)
+			if err := s.duplicateOrderRow(tx, order, cloneStatus, cloneNotes, secondFinanceCompanyID); err != nil {
+				return err
+			}
+		}
 		return nil
 	}); err != nil {
 		return Order{}, err
@@ -567,6 +612,77 @@ func (s *Service) hasAttempt(atts []OrderFinanceAttempt, num int) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, cloneNotes, financeCompanyID string) error {
+	status := strings.ToLower(strings.TrimSpace(cloneStatus))
+	if status == "" {
+		status = strings.ToLower(strings.TrimSpace(source.ResultStatus))
+	}
+	duplicateOrder := Order{
+		Id:            utils.CreateUUID(),
+		PoolingNumber: source.PoolingNumber,
+		PoolingAt:     source.PoolingAt,
+		ResultAt:      source.ResultAt,
+		DealerID:      source.DealerID,
+		ConsumerName:  source.ConsumerName,
+		ConsumerPhone: source.ConsumerPhone,
+		Province:      source.Province,
+		Regency:       source.Regency,
+		District:      source.District,
+		Village:       source.Village,
+		Address:       source.Address,
+		JobID:         source.JobID,
+		MotorTypeID:   source.MotorTypeID,
+		OTR:           source.OTR,
+		DPGross:       source.DPGross,
+		DPPaid:        source.DPPaid,
+		DPPct:         source.DPPct,
+		Tenor:         source.Tenor,
+		ResultStatus:  status,
+		ResultNotes:   strings.TrimSpace(cloneNotes),
+		CreatedBy:     source.CreatedBy,
+	}
+	if err := tx.Omit("Attempts").Create(&duplicateOrder).Error; err != nil {
+		return err
+	}
+
+	financeID := strings.TrimSpace(financeCompanyID)
+	if financeID == "" {
+		return nil
+	}
+
+	duplicateAttempt := OrderFinanceAttempt{
+		Id:               utils.CreateUUID(),
+		OrderID:          duplicateOrder.Id,
+		FinanceCompanyID: financeID,
+		AttemptNo:        1,
+		Status:           status,
+		Notes:            strings.TrimSpace(cloneNotes),
+	}
+	return tx.Create(&duplicateAttempt).Error
+}
+
+func deriveCloneResult(primaryStatus, primaryNotes, secondStatus, secondNotes string) (string, string) {
+	status := strings.ToLower(strings.TrimSpace(secondStatus))
+	if status == "" {
+		status = strings.ToLower(strings.TrimSpace(primaryStatus))
+	}
+
+	notes := strings.TrimSpace(secondNotes)
+	if notes == "" {
+		notes = strings.TrimSpace(primaryNotes)
+	}
+	return status, notes
+}
+
+func findAttempt(atts []OrderFinanceAttempt, num int) (OrderFinanceAttempt, bool) {
+	for _, att := range atts {
+		if att.AttemptNo == num {
+			return att, true
+		}
+	}
+	return OrderFinanceAttempt{}, false
 }
 
 // DeleteOrder enforces role-based access.
