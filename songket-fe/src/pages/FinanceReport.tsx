@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchKabupaten, fetchKecamatan, fetchProvinces, listFinanceMigrationReport } from '../api'
 import ActionMenu from '../components/ActionMenu'
 import Pagination from '../components/Pagination'
@@ -64,12 +64,33 @@ function statusBadge(status: string) {
   return <span className={`badge ${s}`}>{s}</span>
 }
 
+function DetailTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
+  return (
+    <table className="table">
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <th style={{ width: 200 }}>{row.label}</th>
+            <td>{row.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 export default function FinanceReportPage() {
+  const location = useLocation()
   const navigate = useNavigate()
+  const params = useParams()
+  const selectedId = params.id || ''
+  const isDetail = Boolean(selectedId)
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_finance_dealers')
+  const stateRow = (location.state as any)?.row as FinanceMigrationRow | undefined
 
   const [rows, setRows] = useState<FinanceMigrationRow[]>([])
+  const [detailRow, setDetailRow] = useState<FinanceMigrationRow | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [locationNamesByOrderId, setLocationNamesByOrderId] = useState<Record<string, LocationNames>>({})
@@ -91,7 +112,7 @@ export default function FinanceReportPage() {
     return Array.from({ length: 8 }, (_, idx) => String(now - idx))
   }, [])
 
-  const load = async () => {
+  const loadList = async () => {
     if (!canList) return
     setLoading(true)
     setError('')
@@ -127,14 +148,61 @@ export default function FinanceReportPage() {
   }
 
   useEffect(() => {
-    void load()
-  }, [canList, page, limit, search, month, year])
+    if (isDetail) return
+    void loadList()
+  }, [canList, isDetail, page, limit, search, month, year])
+
+  useEffect(() => {
+    if (!canList || !isDetail || !selectedId) return
+
+    let mounted = true
+    setLoading(true)
+    setError('')
+
+    if (stateRow && stateRow.order_id === selectedId) {
+      setDetailRow(stateRow)
+    }
+
+    listFinanceMigrationReport({
+      page: 1,
+      limit: 1,
+      filters: { order_id: selectedId },
+      order_by: 'pooling_at',
+      order_direction: 'desc',
+    })
+      .then((res) => {
+        if (!mounted) return
+        const payload = res?.data || {}
+        const data = payload?.data || []
+        const row = Array.isArray(data) && data.length > 0 ? data[0] : null
+        setDetailRow(row || (stateRow && stateRow.order_id === selectedId ? stateRow : null))
+      })
+      .catch((err: any) => {
+        if (!mounted) return
+        setDetailRow(stateRow && stateRow.order_id === selectedId ? stateRow : null)
+        setError(err?.response?.data?.error || 'Failed to load finance migration detail.')
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [canList, isDetail, selectedId, stateRow])
+
+  const sourceRows = useMemo(() => {
+    if (isDetail) {
+      return detailRow ? [detailRow] : []
+    }
+    return rows
+  }, [detailRow, isDetail, rows])
 
   useEffect(() => {
     let mounted = true
 
     const resolveLocationNames = async () => {
-      if (!rows.length) {
+      if (!sourceRows.length) {
         if (mounted) setLocationNamesByOrderId({})
         return
       }
@@ -152,7 +220,7 @@ export default function FinanceReportPage() {
       const kecamatanCache: Record<string, OptionItem[]> = {}
       const nextMap: Record<string, LocationNames> = {}
 
-      for (const item of rows) {
+      for (const item of sourceRows) {
         const provinceCode = normalizeText(item.province)
         const regencyCode = normalizeText(item.regency)
         const districtCode = normalizeText(item.district)
@@ -204,7 +272,7 @@ export default function FinanceReportPage() {
     return () => {
       mounted = false
     }
-  }, [rows])
+  }, [sourceRows])
 
   const applyFilters = () => {
     setSearch(searchInput)
@@ -229,6 +297,74 @@ export default function FinanceReportPage() {
         <div className="card" style={{ minWidth: 0 }}>
           <h3>Report Finance</h3>
           <div className="alert">No access permission for finance migration report.</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isDetail) {
+    const item = detailRow
+    const namedLocation = item ? locationNamesByOrderId[item.order_id] : null
+    const locationText = item
+      ? [
+          namedLocation?.province || item.province || '-',
+          namedLocation?.regency || item.regency || '-',
+          namedLocation?.district || item.district || '-',
+          item.village || '-',
+          item.address || '-',
+        ].join(', ')
+      : '-'
+    const motorOtrText = item ? `${item.motor_type_name || '-'} | ${formatRupiah(Number(item.otr || 0))}` : '-'
+
+    return (
+      <div style={{ overflowX: 'hidden' }}>
+        <div className="header">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance Detail</div>
+            <div style={{ color: '#64748b' }}>Detailed migration data from finance 1 to finance 2</div>
+          </div>
+          <button className="btn-ghost" onClick={() => navigate('/finance-report')}>
+            Back
+          </button>
+        </div>
+
+        <div className="page" style={{ overflowX: 'hidden' }}>
+          {error && <div className="alert">{error}</div>}
+          {loading && !item && <div className="card"><div className="muted">Loading detail...</div></div>}
+          {!loading && !item && <div className="card"><div className="alert">Finance migration detail not found.</div></div>}
+
+          {item && (
+            <>
+              <div className="card">
+                <h3>Order Information</h3>
+                <DetailTable
+                  rows={[
+                    { label: 'Pooling Number', value: item.pooling_number || '-' },
+                    { label: 'Pooling Date', value: formatDateTime(item.pooling_at) },
+                    { label: 'Dealer', value: item.dealer_name || '-' },
+                    { label: 'Consumer Name', value: item.consumer_name || '-' },
+                    { label: 'Consumer Phone', value: item.consumer_phone || '-' },
+                    { label: 'Location', value: locationText },
+                    { label: 'Job', value: item.job_name || '-' },
+                    { label: 'Motor Type / OTR', value: motorOtrText },
+                  ]}
+                />
+              </div>
+
+              <div className="card">
+                <h3>Finance Result</h3>
+                <DetailTable
+                  rows={[
+                    { label: 'Finance 1', value: item.finance_1_name || '-' },
+                    { label: 'Status 1', value: statusBadge(item.finance_1_status) },
+                    { label: 'Finance 2', value: item.finance_2_name || '-' },
+                    { label: 'Status 2', value: statusBadge(item.finance_2_status) },
+                    { label: 'Notes Finance 2', value: item.finance_2_notes || '-' },
+                  ]}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     )
@@ -355,8 +491,8 @@ export default function FinanceReportPage() {
                               key: 'view',
                               label: 'View',
                               onClick: () =>
-                                navigate(`/orders/${item.order_id}`, {
-                                  state: { back_to: '/finance-report' },
+                                navigate(`/finance-report/${item.order_id}`, {
+                                  state: { row: item },
                                 }),
                             },
                           ]}

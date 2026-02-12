@@ -2,6 +2,7 @@ package songket
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"starter-kit/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -213,7 +215,18 @@ func (h *Handler) FinanceMigrationReport(ctx *gin.Context) {
 		return
 	}
 
-	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"dealer_id", "finance_1_company_id", "finance_2_company_id"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"order_id", "dealer_id", "finance_1_company_id", "finance_2_company_id"})
+	if v, ok := params.Filters["order_id"]; ok {
+		orderID := strings.TrimSpace(fmt.Sprint(v))
+		if orderID != "" {
+			if _, parseErr := uuid.Parse(orderID); parseErr != nil {
+				res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+				res.Error = "order_id must be a valid UUID"
+				ctx.JSON(http.StatusBadRequest, res)
+				return
+			}
+		}
+	}
 
 	month := 0
 	if rawMonth := strings.TrimSpace(ctx.Query("month")); rawMonth != "" {

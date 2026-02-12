@@ -61,6 +61,7 @@ export default function App() {
         <Route path="/finance/companies/:id" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance-report" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/finance-report/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
         <Route path="/dealer" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/dealer/dealers/create" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/dealer/dealers/:id" element={<Guarded><FinancePage /></Guarded>} />

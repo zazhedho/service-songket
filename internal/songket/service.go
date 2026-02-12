@@ -1277,6 +1277,12 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 	if year > 0 {
 		query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", year)
 	}
+	if v, ok := params.Filters["order_id"]; ok {
+		orderID := strings.TrimSpace(fmt.Sprint(v))
+		if orderID != "" {
+			query = query.Where("o.id = ?", orderID)
+		}
+	}
 
 	if v, ok := params.Filters["dealer_id"]; ok {
 		dealerID := strings.TrimSpace(fmt.Sprint(v))
