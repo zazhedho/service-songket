@@ -739,7 +739,7 @@ export default function OrdersPage() {
 
               <div>
                 <label>OTR (auto)</label>
-                <input value={selectedMotor?.otr || ''} readOnly />
+                <input value={selectedMotor?.otr ? formatRupiah(selectedMotor.otr) : ''} readOnly />
               </div>
 
               <div>
