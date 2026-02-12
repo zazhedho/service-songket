@@ -11,7 +11,13 @@ type FinanceMigrationRow = {
   pooling_number: string
   pooling_at: string
   result_at?: string
+  dealer_order_total?: number
   dealer_name: string
+  dealer_province?: string
+  dealer_regency?: string
+  dealer_district?: string
+  dealer_village?: string
+  dealer_address?: string
   consumer_name: string
   consumer_phone: string
   province: string
@@ -20,7 +26,9 @@ type FinanceMigrationRow = {
   village: string
   address: string
   job_name: string
+  net_income?: number
   motor_type_name: string
+  installment_amount?: number
   otr: number
   dp_gross: number
   dp_paid: number
@@ -574,72 +582,96 @@ export default function FinanceReportPage() {
           {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
           <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
-            <table className="table" style={{ minWidth: 1890, tableLayout: 'fixed' }}>
+            <table className="table" style={{ minWidth: 3380, tableLayout: 'auto' }}>
               <thead>
                 <tr>
                   <th style={{ width: 56 }}>No</th>
-                  <th style={{ width: 130 }}>Pooling Number</th>
-                  <th style={{ width: 165 }}>Pooling Date</th>
-                  <th style={{ width: 170 }}>Dealer</th>
-                  <th style={{ width: 170 }}>Consumer Name</th>
-                  <th style={{ width: 140 }}>Consumer Phone</th>
-                  <th style={{ width: 340 }}>Location</th>
-                  <th style={{ width: 150 }}>Job</th>
-                  <th style={{ width: 220 }}>Motor Type / OTR</th>
-                  <th style={{ width: 150 }}>Finance 1</th>
-                  <th style={{ width: 130 }}>Status 1</th>
-                  <th style={{ width: 150 }}>Finance 2</th>
-                  <th style={{ width: 130 }}>Status 2</th>
-                  <th style={{ width: 240 }}>Notes Finance 2</th>
+                  <th style={{ width: 150 }}>Pooling Number</th>
+                  <th style={{ width: 180 }}>Pooling Date</th>
+                  <th style={{ width: 190 }}>Nama Konsumen</th>
+                  <th style={{ width: 500 }}>Alamat Konsumen</th>
+                  <th style={{ width: 190 }}>Nama Dealer</th>
+                  <th style={{ width: 420 }}>Area Dealer</th>
+                  <th style={{ width: 240 }}>Tipe Motor</th>
+                  <th style={{ width: 180 }}>OTR</th>
+                  <th style={{ width: 180 }}>Angsuran</th>
+                  <th style={{ width: 180 }}>Net Income</th>
+                  <th style={{ width: 160 }}>Finance 1</th>
+                  <th style={{ width: 130 }}>Status Finance 1</th>
+                  <th style={{ width: 220 }}>Keterangan Finance 1</th>
+                  <th style={{ width: 160 }}>Finance 2</th>
+                  <th style={{ width: 130 }}>Status Finance 2</th>
+                  <th style={{ width: 240 }}>Keterangan Finance 2</th>
                   <th style={{ width: 120 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={15}>No finance migration data.</td>
+                    <td colSpan={18}>No finance migration data.</td>
                   </tr>
                 )}
                 {rows.map((item, idx) => {
                   const rowNumber = (page - 1) * limit + idx + 1
                   const namedLocation = locationNamesByOrderId[item.order_id]
-                  const locationText = [
+                  const consumerAddress = [
                     namedLocation?.province || item.province || '-',
                     namedLocation?.regency || item.regency || '-',
                     namedLocation?.district || item.district || '-',
                     item.village || '-',
                     item.address || '-',
-                  ].join(', ')
-                  const motorOtrText = `${item.motor_type_name || '-'} | ${formatRupiah(Number(item.otr || 0))}`
+                  ]
+                    .map((it) => String(it || '').trim())
+                    .filter(Boolean)
+                    .join(', ')
+                  const dealerArea = [
+                    item.dealer_province || '-',
+                    item.dealer_regency || '-',
+                    item.dealer_district || '-',
+                    item.dealer_village || '-',
+                    item.dealer_address || '-',
+                  ]
+                    .map((it) => String(it || '').trim())
+                    .filter(Boolean)
+                    .join(', ')
+                  const motorTypeCombined = `${item.motor_type_name || '-'} | ${formatRupiah(Number(item.otr || 0))}`
+
                   return (
                     <tr key={`${item.order_id}-${idx}`}>
                       <td>{rowNumber}</td>
                       <td title={item.pooling_number || '-'}>{item.pooling_number || '-'}</td>
                       <td title={formatDateTime(item.pooling_at)}>{formatDateTime(item.pooling_at)}</td>
-                      <td title={item.dealer_name || '-'}>{item.dealer_name || '-'}</td>
                       <td title={item.consumer_name || '-'}>{item.consumer_name || '-'}</td>
-                      <td title={item.consumer_phone || '-'}>{item.consumer_phone || '-'}</td>
-                      <td title={locationText}>{locationText}</td>
-                      <td title={item.job_name || '-'}>{item.job_name || '-'}</td>
-                      <td title={motorOtrText}>{motorOtrText}</td>
+                      <td title={consumerAddress || '-'}>{consumerAddress || '-'}</td>
+                      <td title={item.dealer_name || '-'}>{item.dealer_name || '-'}</td>
+                      <td title={dealerArea || '-'}>{dealerArea || '-'}</td>
+                      <td title={motorTypeCombined}>{motorTypeCombined}</td>
+                      <td title={formatRupiah(Number(item.otr || 0))}>{formatRupiah(Number(item.otr || 0))}</td>
+                      <td title={formatRupiah(Number(item.installment_amount || 0))}>{formatRupiah(Number(item.installment_amount || 0))}</td>
+                      <td title={formatRupiah(Number(item.net_income || 0))}>{formatRupiah(Number(item.net_income || 0))}</td>
                       <td title={item.finance_1_name || '-'}>{item.finance_1_name || '-'}</td>
                       <td>{statusBadge(item.finance_1_status)}</td>
+                      <td title={item.finance_1_notes || '-'}>{item.finance_1_notes || '-'}</td>
                       <td title={item.finance_2_name || '-'}>{item.finance_2_name || '-'}</td>
                       <td>{statusBadge(item.finance_2_status)}</td>
                       <td title={item.finance_2_notes || '-'}>{item.finance_2_notes || '-'}</td>
                       <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () =>
-                                navigate(`/finance-report/${item.order_id}`, {
-                                  state: { row: item },
-                                }),
-                            },
-                          ]}
-                        />
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+                          onClick={() =>
+                            navigate(`/finance-report/${item.order_id}`, {
+                              state: { row: item },
+                            })
+                          }
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                          </svg>
+                          View
+                        </button>
                       </td>
                     </tr>
                   )

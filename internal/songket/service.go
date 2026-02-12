@@ -1164,7 +1164,13 @@ type FinanceMigrationReportItem struct {
 	PoolingNumber     string     `gorm:"column:pooling_number" json:"pooling_number"`
 	PoolingAt         time.Time  `gorm:"column:pooling_at" json:"pooling_at"`
 	ResultAt          *time.Time `gorm:"column:result_at" json:"result_at"`
+	DealerOrderTotal  int        `gorm:"column:dealer_order_total" json:"dealer_order_total"`
 	DealerName        string     `gorm:"column:dealer_name" json:"dealer_name"`
+	DealerProvince    string     `gorm:"column:dealer_province" json:"dealer_province"`
+	DealerRegency     string     `gorm:"column:dealer_regency" json:"dealer_regency"`
+	DealerDistrict    string     `gorm:"column:dealer_district" json:"dealer_district"`
+	DealerVillage     string     `gorm:"column:dealer_village" json:"dealer_village"`
+	DealerAddress     string     `gorm:"column:dealer_address" json:"dealer_address"`
 	ConsumerName      string     `gorm:"column:consumer_name" json:"consumer_name"`
 	ConsumerPhone     string     `gorm:"column:consumer_phone" json:"consumer_phone"`
 	Province          string     `gorm:"column:province" json:"province"`
@@ -1173,7 +1179,9 @@ type FinanceMigrationReportItem struct {
 	Village           string     `gorm:"column:village" json:"village"`
 	Address           string     `gorm:"column:address" json:"address"`
 	JobName           string     `gorm:"column:job_name" json:"job_name"`
+	NetIncome         float64    `gorm:"column:net_income" json:"net_income"`
 	MotorTypeName     string     `gorm:"column:motor_type_name" json:"motor_type_name"`
+	InstallmentAmount float64    `gorm:"column:installment_amount" json:"installment_amount"`
 	OTR               float64    `gorm:"column:otr" json:"otr"`
 	DPGross           float64    `gorm:"column:dp_gross" json:"dp_gross"`
 	DPPaid            float64    `gorm:"column:dp_paid" json:"dp_paid"`
@@ -1257,7 +1265,18 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 		`).
 		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
 		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN job_net_incomes jni ON jni.job_id = o.job_id AND jni.deleted_at IS NULL").
 		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT i.amount
+				FROM installments i
+				WHERE i.deleted_at IS NULL
+					AND i.motor_type_id = o.motor_type_id
+				ORDER BY i.updated_at DESC, i.created_at DESC
+				LIMIT 1
+			) inst ON TRUE
+		`).
 		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
 		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2.finance_company_id AND fc2.deleted_at IS NULL").
 		Joins("LEFT JOIN finance_companies fc2_clone ON fc2_clone.id = o2a1.finance_company_id AND fc2_clone.deleted_at IS NULL").
@@ -1357,7 +1376,20 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			o.pooling_number AS pooling_number,
 			o.pooling_at AS pooling_at,
 			o.result_at AS result_at,
+			(
+				SELECT COUNT(1)
+				FROM orders od
+				WHERE od.deleted_at IS NULL
+					AND od.dealer_id = o.dealer_id
+					AND (? = 0 OR EXTRACT(MONTH FROM od.pooling_at) = ?)
+					AND (? = 0 OR EXTRACT(YEAR FROM od.pooling_at) = ?)
+			) AS dealer_order_total,
 			COALESCE(d.name, '-') AS dealer_name,
+			COALESCE(d.province, '-') AS dealer_province,
+			COALESCE(d.regency, '-') AS dealer_regency,
+			COALESCE(d.district, '-') AS dealer_district,
+			COALESCE(d.village, '-') AS dealer_village,
+			COALESCE(d.address, '-') AS dealer_address,
 			COALESCE(o.consumer_name, '-') AS consumer_name,
 			COALESCE(o.consumer_phone, '-') AS consumer_phone,
 			COALESCE(o.province, '-') AS province,
@@ -1366,7 +1398,9 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			COALESCE(o.village, '-') AS village,
 			COALESCE(o.address, '-') AS address,
 			COALESCE(j.name, '-') AS job_name,
+			COALESCE(jni.net_income, 0) AS net_income,
 			COALESCE(mt.name, '-') AS motor_type_name,
+			COALESCE(inst.amount, 0) AS installment_amount,
 			COALESCE(o.otr, 0) AS otr,
 			COALESCE(o.dp_gross, 0) AS dp_gross,
 			COALESCE(o.dp_paid, 0) AS dp_paid,
@@ -1384,7 +1418,7 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			o.updated_at AS order_updated_at,
 			a1.created_at AS finance_1_decision_at,
 			COALESCE(a2.created_at, o2a1.created_at, o2.created_at, o.updated_at) AS finance_2_decision_at
-		`).
+		`, month, month, year, year).
 		Order(fmt.Sprintf("%s %s", orderColumn, orderDirection)).
 		Offset(params.Offset).
 		Limit(params.Limit).
