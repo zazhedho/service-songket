@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -98,24 +98,19 @@ const initialFinanceForm: FinanceForm = {
 const INDONESIA_CENTER: [number, number] = [-2.5489, 118.0149]
 
 function parseFinanceMode(pathname: string) {
-  if (pathname.endsWith('/dealers/create')) return 'dealer_create'
-  if (/\/finance\/dealers\/[^/]+\/edit$/.test(pathname)) return 'dealer_edit'
-  if (/\/finance\/dealers\/[^/]+$/.test(pathname)) return 'dealer_detail'
+  if (pathname === '/dealer/dealers/create') return 'dealer_create'
+  if (/\/dealer\/dealers\/[^/]+\/edit$/.test(pathname)) return 'dealer_edit'
+  if (/\/dealer\/dealers\/[^/]+$/.test(pathname)) return 'dealer_detail'
   if (pathname.endsWith('/companies/create')) return 'company_create'
   if (/\/finance\/companies\/[^/]+\/edit$/.test(pathname)) return 'company_edit'
   if (/\/finance\/companies\/[^/]+$/.test(pathname)) return 'company_detail'
   return 'list'
 }
 
-function getListTab(searchParams: URLSearchParams): 'dealer' | 'finance' {
-  return searchParams.get('tab') === 'finance' ? 'finance' : 'dealer'
-}
-
 export default function FinancePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const mode = parseFinanceMode(location.pathname)
   const selectedId = params.id || ''
@@ -128,7 +123,7 @@ export default function FinancePage() {
   const isCompanyEdit = mode === 'company_edit'
   const isCompanyDetail = mode === 'company_detail'
 
-  const listTab = getListTab(searchParams)
+  const listSection: 'dealer' | 'finance' = location.pathname.startsWith('/dealer') ? 'dealer' : 'finance'
 
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('list_finance_dealers')
@@ -267,14 +262,14 @@ export default function FinancePage() {
   }, [financeProvinceFilter])
 
   useEffect(() => {
-    if (!selectedDealerId || !(isList && (listTab === 'dealer' || listTab === 'finance'))) {
+    if (!selectedDealerId || !isList) {
       setMetrics(null)
       return
     }
     fetchDealerMetrics(selectedDealerId)
       .then((res) => setMetrics(res.data.data || res.data || null))
       .catch(() => setMetrics(null))
-  }, [isList, listTab, selectedDealerId])
+  }, [isList, selectedDealerId])
 
   useEffect(() => {
     if (dealers.length === 0) {
@@ -763,13 +758,6 @@ export default function FinancePage() {
     void resolveDealerLocationFromMap(place.lat, place.lng, place.formattedAddress, place.address)
   }
 
-  const setTab = (tab: 'dealer' | 'finance') => {
-    const next = new URLSearchParams(searchParams)
-    if (tab === 'finance') next.set('tab', 'finance')
-    else next.delete('tab')
-    setSearchParams(next, { replace: true })
-  }
-
   const handleDealerProvince = async (code: string) => {
     setDealerForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
     setDealerKecamatan([])
@@ -947,7 +935,7 @@ export default function FinancePage() {
       if (isDealerEdit && selectedId) await updateDealer(selectedId, payload)
       else await createDealer(payload)
       await loadBaseData()
-      navigate('/finance?tab=dealer')
+      navigate('/dealer')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan dealer')
     } finally {
@@ -974,7 +962,7 @@ export default function FinancePage() {
       if (isCompanyEdit && selectedId) await updateFinanceCompany(selectedId, payload)
       else await createFinanceCompany(payload)
       await loadBaseData()
-      navigate('/finance?tab=finance')
+      navigate('/finance')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan finance company')
     } finally {
@@ -1039,11 +1027,11 @@ export default function FinancePage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
-              <button className="btn" onClick={() => navigate(`/finance/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
+              <button className="btn" onClick={() => navigate(`/dealer/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
                 Edit Dealer
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/finance?tab=dealer')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/dealer')}>Kembali</button>
           </div>
         </div>
 
@@ -1175,7 +1163,7 @@ export default function FinancePage() {
                 Edit Finance Company
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/finance?tab=finance')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali</button>
           </div>
         </div>
 
@@ -1265,7 +1253,7 @@ export default function FinancePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Input Dealer Baru'}</div>
             <div style={{ color: '#64748b' }}>Form dealer terpisah dari tabel</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance?tab=dealer')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/dealer')}>Kembali ke Tabel</button>
         </div>
 
         <div className="page">
@@ -1379,7 +1367,7 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate('/finance?tab=dealer')}>Batal</button>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/dealer')}>Batal</button>
                 <button className="btn" type="submit" disabled={savingDealer}>
                   {savingDealer ? 'Menyimpan...' : isDealerEdit ? 'Update Dealer' : 'Tambah Dealer'}
                 </button>
@@ -1399,7 +1387,7 @@ export default function FinancePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Input Finance Company Baru'}</div>
             <div style={{ color: '#64748b' }}>Form finance company terpisah dari tabel</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance?tab=finance')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali ke Tabel</button>
         </div>
 
         <div className="page">
@@ -1467,7 +1455,7 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate('/finance?tab=finance')}>Batal</button>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/finance')}>Batal</button>
                 <button className="btn" type="submit" disabled={savingFinance}>
                   {savingFinance ? 'Menyimpan...' : isCompanyEdit ? 'Update Finance' : 'Tambah Finance'}
                 </button>
@@ -1483,18 +1471,17 @@ export default function FinancePage() {
     <div>
       <div className="header">
           <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Dealer & Finance Management</div>
-          <div style={{ color: '#64748b' }}>Map is shown for Dealer only. Finance Company is shown in table format.</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{listSection === 'dealer' ? 'Dealer Management' : 'Finance Management'}</div>
+          <div style={{ color: '#64748b' }}>
+            {listSection === 'dealer'
+              ? 'Dealer list, map, and dealer performance.'
+              : 'Finance company list and finance performance.'}
+          </div>
         </div>
       </div>
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
-        <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealers</button>
-          <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Finance</button>
-        </div>
-
-        {listTab === 'dealer' && (
+        {listSection === 'dealer' && (
           <>
             <div className="card">
               <div style={{ marginBottom: 10 }}>
@@ -1514,7 +1501,7 @@ export default function FinancePage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h3>Dealers</h3>
-                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Create Dealer</button>}
+                {canManage && <button className="btn" onClick={() => navigate('/dealer/dealers/create')}>Create Dealer</button>}
               </div>
 
               <table className="table finance-dealer-table">
@@ -1555,12 +1542,12 @@ export default function FinancePage() {
                             {
                               key: 'view',
                               label: 'View',
-                              onClick: () => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } }),
+                              onClick: () => navigate(`/dealer/dealers/${dealer.id}`, { state: { dealer } }),
                             },
                             {
                               key: 'edit',
                               label: 'Edit',
-                              onClick: () => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } }),
+                              onClick: () => navigate(`/dealer/dealers/${dealer.id}/edit`, { state: { dealer } }),
                               hidden: !canManage,
                             },
                             {
@@ -1659,7 +1646,7 @@ export default function FinancePage() {
           </>
         )}
 
-        {listTab === 'finance' && (
+        {listSection === 'finance' && (
           <>
             <div className="card">
               <div style={{ marginBottom: 10 }}>

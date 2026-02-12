@@ -294,15 +294,15 @@ func (r *Routes) SongketRoutes() {
 	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.DeletePriceScrapeCronSetting)
 
 	// Finance performance
-	g.GET("/finance/dealers", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
-	g.GET("/finance/companies", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceCompanies)
-	g.GET("/finance/dealers/:id/metrics", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "view_metrics"), h.DealerMetrics)
-	g.POST("/finance/dealers", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateDealer)
-	g.PUT("/finance/dealers/:id", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateDealer)
-	g.DELETE("/finance/dealers/:id", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteDealer)
-	g.POST("/finance/companies", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateFinanceCompany)
-	g.PUT("/finance/companies/:id", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateFinanceCompany)
-	g.DELETE("/finance/companies/:id", menuAccess("/finance"), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteFinanceCompany)
+	g.GET("/finance/dealers", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
+	g.GET("/finance/companies", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceCompanies)
+	g.GET("/finance/dealers/:id/metrics", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "view_metrics"), h.DealerMetrics)
+	g.POST("/finance/dealers", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateDealer)
+	g.PUT("/finance/dealers/:id", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateDealer)
+	g.DELETE("/finance/dealers/:id", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteDealer)
+	g.POST("/finance/companies", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateFinanceCompany)
+	g.PUT("/finance/companies/:id", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateFinanceCompany)
+	g.DELETE("/finance/companies/:id", menuAccess("/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteFinanceCompany)
 
 	// Jobs + Net Income
 	g.GET("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "list"), h.ListJobs)
@@ -348,7 +348,7 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeJobs)
 	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeResults)
 	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), h.CommitScrapeResults)
-	g.GET("/lookups", menuAccess("/orders", "/finance", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), h.Lookups)
+	g.GET("/lookups", menuAccess("/orders", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), h.Lookups)
 	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), h.ListScrapeSources)
 	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), h.CreateScrapeSource)
 	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), h.UpdateScrapeSource)
