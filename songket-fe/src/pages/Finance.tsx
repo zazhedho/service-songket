@@ -142,6 +142,9 @@ export default function FinancePage() {
   const [financeTotalData, setFinanceTotalData] = useState(0)
   const [dealerFinancePage, setDealerFinancePage] = useState(1)
   const [dealerFinanceLimit, setDealerFinanceLimit] = useState(10)
+  const [selectedTransitionFromFinanceID, setSelectedTransitionFromFinanceID] = useState('')
+  const [dealerTransitionPage, setDealerTransitionPage] = useState(1)
+  const [dealerTransitionLimit, setDealerTransitionLimit] = useState(5)
 
   const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
@@ -447,6 +450,44 @@ export default function FinancePage() {
     return [...rows].sort((a: any, b: any) => Number(b?.total_orders || 0) - Number(a?.total_orders || 0))
   }, [metrics?.finance_companies])
 
+  const financeApprovalTransitionRows = useMemo(() => {
+    const rows = Array.isArray(metrics?.finance_approval_transitions) ? metrics.finance_approval_transitions : []
+    return [...rows]
+      .map((item: any) => ({
+        finance_1_company_id: String(item?.finance_1_company_id || ''),
+        finance_1_company_name: String(item?.finance_1_company_name || '-'),
+        finance_2_company_id: String(item?.finance_2_company_id || ''),
+        finance_2_company_name: String(item?.finance_2_company_name || '-'),
+        total_data: Number(item?.total_data || 0),
+        approved_count: Number(item?.approved_count || 0),
+        rejected_count: Number(item?.rejected_count || 0),
+        approval_rate: Number(item?.approval_rate || 0),
+      }))
+      .filter((item) => item.finance_1_company_id && item.finance_2_company_id)
+  }, [metrics?.finance_approval_transitions])
+
+  const transitionFromFinanceOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    financeApprovalTransitionRows.forEach((item: any) => {
+      const id = String(item?.finance_1_company_id || '')
+      if (!id || map.has(id)) return
+      map.set(id, String(item?.finance_1_company_name || '-'))
+    })
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [financeApprovalTransitionRows])
+
+  const selectedTransitionFromFinanceName = useMemo(() => {
+    const found = transitionFromFinanceOptions.find((item) => item.id === selectedTransitionFromFinanceID)
+    return found?.name || '-'
+  }, [selectedTransitionFromFinanceID, transitionFromFinanceOptions])
+
+  const filteredTransitionRows = useMemo(() => {
+    if (!selectedTransitionFromFinanceID) return []
+    return financeApprovalTransitionRows.filter(
+      (item: any) => String(item?.finance_1_company_id || '') === selectedTransitionFromFinanceID,
+    )
+  }, [financeApprovalTransitionRows, selectedTransitionFromFinanceID])
+
   const financeMetricMaxTotal = useMemo(() => {
     const values = financeMetricRows.map((item: any) => Number(item?.total_orders || 0))
     return Math.max(1, ...values)
@@ -459,8 +500,31 @@ export default function FinancePage() {
     return financeMetricRows.slice(start, start + dealerFinanceLimit)
   }, [dealerFinanceLimit, dealerFinancePage, financeMetricRows])
 
+  const dealerTransitionTotalData = filteredTransitionRows.length
+  const dealerTransitionTotalPages = Math.max(
+    1,
+    Math.ceil(dealerTransitionTotalData / dealerTransitionLimit),
+  )
+  const dealerTransitionRows = useMemo(() => {
+    const start = (dealerTransitionPage - 1) * dealerTransitionLimit
+    return filteredTransitionRows.slice(start, start + dealerTransitionLimit)
+  }, [dealerTransitionLimit, dealerTransitionPage, filteredTransitionRows])
+
+  const selectedTransitionSummary = useMemo(() => {
+    const total = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.total_data || 0), 0)
+    const approved = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.approved_count || 0), 0)
+    const rejected = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.rejected_count || 0), 0)
+    return {
+      total,
+      approved,
+      rejected,
+      approvalRate: total > 0 ? approved / total : 0,
+    }
+  }, [filteredTransitionRows])
+
   useEffect(() => {
     setDealerFinancePage(1)
+    setDealerTransitionPage(1)
   }, [selectedDealerId])
 
   useEffect(() => {
@@ -468,6 +532,27 @@ export default function FinancePage() {
       setDealerFinancePage(dealerFinanceTotalPages)
     }
   }, [dealerFinancePage, dealerFinanceTotalPages])
+
+  useEffect(() => {
+    if (transitionFromFinanceOptions.length === 0) {
+      setSelectedTransitionFromFinanceID('')
+      return
+    }
+    const hasSelected = transitionFromFinanceOptions.some((item) => item.id === selectedTransitionFromFinanceID)
+    if (!hasSelected) {
+      setSelectedTransitionFromFinanceID(transitionFromFinanceOptions[0].id)
+    }
+  }, [selectedTransitionFromFinanceID, transitionFromFinanceOptions])
+
+  useEffect(() => {
+    setDealerTransitionPage(1)
+  }, [selectedTransitionFromFinanceID])
+
+  useEffect(() => {
+    if (dealerTransitionPage > dealerTransitionTotalPages) {
+      setDealerTransitionPage(dealerTransitionTotalPages)
+    }
+  }, [dealerTransitionPage, dealerTransitionTotalPages])
 
   const dealerFormLat = parseCoordinateValue(dealerForm.lat)
   const dealerFormLng = parseCoordinateValue(dealerForm.lng)
@@ -1724,45 +1809,121 @@ export default function FinancePage() {
                           limitOptions={[5, 10, 20, 50]}
                         />
                       )}
+
+                      <div style={{ marginTop: 14, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance 1 Reject to Finance 2 Outcome</div>
+                        <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                          Pick rejected Finance 1, then see its Finance 2 distribution and approval rate.
+                        </div>
+                        <div style={{ maxWidth: 320, marginBottom: 8 }}>
+                          <label>Select Finance 1 (Rejected)</label>
+                          <select
+                            value={selectedTransitionFromFinanceID}
+                            onChange={(e) => setSelectedTransitionFromFinanceID(e.target.value)}
+                          >
+                            {transitionFromFinanceOptions.length === 0 && <option value="">No data</option>}
+                            {transitionFromFinanceOptions.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Finance 2 Name</th>
+                              <th>Total Data</th>
+                              <th>Approved</th>
+                              <th>Rejected</th>
+                              <th>Approval Rate</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dealerTransitionRows.map((item: any) => (
+                              <tr key={`${item.finance_1_company_id}-${item.finance_2_company_id}`}>
+                                <td>{item.finance_2_company_name || '-'}</td>
+                                <td>{Number(item.total_data || 0)}</td>
+                                <td>{Number(item.approved_count || 0)}</td>
+                                <td>{Number(item.rejected_count || 0)}</td>
+                                <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
+                              </tr>
+                            ))}
+                            {filteredTransitionRows.length === 0 && (
+                              <tr>
+                                <td colSpan={5}>No finance transition data for this dealer.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                        {dealerTransitionTotalData > 0 && (
+                          <Pagination
+                            page={dealerTransitionPage}
+                            totalPages={dealerTransitionTotalPages}
+                            totalData={dealerTransitionTotalData}
+                            limit={dealerTransitionLimit}
+                            onPageChange={setDealerTransitionPage}
+                            onLimitChange={(next) => {
+                              setDealerTransitionLimit(next)
+                              setDealerTransitionPage(1)
+                            }}
+                            limitOptions={[5, 10, 20, 50]}
+                          />
+                        )}
+                      </div>
                     </div>
 
                     <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Approval Summary</div>
-                      {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
-                      {dealerFinanceRows.map((fc: any) => {
-                        const total = Number(fc?.total_orders || 0)
-                        const approvedRaw = fc?.approved_count
-                        const rejectedRaw = fc?.rejected_count
-                        const approved = Number.isFinite(Number(approvedRaw))
-                          ? Number(approvedRaw)
-                          : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
-                        const rejected = Number.isFinite(Number(rejectedRaw))
-                          ? Number(rejectedRaw)
-                          : Math.max(0, total - approved)
-                        const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
-                        return (
-                          <div key={`dealer-approval-chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-                              <span style={{ fontWeight: 600 }}>{fc.finance_company_name || '-'}</span>
-                              <span>{total}</span>
-                            </div>
-                            <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
-                              <div
-                                style={{
-                                  width: `${Math.min(100, width)}%`,
-                                  height: '100%',
-                                  borderRadius: 999,
-                                  background: '#2563eb',
-                                  transition: 'width .25s ease',
-                                }}
-                              />
-                            </div>
-                            <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                              Approve {approved} | Reject {rejected} | {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
-                            </div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Transition Summary</div>
+                      {filteredTransitionRows.length === 0 && (
+                        <div style={{ color: '#64748b', fontSize: 13 }}>No transition summary yet.</div>
+                      )}
+                      {filteredTransitionRows.length > 0 && (
+                        <>
+                          <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
+                            Finance 1: <strong>{selectedTransitionFromFinanceName}</strong>
                           </div>
-                        )
-                      })}
+                          <div className="grid" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8, marginBottom: 10 }}>
+                            <Metric label="Total Data" value={selectedTransitionSummary.total} />
+                            <Metric label="Approval Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
+                            <Metric label="Approved" value={selectedTransitionSummary.approved} />
+                            <Metric label="Rejected" value={selectedTransitionSummary.rejected} />
+                          </div>
+                          {filteredTransitionRows.slice(0, 6).map((item: any) => {
+                            const max = Math.max(
+                              1,
+                              ...filteredTransitionRows.map((row: any) => Number(row?.total_data || 0)),
+                            )
+                            const width = Math.max(8, (Number(item?.total_data || 0) / max) * 100)
+                            return (
+                              <div
+                                key={`transition-chart-${item.finance_1_company_id}-${item.finance_2_company_id}`}
+                                style={{ marginBottom: 10 }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
+                                  <span style={{ fontWeight: 600 }}>{item.finance_2_company_name || '-'}</span>
+                                  <span>{Number(item.total_data || 0)}</span>
+                                </div>
+                                <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
+                                  <div
+                                    style={{
+                                      width: `${Math.min(100, width)}%`,
+                                      height: '100%',
+                                      borderRadius: 999,
+                                      background: '#2563eb',
+                                      transition: 'width .25s ease',
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+                                  Approve {Number(item.approved_count || 0)} | Reject {Number(item.rejected_count || 0)} |{' '}
+                                  {(Number(item.approval_rate || 0) * 100).toFixed(1)}%
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

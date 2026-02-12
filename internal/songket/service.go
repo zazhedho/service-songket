@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -781,6 +782,13 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 		RescueApprovedFc2  int64    `json:"rescue_approved_fc2"`
 	}
 	fcMetrics := make([]FcMetric, 0, len(financeCompanies))
+	type FinanceApprovalGrouping struct {
+		FinanceCompanyID   string  `json:"finance_company_id"`
+		FinanceCompanyName string  `json:"finance_company_name"`
+		Status             string  `json:"status"`
+		TotalData          int64   `json:"total_data"`
+		ApprovalRate       float64 `json:"approval_rate"`
+	}
 
 	for _, fc := range financeCompanies {
 		qOrdersFc := baseOrders(s.db)
@@ -868,15 +876,286 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 		})
 	}
 
+	// grouped finance-2 outcomes for orders where finance-1 was rejected
+	type financeApprovalGroupingRaw struct {
+		FinanceCompanyID   string `json:"finance_company_id"`
+		FinanceCompanyName string `json:"finance_company_name"`
+		Status             string `json:"status"`
+		TotalData          int64  `json:"total_data"`
+	}
+
+	groupingBase := s.db.Model(&OrderFinanceAttempt{}).
+		Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
+		Joins("JOIN order_finance_attempts a1 ON a1.order_id = order_finance_attempts.order_id AND a1.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc ON fc.id = order_finance_attempts.finance_company_id").
+		Where("o.dealer_id = ?", dealerId).
+		Where("order_finance_attempts.attempt_no = ?", 2).
+		Where("a1.status = ?", "reject").
+		Where("LOWER(order_finance_attempts.status) IN ?", []string{"approve", "reject"})
+
+	if financeCompanyID != nil && *financeCompanyID != "" {
+		groupingBase = groupingBase.Where("order_finance_attempts.finance_company_id = ?", *financeCompanyID)
+	}
+	if !dr.From.IsZero() {
+		groupingBase = groupingBase.Where("o.pooling_at >= ?", dr.From)
+	}
+	if !dr.To.IsZero() {
+		groupingBase = groupingBase.Where("o.pooling_at <= ?", dr.To)
+	}
+
+	var groupingRaw []financeApprovalGroupingRaw
+	if err := groupingBase.
+		Select(`
+			order_finance_attempts.finance_company_id AS finance_company_id,
+			COALESCE(fc.name, '-') AS finance_company_name,
+			LOWER(order_finance_attempts.status) AS status,
+			COUNT(DISTINCT order_finance_attempts.order_id) AS total_data
+		`).
+		Group("order_finance_attempts.finance_company_id, fc.name, LOWER(order_finance_attempts.status)").
+		Scan(&groupingRaw).Error; err != nil {
+		return nil, err
+	}
+
+	totalByFinance := make(map[string]int64, len(groupingRaw))
+	for _, row := range groupingRaw {
+		financeID := strings.TrimSpace(row.FinanceCompanyID)
+		totalByFinance[financeID] += row.TotalData
+	}
+
+	financeApprovalGrouping := make([]FinanceApprovalGrouping, 0, len(groupingRaw))
+	for _, row := range groupingRaw {
+		financeID := strings.TrimSpace(row.FinanceCompanyID)
+		total := totalByFinance[financeID]
+		rate := 0.0
+		if total > 0 {
+			rate = float64(row.TotalData) / float64(total)
+		}
+		financeApprovalGrouping = append(financeApprovalGrouping, FinanceApprovalGrouping{
+			FinanceCompanyID:   row.FinanceCompanyID,
+			FinanceCompanyName: row.FinanceCompanyName,
+			Status:             strings.ToLower(strings.TrimSpace(row.Status)),
+			TotalData:          row.TotalData,
+			ApprovalRate:       rate,
+		})
+	}
+
+	statusOrder := map[string]int{
+		"approve": 1,
+		"reject":  2,
+	}
+	sort.Slice(financeApprovalGrouping, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[i].FinanceCompanyName))
+		right := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[j].FinanceCompanyName))
+		if left != right {
+			return left < right
+		}
+		leftStatus := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[i].Status))
+		rightStatus := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[j].Status))
+		return statusOrder[leftStatus] < statusOrder[rightStatus]
+	})
+
+	// transition metrics: Finance 1 (reject) -> Finance 2 result grouping
+	type financeApprovalTransitionRaw struct {
+		Finance1CompanyID   string `gorm:"column:finance_1_company_id" json:"finance_1_company_id"`
+		Finance1CompanyName string `gorm:"column:finance_1_company_name" json:"finance_1_company_name"`
+		Finance2CompanyID   string `gorm:"column:finance_2_company_id" json:"finance_2_company_id"`
+		Finance2CompanyName string `gorm:"column:finance_2_company_name" json:"finance_2_company_name"`
+		TotalData           int64  `gorm:"column:total_data" json:"total_data"`
+		ApprovedCount       int64  `gorm:"column:approved_count" json:"approved_count"`
+		RejectedCount       int64  `gorm:"column:rejected_count" json:"rejected_count"`
+	}
+	type financeApprovalTransition struct {
+		Finance1CompanyID   string  `json:"finance_1_company_id"`
+		Finance1CompanyName string  `json:"finance_1_company_name"`
+		Finance2CompanyID   string  `json:"finance_2_company_id"`
+		Finance2CompanyName string  `json:"finance_2_company_name"`
+		TotalData           int64   `json:"total_data"`
+		ApprovedCount       int64   `json:"approved_count"`
+		RejectedCount       int64   `json:"rejected_count"`
+		ApprovalRate        float64 `json:"approval_rate"`
+	}
+	type financeApprovalTransitionFallbackRaw struct {
+		Finance1CompanyID   string `gorm:"column:finance_1_company_id" json:"finance_1_company_id"`
+		Finance1CompanyName string `gorm:"column:finance_1_company_name" json:"finance_1_company_name"`
+		Finance2CompanyID   string `gorm:"column:finance_2_company_id" json:"finance_2_company_id"`
+		Finance2CompanyName string `gorm:"column:finance_2_company_name" json:"finance_2_company_name"`
+		TotalData           int64  `gorm:"column:total_data" json:"total_data"`
+		ApprovedCount       int64  `gorm:"column:approved_count" json:"approved_count"`
+		RejectedCount       int64  `gorm:"column:rejected_count" json:"rejected_count"`
+	}
+
+	transitionBase := s.db.
+		Table("order_finance_attempts AS a2").
+		Joins("JOIN orders o ON o.id = a2.order_id").
+		Joins("JOIN order_finance_attempts a1 ON a1.order_id = a2.order_id AND a1.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2.finance_company_id").
+		Where("o.dealer_id = ?", dealerId).
+		Where("a2.attempt_no = ?", 2).
+		Where("LOWER(a1.status) = ?", "reject").
+		Where("LOWER(a2.status) IN ?", []string{"approve", "reject"})
+
+	if financeCompanyID != nil && *financeCompanyID != "" {
+		transitionBase = transitionBase.Where("a2.finance_company_id = ?", *financeCompanyID)
+	}
+	if !dr.From.IsZero() {
+		transitionBase = transitionBase.Where("o.pooling_at >= ?", dr.From)
+	}
+	if !dr.To.IsZero() {
+		transitionBase = transitionBase.Where("o.pooling_at <= ?", dr.To)
+	}
+
+	var transitionRaw []financeApprovalTransitionRaw
+	if err := transitionBase.
+		Select(`
+			a1.finance_company_id AS finance_1_company_id,
+			COALESCE(fc1.name, '-') AS finance_1_company_name,
+			a2.finance_company_id AS finance_2_company_id,
+			COALESCE(fc2.name, '-') AS finance_2_company_name,
+			COUNT(DISTINCT a2.order_id) AS total_data,
+			COUNT(DISTINCT CASE WHEN LOWER(a2.status) = 'approve' THEN a2.order_id END) AS approved_count,
+			COUNT(DISTINCT CASE WHEN LOWER(a2.status) = 'reject' THEN a2.order_id END) AS rejected_count
+		`).
+		Group("a1.finance_company_id, fc1.name, a2.finance_company_id, fc2.name").
+		Scan(&transitionRaw).Error; err != nil {
+		return nil, err
+	}
+
+	fallbackTransitionBase := s.db.
+		Table("orders AS o1").
+		Joins("JOIN order_finance_attempts a1 ON a1.order_id = o1.id AND a1.attempt_no = 1").
+		Joins("JOIN orders o2 ON o2.pooling_number = o1.pooling_number AND o2.id <> o1.id").
+		Joins("JOIN order_finance_attempts a2f ON a2f.order_id = o2.id AND a2f.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2f.finance_company_id").
+		Where("o1.dealer_id = ?", dealerId).
+		Where("o2.dealer_id = o1.dealer_id").
+		Where("LOWER(o1.result_status) = ?", "reject").
+		Where("LOWER(o2.result_status) IN ?", []string{"approve", "reject"}).
+		Where("o1.created_at <= o2.created_at").
+		Where("NOT EXISTS (SELECT 1 FROM order_finance_attempts a2x WHERE a2x.order_id = o1.id AND a2x.attempt_no = 2)")
+	if financeCompanyID != nil && *financeCompanyID != "" {
+		fallbackTransitionBase = fallbackTransitionBase.Where("a2f.finance_company_id = ?", *financeCompanyID)
+	}
+	if !dr.From.IsZero() {
+		fallbackTransitionBase = fallbackTransitionBase.Where("o1.pooling_at >= ?", dr.From)
+	}
+	if !dr.To.IsZero() {
+		fallbackTransitionBase = fallbackTransitionBase.Where("o1.pooling_at <= ?", dr.To)
+	}
+
+	var transitionFallbackRaw []financeApprovalTransitionFallbackRaw
+	if err := fallbackTransitionBase.
+		Select(`
+			a1.finance_company_id AS finance_1_company_id,
+			COALESCE(fc1.name, '-') AS finance_1_company_name,
+			a2f.finance_company_id AS finance_2_company_id,
+			COALESCE(fc2.name, '-') AS finance_2_company_name,
+			COUNT(DISTINCT o1.id) AS total_data,
+			COUNT(DISTINCT CASE WHEN LOWER(o2.result_status) = 'approve' THEN o1.id END) AS approved_count,
+			COUNT(DISTINCT CASE WHEN LOWER(o2.result_status) = 'reject' THEN o1.id END) AS rejected_count
+		`).
+		Group("a1.finance_company_id, fc1.name, a2f.finance_company_id, fc2.name").
+		Scan(&transitionFallbackRaw).Error; err != nil {
+		return nil, err
+	}
+
+	type transitionAggregate struct {
+		Finance1CompanyID   string
+		Finance1CompanyName string
+		Finance2CompanyID   string
+		Finance2CompanyName string
+		TotalData           int64
+		ApprovedCount       int64
+		RejectedCount       int64
+	}
+	transitionByPair := map[string]*transitionAggregate{}
+	addTransitionAggregate := func(fin1ID, fin1Name, fin2ID, fin2Name string, totalData, approvedCount, rejectedCount int64) {
+		fin1ID = strings.TrimSpace(fin1ID)
+		fin2ID = strings.TrimSpace(fin2ID)
+		if fin1ID == "" || fin2ID == "" {
+			return
+		}
+		key := fin1ID + "::" + fin2ID
+		if existing, ok := transitionByPair[key]; ok {
+			existing.TotalData += totalData
+			existing.ApprovedCount += approvedCount
+			existing.RejectedCount += rejectedCount
+			return
+		}
+		transitionByPair[key] = &transitionAggregate{
+			Finance1CompanyID:   fin1ID,
+			Finance1CompanyName: strings.TrimSpace(fin1Name),
+			Finance2CompanyID:   fin2ID,
+			Finance2CompanyName: strings.TrimSpace(fin2Name),
+			TotalData:           totalData,
+			ApprovedCount:       approvedCount,
+			RejectedCount:       rejectedCount,
+		}
+	}
+
+	for _, row := range transitionRaw {
+		addTransitionAggregate(
+			row.Finance1CompanyID,
+			row.Finance1CompanyName,
+			row.Finance2CompanyID,
+			row.Finance2CompanyName,
+			row.TotalData,
+			row.ApprovedCount,
+			row.RejectedCount,
+		)
+	}
+	for _, row := range transitionFallbackRaw {
+		addTransitionAggregate(
+			row.Finance1CompanyID,
+			row.Finance1CompanyName,
+			row.Finance2CompanyID,
+			row.Finance2CompanyName,
+			row.TotalData,
+			row.ApprovedCount,
+			row.RejectedCount,
+		)
+	}
+
+	financeApprovalTransitions := make([]financeApprovalTransition, 0, len(transitionByPair))
+	for _, row := range transitionByPair {
+		rate := 0.0
+		if row.TotalData > 0 {
+			rate = float64(row.ApprovedCount) / float64(row.TotalData)
+		}
+		financeApprovalTransitions = append(financeApprovalTransitions, financeApprovalTransition{
+			Finance1CompanyID:   row.Finance1CompanyID,
+			Finance1CompanyName: row.Finance1CompanyName,
+			Finance2CompanyID:   row.Finance2CompanyID,
+			Finance2CompanyName: row.Finance2CompanyName,
+			TotalData:           row.TotalData,
+			ApprovedCount:       row.ApprovedCount,
+			RejectedCount:       row.RejectedCount,
+			ApprovalRate:        rate,
+		})
+	}
+	sort.Slice(financeApprovalTransitions, func(i, j int) bool {
+		leftFrom := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[i].Finance1CompanyName))
+		rightFrom := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[j].Finance1CompanyName))
+		if leftFrom != rightFrom {
+			return leftFrom < rightFrom
+		}
+		leftTo := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[i].Finance2CompanyName))
+		rightTo := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[j].Finance2CompanyName))
+		return leftTo < rightTo
+	})
+
 	return map[string]interface{}{
-		"total_orders":           totalOrders,
-		"lead_time_seconds_avg":  leadSeconds,
-		"approval_rate":          approvalRate,
-		"rescue_approved_fc2":    rescued,
-		"date_from":              dr.From,
-		"date_to":                dr.To,
-		"finance_company_filter": financeCompanyID,
-		"finance_companies":      fcMetrics,
+		"total_orders":                 totalOrders,
+		"lead_time_seconds_avg":        leadSeconds,
+		"approval_rate":                approvalRate,
+		"rescue_approved_fc2":          rescued,
+		"finance_approval_grouping":    financeApprovalGrouping,
+		"finance_approval_transitions": financeApprovalTransitions,
+		"date_from":                    dr.From,
+		"date_to":                      dr.To,
+		"finance_company_filter":       financeCompanyID,
+		"finance_companies":            fcMetrics,
 	}, nil
 }
 
