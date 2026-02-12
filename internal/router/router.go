@@ -320,6 +320,7 @@ func (r *Routes) SongketRoutes() {
 	// Credit capability & quadrants
 	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)
 	g.GET("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), h.ListCredit)
+	g.GET("/credit/worksheet", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), h.CreditWorksheet)
 	g.GET("/credit/summary", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), h.CreditSummary)
 	g.POST("/quadrants/recompute", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "recompute"), h.RecomputeQuadrants)
 	g.GET("/quadrants", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), h.ListQuadrants)

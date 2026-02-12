@@ -1,94 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchKabupaten, fetchKecamatan, fetchProvinces, fetchQuadrantSummary } from '../api'
-import Pagination from '../components/Pagination'
+import { fetchCreditWorksheet } from '../api'
 import { useAuth } from '../store'
 
 export default function CreditPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [filter, setFilter] = useState({ province: '', regency: '', district: '' })
-  const [provinces, setProvinces] = useState<any[]>([])
-  const [kabupaten, setKabupaten] = useState<any[]>([])
-  const [kecamatan, setKecamatan] = useState<any[]>([])
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
+  const [worksheet, setWorksheet] = useState<any>({ areas: [], jobs_master: [], motor_types_master: [] })
 
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_credit')
 
-  const load = () => fetchQuadrantSummary().then((res) => setItems(res.data.data || res.data || []))
-
   useEffect(() => {
-    if (canList) load()
+    if (!canList) return
+    fetchCreditWorksheet()
+      .then((res) => setWorksheet(res.data.data || res.data || { areas: [], jobs_master: [], motor_types_master: [] }))
+      .catch(() => setWorksheet({ areas: [], jobs_master: [], motor_types_master: [] }))
   }, [canList])
 
-  useEffect(() => {
-    fetchProvinces().then((res) => setProvinces(res.data.data || res.data || [])).catch(() => setProvinces([]))
-  }, [])
-
-  const handleProvince = async (code: string) => {
-    setFilter({ province: code, regency: '', district: '' })
-    setKecamatan([])
-
-    if (!code) {
-      setKabupaten([])
-      return
-    }
-
-    try {
-      const res = await fetchKabupaten(code)
-      setKabupaten(res.data.data || res.data || [])
-    } catch {
-      setKabupaten([])
-    }
-  }
-
-  const handleRegency = async (code: string) => {
-    setFilter((prev) => ({ ...prev, regency: code, district: '' }))
-
-    if (!filter.province || !code) {
-      setKecamatan([])
-      return
-    }
-
-    try {
-      const res = await fetchKecamatan(filter.province, code)
-      setKecamatan(res.data.data || res.data || [])
-    } catch {
-      setKecamatan([])
-    }
-  }
-
-  const nameFrom = (id: string, list: any[]) => list.find((entry) => entry.code === id)?.name || id
-
-  const filtered = useMemo(
-    () =>
-      items.filter((item) => {
-        if (filter.province && item.province !== filter.province) return false
-        if (filter.regency && item.regency !== filter.regency) return false
-        if (filter.district && item.district !== filter.district) return false
-        return true
-      }),
-    [items, filter],
+  const areas = useMemo(() => (Array.isArray(worksheet?.areas) ? worksheet.areas : []), [worksheet?.areas])
+  const jobsMaster = useMemo(
+    () => (Array.isArray(worksheet?.jobs_master) ? worksheet.jobs_master : []),
+    [worksheet?.jobs_master],
+  )
+  const motorTypesMaster = useMemo(
+    () => (Array.isArray(worksheet?.motor_types_master) ? worksheet.motor_types_master : []),
+    [worksheet?.motor_types_master],
   )
 
-  const paged = useMemo(() => {
-    const from = (page - 1) * limit
-    const to = from + limit
-    return filtered.slice(from, to)
-  }, [filtered, limit, page])
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0))
 
-  const totalPages = useMemo(() => {
-    if (!filtered.length) return 1
-    return Math.ceil(filtered.length / limit)
-  }, [filtered.length, limit])
+  const formatPercent = (value: number) => `${(Number(value || 0) * 100).toFixed(2)}%`
 
-  useEffect(() => {
-    setPage(1)
-  }, [filter.district, filter.province, filter.regency])
-
-  useEffect(() => {
-    if (page > totalPages) setPage(1)
-  }, [page, totalPages])
+  const capabilityCellStyle = (value: number) => {
+    const rate = Number(value || 0)
+    if (rate > 0.4) {
+      return { background: '#fee2e2', color: '#b91c1c', fontWeight: 700 }
+    }
+    if (rate > 0.35) {
+      return { background: '#fef3c7', color: '#b45309', fontWeight: 700 }
+    }
+    return { background: '#dcfce7', color: '#166534', fontWeight: 700 }
+  }
 
   return (
     <div>
@@ -100,104 +55,160 @@ export default function CreditPage() {
 
       <div className="page">
         <div className="card">
-          <h3>Daftar Credit Capability</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat data.</div>}
+          <h3>Credit Capability Worksheet</h3>
+          {!canList && <div className="alert">No permission to view data.</div>}
 
           {canList && (
             <>
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 10,
-                  marginTop: 10,
-                  marginBottom: 12,
-                }}
-              >
-                <div>
-                  <label>Provinsi</label>
-                  <select value={filter.province} onChange={(e) => void handleProvince(e.target.value)}>
-                    <option value="">Semua</option>
-                    {provinces.map((province: any) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 12, marginTop: 10 }}>
+                <div className="card" style={{ margin: 0 }}>
+                  <h3 style={{ marginBottom: 8 }}>Pekerjaan</h3>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Nama Pekerjaan</th>
+                        <th>Net Income</th>
+                        <th>Kabupaten</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobsMaster.map((job: any) => (
+                        <tr key={`${job.job_id}-${job.regency_code}`}>
+                          <td>{job.job_name || '-'}</td>
+                          <td>{formatCurrency(job.net_income)}</td>
+                          <td>{job.regency_name || job.regency_code || '-'}</td>
+                        </tr>
+                      ))}
+                      {jobsMaster.length === 0 && (
+                        <tr>
+                          <td colSpan={3}>No job data.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div>
-                  <label>Kabupaten/Kota</label>
-                  <select value={filter.regency} onChange={(e) => void handleRegency(e.target.value)} disabled={!filter.province}>
-                    <option value="">Semua</option>
-                    {kabupaten.map((kab: any) => (
-                      <option key={kab.code} value={kab.code}>{kab.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kecamatan</label>
-                  <select
-                    value={filter.district}
-                    onChange={(e) => setFilter((prev) => ({ ...prev, district: e.target.value }))}
-                    disabled={!filter.regency}
-                  >
-                    <option value="">Semua</option>
-                    {kecamatan.map((kec: any) => (
-                      <option key={kec.code} value={kec.code}>{kec.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'end' }}>
-                  <button className="btn-ghost" type="button" onClick={() => { setFilter({ province: '', regency: '', district: '' }); setKabupaten([]); setKecamatan([]) }}>
-                    Reset Filter
-                  </button>
+                <div className="card" style={{ margin: 0 }}>
+                  <h3 style={{ marginBottom: 8 }}>Tipe Motor</h3>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Tipe Motor</th>
+                        <th>Angsuran</th>
+                        <th>Kabupaten</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {motorTypesMaster.map((motor: any) => (
+                        <tr key={`${motor.motor_type_id}-${motor.regency_code}`}>
+                          <td>{motor.motor_type_name || '-'}</td>
+                          <td>{formatCurrency(motor.installment)}</td>
+                          <td>{motor.regency_name || motor.regency_code || '-'}</td>
+                        </tr>
+                      ))}
+                      {motorTypesMaster.length === 0 && (
+                        <tr>
+                          <td colSpan={3}>No motor/installment data.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Provinsi</th>
-                    <th>Kab/Kota</th>
-                    <th>Kecamatan</th>
-                    <th>Kelurahan</th>
-                    <th>Total Order</th>
-                    <th>Approval Rate</th>
-                    <th>Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paged.map((item, idx) => (
-                    <tr key={idx}>
-                      <td>{nameFrom(item.province, provinces)}</td>
-                      <td>{nameFrom(item.regency, kabupaten)}</td>
-                      <td>{nameFrom(item.district, kecamatan)}</td>
-                      <td>{item.village || '-'}</td>
-                      <td>{item.total_orders ?? '-'}</td>
-                      <td>{item.region_rate ? `${(item.region_rate * 100).toFixed(1)}%` : '-'}</td>
-                      <td>{item.score}</td>
-                    </tr>
-                  ))}
-                  {paged.length === 0 && (
-                    <tr>
-                      <td colSpan={7}>Data tidak ditemukan.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              {areas.map((area: any) => (
+                <div key={area.area_key} className="card" style={{ marginTop: 12 }}>
+                  <h3 style={{ marginBottom: 8 }}>
+                    Area: {area.regency_name || area.regency_code || '-'}
+                  </h3>
 
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={filtered.length}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
+                  <h3 style={{ marginBottom: 8, marginTop: 8 }}>Credit Capability</h3>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Pekerjaan</th>
+                        {Array.isArray(area.motor_types) &&
+                          area.motor_types.map((motor: any) => (
+                            <th key={`cap-head-${area.area_key}-${motor.motor_type_id}`}>{motor.motor_type_name}</th>
+                          ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.isArray(area.matrix) &&
+                        area.matrix.map((row: any) => (
+                          <tr key={`cap-row-${area.area_key}-${row.job_id}`}>
+                            <td>{row.job_name}</td>
+                            {Array.isArray(row.cells) &&
+                              row.cells.map((cell: any) => (
+                                <td
+                                  key={`cap-value-${area.area_key}-${row.job_id}-${cell.motor_type_id}`}
+                                  style={capabilityCellStyle(cell.capability_rate)}
+                                >
+                                  {formatPercent(cell.capability_rate)}
+                                </td>
+                              ))}
+                          </tr>
+                        ))}
+                      {(!Array.isArray(area.matrix) || area.matrix.length === 0) && (
+                        <tr>
+                          <td colSpan={Math.max(1, (Array.isArray(area.motor_types) ? area.motor_types.length : 0) + 1)}>
+                            No capability data.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  <h3 style={{ marginBottom: 8, marginTop: 14 }}>Program Suggestion</h3>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Pekerjaan</th>
+                        {Array.isArray(area.motor_types) &&
+                          area.motor_types.map((motor: any) => (
+                            <th key={`sug-head-${area.area_key}-${motor.motor_type_id}`}>{motor.motor_type_name}</th>
+                          ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.isArray(area.matrix) &&
+                        area.matrix.map((row: any) => (
+                          <tr key={`sug-row-${area.area_key}-${row.job_id}`}>
+                            <td>{row.job_name}</td>
+                            {Array.isArray(row.cells) &&
+                              row.cells.map((cell: any) => (
+                                <td key={`sug-value-${area.area_key}-${row.job_id}-${cell.motor_type_id}`}>
+                                  {formatCurrency(cell.program_suggestion)}
+                                </td>
+                              ))}
+                          </tr>
+                        ))}
+                      {(!Array.isArray(area.matrix) || area.matrix.length === 0) && (
+                        <tr>
+                          <td colSpan={Math.max(1, (Array.isArray(area.motor_types) ? area.motor_types.length : 0) + 1)}>
+                            No suggestion data.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+
+              {areas.length === 0 && (
+                <div className="card" style={{ marginTop: 12 }}>
+                  <div>No area matrix data yet.</div>
+                </div>
+              )}
+
+              <div className="card" style={{ marginTop: 12 }}>
+                <div style={{ marginTop: 4, fontSize: 13 }}>
+                  <div><strong>Warna</strong></div>
+                  <div style={{ color: '#b91c1c' }}>Merah &gt; 40%</div>
+                  <div style={{ color: '#b45309' }}>Kuning 35% - 40%</div>
+                  <div style={{ color: '#166534' }}>Hijau &lt;= 35%</div>
+                </div>
+              </div>
             </>
           )}
         </div>

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"starter-kit/pkg/filter"
@@ -1061,6 +1062,23 @@ func (h *Handler) ListCredit(ctx *gin.Context) {
 		return
 	}
 	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/credit/worksheet
+func (h *Handler) CreditWorksheet(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	province := strings.TrimSpace(ctx.Query("province"))
+	regency := strings.TrimSpace(ctx.Query("regency"))
+
+	data, err := h.svc.CreditCapabilityWorksheet(province, regency)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
 	ctx.JSON(http.StatusOK, res)
 }
 

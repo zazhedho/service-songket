@@ -110,6 +110,7 @@ export const commitScrapeResults = (jobId: string, result_ids: string[]) =>
 
 export const fetchCredit = (params?: Record<string, unknown>) => api.get('/api/songket/credit', { params })
 export const fetchCreditSummary = () => api.get('/api/songket/credit/summary')
+export const fetchCreditWorksheet = (params?: Record<string, unknown>) => api.get('/api/songket/credit/worksheet', { params })
 export const upsertCredit = (body: Record<string, unknown>) => api.post('/api/songket/credit', body)
 
 export const recomputeQuadrant = (body: Record<string, unknown>) => api.post('/api/songket/quadrants/recompute', body)

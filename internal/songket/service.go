@@ -2060,6 +2060,63 @@ type CreditSummary struct {
 	Score        int    `json:"score"`
 }
 
+type CreditWorksheetJob struct {
+	JobID     string  `json:"job_id"`
+	JobName   string  `json:"job_name"`
+	NetIncome float64 `json:"net_income"`
+	Area      string  `json:"area"`
+}
+
+type CreditWorksheetMotor struct {
+	MotorTypeID   string  `json:"motor_type_id"`
+	MotorTypeName string  `json:"motor_type_name"`
+	Installment   float64 `json:"installment"`
+	Area          string  `json:"area"`
+}
+
+type CreditWorksheetCell struct {
+	MotorTypeID       string  `json:"motor_type_id"`
+	MotorTypeName     string  `json:"motor_type_name"`
+	Installment       float64 `json:"installment"`
+	CapabilityRate    float64 `json:"capability_rate"`
+	ProgramSuggestion float64 `json:"program_suggestion"`
+}
+
+type CreditWorksheetMatrixRow struct {
+	JobID     string                `json:"job_id"`
+	JobName   string                `json:"job_name"`
+	NetIncome float64               `json:"net_income"`
+	Area      string                `json:"area"`
+	Cells     []CreditWorksheetCell `json:"cells"`
+}
+
+type CreditWorksheetArea struct {
+	AreaKey      string                     `json:"area_key"`
+	ProvinceCode string                     `json:"province_code"`
+	ProvinceName string                     `json:"province_name"`
+	RegencyCode  string                     `json:"regency_code"`
+	RegencyName  string                     `json:"regency_name"`
+	Jobs         []CreditWorksheetJob       `json:"jobs"`
+	MotorTypes   []CreditWorksheetMotor     `json:"motor_types"`
+	Matrix       []CreditWorksheetMatrixRow `json:"matrix"`
+}
+
+type CreditWorksheetJobMaster struct {
+	JobID       string  `json:"job_id"`
+	JobName     string  `json:"job_name"`
+	NetIncome   float64 `json:"net_income"`
+	RegencyCode string  `json:"regency_code"`
+	RegencyName string  `json:"regency_name"`
+}
+
+type CreditWorksheetMotorMaster struct {
+	MotorTypeID   string  `json:"motor_type_id"`
+	MotorTypeName string  `json:"motor_type_name"`
+	Installment   float64 `json:"installment"`
+	RegencyCode   string  `json:"regency_code"`
+	RegencyName   string  `json:"regency_name"`
+}
+
 // Compute credit score per wilayah based on order status distribution.
 func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary, error) {
 	if orderThreshold <= 0 {
@@ -2127,6 +2184,332 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 	}
 
 	return summaries, nil
+}
+
+// CreditCapabilityWorksheet builds worksheet-style capability matrix per area.
+func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (map[string]interface{}, error) {
+	type worksheetJobIncomeRow struct {
+		JobID         string         `gorm:"column:job_id"`
+		JobName       string         `gorm:"column:job_name"`
+		NetIncome     float64        `gorm:"column:net_income"`
+		AreaNetIncome datatypes.JSON `gorm:"column:area_net_income"`
+	}
+	type worksheetMotorRow struct {
+		MotorTypeID   string  `gorm:"column:motor_type_id"`
+		MotorTypeName string  `gorm:"column:motor_type_name"`
+		Installment   float64 `gorm:"column:installment"`
+		ProvinceCode  string  `gorm:"column:province_code"`
+		ProvinceName  string  `gorm:"column:province_name"`
+		RegencyCode   string  `gorm:"column:regency_code"`
+		RegencyName   string  `gorm:"column:regency_name"`
+	}
+	type worksheetAreaAggregate struct {
+		AreaKey      string
+		ProvinceCode string
+		ProvinceName string
+		RegencyCode  string
+		RegencyName  string
+		JobsByID     map[string]CreditWorksheetJob
+		MotorsByID   map[string]CreditWorksheetMotor
+	}
+
+	provinceFilter := strings.TrimSpace(provinceCode)
+	regencyFilter := strings.TrimSpace(regencyCode)
+	matchesArea := func(province, regency string) bool {
+		if provinceFilter != "" && !strings.EqualFold(strings.TrimSpace(province), provinceFilter) {
+			return false
+		}
+		if regencyFilter != "" && !strings.EqualFold(strings.TrimSpace(regency), regencyFilter) {
+			return false
+		}
+		return true
+	}
+	buildAreaKey := func(province, regency string) string {
+		return strings.ToLower(strings.TrimSpace(province) + "|" + strings.TrimSpace(regency))
+	}
+
+	areasByKey := make(map[string]*worksheetAreaAggregate)
+	jobsMaster := make([]CreditWorksheetJobMaster, 0)
+	jobsMasterSeen := map[string]struct{}{}
+	motorsMaster := make([]CreditWorksheetMotorMaster, 0)
+	motorsMasterSeen := map[string]struct{}{}
+	ensureArea := func(provinceCode, provinceName, regencyCode, regencyName string) *worksheetAreaAggregate {
+		areaKey := buildAreaKey(provinceCode, regencyCode)
+		if area, ok := areasByKey[areaKey]; ok {
+			if strings.TrimSpace(area.ProvinceName) == "" {
+				area.ProvinceName = strings.TrimSpace(provinceName)
+			}
+			if strings.TrimSpace(area.RegencyName) == "" {
+				area.RegencyName = strings.TrimSpace(regencyName)
+			}
+			return area
+		}
+
+		area := &worksheetAreaAggregate{
+			AreaKey:      areaKey,
+			ProvinceCode: strings.TrimSpace(provinceCode),
+			ProvinceName: strings.TrimSpace(provinceName),
+			RegencyCode:  strings.TrimSpace(regencyCode),
+			RegencyName:  strings.TrimSpace(regencyName),
+			JobsByID:     map[string]CreditWorksheetJob{},
+			MotorsByID:   map[string]CreditWorksheetMotor{},
+		}
+		if area.ProvinceName == "" {
+			area.ProvinceName = area.ProvinceCode
+		}
+		if area.RegencyName == "" {
+			area.RegencyName = area.RegencyCode
+		}
+		areasByKey[areaKey] = area
+		return area
+	}
+
+	var jobRows []worksheetJobIncomeRow
+	if err := s.db.
+		Table("job_net_incomes").
+		Select(`
+			job_net_incomes.job_id,
+			jobs.name AS job_name,
+			job_net_incomes.net_income,
+			job_net_incomes.area_net_income
+		`).
+		Joins("JOIN jobs ON jobs.id = job_net_incomes.job_id").
+		Where("job_net_incomes.deleted_at IS NULL").
+		Where("jobs.deleted_at IS NULL").
+		Scan(&jobRows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range jobRows {
+		areas := decodeAreaNetIncome(row.AreaNetIncome)
+		if len(areas) == 0 {
+			continue
+		}
+
+		for _, area := range areas {
+			pCode := strings.TrimSpace(area.ProvinceCode)
+			rCode := strings.TrimSpace(area.RegencyCode)
+			if pCode == "" || rCode == "" {
+				continue
+			}
+			if !matchesArea(pCode, rCode) {
+				continue
+			}
+
+			agg := ensureArea(pCode, area.ProvinceName, rCode, area.RegencyName)
+			jobID := strings.TrimSpace(row.JobID)
+			if jobID == "" {
+				continue
+			}
+			jobKey := strings.ToLower(strings.TrimSpace(jobID) + "|" + strings.TrimSpace(rCode))
+			if _, ok := jobsMasterSeen[jobKey]; !ok {
+				jobsMasterSeen[jobKey] = struct{}{}
+				jobsMaster = append(jobsMaster, CreditWorksheetJobMaster{
+					JobID:       jobID,
+					JobName:     strings.TrimSpace(row.JobName),
+					NetIncome:   row.NetIncome,
+					RegencyCode: rCode,
+					RegencyName: agg.RegencyName,
+				})
+			}
+			if _, ok := agg.JobsByID[jobID]; ok {
+				continue
+			}
+			agg.JobsByID[jobID] = CreditWorksheetJob{
+				JobID:     jobID,
+				JobName:   strings.TrimSpace(row.JobName),
+				NetIncome: row.NetIncome,
+				Area:      agg.RegencyName,
+			}
+		}
+	}
+
+	motorQuery := s.db.
+		Table("installments").
+		Select(`
+			installments.motor_type_id,
+			motor_types.name AS motor_type_name,
+			installments.amount AS installment,
+			motor_types.province_code,
+			motor_types.province_name,
+			motor_types.regency_code,
+			motor_types.regency_name
+		`).
+		Joins("JOIN motor_types ON motor_types.id = installments.motor_type_id").
+		Where("installments.deleted_at IS NULL").
+		Where("motor_types.deleted_at IS NULL")
+	if provinceFilter != "" {
+		motorQuery = motorQuery.Where("motor_types.province_code = ?", provinceFilter)
+	}
+	if regencyFilter != "" {
+		motorQuery = motorQuery.Where("motor_types.regency_code = ?", regencyFilter)
+	}
+
+	var motorRows []worksheetMotorRow
+	if err := motorQuery.Scan(&motorRows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range motorRows {
+		pCode := strings.TrimSpace(row.ProvinceCode)
+		rCode := strings.TrimSpace(row.RegencyCode)
+		if pCode == "" || rCode == "" {
+			continue
+		}
+		if !matchesArea(pCode, rCode) {
+			continue
+		}
+
+		agg := ensureArea(pCode, row.ProvinceName, rCode, row.RegencyName)
+		motorTypeID := strings.TrimSpace(row.MotorTypeID)
+		if motorTypeID == "" {
+			continue
+		}
+		motorKey := strings.ToLower(strings.TrimSpace(motorTypeID) + "|" + strings.TrimSpace(rCode))
+		if _, ok := motorsMasterSeen[motorKey]; !ok {
+			motorsMasterSeen[motorKey] = struct{}{}
+			motorsMaster = append(motorsMaster, CreditWorksheetMotorMaster{
+				MotorTypeID:   motorTypeID,
+				MotorTypeName: strings.TrimSpace(row.MotorTypeName),
+				Installment:   row.Installment,
+				RegencyCode:   rCode,
+				RegencyName:   agg.RegencyName,
+			})
+		}
+		if _, ok := agg.MotorsByID[motorTypeID]; ok {
+			continue
+		}
+		agg.MotorsByID[motorTypeID] = CreditWorksheetMotor{
+			MotorTypeID:   motorTypeID,
+			MotorTypeName: strings.TrimSpace(row.MotorTypeName),
+			Installment:   row.Installment,
+			Area:          agg.RegencyName,
+		}
+	}
+
+	const capabilityThreshold = 0.35
+	const suggestionCap = 250000.0
+	areasOut := make([]CreditWorksheetArea, 0, len(areasByKey))
+	for _, area := range areasByKey {
+		if len(area.JobsByID) == 0 || len(area.MotorsByID) == 0 {
+			continue
+		}
+
+		jobs := make([]CreditWorksheetJob, 0, len(area.JobsByID))
+		for _, job := range area.JobsByID {
+			if strings.TrimSpace(job.JobName) == "" {
+				job.JobName = job.JobID
+			}
+			jobs = append(jobs, job)
+		}
+		sort.Slice(jobs, func(i, j int) bool {
+			return strings.ToLower(strings.TrimSpace(jobs[i].JobName)) < strings.ToLower(strings.TrimSpace(jobs[j].JobName))
+		})
+
+		motors := make([]CreditWorksheetMotor, 0, len(area.MotorsByID))
+		for _, motor := range area.MotorsByID {
+			if strings.TrimSpace(motor.MotorTypeName) == "" {
+				motor.MotorTypeName = motor.MotorTypeID
+			}
+			motors = append(motors, motor)
+		}
+		sort.Slice(motors, func(i, j int) bool {
+			return strings.ToLower(strings.TrimSpace(motors[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motors[j].MotorTypeName))
+		})
+
+		matrix := make([]CreditWorksheetMatrixRow, 0, len(jobs))
+		for _, job := range jobs {
+			row := CreditWorksheetMatrixRow{
+				JobID:     job.JobID,
+				JobName:   job.JobName,
+				NetIncome: job.NetIncome,
+				Area:      area.RegencyName,
+				Cells:     make([]CreditWorksheetCell, 0, len(motors)),
+			}
+
+			for _, motor := range motors {
+				capabilityRate := 0.0
+				if job.NetIncome > 0 {
+					capabilityRate = motor.Installment / job.NetIncome
+				}
+
+				programSuggestion := 0.0
+				thresholdInstallment := job.NetIncome * capabilityThreshold
+				if motor.Installment > thresholdInstallment {
+					diff := motor.Installment - thresholdInstallment
+					if diff <= suggestionCap {
+						programSuggestion = diff
+					} else {
+						programSuggestion = suggestionCap
+					}
+				}
+
+				row.Cells = append(row.Cells, CreditWorksheetCell{
+					MotorTypeID:       motor.MotorTypeID,
+					MotorTypeName:     motor.MotorTypeName,
+					Installment:       motor.Installment,
+					CapabilityRate:    capabilityRate,
+					ProgramSuggestion: programSuggestion,
+				})
+			}
+			matrix = append(matrix, row)
+		}
+
+		areasOut = append(areasOut, CreditWorksheetArea{
+			AreaKey:      area.AreaKey,
+			ProvinceCode: area.ProvinceCode,
+			ProvinceName: area.ProvinceName,
+			RegencyCode:  area.RegencyCode,
+			RegencyName:  area.RegencyName,
+			Jobs:         jobs,
+			MotorTypes:   motors,
+			Matrix:       matrix,
+		})
+	}
+
+	sort.Slice(areasOut, func(i, j int) bool {
+		leftProvince := strings.ToLower(strings.TrimSpace(areasOut[i].ProvinceName))
+		rightProvince := strings.ToLower(strings.TrimSpace(areasOut[j].ProvinceName))
+		if leftProvince != rightProvince {
+			return leftProvince < rightProvince
+		}
+		leftRegency := strings.ToLower(strings.TrimSpace(areasOut[i].RegencyName))
+		rightRegency := strings.ToLower(strings.TrimSpace(areasOut[j].RegencyName))
+		return leftRegency < rightRegency
+	})
+	sort.Slice(jobsMaster, func(i, j int) bool {
+		leftRegency := strings.ToLower(strings.TrimSpace(jobsMaster[i].RegencyName))
+		rightRegency := strings.ToLower(strings.TrimSpace(jobsMaster[j].RegencyName))
+		if leftRegency != rightRegency {
+			return leftRegency < rightRegency
+		}
+		return strings.ToLower(strings.TrimSpace(jobsMaster[i].JobName)) < strings.ToLower(strings.TrimSpace(jobsMaster[j].JobName))
+	})
+	sort.Slice(motorsMaster, func(i, j int) bool {
+		leftRegency := strings.ToLower(strings.TrimSpace(motorsMaster[i].RegencyName))
+		rightRegency := strings.ToLower(strings.TrimSpace(motorsMaster[j].RegencyName))
+		if leftRegency != rightRegency {
+			return leftRegency < rightRegency
+		}
+		return strings.ToLower(strings.TrimSpace(motorsMaster[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motorsMaster[j].MotorTypeName))
+	})
+
+	return map[string]interface{}{
+		"areas":              areasOut,
+		"jobs_master":        jobsMaster,
+		"motor_types_master": motorsMaster,
+		"thresholds": map[string]float64{
+			"green_max_rate":  0.35,
+			"yellow_min_rate": 0.35,
+			"yellow_max_rate": 0.40,
+			"red_min_rate":    0.40,
+			"suggestion_cap":  suggestionCap,
+		},
+		"formula": map[string]string{
+			"credit_capability":  "installment / net_income",
+			"program_suggestion": "if installment <= net_income*35% then 0 else min(installment - net_income*35%, 250000)",
+		},
+	}, nil
 }
 
 // RecomputeQuadrants recalculates and stores quadrant results.
