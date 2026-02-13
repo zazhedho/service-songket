@@ -244,13 +244,14 @@ export default function QuadrantsPage() {
   const chart = useMemo(() => {
     const width = isMobile ? 560 : 920
     const height = isMobile ? 360 : 470
-    const padding = isMobile ? { top: 24, right: 16, bottom: 60, left: 54 } : { top: 28, right: 28, bottom: 74, left: 84 }
+    const padding = isMobile ? { top: 24, right: 28, bottom: 60, left: 54 } : { top: 28, right: 40, bottom: 74, left: 84 }
     const plotWidth = width - padding.left - padding.right
     const plotHeight = height - padding.top - padding.bottom
     const pointInset = 10
     const axisGap = 8
     const splitXPercent = 35
     const splitYPercent = 20
+    const borderTicks = Array.from({ length: 11 }, (_, index) => index * 10) // 0..100
 
     const crisp = (value: number) => Math.round(value) + 0.5
     const left = crisp(padding.left)
@@ -305,6 +306,7 @@ export default function QuadrantsPage() {
       ySplit,
       splitXPercent,
       splitYPercent,
+      borderTicks,
       left,
       top,
       right,
@@ -419,66 +421,84 @@ export default function QuadrantsPage() {
               <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
               <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
 
-              <text
-                x={chart.left}
-                y={chart.bottom + (isMobile ? 12 : 16)}
-                textAnchor="start"
-                fontSize={isMobile ? 8.5 : 11}
-                fontWeight={700}
-                fill="#111827"
-              >
-                0%
-              </text>
+              {chart.borderTicks.map((value) => (
+                <text
+                  key={`bottom-${value}`}
+                  x={chart.toX(value)}
+                  y={chart.bottom + (isMobile ? 12 : 16)}
+                  textAnchor="middle"
+                  fontSize={isMobile ? 7.5 : 10}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {value}%
+                </text>
+              ))}
+
+              {chart.borderTicks.map((value) => (
+                <text
+                  key={`top-${value}`}
+                  x={chart.toX(value) + (value === 0 ? 6 : value === 100 ? -6 : 0)}
+                  y={chart.top + (isMobile ? 10 : 13)}
+                  textAnchor={value === 0 ? 'start' : value === 100 ? 'end' : 'middle'}
+                  fontSize={isMobile ? 7.5 : 10}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {100 - value}%
+                </text>
+              ))}
+
+              {chart.borderTicks
+                .filter((value) => value !== chart.splitYPercent)
+                .map((value) => (
+                  <text
+                    key={`left-${value}`}
+                    x={chart.left - (isMobile ? 4 : 8)}
+                    y={chart.toY(value) + 3}
+                    textAnchor="end"
+                    fontSize={isMobile ? 7.5 : 10}
+                    fontWeight={700}
+                    fill="#111827"
+                  >
+                    {value}%
+                  </text>
+                ))}
+
+              {chart.borderTicks.map((value) => (
+                <text
+                  key={`right-${value}`}
+                  x={chart.right + (isMobile ? 2 : 4)}
+                  y={chart.toY(value) + 3}
+                  textAnchor="start"
+                  fontSize={isMobile ? 7.5 : 10}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {100 - value}%
+                </text>
+              ))}
+
               <text
                 x={chart.xSplit}
-                y={chart.bottom + (isMobile ? 12 : 16)}
+                y={chart.bottom + (isMobile ? 24 : 28)}
                 textAnchor="middle"
-                fontSize={isMobile ? 8.5 : 11}
+                fontSize={isMobile ? 8 : 11}
                 fontWeight={700}
                 fill="#111827"
               >
                 {chart.splitXPercent}%
               </text>
-              <text
-                x={chart.right}
-                y={chart.bottom + (isMobile ? 12 : 16)}
-                textAnchor="end"
-                fontSize={isMobile ? 8.5 : 11}
-                fontWeight={700}
-                fill="#111827"
-              >
-                100%
-              </text>
 
               <text
-                x={chart.left - (isMobile ? 4 : 8)}
-                y={chart.top + 4}
-                textAnchor="end"
-                fontSize={isMobile ? 8.5 : 11}
-                fontWeight={700}
-                fill="#111827"
-              >
-                100%
-              </text>
-              <text
-                x={chart.left - (isMobile ? 4 : 8)}
+                x={chart.left - (isMobile ? 16 : 20)}
                 y={chart.ySplit + 4}
                 textAnchor="end"
-                fontSize={isMobile ? 8.5 : 11}
+                fontSize={isMobile ? 8 : 11}
                 fontWeight={700}
                 fill="#111827"
               >
                 {chart.splitYPercent}%
-              </text>
-              <text
-                x={chart.left - (isMobile ? 4 : 8)}
-                y={chart.bottom + 4}
-                textAnchor="end"
-                fontSize={isMobile ? 8.5 : 11}
-                fontWeight={700}
-                fill="#111827"
-              >
-                0%
               </text>
 
               <text
