@@ -248,82 +248,37 @@ export default function QuadrantsPage() {
     const plotWidth = width - padding.left - padding.right
     const plotHeight = height - padding.top - padding.bottom
     const pointInset = 10
-    const axisGap = 9
-    const minXFromAxis = 2
-    const minYFromAxis = 1
-
-    const xTicks = isMobile
-      ? Array.from({ length: 11 }, (_, index) => (index - 5) * 20) // -100 .. 100
-      : Array.from({ length: 21 }, (_, index) => (index - 10) * 10) // -100 .. 100
-    const maxOrderValue = Math.max(...filtered.map((item) => Number(item.total_orders || 0)), 0)
-    const yMax = Math.max(10, maxOrderValue)
-    const yTickStep = yMax <= 12 ? 1 : yMax <= 30 ? 2 : yMax <= 60 ? 5 : 10
-    const yTicks: number[] = []
-    for (let value = yTickStep; value <= yMax; value += yTickStep) {
-      yTicks.push(value)
-    }
+    const axisGap = 8
+    const splitXPercent = 35
+    const splitYPercent = 20
 
     const crisp = (value: number) => Math.round(value) + 0.5
     const left = crisp(padding.left)
     const top = crisp(padding.top)
     const right = crisp(width - padding.right)
     const bottom = crisp(height - padding.bottom)
-    const originX = crisp((left + right) / 2)
-    const originY = crisp((top + bottom) / 2)
+    const toX = (percent: number) => left + (clampPercent(percent) / 100) * (right - left)
+    const toY = (percent: number) => bottom - (clampPercent(percent) / 100) * (bottom - top)
 
-    const toX = (signedPercent: number) => originX + (signedPercent / 100) * ((right - left) / 2)
-    const toY = (signedOrder: number) => originY - (signedOrder / yMax) * ((bottom - top) / 2)
-
-    const resolveSignedPosition = (item: QuadrantItem) => {
-      const xRaw = clampPercent(item.credit_capability)
-      const yRaw = Math.max(0, Math.min(yMax, Number(item.total_orders || 0)))
-
-      let xSign = 1
-      let ySign = 1
-      switch (item.quadrant) {
-        case 1:
-          xSign = -1
-          ySign = 1
-          break
-        case 2:
-          xSign = -1
-          ySign = -1
-          break
-        case 3:
-          xSign = 1
-          ySign = 1
-          break
-        case 4:
-          xSign = 1
-          ySign = -1
-          break
-        default:
-          xSign = 1
-          ySign = 1
-      }
-
-      let xSigned = xRaw * xSign
-      let ySigned = yRaw * ySign
-
-      if (Math.abs(xSigned) < minXFromAxis) xSigned = xSign * minXFromAxis
-      if (Math.abs(ySigned) < minYFromAxis) ySigned = ySign * minYFromAxis
-
-      return { xSigned, ySigned, xSign, ySign, yRaw, xRaw }
-    }
+    const xSplit = crisp(toX(splitXPercent))
+    const ySplit = crisp(toY(splitYPercent))
 
     const points = filtered.map((item, idx) => {
-      const { xSigned, ySigned, xSign, ySign, yRaw, xRaw } = resolveSignedPosition(item)
+      const xRaw = clampPercent(item.credit_capability)
+      const yRaw = clampPercent(item.order_in_percent)
 
-      let x = toX(xSigned)
-      let y = toY(ySigned)
+      let x = toX(xRaw)
+      let y = toY(yRaw)
 
       x = Math.min(Math.max(x, left + pointInset), right - pointInset)
       y = Math.min(Math.max(y, top + pointInset), bottom - pointInset)
 
-      if (xSign > 0 && x < originX + axisGap) x = originX + axisGap
-      if (xSign < 0 && x > originX - axisGap) x = originX - axisGap
-      if (ySign > 0 && y > originY - axisGap) y = originY - axisGap
-      if (ySign < 0 && y < originY + axisGap) y = originY + axisGap
+      if (Math.abs(x - xSplit) < axisGap) {
+        x = xRaw >= splitXPercent ? xSplit + axisGap : xSplit - axisGap
+      }
+      if (Math.abs(y - ySplit) < axisGap) {
+        y = yRaw >= splitYPercent ? ySplit - axisGap : ySplit + axisGap
+      }
 
       return {
         id: `${item.province || ''}-${item.regency || ''}-${idx}`,
@@ -346,15 +301,14 @@ export default function QuadrantsPage() {
       height,
       toX,
       toY,
-      originX,
-      originY,
+      xSplit,
+      ySplit,
+      splitXPercent,
+      splitYPercent,
       left,
       top,
       right,
       bottom,
-      xTicks,
-      yTicks,
-      yMax,
       points,
     }
   }, [filtered, isMobile, provinceNameMap, provinceCodeMap, regencyNameMap])
@@ -387,7 +341,7 @@ export default function QuadrantsPage() {
         <div className="card">
           <h3>Quadrant Flow</h3>
           <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            Area-based points (kabupaten/kota). Vertical axis: Order In (integer scale). Horizontal axis: Credit Capability (%).
+            Area-based points (kabupaten/kota). Vertical axis: Order In (%). Horizontal axis: Credit Capability (%).
           </div>
 
           <div
@@ -462,76 +416,95 @@ export default function QuadrantsPage() {
                 rx={10}
               />
 
-              <line x1={chart.originX} y1={chart.top} x2={chart.originX} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
-              <line x1={chart.left} y1={chart.originY} x2={chart.right} y2={chart.originY} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
-
-              {chart.xTicks.map((tick) => (
-                <text
-                  key={`x-tick-${String(tick)}`}
-                  x={chart.toX(tick)}
-                  y={chart.originY - 8}
-                  textAnchor="middle"
-                  fontSize={isMobile ? 8.5 : 11}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {tick === 0 ? '0' : `${Math.abs(tick)}%`}
-                </text>
-              ))}
-
-              {chart.yTicks.map((tick) => (
-                <text
-                  key={`y-tick-pos-${String(tick)}`}
-                  x={chart.originX + 8}
-                  y={chart.toY(tick) + 4}
-                  textAnchor="start"
-                  fontSize={isMobile ? 8.5 : 11}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {tick}
-                </text>
-              ))}
-              {chart.yTicks.map((tick) => (
-                <text
-                  key={`y-tick-neg-${String(tick)}`}
-                  x={chart.originX + 8}
-                  y={chart.toY(-tick) + 4}
-                  textAnchor="start"
-                  fontSize={isMobile ? 8.5 : 11}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {tick}
-                </text>
-              ))}
-              <text x={chart.originX + 8} y={chart.originY + 4} textAnchor="start" fontSize={isMobile ? 8.5 : 11} fontWeight={700} fill="#111827">
-                0
-              </text>
+              <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
+              <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
 
               <text
-                x={(chart.left + chart.right) / 2}
-                y={chart.bottom + (isMobile ? 44 : 56)}
-                textAnchor="middle"
-                fontSize={isMobile ? 12 : 16}
+                x={chart.left}
+                y={chart.bottom + (isMobile ? 12 : 16)}
+                textAnchor="start"
+                fontSize={isMobile ? 8.5 : 11}
                 fontWeight={700}
                 fill="#111827"
               >
-                Credit Capability
+                0%
               </text>
               <text
-                transform={`translate(${chart.left - (isMobile ? 38 : 58)}, ${(chart.top + chart.bottom) / 2}) rotate(-90)`}
+                x={chart.xSplit}
+                y={chart.bottom + (isMobile ? 12 : 16)}
                 textAnchor="middle"
-                fontSize={isMobile ? 12 : 16}
+                fontSize={isMobile ? 8.5 : 11}
                 fontWeight={700}
                 fill="#111827"
               >
-                Order In
+                {chart.splitXPercent}%
+              </text>
+              <text
+                x={chart.right}
+                y={chart.bottom + (isMobile ? 12 : 16)}
+                textAnchor="end"
+                fontSize={isMobile ? 8.5 : 11}
+                fontWeight={700}
+                fill="#111827"
+              >
+                100%
               </text>
 
               <text
-                x={(chart.left + chart.originX) / 2}
+                x={chart.left - (isMobile ? 4 : 8)}
+                y={chart.top + 4}
+                textAnchor="end"
+                fontSize={isMobile ? 8.5 : 11}
+                fontWeight={700}
+                fill="#111827"
+              >
+                100%
+              </text>
+              <text
+                x={chart.left - (isMobile ? 4 : 8)}
+                y={chart.ySplit + 4}
+                textAnchor="end"
+                fontSize={isMobile ? 8.5 : 11}
+                fontWeight={700}
+                fill="#111827"
+              >
+                {chart.splitYPercent}%
+              </text>
+              <text
+                x={chart.left - (isMobile ? 4 : 8)}
+                y={chart.bottom + 4}
+                textAnchor="end"
+                fontSize={isMobile ? 8.5 : 11}
+                fontWeight={700}
+                fill="#111827"
+              >
+                0%
+              </text>
+
+              <text
+                x={chart.xSplit}
                 y={chart.top - (isMobile ? 6 : 10)}
+                textAnchor="middle"
+                fontSize={isMobile ? 12 : 16}
+                fontWeight={700}
+                fill="#111827"
+              >
+                order in
+              </text>
+              <text
+                x={chart.right - 6}
+                y={chart.ySplit - (isMobile ? 10 : 12)}
+                textAnchor="end"
+                fontSize={isMobile ? 12 : 16}
+                fontWeight={700}
+                fill="#111827"
+              >
+                credit capability
+              </text>
+
+              <text
+                x={(chart.left + chart.xSplit) / 2}
+                y={(chart.top + chart.ySplit) / 2}
                 textAnchor="middle"
                 fontSize={isMobile ? 11 : 20}
                 fontWeight={700}
@@ -540,8 +513,8 @@ export default function QuadrantsPage() {
                 Kuadran 1
               </text>
               <text
-                x={(chart.originX + chart.right) / 2}
-                y={chart.top - (isMobile ? 6 : 10)}
+                x={(chart.xSplit + chart.right) / 2}
+                y={(chart.top + chart.ySplit) / 2}
                 textAnchor="middle"
                 fontSize={isMobile ? 11 : 20}
                 fontWeight={700}
@@ -550,8 +523,8 @@ export default function QuadrantsPage() {
                 Kuadran 3
               </text>
               <text
-                x={(chart.left + chart.originX) / 2}
-                y={chart.bottom + (isMobile ? 20 : 28)}
+                x={(chart.left + chart.xSplit) / 2}
+                y={(chart.ySplit + chart.bottom) / 2}
                 textAnchor="middle"
                 fontSize={isMobile ? 11 : 20}
                 fontWeight={700}
@@ -560,8 +533,8 @@ export default function QuadrantsPage() {
                 Kuadran 2
               </text>
               <text
-                x={(chart.originX + chart.right) / 2}
-                y={chart.bottom + (isMobile ? 20 : 28)}
+                x={(chart.xSplit + chart.right) / 2}
+                y={(chart.ySplit + chart.bottom) / 2}
                 textAnchor="middle"
                 fontSize={isMobile ? 11 : 20}
                 fontWeight={700}

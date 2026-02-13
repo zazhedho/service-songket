@@ -2549,7 +2549,8 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 			continue
 		}
 
-		capabilityPct := (sumRate / float64(countRate)) * 100
+		// Keep the same base unit as worksheet capability_rate so quadrant summary stays in sync.
+		capabilityPct := sumRate / float64(countRate)
 		provinceCandidates := []string{}
 		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceCode)
 		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceName)
@@ -2986,10 +2987,8 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 			for _, motor := range motors {
 				capabilityRate := 0.0
 				if job.NetIncome > 0 {
-					capabilityRate = (motor.Installment / job.NetIncome) * 100
-					log.Println("capabilityRate ", capabilityRate)
-					log.Println("Installment ", motor.Installment)
-					log.Println("NetIncome ", job.NetIncome)
+					// Keep capability rate as ratio (0..1) so worksheet and quadrant use the same base.
+					capabilityRate = motor.Installment / job.NetIncome
 				}
 
 				programSuggestion := 0.0
