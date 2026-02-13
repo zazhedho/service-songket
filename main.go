@@ -91,8 +91,11 @@ func main() {
 		FailOnError(err, "Failed to automigrate")
 	}
 
-	newsCronScheduler := songket.NewNewsScrapeCronScheduler(songket.NewService(routes.DB))
+	songketService := songket.NewService(routes.DB)
+	newsCronScheduler := songket.NewNewsScrapeCronScheduler(songketService)
 	newsCronScheduler.Start(context.Background())
+	priceCronScheduler := songket.NewPriceScrapeCronScheduler(songketService)
+	priceCronScheduler.Start(context.Background())
 
 	routes.UserRoutes()
 	routes.RoleRoutes()

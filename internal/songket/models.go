@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	MasterSettingKeyNewsScrapeCron = "cron_scrape_news"
+	MasterSettingKeyNewsScrapeCron  = "cron_scrape_news"
+	MasterSettingKeyPriceScrapeCron = "cron_scrape_prices"
 )
 
 // Dealer represents a dealer location.

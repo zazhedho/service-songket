@@ -183,6 +183,36 @@ h4 {
       rgba(255, 255, 255, 0.08);
   }
 
+  .menu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+  }
+
+  .menu-group-toggle {
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+    background: transparent;
+  }
+
+  .menu-group-arrow {
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 1;
+    color: #9db2cd;
+    transition: color 0.16s ease, transform 0.16s ease;
+  }
+
+  .menu-group-toggle.active .menu-group-arrow {
+    color: #dbeafe;
+  }
+
+  .nav-link.submenu {
+    margin-left: 14px;
+  }
+
   .menu-icon {
     width: 18px;
     height: 18px;
@@ -298,6 +328,10 @@ h4 {
     background: #fff;
   }
 
+  .topbar-profile-label {
+    display: inline;
+  }
+
   .topbar-profile-menu {
     position: absolute;
     top: calc(100% + 8px);
@@ -369,6 +403,10 @@ h4 {
     display: none;
   }
 
+  .app-shell.sidebar-collapsed .menu-group-arrow {
+    display: none;
+  }
+
   .app-shell.sidebar-collapsed .brand-mark {
     margin: 0 auto;
   }
@@ -393,6 +431,14 @@ h4 {
     gap: 14px;
   }
 
+  .page,
+  .page > *,
+  .header,
+  .card,
+  .hero {
+    min-width: 0;
+  }
+
   .card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -411,6 +457,12 @@ h4 {
     grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.25fr);
     gap: 14px;
     align-items: start;
+  }
+
+  .dealer-performance-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
   }
 
   .profile-summary-card {
@@ -715,6 +767,12 @@ h4 {
     overflow: visible;
   }
 
+  .table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .table th,
   .table td {
     padding: 10px;
@@ -765,6 +823,86 @@ h4 {
 
   .table tbody tr:last-child td {
     border-bottom: 0;
+  }
+
+  .finance-approval-compact {
+    margin-top: 10px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .finance-approval-top {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .finance-approval-filter {
+    min-width: 0;
+    max-width: 320px;
+  }
+
+  .finance-approval-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 8px;
+  }
+
+  .finance-approval-kpi-grid .mini-metric:first-child {
+    grid-column: span 2;
+  }
+
+  .mini-metric {
+    border: 1px solid #dbe3ef;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 8px;
+    min-width: 0;
+  }
+
+  .mini-metric-label {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .mini-metric-value {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .compact-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+  }
+
+  .compact-section-title {
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .table.compact-table {
+    font-size: 12px;
+  }
+
+  .table.compact-table th,
+  .table.compact-table td {
+    padding: 7px 8px;
+  }
+
+  .table.compact-table td {
+    max-width: 22ch;
   }
 
   .finance-dealer-table {
@@ -1204,6 +1342,10 @@ h4 {
 }
 
 @media (max-width: 1023px) {
+  body {
+    overflow-x: hidden;
+  }
+
   .sidebar {
     transform: translateX(-100%);
     width: min(86vw, 292px);
@@ -1220,6 +1362,12 @@ h4 {
   .app-main,
   .app-shell.sidebar-collapsed .app-main {
     margin-left: 0;
+    overflow-x: hidden;
+  }
+
+  .app-topbar {
+    height: 60px;
+    padding: 0 12px;
   }
 
   .desktop-only {
@@ -1258,6 +1406,22 @@ h4 {
     grid-template-columns: 1fr;
   }
 
+  .dealer-performance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-approval-top {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-approval-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-approval-kpi-grid .mini-metric:first-child {
+    grid-column: span 1;
+  }
+
   .profile-form-grid {
     grid-template-columns: 1fr;
   }
@@ -1270,9 +1434,284 @@ h4 {
     display: none;
   }
 
+  .topbar-profile-btn {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .grid {
+    min-width: 0;
+  }
+
+  .card {
+    overflow-wrap: anywhere;
+  }
+
   .toast-stack {
     right: 12px;
     bottom: 12px;
     width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    width: min(90vw, 304px);
+  }
+
+  .app-topbar {
+    height: 56px;
+    padding: 0 10px;
+  }
+
+  .topbar-left {
+    gap: 8px;
+  }
+
+  .topbar-title {
+    font-size: 15px;
+  }
+
+  .topbar-subtitle {
+    display: none;
+  }
+
+  .topbar-btn,
+  .topbar-profile-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .topbar-profile-label {
+    display: none;
+  }
+
+  .topbar-profile-menu {
+    min-width: 156px;
+  }
+
+  .header {
+    margin: 10px 10px 0;
+    padding: 10px;
+    gap: 8px;
+    border-radius: 12px;
+  }
+
+  .page {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .card {
+    padding: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .btn,
+  .btn-ghost {
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  .table th,
+  .table td {
+    padding: 7px 6px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+  }
+
+  .table td {
+    max-width: none;
+  }
+
+  .table.responsive-stack {
+    display: block;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .table.responsive-stack thead {
+    display: none;
+  }
+
+  .table.responsive-stack tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .table.responsive-stack tbody tr {
+    display: block;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: #fff;
+    padding: 0 8px;
+  }
+
+  .table.responsive-stack tbody tr:hover {
+    background: #fff;
+  }
+
+  .table.responsive-stack tbody td {
+    display: grid;
+    grid-template-columns: minmax(96px, 40%) minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    border-bottom: 1px dashed #e2e8f0;
+    padding: 7px 0;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+  }
+
+  .table.responsive-stack tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .table.responsive-stack tbody td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 1.3;
+  }
+
+  .table.responsive-stack tbody td[colspan] {
+    display: block;
+    border-bottom: 0;
+    padding: 10px 0;
+  }
+
+  .table.responsive-stack tbody td[colspan]::before {
+    content: none;
+  }
+
+  .table.responsive-stack tbody td.action-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .table.responsive-stack tbody td.action-cell::before {
+    margin-right: auto;
+  }
+
+  .mobile-filter-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pagination-wrap {
+    align-items: stretch;
+  }
+
+  .pagination-meta,
+  .pagination-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pagination-actions {
+    flex-wrap: wrap;
+  }
+
+  .leaflet-search-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .leaflet-search-suggestions {
+    left: 8px;
+    right: 8px;
+    top: 56px;
+  }
+
+  .leaflet-search-panel .leaflet-container {
+    height: 260px;
+  }
+
+  .modal-backdrop,
+  .confirm-backdrop {
+    padding: 12px;
+  }
+
+  .modal,
+  .confirm-toast {
+    max-height: calc(100vh - 24px);
+    padding: 12px;
+  }
+}
+
+@media (max-width: 479px) {
+  .sidebar {
+    width: 92vw;
+  }
+
+  .topbar-title {
+    font-size: 14px;
+  }
+
+  .topbar-btn,
+  .topbar-profile-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+  }
+
+  .header {
+    margin: 8px 8px 0;
+    padding: 8px;
+  }
+
+  .page {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .card {
+    padding: 8px;
+  }
+
+  .table {
+    font-size: 10px;
+  }
+
+  .table.responsive-stack tbody td {
+    grid-template-columns: minmax(88px, 42%) minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .toast-stack {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
   }
 }

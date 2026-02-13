@@ -2,9 +2,11 @@ package songket
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"starter-kit/pkg/filter"
@@ -14,6 +16,7 @@ import (
 	"starter-kit/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -191,6 +194,65 @@ func (h *Handler) FinanceCompanies(ctx *gin.Context) {
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
 
 	data, total, err := h.svc.ListFinanceCompanies(params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/finance/report/migrations
+func (h *Handler) FinanceMigrationReport(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "pooling_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"order_id", "dealer_id", "finance_1_company_id", "finance_2_company_id"})
+	if v, ok := params.Filters["order_id"]; ok {
+		orderID := strings.TrimSpace(fmt.Sprint(v))
+		if orderID != "" {
+			if _, parseErr := uuid.Parse(orderID); parseErr != nil {
+				res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+				res.Error = "order_id must be a valid UUID"
+				ctx.JSON(http.StatusBadRequest, res)
+				return
+			}
+		}
+	}
+
+	month := 0
+	if rawMonth := strings.TrimSpace(ctx.Query("month")); rawMonth != "" {
+		parsedMonth, convErr := strconv.Atoi(rawMonth)
+		if convErr != nil || parsedMonth < 1 || parsedMonth > 12 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "month must be between 1 and 12"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		month = parsedMonth
+	}
+
+	year := 0
+	if rawYear := strings.TrimSpace(ctx.Query("year")); rawYear != "" {
+		parsedYear, convErr := strconv.Atoi(rawYear)
+		if convErr != nil || parsedYear < 1 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year must be a valid positive number"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		year = parsedYear
+	}
+
+	data, total, err := h.svc.ListFinanceMigrationReport(params, month, year)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -567,6 +629,32 @@ func (h *Handler) GetNewsScrapeCronSetting(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// POST /api/songket/master-settings/news-scrape-cron
+func (h *Handler) CreateNewsScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req NewsScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.CreateNewsScrapeCronMasterSetting(req, userID, username)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
 // PUT /api/songket/master-settings/news-scrape-cron
 func (h *Handler) UpdateNewsScrapeCronSetting(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -610,6 +698,126 @@ func (h *Handler) GetNewsScrapeCronSettingHistory(ctx *gin.Context) {
 		return
 	}
 	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/master-settings/news-scrape-cron
+func (h *Handler) DeleteNewsScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	if err := h.svc.DeleteNewsScrapeCronMasterSetting(userID, username); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"key": MasterSettingKeyNewsScrapeCron})
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) GetPriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	data, err := h.svc.GetPriceScrapeCronMasterSetting()
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// POST /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) CreatePriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req PriceScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.CreatePriceScrapeCronMasterSetting(req, userID, username)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusCreated, "created", logId, data)
+	ctx.JSON(http.StatusCreated, res)
+}
+
+// PUT /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) UpdatePriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	var req PriceScrapeCronSettingRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	data, err := h.svc.UpdatePriceScrapeCronMasterSetting(req, userID, username)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "updated", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/master-settings/prices-scrape-cron/history
+func (h *Handler) GetPriceScrapeCronSettingHistory(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	limitRaw := ctx.DefaultQuery("limit", "100")
+	limit, err := strconv.Atoi(limitRaw)
+	if err != nil {
+		limit = 100
+	}
+
+	data, err := h.svc.ListPriceScrapeCronSettingHistory(limit)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// DELETE /api/songket/master-settings/prices-scrape-cron
+func (h *Handler) DeletePriceScrapeCronSetting(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	username := utils.InterfaceString(auth["username"])
+
+	if err := h.svc.DeletePriceScrapeCronMasterSetting(userID, username); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "deleted", logId, gin.H{"key": MasterSettingKeyPriceScrapeCron})
 	ctx.JSON(http.StatusOK, res)
 }
 
@@ -918,11 +1126,27 @@ func (h *Handler) ListCredit(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
-// GET /api/songket/quadrants/summary (score by wilayah)
+// GET /api/songket/credit/worksheet
+func (h *Handler) CreditWorksheet(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	province := strings.TrimSpace(ctx.Query("province"))
+	regency := strings.TrimSpace(ctx.Query("regency"))
+
+	data, err := h.svc.CreditCapabilityWorksheet(province, regency)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/quadrants/summary (order-in% vs credit capability)
 func (h *Handler) QuadrantSummary(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	threshold := utils.GetEnv("CREDIT_ORDER_THRESHOLD", 5).(int)
-	data, err := h.svc.CreditCapabilitySummary(int64(threshold))
+	data, err := h.svc.QuadrantSummaryFlow()
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()

@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	//"io"
 	//"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -224,6 +226,14 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		var poolingCount int64
+		if err := tx.Model(&Order{}).Where("pooling_number = ?", order.PoolingNumber).Count(&poolingCount).Error; err != nil {
+			return err
+		}
+		if poolingCount >= 2 {
+			return fmt.Errorf("pooling number already has maximum 2 orders")
+		}
+
 		if err := tx.Create(&order).Error; err != nil {
 			return err
 		}
@@ -253,19 +263,17 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 			if err := tx.Create(&secondAttempt).Error; err != nil {
 				return err
 			}
+		}
 
-			if status2 == "reject" && req.FinanceCompany3ID != "" && req.ResultStatus3 != "" {
-				thirdAttempt := OrderFinanceAttempt{
-					Id:               utils.CreateUUID(),
-					OrderID:          order.Id,
-					FinanceCompanyID: req.FinanceCompany3ID,
-					AttemptNo:        3,
-					Status:           strings.ToLower(req.ResultStatus3),
-					Notes:            req.ResultNotes3,
-				}
-				if err := tx.Create(&thirdAttempt).Error; err != nil {
-					return err
-				}
+		if strings.ToLower(strings.TrimSpace(order.ResultStatus)) == "reject" {
+			cloneStatus, cloneNotes := deriveCloneResult(
+				order.ResultStatus,
+				order.ResultNotes,
+				req.ResultStatus2,
+				req.ResultNotes2,
+			)
+			if err := s.duplicateOrderRow(tx, order, cloneStatus, cloneNotes, req.FinanceCompany2ID); err != nil {
+				return err
 			}
 		}
 
@@ -315,15 +323,11 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 		return Order{}, err
 	}
 
-	financeCompany3ID, err := normalizeOptionalUUID(req.FinanceCompany3ID, "finance_company3_id")
-	if err != nil {
-		return Order{}, err
-	}
-
 	var order Order
 	if err := s.db.Preload("Attempts").First(&order, "id = ?", normalizedID).Error; err != nil {
 		return Order{}, err
 	}
+	previousPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
 	var selectedMotor *MotorType
 
 	if role == utils.RoleDealer && order.CreatedBy != userId {
@@ -405,23 +409,6 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	}
 
 	primaryRejected := strings.ToLower(order.ResultStatus) == "reject"
-	secondRejected := false
-	if req.ResultStatus2 != nil {
-		secondRejected = strings.ToLower(strings.TrimSpace(*req.ResultStatus2)) == "reject"
-	} else {
-		for _, att := range order.Attempts {
-			if att.AttemptNo == 2 && strings.ToLower(strings.TrimSpace(att.Status)) == "reject" {
-				secondRejected = true
-				break
-			}
-		}
-	}
-	if !primaryRejected {
-		secondRejected = false
-	}
-	if req.FinanceCompany2ID != nil && financeCompany2ID == nil {
-		secondRejected = false
-	}
 
 	if order.MotorTypeID != "" {
 		if selectedMotor == nil {
@@ -440,6 +427,14 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		var poolingCount int64
+		if err := tx.Model(&Order{}).Where("pooling_number = ? AND id <> ?", order.PoolingNumber, order.Id).Count(&poolingCount).Error; err != nil {
+			return err
+		}
+		if poolingCount >= 2 {
+			return fmt.Errorf("pooling number already has maximum 2 orders")
+		}
+
 		if err := tx.Save(&order).Error; err != nil {
 			return err
 		}
@@ -485,29 +480,8 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 					return err
 				}
 			}
-			if att.AttemptNo == 3 {
-				if !primaryRejected || !secondRejected {
-					if err := tx.Delete(&att).Error; err != nil {
-						return err
-					}
-					continue
-				}
-				if req.FinanceCompany3ID != nil && financeCompany3ID == nil {
-					if err := tx.Delete(&att).Error; err != nil {
-						return err
-					}
-					continue
-				}
-				if financeCompany3ID != nil {
-					att.FinanceCompanyID = *financeCompany3ID
-				}
-				if req.ResultStatus3 != nil && *req.ResultStatus3 != "" {
-					att.Status = strings.ToLower(*req.ResultStatus3)
-				}
-				if req.ResultNotes3 != nil {
-					att.Notes = *req.ResultNotes3
-				}
-				if err := tx.Save(&att).Error; err != nil {
+			if att.AttemptNo >= 3 {
+				if err := tx.Delete(&att).Error; err != nil {
 					return err
 				}
 			}
@@ -533,24 +507,36 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 			order.Attempts = append(order.Attempts, newAttempt)
 		}
 
-		// Add attempt 3 if missing and provided
-		if primaryRejected && secondRejected && financeCompany3ID != nil && !s.hasAttempt(order.Attempts, 3) {
-			status3 := ""
-			if req.ResultStatus3 != nil {
-				status3 = strings.ToLower(*req.ResultStatus3)
+		currentPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
+		if currentPrimaryStatus == "reject" && previousPrimaryStatus != "reject" {
+			secondStatus := ""
+			secondNotes := ""
+			if req.ResultStatus2 != nil {
+				secondStatus = *req.ResultStatus2
 			}
-			newAttempt := OrderFinanceAttempt{
-				Id:               utils.CreateUUID(),
-				OrderID:          order.Id,
-				FinanceCompanyID: *financeCompany3ID,
-				AttemptNo:        3,
-				Status:           status3,
-				Notes:            utils.ValueOrDefault(req.ResultNotes3, ""),
+			if req.ResultNotes2 != nil {
+				secondNotes = *req.ResultNotes2
 			}
-			if err := tx.Create(&newAttempt).Error; err != nil {
+			if strings.TrimSpace(secondStatus) == "" || strings.TrimSpace(secondNotes) == "" {
+				if att, ok := findAttempt(order.Attempts, 2); ok {
+					if strings.TrimSpace(secondStatus) == "" {
+						secondStatus = att.Status
+					}
+					if strings.TrimSpace(secondNotes) == "" {
+						secondNotes = att.Notes
+					}
+				}
+			}
+			secondFinanceCompanyID := ""
+			if financeCompany2ID != nil {
+				secondFinanceCompanyID = *financeCompany2ID
+			} else if att, ok := findAttempt(order.Attempts, 2); ok {
+				secondFinanceCompanyID = att.FinanceCompanyID
+			}
+			cloneStatus, cloneNotes := deriveCloneResult(order.ResultStatus, order.ResultNotes, secondStatus, secondNotes)
+			if err := s.duplicateOrderRow(tx, order, cloneStatus, cloneNotes, secondFinanceCompanyID); err != nil {
 				return err
 			}
-			order.Attempts = append(order.Attempts, newAttempt)
 		}
 		return nil
 	}); err != nil {
@@ -567,6 +553,86 @@ func (s *Service) hasAttempt(atts []OrderFinanceAttempt, num int) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, cloneNotes, financeCompanyID string) error {
+	var poolingCount int64
+	if err := tx.Model(&Order{}).Where("pooling_number = ?", source.PoolingNumber).Count(&poolingCount).Error; err != nil {
+		return err
+	}
+	// One pooling number can only have 2 rows: original + cloned follow-up.
+	if poolingCount >= 2 {
+		return nil
+	}
+
+	status := strings.ToLower(strings.TrimSpace(cloneStatus))
+	if status == "" {
+		status = strings.ToLower(strings.TrimSpace(source.ResultStatus))
+	}
+	duplicateOrder := Order{
+		Id:            utils.CreateUUID(),
+		PoolingNumber: source.PoolingNumber,
+		PoolingAt:     source.PoolingAt,
+		ResultAt:      source.ResultAt,
+		DealerID:      source.DealerID,
+		ConsumerName:  source.ConsumerName,
+		ConsumerPhone: source.ConsumerPhone,
+		Province:      source.Province,
+		Regency:       source.Regency,
+		District:      source.District,
+		Village:       source.Village,
+		Address:       source.Address,
+		JobID:         source.JobID,
+		MotorTypeID:   source.MotorTypeID,
+		OTR:           source.OTR,
+		DPGross:       source.DPGross,
+		DPPaid:        source.DPPaid,
+		DPPct:         source.DPPct,
+		Tenor:         source.Tenor,
+		ResultStatus:  status,
+		ResultNotes:   strings.TrimSpace(cloneNotes),
+		CreatedBy:     source.CreatedBy,
+	}
+	if err := tx.Omit("Attempts").Create(&duplicateOrder).Error; err != nil {
+		return err
+	}
+
+	financeID := strings.TrimSpace(financeCompanyID)
+	if financeID == "" {
+		return nil
+	}
+
+	duplicateAttempt := OrderFinanceAttempt{
+		Id:               utils.CreateUUID(),
+		OrderID:          duplicateOrder.Id,
+		FinanceCompanyID: financeID,
+		AttemptNo:        1,
+		Status:           status,
+		Notes:            strings.TrimSpace(cloneNotes),
+	}
+	return tx.Create(&duplicateAttempt).Error
+}
+
+func deriveCloneResult(primaryStatus, primaryNotes, secondStatus, secondNotes string) (string, string) {
+	status := strings.ToLower(strings.TrimSpace(secondStatus))
+	if status == "" {
+		status = strings.ToLower(strings.TrimSpace(primaryStatus))
+	}
+
+	notes := strings.TrimSpace(secondNotes)
+	if notes == "" {
+		notes = strings.TrimSpace(primaryNotes)
+	}
+	return status, notes
+}
+
+func findAttempt(atts []OrderFinanceAttempt, num int) (OrderFinanceAttempt, bool) {
+	for _, att := range atts {
+		if att.AttemptNo == num {
+			return att, true
+		}
+	}
+	return OrderFinanceAttempt{}, false
 }
 
 // DeleteOrder enforces role-based access.
@@ -674,6 +740,10 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 	approvalRate := 0.0
 	if totalOrders > 0 {
 		approvalRate = float64(approvedOrders) / float64(totalOrders)
+		log.Println("approvalRate ", approvalRate)
+		log.Println("approvedOrders ", approvedOrders)
+		log.Println("totalOrders ", totalOrders)
+
 	}
 
 	qRescue := s.db.Model(&Order{}).
@@ -705,11 +775,20 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 		FinanceCompanyID   string   `json:"finance_company_id"`
 		FinanceCompanyName string   `json:"finance_company_name"`
 		TotalOrders        int64    `json:"total_orders"`
+		ApprovedCount      int64    `json:"approved_count"`
+		RejectedCount      int64    `json:"rejected_count"`
 		LeadTimeSecondsAvg *float64 `json:"lead_time_seconds_avg"`
 		ApprovalRate       float64  `json:"approval_rate"`
 		RescueApprovedFc2  int64    `json:"rescue_approved_fc2"`
 	}
 	fcMetrics := make([]FcMetric, 0, len(financeCompanies))
+	type FinanceApprovalGrouping struct {
+		FinanceCompanyID   string  `json:"finance_company_id"`
+		FinanceCompanyName string  `json:"finance_company_name"`
+		Status             string  `json:"status"`
+		TotalData          int64   `json:"total_data"`
+		ApprovalRate       float64 `json:"approval_rate"`
+	}
 
 	for _, fc := range financeCompanies {
 		qOrdersFc := baseOrders(s.db)
@@ -728,24 +807,43 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 			return nil, err
 		}
 
-		qApproveFc := s.db.Model(&OrderFinanceAttempt{}).
-			Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
-			Where("o.dealer_id = ?", dealerId).
-			Where("order_finance_attempts.status = ?", "approve").
-			Where("order_finance_attempts.finance_company_id = ?", fc.Id)
-		if !dr.From.IsZero() {
-			qApproveFc = qApproveFc.Where("o.pooling_at >= ?", dr.From)
+		attemptOneBase := func() *gorm.DB {
+			q := s.db.Model(&OrderFinanceAttempt{}).
+				Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
+				Where("o.dealer_id = ?", dealerId).
+				Where("order_finance_attempts.attempt_no = ?", 1).
+				Where("order_finance_attempts.finance_company_id = ?", fc.Id)
+			if !dr.From.IsZero() {
+				q = q.Where("o.pooling_at >= ?", dr.From)
+			}
+			if !dr.To.IsZero() {
+				q = q.Where("o.pooling_at <= ?", dr.To)
+			}
+			return q
 		}
-		if !dr.To.IsZero() {
-			qApproveFc = qApproveFc.Where("o.pooling_at <= ?", dr.To)
-		}
+
 		var fcApproved int64
-		if err := qApproveFc.Distinct("o.id").Count(&fcApproved).Error; err != nil {
+		if err := attemptOneBase().
+			Where("order_finance_attempts.status = ?", "approve").
+			Distinct("order_finance_attempts.order_id").
+			Count(&fcApproved).Error; err != nil {
 			return nil, err
 		}
+
+		var fcRejected int64
+		if err := attemptOneBase().
+			Where("order_finance_attempts.status = ?", "reject").
+			Distinct("order_finance_attempts.order_id").
+			Count(&fcRejected).Error; err != nil {
+			return nil, err
+		}
+
 		fcApproval := 0.0
 		if fcTotal > 0 {
 			fcApproval = float64(fcApproved) / float64(fcTotal)
+			log.Println("fcApproval ", fcApproval)
+			log.Println("fcApproved ", fcApproved)
+			log.Println("fcTotal ", fcTotal)
 		}
 
 		qRescueFc := s.db.Model(&Order{}).
@@ -770,22 +868,565 @@ func (s *Service) DealerMetrics(dealerId string, financeCompanyID *string, dr Da
 			FinanceCompanyID:   fc.Id,
 			FinanceCompanyName: fc.Name,
 			TotalOrders:        fcTotal,
+			ApprovedCount:      fcApproved,
+			RejectedCount:      fcRejected,
 			LeadTimeSecondsAvg: fcLead,
 			ApprovalRate:       fcApproval,
 			RescueApprovedFc2:  fcRescued,
 		})
 	}
 
+	// grouped finance-2 outcomes for orders where finance-1 was rejected
+	type financeApprovalGroupingRaw struct {
+		FinanceCompanyID   string `json:"finance_company_id"`
+		FinanceCompanyName string `json:"finance_company_name"`
+		Status             string `json:"status"`
+		TotalData          int64  `json:"total_data"`
+	}
+
+	groupingBase := s.db.Model(&OrderFinanceAttempt{}).
+		Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
+		Joins("JOIN order_finance_attempts a1 ON a1.order_id = order_finance_attempts.order_id AND a1.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc ON fc.id = order_finance_attempts.finance_company_id").
+		Where("o.dealer_id = ?", dealerId).
+		Where("order_finance_attempts.attempt_no = ?", 2).
+		Where("a1.status = ?", "reject").
+		Where("LOWER(order_finance_attempts.status) IN ?", []string{"approve", "reject"})
+
+	if financeCompanyID != nil && *financeCompanyID != "" {
+		groupingBase = groupingBase.Where("order_finance_attempts.finance_company_id = ?", *financeCompanyID)
+	}
+	if !dr.From.IsZero() {
+		groupingBase = groupingBase.Where("o.pooling_at >= ?", dr.From)
+	}
+	if !dr.To.IsZero() {
+		groupingBase = groupingBase.Where("o.pooling_at <= ?", dr.To)
+	}
+
+	var groupingRaw []financeApprovalGroupingRaw
+	if err := groupingBase.
+		Select(`
+			order_finance_attempts.finance_company_id AS finance_company_id,
+			COALESCE(fc.name, '-') AS finance_company_name,
+			LOWER(order_finance_attempts.status) AS status,
+			COUNT(DISTINCT order_finance_attempts.order_id) AS total_data
+		`).
+		Group("order_finance_attempts.finance_company_id, fc.name, LOWER(order_finance_attempts.status)").
+		Scan(&groupingRaw).Error; err != nil {
+		return nil, err
+	}
+
+	totalByFinance := make(map[string]int64, len(groupingRaw))
+	for _, row := range groupingRaw {
+		financeID := strings.TrimSpace(row.FinanceCompanyID)
+		totalByFinance[financeID] += row.TotalData
+	}
+
+	financeApprovalGrouping := make([]FinanceApprovalGrouping, 0, len(groupingRaw))
+	for _, row := range groupingRaw {
+		financeID := strings.TrimSpace(row.FinanceCompanyID)
+		total := totalByFinance[financeID]
+		rate := 0.0
+		if total > 0 {
+			rate = float64(row.TotalData) / float64(total)
+		}
+		financeApprovalGrouping = append(financeApprovalGrouping, FinanceApprovalGrouping{
+			FinanceCompanyID:   row.FinanceCompanyID,
+			FinanceCompanyName: row.FinanceCompanyName,
+			Status:             strings.ToLower(strings.TrimSpace(row.Status)),
+			TotalData:          row.TotalData,
+			ApprovalRate:       rate,
+		})
+	}
+
+	statusOrder := map[string]int{
+		"approve": 1,
+		"reject":  2,
+	}
+	sort.Slice(financeApprovalGrouping, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[i].FinanceCompanyName))
+		right := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[j].FinanceCompanyName))
+		if left != right {
+			return left < right
+		}
+		leftStatus := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[i].Status))
+		rightStatus := strings.ToLower(strings.TrimSpace(financeApprovalGrouping[j].Status))
+		return statusOrder[leftStatus] < statusOrder[rightStatus]
+	})
+
+	// transition metrics: Finance 1 (reject) -> Finance 2 result grouping
+	type financeApprovalTransitionRaw struct {
+		Finance1CompanyID   string `gorm:"column:finance_1_company_id" json:"finance_1_company_id"`
+		Finance1CompanyName string `gorm:"column:finance_1_company_name" json:"finance_1_company_name"`
+		Finance2CompanyID   string `gorm:"column:finance_2_company_id" json:"finance_2_company_id"`
+		Finance2CompanyName string `gorm:"column:finance_2_company_name" json:"finance_2_company_name"`
+		TotalData           int64  `gorm:"column:total_data" json:"total_data"`
+		ApprovedCount       int64  `gorm:"column:approved_count" json:"approved_count"`
+		RejectedCount       int64  `gorm:"column:rejected_count" json:"rejected_count"`
+	}
+	type financeApprovalTransition struct {
+		Finance1CompanyID   string  `json:"finance_1_company_id"`
+		Finance1CompanyName string  `json:"finance_1_company_name"`
+		Finance2CompanyID   string  `json:"finance_2_company_id"`
+		Finance2CompanyName string  `json:"finance_2_company_name"`
+		TotalData           int64   `json:"total_data"`
+		ApprovedCount       int64   `json:"approved_count"`
+		RejectedCount       int64   `json:"rejected_count"`
+		ApprovalRate        float64 `json:"approval_rate"`
+	}
+	type financeApprovalTransitionFallbackRaw struct {
+		Finance1CompanyID   string `gorm:"column:finance_1_company_id" json:"finance_1_company_id"`
+		Finance1CompanyName string `gorm:"column:finance_1_company_name" json:"finance_1_company_name"`
+		Finance2CompanyID   string `gorm:"column:finance_2_company_id" json:"finance_2_company_id"`
+		Finance2CompanyName string `gorm:"column:finance_2_company_name" json:"finance_2_company_name"`
+		TotalData           int64  `gorm:"column:total_data" json:"total_data"`
+		ApprovedCount       int64  `gorm:"column:approved_count" json:"approved_count"`
+		RejectedCount       int64  `gorm:"column:rejected_count" json:"rejected_count"`
+	}
+
+	transitionBase := s.db.
+		Table("order_finance_attempts AS a2").
+		Joins("JOIN orders o ON o.id = a2.order_id").
+		Joins("JOIN order_finance_attempts a1 ON a1.order_id = a2.order_id AND a1.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2.finance_company_id").
+		Where("o.dealer_id = ?", dealerId).
+		Where("a2.attempt_no = ?", 2).
+		Where("LOWER(a1.status) = ?", "reject").
+		Where("LOWER(a2.status) IN ?", []string{"approve", "reject"})
+
+	if financeCompanyID != nil && *financeCompanyID != "" {
+		transitionBase = transitionBase.Where("a2.finance_company_id = ?", *financeCompanyID)
+	}
+	if !dr.From.IsZero() {
+		transitionBase = transitionBase.Where("o.pooling_at >= ?", dr.From)
+	}
+	if !dr.To.IsZero() {
+		transitionBase = transitionBase.Where("o.pooling_at <= ?", dr.To)
+	}
+
+	var transitionRaw []financeApprovalTransitionRaw
+	if err := transitionBase.
+		Select(`
+			a1.finance_company_id AS finance_1_company_id,
+			COALESCE(fc1.name, '-') AS finance_1_company_name,
+			a2.finance_company_id AS finance_2_company_id,
+			COALESCE(fc2.name, '-') AS finance_2_company_name,
+			COUNT(DISTINCT a2.order_id) AS total_data,
+			COUNT(DISTINCT CASE WHEN LOWER(a2.status) = 'approve' THEN a2.order_id END) AS approved_count,
+			COUNT(DISTINCT CASE WHEN LOWER(a2.status) = 'reject' THEN a2.order_id END) AS rejected_count
+		`).
+		Group("a1.finance_company_id, fc1.name, a2.finance_company_id, fc2.name").
+		Scan(&transitionRaw).Error; err != nil {
+		return nil, err
+	}
+
+	fallbackTransitionBase := s.db.
+		Table("orders AS o1").
+		Joins("JOIN order_finance_attempts a1 ON a1.order_id = o1.id AND a1.attempt_no = 1").
+		Joins("JOIN orders o2 ON o2.pooling_number = o1.pooling_number AND o2.id <> o1.id").
+		Joins("JOIN order_finance_attempts a2f ON a2f.order_id = o2.id AND a2f.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2f.finance_company_id").
+		Where("o1.dealer_id = ?", dealerId).
+		Where("o2.dealer_id = o1.dealer_id").
+		Where("LOWER(o1.result_status) = ?", "reject").
+		Where("LOWER(o2.result_status) IN ?", []string{"approve", "reject"}).
+		Where("o1.created_at <= o2.created_at").
+		Where("NOT EXISTS (SELECT 1 FROM order_finance_attempts a2x WHERE a2x.order_id = o1.id AND a2x.attempt_no = 2)")
+	if financeCompanyID != nil && *financeCompanyID != "" {
+		fallbackTransitionBase = fallbackTransitionBase.Where("a2f.finance_company_id = ?", *financeCompanyID)
+	}
+	if !dr.From.IsZero() {
+		fallbackTransitionBase = fallbackTransitionBase.Where("o1.pooling_at >= ?", dr.From)
+	}
+	if !dr.To.IsZero() {
+		fallbackTransitionBase = fallbackTransitionBase.Where("o1.pooling_at <= ?", dr.To)
+	}
+
+	var transitionFallbackRaw []financeApprovalTransitionFallbackRaw
+	if err := fallbackTransitionBase.
+		Select(`
+			a1.finance_company_id AS finance_1_company_id,
+			COALESCE(fc1.name, '-') AS finance_1_company_name,
+			a2f.finance_company_id AS finance_2_company_id,
+			COALESCE(fc2.name, '-') AS finance_2_company_name,
+			COUNT(DISTINCT o1.id) AS total_data,
+			COUNT(DISTINCT CASE WHEN LOWER(o2.result_status) = 'approve' THEN o1.id END) AS approved_count,
+			COUNT(DISTINCT CASE WHEN LOWER(o2.result_status) = 'reject' THEN o1.id END) AS rejected_count
+		`).
+		Group("a1.finance_company_id, fc1.name, a2f.finance_company_id, fc2.name").
+		Scan(&transitionFallbackRaw).Error; err != nil {
+		return nil, err
+	}
+
+	type transitionAggregate struct {
+		Finance1CompanyID   string
+		Finance1CompanyName string
+		Finance2CompanyID   string
+		Finance2CompanyName string
+		TotalData           int64
+		ApprovedCount       int64
+		RejectedCount       int64
+	}
+	transitionByPair := map[string]*transitionAggregate{}
+	addTransitionAggregate := func(fin1ID, fin1Name, fin2ID, fin2Name string, totalData, approvedCount, rejectedCount int64) {
+		fin1ID = strings.TrimSpace(fin1ID)
+		fin2ID = strings.TrimSpace(fin2ID)
+		if fin1ID == "" || fin2ID == "" {
+			return
+		}
+		key := fin1ID + "::" + fin2ID
+		if existing, ok := transitionByPair[key]; ok {
+			existing.TotalData += totalData
+			existing.ApprovedCount += approvedCount
+			existing.RejectedCount += rejectedCount
+			return
+		}
+		transitionByPair[key] = &transitionAggregate{
+			Finance1CompanyID:   fin1ID,
+			Finance1CompanyName: strings.TrimSpace(fin1Name),
+			Finance2CompanyID:   fin2ID,
+			Finance2CompanyName: strings.TrimSpace(fin2Name),
+			TotalData:           totalData,
+			ApprovedCount:       approvedCount,
+			RejectedCount:       rejectedCount,
+		}
+	}
+
+	for _, row := range transitionRaw {
+		addTransitionAggregate(
+			row.Finance1CompanyID,
+			row.Finance1CompanyName,
+			row.Finance2CompanyID,
+			row.Finance2CompanyName,
+			row.TotalData,
+			row.ApprovedCount,
+			row.RejectedCount,
+		)
+	}
+	for _, row := range transitionFallbackRaw {
+		addTransitionAggregate(
+			row.Finance1CompanyID,
+			row.Finance1CompanyName,
+			row.Finance2CompanyID,
+			row.Finance2CompanyName,
+			row.TotalData,
+			row.ApprovedCount,
+			row.RejectedCount,
+		)
+	}
+
+	financeApprovalTransitions := make([]financeApprovalTransition, 0, len(transitionByPair))
+	for _, row := range transitionByPair {
+		rate := 0.0
+		if row.TotalData > 0 {
+			rate = float64(row.ApprovedCount) / float64(row.TotalData)
+		}
+		financeApprovalTransitions = append(financeApprovalTransitions, financeApprovalTransition{
+			Finance1CompanyID:   row.Finance1CompanyID,
+			Finance1CompanyName: row.Finance1CompanyName,
+			Finance2CompanyID:   row.Finance2CompanyID,
+			Finance2CompanyName: row.Finance2CompanyName,
+			TotalData:           row.TotalData,
+			ApprovedCount:       row.ApprovedCount,
+			RejectedCount:       row.RejectedCount,
+			ApprovalRate:        rate,
+		})
+	}
+	sort.Slice(financeApprovalTransitions, func(i, j int) bool {
+		leftFrom := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[i].Finance1CompanyName))
+		rightFrom := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[j].Finance1CompanyName))
+		if leftFrom != rightFrom {
+			return leftFrom < rightFrom
+		}
+		leftTo := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[i].Finance2CompanyName))
+		rightTo := strings.ToLower(strings.TrimSpace(financeApprovalTransitions[j].Finance2CompanyName))
+		return leftTo < rightTo
+	})
+
 	return map[string]interface{}{
-		"total_orders":           totalOrders,
-		"lead_time_seconds_avg":  leadSeconds,
-		"approval_rate":          approvalRate,
-		"rescue_approved_fc2":    rescued,
-		"date_from":              dr.From,
-		"date_to":                dr.To,
-		"finance_company_filter": financeCompanyID,
-		"finance_companies":      fcMetrics,
+		"total_orders":                 totalOrders,
+		"lead_time_seconds_avg":        leadSeconds,
+		"approval_rate":                approvalRate,
+		"rescue_approved_fc2":          rescued,
+		"finance_approval_grouping":    financeApprovalGrouping,
+		"finance_approval_transitions": financeApprovalTransitions,
+		"date_from":                    dr.From,
+		"date_to":                      dr.To,
+		"finance_company_filter":       financeCompanyID,
+		"finance_companies":            fcMetrics,
 	}, nil
+}
+
+type FinanceMigrationReportItem struct {
+	OrderID           string     `gorm:"column:order_id" json:"order_id"`
+	PoolingNumber     string     `gorm:"column:pooling_number" json:"pooling_number"`
+	PoolingAt         time.Time  `gorm:"column:pooling_at" json:"pooling_at"`
+	ResultAt          *time.Time `gorm:"column:result_at" json:"result_at"`
+	DealerOrderTotal  int        `gorm:"column:dealer_order_total" json:"dealer_order_total"`
+	DealerName        string     `gorm:"column:dealer_name" json:"dealer_name"`
+	DealerProvince    string     `gorm:"column:dealer_province" json:"dealer_province"`
+	DealerRegency     string     `gorm:"column:dealer_regency" json:"dealer_regency"`
+	DealerDistrict    string     `gorm:"column:dealer_district" json:"dealer_district"`
+	DealerVillage     string     `gorm:"column:dealer_village" json:"dealer_village"`
+	DealerAddress     string     `gorm:"column:dealer_address" json:"dealer_address"`
+	ConsumerName      string     `gorm:"column:consumer_name" json:"consumer_name"`
+	ConsumerPhone     string     `gorm:"column:consumer_phone" json:"consumer_phone"`
+	Province          string     `gorm:"column:province" json:"province"`
+	Regency           string     `gorm:"column:regency" json:"regency"`
+	District          string     `gorm:"column:district" json:"district"`
+	Village           string     `gorm:"column:village" json:"village"`
+	Address           string     `gorm:"column:address" json:"address"`
+	JobName           string     `gorm:"column:job_name" json:"job_name"`
+	NetIncome         float64    `gorm:"column:net_income" json:"net_income"`
+	MotorTypeName     string     `gorm:"column:motor_type_name" json:"motor_type_name"`
+	InstallmentAmount float64    `gorm:"column:installment_amount" json:"installment_amount"`
+	OTR               float64    `gorm:"column:otr" json:"otr"`
+	DPGross           float64    `gorm:"column:dp_gross" json:"dp_gross"`
+	DPPaid            float64    `gorm:"column:dp_paid" json:"dp_paid"`
+	DPPct             float64    `gorm:"column:dp_pct" json:"dp_pct"`
+	Tenor             int        `gorm:"column:tenor" json:"tenor"`
+	OrderResultStatus string     `gorm:"column:order_result_status" json:"order_result_status"`
+	OrderResultNotes  string     `gorm:"column:order_result_notes" json:"order_result_notes"`
+	Finance1Name      string     `gorm:"column:finance_1_name" json:"finance_1_name"`
+	Finance1Status    string     `gorm:"column:finance_1_status" json:"finance_1_status"`
+	Finance1Notes     string     `gorm:"column:finance_1_notes" json:"finance_1_notes"`
+	Finance2Name      string     `gorm:"column:finance_2_name" json:"finance_2_name"`
+	Finance2Status    string     `gorm:"column:finance_2_status" json:"finance_2_status"`
+	Finance2Notes     string     `gorm:"column:finance_2_notes" json:"finance_2_notes"`
+	OrderCreatedAt    time.Time  `gorm:"column:order_created_at" json:"order_created_at"`
+	OrderUpdatedAt    time.Time  `gorm:"column:order_updated_at" json:"order_updated_at"`
+	Finance1Decision  time.Time  `gorm:"column:finance_1_decision_at" json:"finance_1_decision_at"`
+	Finance2Decision  time.Time  `gorm:"column:finance_2_decision_at" json:"finance_2_decision_at"`
+}
+
+// ListFinanceMigrationReport returns migration rows when finance 1 was rejected and finance 2 was filled.
+func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, year int) ([]FinanceMigrationReportItem, int64, error) {
+	query := s.db.
+		Table("orders o").
+		Joins(`
+			JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a1 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 2
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					o2.id AS order_id,
+					o2.result_status,
+					o2.result_notes,
+					o2.created_at
+				FROM orders o2
+				WHERE o2.deleted_at IS NULL
+					AND o2.pooling_number = o.pooling_number
+					AND o2.dealer_id = o.dealer_id
+					AND o2.id <> o.id
+				ORDER BY o2.created_at ASC, o2.id ASC
+				LIMIT 1
+			) o2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o2.order_id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) o2a1 ON TRUE
+		`).
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN job_net_incomes jni ON jni.job_id = o.job_id AND jni.deleted_at IS NULL").
+		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT i.amount
+				FROM installments i
+				WHERE i.deleted_at IS NULL
+					AND i.motor_type_id = o.motor_type_id
+				ORDER BY i.updated_at DESC, i.created_at DESC
+				LIMIT 1
+			) inst ON TRUE
+		`).
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2.finance_company_id AND fc2.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc2_clone ON fc2_clone.id = o2a1.finance_company_id AND fc2_clone.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("a1.status = ?", "reject").
+		Where("(a2.finance_company_id IS NOT NULL OR o2a1.finance_company_id IS NOT NULL)").
+		Where(`
+			NOT EXISTS (
+				SELECT 1
+				FROM orders prev
+				WHERE prev.deleted_at IS NULL
+					AND prev.pooling_number = o.pooling_number
+					AND prev.dealer_id = o.dealer_id
+					AND prev.id <> o.id
+					AND (
+						prev.created_at < o.created_at
+						OR (prev.created_at = o.created_at AND prev.id < o.id)
+					)
+			)
+		`)
+
+	if month > 0 {
+		query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", month)
+	}
+	if year > 0 {
+		query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", year)
+	}
+	if v, ok := params.Filters["order_id"]; ok {
+		orderID := strings.TrimSpace(fmt.Sprint(v))
+		if orderID != "" {
+			query = query.Where("o.id = ?", orderID)
+		}
+	}
+
+	if v, ok := params.Filters["dealer_id"]; ok {
+		dealerID := strings.TrimSpace(fmt.Sprint(v))
+		if dealerID != "" {
+			query = query.Where("o.dealer_id = ?", dealerID)
+		}
+	}
+	if v, ok := params.Filters["finance_1_company_id"]; ok {
+		finance1ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance1ID != "" {
+			query = query.Where("a1.finance_company_id = ?", finance1ID)
+		}
+	}
+	if v, ok := params.Filters["finance_2_company_id"]; ok {
+		finance2ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance2ID != "" {
+			query = query.Where("COALESCE(a2.finance_company_id, o2a1.finance_company_id) = ?", finance2ID)
+		}
+	}
+
+	if strings.TrimSpace(params.Search) != "" {
+		search := "%" + strings.ToLower(strings.TrimSpace(params.Search)) + "%"
+		query = query.Where(`
+			LOWER(o.pooling_number) LIKE ?
+			OR LOWER(o.consumer_name) LIKE ?
+			OR LOWER(o.consumer_phone) LIKE ?
+			OR LOWER(d.name) LIKE ?
+			OR LOWER(fc1.name) LIKE ?
+			OR LOWER(fc2.name) LIKE ?
+			OR LOWER(fc2_clone.name) LIKE ?
+			OR LOWER(mt.name) LIKE ?
+		`, search, search, search, search, search, search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderByMap := map[string]string{
+		"pooling_at":      "o.pooling_at",
+		"dealer_name":     "d.name",
+		"consumer_name":   "o.consumer_name",
+		"finance_1_name":  "fc1.name",
+		"finance_2_name":  "COALESCE(fc2.name, fc2_clone.name)",
+		"created_at":      "o.created_at",
+		"updated_at":      "o.updated_at",
+		"finance_2_notes": "COALESCE(NULLIF(a2.notes, ''), NULLIF(o2a1.notes, ''), NULLIF(o2.result_notes, ''))",
+	}
+	orderColumn, ok := orderByMap[strings.TrimSpace(params.OrderBy)]
+	if !ok || orderColumn == "" {
+		orderColumn = "o.pooling_at"
+	}
+
+	orderDirection := strings.ToUpper(strings.TrimSpace(params.OrderDirection))
+	if orderDirection != "ASC" {
+		orderDirection = "DESC"
+	}
+
+	rows := make([]FinanceMigrationReportItem, 0, params.Limit)
+	if err := query.
+		Select(`
+			o.id AS order_id,
+			o.pooling_number AS pooling_number,
+			o.pooling_at AS pooling_at,
+			o.result_at AS result_at,
+			(
+				SELECT COUNT(1)
+				FROM orders od
+				WHERE od.deleted_at IS NULL
+					AND od.dealer_id = o.dealer_id
+					AND (? = 0 OR EXTRACT(MONTH FROM od.pooling_at) = ?)
+					AND (? = 0 OR EXTRACT(YEAR FROM od.pooling_at) = ?)
+			) AS dealer_order_total,
+			COALESCE(d.name, '-') AS dealer_name,
+			COALESCE(d.province, '-') AS dealer_province,
+			COALESCE(d.regency, '-') AS dealer_regency,
+			COALESCE(d.district, '-') AS dealer_district,
+			COALESCE(d.village, '-') AS dealer_village,
+			COALESCE(d.address, '-') AS dealer_address,
+			COALESCE(o.consumer_name, '-') AS consumer_name,
+			COALESCE(o.consumer_phone, '-') AS consumer_phone,
+			COALESCE(o.province, '-') AS province,
+			COALESCE(o.regency, '-') AS regency,
+			COALESCE(o.district, '-') AS district,
+			COALESCE(o.village, '-') AS village,
+			COALESCE(o.address, '-') AS address,
+			COALESCE(j.name, '-') AS job_name,
+			COALESCE(jni.net_income, 0) AS net_income,
+			COALESCE(mt.name, '-') AS motor_type_name,
+			COALESCE(inst.amount, 0) AS installment_amount,
+			COALESCE(o.otr, 0) AS otr,
+			COALESCE(o.dp_gross, 0) AS dp_gross,
+			COALESCE(o.dp_paid, 0) AS dp_paid,
+			COALESCE(o.dp_pct, 0) AS dp_pct,
+			COALESCE(o.tenor, 0) AS tenor,
+			COALESCE(o.result_status, '-') AS order_result_status,
+			COALESCE(o.result_notes, '') AS order_result_notes,
+			COALESCE(fc1.name, '-') AS finance_1_name,
+			COALESCE(a1.status, '-') AS finance_1_status,
+			COALESCE(a1.notes, '') AS finance_1_notes,
+			COALESCE(fc2.name, fc2_clone.name, '-') AS finance_2_name,
+			COALESCE(NULLIF(a2.status, ''), NULLIF(o2a1.status, ''), LOWER(NULLIF(o2.result_status, '')), '-') AS finance_2_status,
+			COALESCE(NULLIF(a2.notes, ''), NULLIF(o2a1.notes, ''), NULLIF(o2.result_notes, ''), '') AS finance_2_notes,
+			o.created_at AS order_created_at,
+			o.updated_at AS order_updated_at,
+			a1.created_at AS finance_1_decision_at,
+			COALESCE(a2.created_at, o2a1.created_at, o2.created_at, o.updated_at) AS finance_2_decision_at
+		`, month, month, year, year).
+		Order(fmt.Sprintf("%s %s", orderColumn, orderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return rows, total, nil
 }
 
 // ListDealers returns dealers with pagination support.
@@ -1689,6 +2330,78 @@ type CreditSummary struct {
 	Score        int    `json:"score"`
 }
 
+type QuadrantFlowSummary struct {
+	OrderID          string  `json:"order_id"`
+	PoolingNumber    string  `json:"pooling_number"`
+	Province         string  `json:"province"`
+	Regency          string  `json:"regency"`
+	JobID            string  `json:"job_id"`
+	JobName          string  `json:"job_name"`
+	MotorTypeID      string  `json:"motor_type_id"`
+	MotorTypeName    string  `json:"motor_type_name"`
+	TotalOrders      int64   `json:"total_orders"`
+	OrderInPercent   float64 `json:"order_in_percent"`
+	CreditCapability float64 `json:"credit_capability"`
+	Quadrant         int     `json:"quadrant"`
+}
+
+type CreditWorksheetJob struct {
+	JobID     string  `json:"job_id"`
+	JobName   string  `json:"job_name"`
+	NetIncome float64 `json:"net_income"`
+	Area      string  `json:"area"`
+}
+
+type CreditWorksheetMotor struct {
+	MotorTypeID   string  `json:"motor_type_id"`
+	MotorTypeName string  `json:"motor_type_name"`
+	Installment   float64 `json:"installment"`
+	Area          string  `json:"area"`
+}
+
+type CreditWorksheetCell struct {
+	MotorTypeID       string  `json:"motor_type_id"`
+	MotorTypeName     string  `json:"motor_type_name"`
+	Installment       float64 `json:"installment"`
+	CapabilityRate    float64 `json:"capability_rate"`
+	ProgramSuggestion float64 `json:"program_suggestion"`
+}
+
+type CreditWorksheetMatrixRow struct {
+	JobID     string                `json:"job_id"`
+	JobName   string                `json:"job_name"`
+	NetIncome float64               `json:"net_income"`
+	Area      string                `json:"area"`
+	Cells     []CreditWorksheetCell `json:"cells"`
+}
+
+type CreditWorksheetArea struct {
+	AreaKey      string                     `json:"area_key"`
+	ProvinceCode string                     `json:"province_code"`
+	ProvinceName string                     `json:"province_name"`
+	RegencyCode  string                     `json:"regency_code"`
+	RegencyName  string                     `json:"regency_name"`
+	Jobs         []CreditWorksheetJob       `json:"jobs"`
+	MotorTypes   []CreditWorksheetMotor     `json:"motor_types"`
+	Matrix       []CreditWorksheetMatrixRow `json:"matrix"`
+}
+
+type CreditWorksheetJobMaster struct {
+	JobID       string  `json:"job_id"`
+	JobName     string  `json:"job_name"`
+	NetIncome   float64 `json:"net_income"`
+	RegencyCode string  `json:"regency_code"`
+	RegencyName string  `json:"regency_name"`
+}
+
+type CreditWorksheetMotorMaster struct {
+	MotorTypeID   string  `json:"motor_type_id"`
+	MotorTypeName string  `json:"motor_type_name"`
+	Installment   float64 `json:"installment"`
+	RegencyCode   string  `json:"regency_code"`
+	RegencyName   string  `json:"regency_name"`
+}
+
 // Compute credit score per wilayah based on order status distribution.
 func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary, error) {
 	if orderThreshold <= 0 {
@@ -1756,6 +2469,606 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 	}
 
 	return summaries, nil
+}
+
+// QuadrantFlowSummary computes quadrant points with fixed thresholds:
+// - Order In percentage threshold: 20%
+// - Credit Capability threshold: 35%
+func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
+	const orderThresholdPct = 20.0
+	const creditThresholdPct = 35.0
+
+	type orderAggregate struct {
+		Province string `gorm:"column:province"`
+		Regency  string `gorm:"column:regency"`
+		Total    int64  `gorm:"column:total"`
+	}
+
+	var orderRows []orderAggregate
+	if err := s.db.
+		Table("orders").
+		Select(`
+			COALESCE(NULLIF(TRIM(province), ''), '') AS province,
+			COALESCE(NULLIF(TRIM(regency), ''), '') AS regency,
+			COUNT(*) AS total
+		`).
+		Where("deleted_at IS NULL").
+		Where("NULLIF(TRIM(regency), '') IS NOT NULL").
+		Group("province, regency").
+		Scan(&orderRows).Error; err != nil {
+		return nil, err
+	}
+
+	totalOrders := int64(0)
+	for _, row := range orderRows {
+		totalOrders += row.Total
+	}
+	if totalOrders <= 0 {
+		return []QuadrantFlowSummary{}, nil
+	}
+
+	worksheetRaw, err := s.CreditCapabilityWorksheet("", "")
+	if err != nil {
+		return nil, err
+	}
+
+	areas, ok := worksheetRaw["areas"].([]CreditWorksheetArea)
+	if !ok {
+		return nil, fmt.Errorf("invalid worksheet area format")
+	}
+
+	normalize := func(value string) string {
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+	makeKey := func(province, regency string) string {
+		return normalize(province) + "|" + normalize(regency)
+	}
+	appendUnique := func(values []string, candidate string) []string {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			return values
+		}
+		for _, existing := range values {
+			if strings.EqualFold(existing, candidate) {
+				return values
+			}
+		}
+		return append(values, candidate)
+	}
+	capabilityByArea := map[string]float64{}
+	for _, area := range areas {
+		sumRate := 0.0
+		countRate := 0
+		for _, row := range area.Matrix {
+			for _, cell := range row.Cells {
+				sumRate += cell.CapabilityRate
+				countRate++
+			}
+		}
+		if countRate == 0 {
+			continue
+		}
+
+		capabilityPct := (sumRate / float64(countRate)) * 100
+		provinceCandidates := []string{}
+		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceCode)
+		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceName)
+		regencyCandidates := []string{}
+		regencyCandidates = appendUnique(regencyCandidates, area.RegencyCode)
+		regencyCandidates = appendUnique(regencyCandidates, area.RegencyName)
+
+		for _, reg := range regencyCandidates {
+			capabilityByArea[makeKey("", reg)] = capabilityPct
+			for _, prov := range provinceCandidates {
+				capabilityByArea[makeKey(prov, reg)] = capabilityPct
+			}
+		}
+	}
+
+	results := make([]QuadrantFlowSummary, 0, len(orderRows))
+	for _, row := range orderRows {
+		if strings.TrimSpace(row.Regency) == "" {
+			continue
+		}
+
+		orderPct := (float64(row.Total) / float64(totalOrders)) * 100
+		capabilityPct := 0.0
+		if value, exists := capabilityByArea[makeKey(row.Province, row.Regency)]; exists {
+			capabilityPct = value
+		} else if value, exists := capabilityByArea[makeKey("", row.Regency)]; exists {
+			capabilityPct = value
+		}
+
+		quadrant := 4
+		switch {
+		// Q3: order in > 20% and credit capability >= 35%
+		case orderPct > orderThresholdPct && capabilityPct >= creditThresholdPct:
+			quadrant = 3
+		// Q1: order in >= 20% and credit capability <= 35%
+		case orderPct >= orderThresholdPct && capabilityPct <= creditThresholdPct:
+			quadrant = 1
+		// Q4: order in < 20% and credit capability > 35%
+		case orderPct < orderThresholdPct && capabilityPct > creditThresholdPct:
+			quadrant = 4
+		// Q2: order in <= 20% and credit capability <= 35%
+		case orderPct <= orderThresholdPct && capabilityPct <= creditThresholdPct:
+			quadrant = 2
+		// Tie-breakers for boundary values not fully covered by strict rules.
+		case orderPct >= orderThresholdPct:
+			quadrant = 3
+		default:
+			quadrant = 4
+		}
+
+		results = append(results, QuadrantFlowSummary{
+			Province:         row.Province,
+			Regency:          row.Regency,
+			TotalOrders:      row.Total,
+			OrderInPercent:   orderPct,
+			CreditCapability: capabilityPct,
+			Quadrant:         quadrant,
+		})
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].OrderInPercent != results[j].OrderInPercent {
+			return results[i].OrderInPercent > results[j].OrderInPercent
+		}
+		if !strings.EqualFold(results[i].Province, results[j].Province) {
+			return strings.ToLower(results[i].Province) < strings.ToLower(results[j].Province)
+		}
+		return strings.ToLower(results[i].Regency) < strings.ToLower(results[j].Regency)
+	})
+
+	return results, nil
+}
+
+// CreditCapabilityWorksheet builds worksheet-style capability matrix based on Order In data.
+func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (map[string]interface{}, error) {
+	type worksheetOrderAnchorRow struct {
+		JobID         string `gorm:"column:job_id"`
+		JobName       string `gorm:"column:job_name"`
+		MotorTypeID   string `gorm:"column:motor_type_id"`
+		MotorTypeName string `gorm:"column:motor_type_name"`
+		ProvinceCode  string `gorm:"column:province_code"`
+		ProvinceName  string `gorm:"column:province_name"`
+		RegencyCode   string `gorm:"column:regency_code"`
+		RegencyName   string `gorm:"column:regency_name"`
+	}
+	type worksheetJobIncomeRow struct {
+		JobID         string         `gorm:"column:job_id"`
+		JobName       string         `gorm:"column:job_name"`
+		NetIncome     float64        `gorm:"column:net_income"`
+		AreaNetIncome datatypes.JSON `gorm:"column:area_net_income"`
+	}
+	type worksheetMotorRow struct {
+		MotorTypeID   string  `gorm:"column:motor_type_id"`
+		MotorTypeName string  `gorm:"column:motor_type_name"`
+		Installment   float64 `gorm:"column:installment"`
+		ProvinceCode  string  `gorm:"column:province_code"`
+		ProvinceName  string  `gorm:"column:province_name"`
+		RegencyCode   string  `gorm:"column:regency_code"`
+		RegencyName   string  `gorm:"column:regency_name"`
+	}
+	type worksheetAreaAggregate struct {
+		AreaKey      string
+		ProvinceCode string
+		ProvinceName string
+		RegencyCode  string
+		RegencyName  string
+		JobsByID     map[string]CreditWorksheetJob
+		MotorsByID   map[string]CreditWorksheetMotor
+	}
+	type jobIncomeValue struct {
+		Name      string
+		NetIncome float64
+	}
+	type motorInstallmentValue struct {
+		Name        string
+		Installment float64
+	}
+
+	provinceFilter := strings.TrimSpace(provinceCode)
+	regencyFilter := strings.TrimSpace(regencyCode)
+	matchFilterValue := func(filterValue, codeValue, nameValue string) bool {
+		filter := strings.ToLower(strings.TrimSpace(filterValue))
+		if filter == "" {
+			return true
+		}
+		code := strings.ToLower(strings.TrimSpace(codeValue))
+		name := strings.ToLower(strings.TrimSpace(nameValue))
+		return code == filter || name == filter
+	}
+	matchesArea := func(provCode, provName, regCode, regName string) bool {
+		if !matchFilterValue(provinceFilter, provCode, provName) {
+			return false
+		}
+		if !matchFilterValue(regencyFilter, regCode, regName) {
+			return false
+		}
+		return true
+	}
+	areaPart := func(code, name string) string {
+		if trimmed := strings.ToLower(strings.TrimSpace(code)); trimmed != "" {
+			return trimmed
+		}
+		return strings.ToLower(strings.TrimSpace(name))
+	}
+	buildAreaKey := func(provCode, provName, regCode, regName string) string {
+		return areaPart(provCode, provName) + "|" + areaPart(regCode, regName)
+	}
+	jobAreaKey := func(jobID, regCode, regName string) string {
+		return strings.ToLower(strings.TrimSpace(jobID)) + "|" + areaPart(regCode, regName)
+	}
+	motorAreaKey := func(motorID, regCode, regName string) string {
+		return strings.ToLower(strings.TrimSpace(motorID)) + "|" + areaPart(regCode, regName)
+	}
+
+	areasByKey := make(map[string]*worksheetAreaAggregate)
+	ensureArea := func(provCode, provName, regCode, regName string) *worksheetAreaAggregate {
+		areaKey := buildAreaKey(provCode, provName, regCode, regName)
+		if area, ok := areasByKey[areaKey]; ok {
+			if strings.TrimSpace(area.ProvinceCode) == "" {
+				area.ProvinceCode = strings.TrimSpace(provCode)
+			}
+			if strings.TrimSpace(area.ProvinceName) == "" {
+				area.ProvinceName = strings.TrimSpace(provName)
+			}
+			if strings.TrimSpace(area.RegencyCode) == "" {
+				area.RegencyCode = strings.TrimSpace(regCode)
+			}
+			if strings.TrimSpace(area.RegencyName) == "" {
+				area.RegencyName = strings.TrimSpace(regName)
+			}
+			return area
+		}
+
+		area := &worksheetAreaAggregate{
+			AreaKey:      areaKey,
+			ProvinceCode: strings.TrimSpace(provCode),
+			ProvinceName: strings.TrimSpace(provName),
+			RegencyCode:  strings.TrimSpace(regCode),
+			RegencyName:  strings.TrimSpace(regName),
+			JobsByID:     map[string]CreditWorksheetJob{},
+			MotorsByID:   map[string]CreditWorksheetMotor{},
+		}
+		if area.ProvinceName == "" {
+			area.ProvinceName = area.ProvinceCode
+		}
+		if area.RegencyName == "" {
+			area.RegencyName = area.RegencyCode
+		}
+		areasByKey[areaKey] = area
+		return area
+	}
+
+	// 1) Anchor matrix dimension from Order In rows to guarantee worksheet matches transactional data.
+	var anchors []worksheetOrderAnchorRow
+	if err := s.db.
+		Table("orders o").
+		Select(`
+			o.job_id AS job_id,
+			COALESCE(j.name, '') AS job_name,
+			o.motor_type_id AS motor_type_id,
+			COALESCE(mt.name, '') AS motor_type_name,
+			COALESCE(NULLIF(mt.province_code, ''), '') AS province_code,
+			COALESCE(NULLIF(mt.province_name, ''), NULLIF(o.province, ''), '') AS province_name,
+			COALESCE(NULLIF(mt.regency_code, ''), '') AS regency_code,
+			COALESCE(NULLIF(mt.regency_name, ''), NULLIF(o.regency, ''), '') AS regency_name
+		`).
+		Joins("LEFT JOIN jobs j ON j.id::text = NULLIF(TRIM(o.job_id::text), '') AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN motor_types mt ON mt.id::text = NULLIF(TRIM(o.motor_type_id::text), '') AND mt.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("NULLIF(TRIM(o.job_id::text), '') IS NOT NULL").
+		Where("NULLIF(TRIM(o.motor_type_id::text), '') IS NOT NULL").
+		Group(`
+			o.job_id, j.name,
+			o.motor_type_id, mt.name,
+			mt.province_code, mt.province_name,
+			mt.regency_code, mt.regency_name,
+			o.province, o.regency
+		`).
+		Scan(&anchors).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range anchors {
+		jobID := strings.TrimSpace(row.JobID)
+		motorID := strings.TrimSpace(row.MotorTypeID)
+		if jobID == "" || motorID == "" {
+			continue
+		}
+		if strings.TrimSpace(row.RegencyCode) == "" && strings.TrimSpace(row.RegencyName) == "" {
+			continue
+		}
+		if !matchesArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName) {
+			continue
+		}
+
+		area := ensureArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName)
+		if _, exists := area.JobsByID[jobID]; !exists {
+			area.JobsByID[jobID] = CreditWorksheetJob{
+				JobID:     jobID,
+				JobName:   strings.TrimSpace(row.JobName),
+				NetIncome: 0,
+				Area:      area.RegencyName,
+			}
+		}
+		if _, exists := area.MotorsByID[motorID]; !exists {
+			area.MotorsByID[motorID] = CreditWorksheetMotor{
+				MotorTypeID:   motorID,
+				MotorTypeName: strings.TrimSpace(row.MotorTypeName),
+				Installment:   0,
+				Area:          area.RegencyName,
+			}
+		}
+	}
+
+	// 2) Lookup net income values from job master (with area-specific mapping and fallback by job).
+	jobIncomeByArea := map[string]jobIncomeValue{}
+	jobIncomeByJob := map[string]jobIncomeValue{}
+	var jobRows []worksheetJobIncomeRow
+	if err := s.db.
+		Table("job_net_incomes").
+		Select(`
+			job_net_incomes.job_id,
+			jobs.name AS job_name,
+			job_net_incomes.net_income,
+			job_net_incomes.area_net_income
+		`).
+		Joins("JOIN jobs ON jobs.id = job_net_incomes.job_id").
+		Where("job_net_incomes.deleted_at IS NULL").
+		Where("jobs.deleted_at IS NULL").
+		Scan(&jobRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range jobRows {
+		jobID := strings.TrimSpace(row.JobID)
+		if jobID == "" {
+			continue
+		}
+		if _, ok := jobIncomeByJob[jobID]; !ok {
+			jobIncomeByJob[jobID] = jobIncomeValue{
+				Name:      strings.TrimSpace(row.JobName),
+				NetIncome: row.NetIncome,
+			}
+		}
+
+		areas := decodeAreaNetIncome(row.AreaNetIncome)
+		for _, area := range areas {
+			key := jobAreaKey(jobID, area.RegencyCode, area.RegencyName)
+			if key == strings.ToLower(jobID)+"|" {
+				continue
+			}
+			jobIncomeByArea[key] = jobIncomeValue{
+				Name:      strings.TrimSpace(row.JobName),
+				NetIncome: row.NetIncome,
+			}
+		}
+	}
+
+	// 3) Lookup installment values from motor + installment master (area-specific with fallback by motor id).
+	motorInstallmentByArea := map[string]motorInstallmentValue{}
+	motorInstallmentByID := map[string]motorInstallmentValue{}
+	var motorRows []worksheetMotorRow
+	if err := s.db.
+		Table("installments").
+		Select(`
+			installments.motor_type_id,
+			motor_types.name AS motor_type_name,
+			installments.amount AS installment,
+			motor_types.province_code,
+			motor_types.province_name,
+			motor_types.regency_code,
+			motor_types.regency_name
+		`).
+		Joins("JOIN motor_types ON motor_types.id = installments.motor_type_id").
+		Where("installments.deleted_at IS NULL").
+		Where("motor_types.deleted_at IS NULL").
+		Scan(&motorRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range motorRows {
+		motorID := strings.TrimSpace(row.MotorTypeID)
+		if motorID == "" {
+			continue
+		}
+		value := motorInstallmentValue{
+			Name:        strings.TrimSpace(row.MotorTypeName),
+			Installment: row.Installment,
+		}
+		if _, ok := motorInstallmentByID[motorID]; !ok {
+			motorInstallmentByID[motorID] = value
+		}
+
+		key := motorAreaKey(motorID, row.RegencyCode, row.RegencyName)
+		if key == strings.ToLower(motorID)+"|" {
+			continue
+		}
+		motorInstallmentByArea[key] = value
+	}
+
+	const capabilityThreshold = 0.35
+	const suggestionCap = 250000.0
+	areasOut := make([]CreditWorksheetArea, 0, len(areasByKey))
+	jobsMaster := make([]CreditWorksheetJobMaster, 0)
+	motorsMaster := make([]CreditWorksheetMotorMaster, 0)
+	jobsMasterSeen := map[string]struct{}{}
+	motorsMasterSeen := map[string]struct{}{}
+
+	for _, area := range areasByKey {
+		if len(area.JobsByID) == 0 || len(area.MotorsByID) == 0 {
+			continue
+		}
+
+		jobs := make([]CreditWorksheetJob, 0, len(area.JobsByID))
+		for _, job := range area.JobsByID {
+			lookupKey := jobAreaKey(job.JobID, area.RegencyCode, area.RegencyName)
+			if v, ok := jobIncomeByArea[lookupKey]; ok {
+				job.NetIncome = v.NetIncome
+				if strings.TrimSpace(job.JobName) == "" {
+					job.JobName = v.Name
+				}
+			} else if v, ok := jobIncomeByJob[job.JobID]; ok {
+				job.NetIncome = v.NetIncome
+				if strings.TrimSpace(job.JobName) == "" {
+					job.JobName = v.Name
+				}
+			}
+			if strings.TrimSpace(job.JobName) == "" {
+				job.JobName = job.JobID
+			}
+
+			jobs = append(jobs, job)
+
+			jobMasterKey := strings.ToLower(strings.TrimSpace(job.JobID) + "|" + area.AreaKey)
+			if _, exists := jobsMasterSeen[jobMasterKey]; !exists {
+				jobsMasterSeen[jobMasterKey] = struct{}{}
+				jobsMaster = append(jobsMaster, CreditWorksheetJobMaster{
+					JobID:       job.JobID,
+					JobName:     job.JobName,
+					NetIncome:   job.NetIncome,
+					RegencyCode: area.RegencyCode,
+					RegencyName: area.RegencyName,
+				})
+			}
+		}
+		sort.Slice(jobs, func(i, j int) bool {
+			return strings.ToLower(strings.TrimSpace(jobs[i].JobName)) < strings.ToLower(strings.TrimSpace(jobs[j].JobName))
+		})
+
+		motors := make([]CreditWorksheetMotor, 0, len(area.MotorsByID))
+		for _, motor := range area.MotorsByID {
+			lookupKey := motorAreaKey(motor.MotorTypeID, area.RegencyCode, area.RegencyName)
+			if v, ok := motorInstallmentByArea[lookupKey]; ok {
+				motor.Installment = v.Installment
+				if strings.TrimSpace(motor.MotorTypeName) == "" {
+					motor.MotorTypeName = v.Name
+				}
+			} else if v, ok := motorInstallmentByID[motor.MotorTypeID]; ok {
+				motor.Installment = v.Installment
+				if strings.TrimSpace(motor.MotorTypeName) == "" {
+					motor.MotorTypeName = v.Name
+				}
+			}
+			if strings.TrimSpace(motor.MotorTypeName) == "" {
+				motor.MotorTypeName = motor.MotorTypeID
+			}
+
+			motors = append(motors, motor)
+
+			motorMasterKey := strings.ToLower(strings.TrimSpace(motor.MotorTypeID) + "|" + area.AreaKey)
+			if _, exists := motorsMasterSeen[motorMasterKey]; !exists {
+				motorsMasterSeen[motorMasterKey] = struct{}{}
+				motorsMaster = append(motorsMaster, CreditWorksheetMotorMaster{
+					MotorTypeID:   motor.MotorTypeID,
+					MotorTypeName: motor.MotorTypeName,
+					Installment:   motor.Installment,
+					RegencyCode:   area.RegencyCode,
+					RegencyName:   area.RegencyName,
+				})
+			}
+		}
+		sort.Slice(motors, func(i, j int) bool {
+			return strings.ToLower(strings.TrimSpace(motors[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motors[j].MotorTypeName))
+		})
+
+		matrix := make([]CreditWorksheetMatrixRow, 0, len(jobs))
+		for _, job := range jobs {
+			row := CreditWorksheetMatrixRow{
+				JobID:     job.JobID,
+				JobName:   job.JobName,
+				NetIncome: job.NetIncome,
+				Area:      area.RegencyName,
+				Cells:     make([]CreditWorksheetCell, 0, len(motors)),
+			}
+
+			for _, motor := range motors {
+				capabilityRate := 0.0
+				if job.NetIncome > 0 {
+					capabilityRate = (motor.Installment / job.NetIncome) * 100
+					log.Println("capabilityRate ", capabilityRate)
+					log.Println("Installment ", motor.Installment)
+					log.Println("NetIncome ", job.NetIncome)
+				}
+
+				programSuggestion := 0.0
+				thresholdInstallment := job.NetIncome * capabilityThreshold
+				if motor.Installment > thresholdInstallment {
+					diff := motor.Installment - thresholdInstallment
+					if diff <= suggestionCap {
+						programSuggestion = diff
+					} else {
+						programSuggestion = suggestionCap
+					}
+				}
+
+				row.Cells = append(row.Cells, CreditWorksheetCell{
+					MotorTypeID:       motor.MotorTypeID,
+					MotorTypeName:     motor.MotorTypeName,
+					Installment:       motor.Installment,
+					CapabilityRate:    capabilityRate,
+					ProgramSuggestion: programSuggestion,
+				})
+			}
+			matrix = append(matrix, row)
+		}
+
+		areasOut = append(areasOut, CreditWorksheetArea{
+			AreaKey:      area.AreaKey,
+			ProvinceCode: area.ProvinceCode,
+			ProvinceName: area.ProvinceName,
+			RegencyCode:  area.RegencyCode,
+			RegencyName:  area.RegencyName,
+			Jobs:         jobs,
+			MotorTypes:   motors,
+			Matrix:       matrix,
+		})
+	}
+
+	sort.Slice(areasOut, func(i, j int) bool {
+		leftProvince := strings.ToLower(strings.TrimSpace(areasOut[i].ProvinceName))
+		rightProvince := strings.ToLower(strings.TrimSpace(areasOut[j].ProvinceName))
+		if leftProvince != rightProvince {
+			return leftProvince < rightProvince
+		}
+		leftRegency := strings.ToLower(strings.TrimSpace(areasOut[i].RegencyName))
+		rightRegency := strings.ToLower(strings.TrimSpace(areasOut[j].RegencyName))
+		return leftRegency < rightRegency
+	})
+	sort.Slice(jobsMaster, func(i, j int) bool {
+		leftRegency := strings.ToLower(strings.TrimSpace(jobsMaster[i].RegencyName))
+		rightRegency := strings.ToLower(strings.TrimSpace(jobsMaster[j].RegencyName))
+		if leftRegency != rightRegency {
+			return leftRegency < rightRegency
+		}
+		return strings.ToLower(strings.TrimSpace(jobsMaster[i].JobName)) < strings.ToLower(strings.TrimSpace(jobsMaster[j].JobName))
+	})
+	sort.Slice(motorsMaster, func(i, j int) bool {
+		leftRegency := strings.ToLower(strings.TrimSpace(motorsMaster[i].RegencyName))
+		rightRegency := strings.ToLower(strings.TrimSpace(motorsMaster[j].RegencyName))
+		if leftRegency != rightRegency {
+			return leftRegency < rightRegency
+		}
+		return strings.ToLower(strings.TrimSpace(motorsMaster[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motorsMaster[j].MotorTypeName))
+	})
+
+	return map[string]interface{}{
+		"areas":              areasOut,
+		"jobs_master":        jobsMaster,
+		"motor_types_master": motorsMaster,
+		"thresholds": map[string]float64{
+			"green_max_rate":  0.35,
+			"yellow_min_rate": 0.35,
+			"yellow_max_rate": 0.40,
+			"red_min_rate":    0.40,
+			"suggestion_cap":  suggestionCap,
+		},
+		"formula": map[string]string{
+			"credit_capability":  "installment / net_income",
+			"program_suggestion": "if installment <= net_income*35% then 0 else min(installment - net_income*35%, 250000)",
+		},
+	}, nil
 }
 
 // RecomputeQuadrants recalculates and stores quadrant results.
@@ -1971,6 +3284,7 @@ func (s *Service) LatestNews(category string) (map[string]NewsItem, error) {
 			return nil, err
 		}
 		if item.Id != "" {
+			item.Content = sanitizeNewsContent(item.Content)
 			result[src.Name] = item
 		}
 	}
@@ -2025,6 +3339,7 @@ func (s *Service) ListNewsItems(category string, params filter.BaseParams) ([]Ne
 				rows[i].SourceName = strings.TrimSpace(hostFromURL(rows[i].URL))
 			}
 		}
+		rows[i].Content = sanitizeNewsContent(rows[i].Content)
 	}
 
 	return rows, total, nil
@@ -2351,7 +3666,7 @@ func (s *Service) upsertNewsItem(row NewsScrapedArticle, sourceID, category stri
 		urlRaw = normalized
 	}
 	title := strings.TrimSpace(row.Title)
-	content := strings.TrimSpace(row.Content)
+	content := sanitizeNewsContent(row.Content)
 	sourceName := strings.TrimSpace(row.Source)
 	if sourceName == "" {
 		sourceName = strings.TrimSpace(hostFromURL(urlRaw))
@@ -2548,7 +3863,7 @@ func parsePythonNewsArticles(output []byte) ([]NewsScrapedArticle, error) {
 	for _, row := range rows {
 		item := NewsScrapedArticle{
 			Title:     strings.TrimSpace(firstString(row, "judul", "title")),
-			Content:   strings.TrimSpace(firstString(row, "isi", "content", "body")),
+			Content:   sanitizeNewsContent(firstString(row, "isi", "content", "body")),
 			CreatedAt: strings.TrimSpace(firstString(row, "created_at", "published_at", "date")),
 			Source:    strings.TrimSpace(firstString(row, "sumber", "source")),
 			URL:       strings.TrimSpace(firstString(row, "url", "link")),
@@ -2571,6 +3886,76 @@ func parsePythonNewsArticles(output []byte) ([]NewsScrapedArticle, error) {
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func sanitizeNewsContent(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	lines := strings.Split(text, "\n")
+
+	normalized := make([]string, 0, len(lines))
+	lastEmpty := false
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if t == "" {
+			if !lastEmpty && len(normalized) > 0 {
+				normalized = append(normalized, "")
+				lastEmpty = true
+			}
+			continue
+		}
+		normalized = append(normalized, t)
+		lastEmpty = false
+	}
+
+	for i := 0; i < 3 && len(normalized) > 0; i++ {
+		if !looksLikeNewsBreadcrumbLine(normalized[0]) {
+			break
+		}
+		normalized = normalized[1:]
+	}
+
+	return strings.TrimSpace(strings.Join(normalized, "\n"))
+}
+
+func looksLikeNewsBreadcrumbLine(line string) bool {
+	t := strings.TrimSpace(strings.ToLower(line))
+	if t == "" {
+		return false
+	}
+
+	replacer := strings.NewReplacer(">", "/", "|", "/", "»", "/", "\\", "/", "•", "/", " - ", "/", ":", "/")
+	t = replacer.Replace(t)
+	partsRaw := strings.Split(t, "/")
+	parts := make([]string, 0, len(partsRaw))
+	for _, p := range partsRaw {
+		p = strings.TrimSpace(strings.Trim(p, ".,-"))
+		if p == "" {
+			continue
+		}
+		parts = append(parts, p)
+	}
+
+	if len(parts) == 0 {
+		return false
+	}
+	if parts[0] != "beranda" && parts[0] != "home" {
+		return false
+	}
+	if len(parts) > 8 {
+		return false
+	}
+	for _, p := range parts {
+		if len([]rune(p)) > 40 {
+			return false
+		}
+	}
+	return true
 }
 
 func parseNewsTime(raw string) (time.Time, bool) {

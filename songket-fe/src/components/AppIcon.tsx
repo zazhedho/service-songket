@@ -138,7 +138,9 @@ export const ICON_LABELS: Record<IconName, string> = {
 const PATH_ICON_MAP: Record<string, IconName> = {
   '/dashboard': 'dashboard',
   '/orders': 'orders',
+  '/business': 'jobs',
   '/finance': 'finance',
+  '/dealer': 'store',
   '/news': 'news',
   '/prices': 'prices',
   '/credit': 'credit',

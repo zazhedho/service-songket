@@ -58,12 +58,60 @@ func (s *Service) GetNewsScrapeCronMasterSetting() (MasterSetting, error) {
 		}
 		return setting, nil
 	}
+	return MasterSetting{}, err
+}
+
+func (s *Service) CreateNewsScrapeCronMasterSetting(req NewsScrapeCronSettingRequest, actorUserID string, actorName string) (MasterSetting, error) {
+	if s == nil || s.db == nil {
+		return MasterSetting{}, fmt.Errorf("service is not initialized")
+	}
+
+	var existing MasterSetting
+	err := s.db.Where("key = ?", MasterSettingKeyNewsScrapeCron).First(&existing).Error
+	if err == nil {
+		return MasterSetting{}, fmt.Errorf("news scrape cron setting already exists")
+	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return MasterSetting{}, err
 	}
 
-	setting = defaultNewsScrapeMasterSetting()
-	if err := s.db.Create(&setting).Error; err != nil {
+	nextInterval := req.IntervalMinutes
+	nextIsActive := req.IsActive
+	if nextInterval <= 0 {
+		nextInterval = minCronIntervalMinutes
+		nextIsActive = false
+	}
+	interval := normalizeCronIntervalMinutes(nextInterval)
+
+	setting := MasterSetting{
+		Id:              utils.CreateUUID(),
+		Key:             MasterSettingKeyNewsScrapeCron,
+		IsActive:        nextIsActive,
+		IntervalMinutes: interval,
+		Description:     "Auto scrape portal berita",
+	}
+
+	history := MasterSettingHistory{
+		Id:                      utils.CreateUUID(),
+		SettingID:               setting.Id,
+		Key:                     setting.Key,
+		PreviousIsActive:        false,
+		PreviousIntervalMinutes: minCronIntervalMinutes,
+		NewIsActive:             setting.IsActive,
+		NewIntervalMinutes:      setting.IntervalMinutes,
+		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
+		ChangedByName:           normalizeHistoryActorName(actorName),
+	}
+
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&setting).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&history).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return MasterSetting{}, err
 	}
 	return setting, nil
@@ -179,6 +227,39 @@ func (s *Service) ListNewsScrapeCronSettingHistory(limit int) ([]MasterSettingHi
 		return nil, err
 	}
 	return histories, nil
+}
+
+func (s *Service) DeleteNewsScrapeCronMasterSetting(actorUserID string, actorName string) error {
+	if s == nil || s.db == nil {
+		return fmt.Errorf("service is not initialized")
+	}
+
+	var setting MasterSetting
+	if err := s.db.Where("key = ?", MasterSettingKeyNewsScrapeCron).First(&setting).Error; err != nil {
+		return err
+	}
+
+	history := MasterSettingHistory{
+		Id:                      utils.CreateUUID(),
+		SettingID:               setting.Id,
+		Key:                     setting.Key,
+		PreviousIsActive:        setting.IsActive,
+		PreviousIntervalMinutes: normalizeCronIntervalMinutes(setting.IntervalMinutes),
+		NewIsActive:             false,
+		NewIntervalMinutes:      minCronIntervalMinutes,
+		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
+		ChangedByName:           normalizeHistoryActorName(actorName),
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&history).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&setting).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (s *Service) RunNewsScrapeAutoImport(ctx context.Context) (int, int, error) {

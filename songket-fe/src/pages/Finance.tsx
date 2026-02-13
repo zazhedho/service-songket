@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -98,24 +98,19 @@ const initialFinanceForm: FinanceForm = {
 const INDONESIA_CENTER: [number, number] = [-2.5489, 118.0149]
 
 function parseFinanceMode(pathname: string) {
-  if (pathname.endsWith('/dealers/create')) return 'dealer_create'
-  if (/\/finance\/dealers\/[^/]+\/edit$/.test(pathname)) return 'dealer_edit'
-  if (/\/finance\/dealers\/[^/]+$/.test(pathname)) return 'dealer_detail'
+  if (pathname === '/dealer/dealers/create') return 'dealer_create'
+  if (/\/dealer\/dealers\/[^/]+\/edit$/.test(pathname)) return 'dealer_edit'
+  if (/\/dealer\/dealers\/[^/]+$/.test(pathname)) return 'dealer_detail'
   if (pathname.endsWith('/companies/create')) return 'company_create'
   if (/\/finance\/companies\/[^/]+\/edit$/.test(pathname)) return 'company_edit'
   if (/\/finance\/companies\/[^/]+$/.test(pathname)) return 'company_detail'
   return 'list'
 }
 
-function getListTab(searchParams: URLSearchParams): 'dealer' | 'finance' {
-  return searchParams.get('tab') === 'finance' ? 'finance' : 'dealer'
-}
-
 export default function FinancePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const mode = parseFinanceMode(location.pathname)
   const selectedId = params.id || ''
@@ -128,7 +123,7 @@ export default function FinancePage() {
   const isCompanyEdit = mode === 'company_edit'
   const isCompanyDetail = mode === 'company_detail'
 
-  const listTab = getListTab(searchParams)
+  const listSection: 'dealer' | 'finance' = location.pathname.startsWith('/dealer') ? 'dealer' : 'finance'
 
   const perms = useAuth((s) => s.permissions)
   const canView = perms.includes('list_finance_dealers')
@@ -145,6 +140,11 @@ export default function FinancePage() {
   const [financeLimit, setFinanceLimit] = useState(20)
   const [financeTotalPages, setFinanceTotalPages] = useState(1)
   const [financeTotalData, setFinanceTotalData] = useState(0)
+  const [dealerFinancePage, setDealerFinancePage] = useState(1)
+  const [dealerFinanceLimit, setDealerFinanceLimit] = useState(10)
+  const [selectedTransitionFromFinanceID, setSelectedTransitionFromFinanceID] = useState('')
+  const [dealerTransitionPage, setDealerTransitionPage] = useState(1)
+  const [dealerTransitionLimit, setDealerTransitionLimit] = useState(5)
 
   const [selectedDealerId, setSelectedDealerId] = useState<string>('')
   const [metrics, setMetrics] = useState<any>(null)
@@ -267,14 +267,14 @@ export default function FinancePage() {
   }, [financeProvinceFilter])
 
   useEffect(() => {
-    if (!selectedDealerId || !(isList && (listTab === 'dealer' || listTab === 'finance'))) {
+    if (!selectedDealerId || !isList) {
       setMetrics(null)
       return
     }
     fetchDealerMetrics(selectedDealerId)
       .then((res) => setMetrics(res.data.data || res.data || null))
       .catch(() => setMetrics(null))
-  }, [isList, listTab, selectedDealerId])
+  }, [isList, selectedDealerId])
 
   useEffect(() => {
     if (dealers.length === 0) {
@@ -450,10 +450,109 @@ export default function FinancePage() {
     return [...rows].sort((a: any, b: any) => Number(b?.total_orders || 0) - Number(a?.total_orders || 0))
   }, [metrics?.finance_companies])
 
+  const financeApprovalTransitionRows = useMemo(() => {
+    const rows = Array.isArray(metrics?.finance_approval_transitions) ? metrics.finance_approval_transitions : []
+    return [...rows]
+      .map((item: any) => ({
+        finance_1_company_id: String(item?.finance_1_company_id || ''),
+        finance_1_company_name: String(item?.finance_1_company_name || '-'),
+        finance_2_company_id: String(item?.finance_2_company_id || ''),
+        finance_2_company_name: String(item?.finance_2_company_name || '-'),
+        total_data: Number(item?.total_data || 0),
+        approved_count: Number(item?.approved_count || 0),
+        rejected_count: Number(item?.rejected_count || 0),
+        approval_rate: Number(item?.approval_rate || 0),
+      }))
+      .filter((item) => item.finance_1_company_id && item.finance_2_company_id)
+  }, [metrics?.finance_approval_transitions])
+
+  const transitionFromFinanceOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    financeApprovalTransitionRows.forEach((item: any) => {
+      const id = String(item?.finance_1_company_id || '')
+      if (!id || map.has(id)) return
+      map.set(id, String(item?.finance_1_company_name || '-'))
+    })
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [financeApprovalTransitionRows])
+
+  const selectedTransitionFromFinanceName = useMemo(() => {
+    const found = transitionFromFinanceOptions.find((item) => item.id === selectedTransitionFromFinanceID)
+    return found?.name || '-'
+  }, [selectedTransitionFromFinanceID, transitionFromFinanceOptions])
+
+  const filteredTransitionRows = useMemo(() => {
+    if (!selectedTransitionFromFinanceID) return []
+    return financeApprovalTransitionRows.filter(
+      (item: any) => String(item?.finance_1_company_id || '') === selectedTransitionFromFinanceID,
+    )
+  }, [financeApprovalTransitionRows, selectedTransitionFromFinanceID])
+
   const financeMetricMaxTotal = useMemo(() => {
     const values = financeMetricRows.map((item: any) => Number(item?.total_orders || 0))
     return Math.max(1, ...values)
   }, [financeMetricRows])
+
+  const dealerFinanceTotalData = financeMetricRows.length
+  const dealerFinanceTotalPages = Math.max(1, Math.ceil(dealerFinanceTotalData / dealerFinanceLimit))
+  const dealerFinanceRows = useMemo(() => {
+    const start = (dealerFinancePage - 1) * dealerFinanceLimit
+    return financeMetricRows.slice(start, start + dealerFinanceLimit)
+  }, [dealerFinanceLimit, dealerFinancePage, financeMetricRows])
+
+  const dealerTransitionTotalData = filteredTransitionRows.length
+  const dealerTransitionTotalPages = Math.max(
+    1,
+    Math.ceil(dealerTransitionTotalData / dealerTransitionLimit),
+  )
+  const dealerTransitionRows = useMemo(() => {
+    const start = (dealerTransitionPage - 1) * dealerTransitionLimit
+    return filteredTransitionRows.slice(start, start + dealerTransitionLimit)
+  }, [dealerTransitionLimit, dealerTransitionPage, filteredTransitionRows])
+
+  const selectedTransitionSummary = useMemo(() => {
+    const total = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.total_data || 0), 0)
+    const approved = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.approved_count || 0), 0)
+    const rejected = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.rejected_count || 0), 0)
+    return {
+      total,
+      approved,
+      rejected,
+      approvalRate: total > 0 ? approved / total : 0,
+    }
+  }, [filteredTransitionRows])
+
+  useEffect(() => {
+    setDealerFinancePage(1)
+    setDealerTransitionPage(1)
+  }, [selectedDealerId])
+
+  useEffect(() => {
+    if (dealerFinancePage > dealerFinanceTotalPages) {
+      setDealerFinancePage(dealerFinanceTotalPages)
+    }
+  }, [dealerFinancePage, dealerFinanceTotalPages])
+
+  useEffect(() => {
+    if (transitionFromFinanceOptions.length === 0) {
+      setSelectedTransitionFromFinanceID('')
+      return
+    }
+    const hasSelected = transitionFromFinanceOptions.some((item) => item.id === selectedTransitionFromFinanceID)
+    if (!hasSelected) {
+      setSelectedTransitionFromFinanceID(transitionFromFinanceOptions[0].id)
+    }
+  }, [selectedTransitionFromFinanceID, transitionFromFinanceOptions])
+
+  useEffect(() => {
+    setDealerTransitionPage(1)
+  }, [selectedTransitionFromFinanceID])
+
+  useEffect(() => {
+    if (dealerTransitionPage > dealerTransitionTotalPages) {
+      setDealerTransitionPage(dealerTransitionTotalPages)
+    }
+  }, [dealerTransitionPage, dealerTransitionTotalPages])
 
   const dealerFormLat = parseCoordinateValue(dealerForm.lat)
   const dealerFormLng = parseCoordinateValue(dealerForm.lng)
@@ -763,13 +862,6 @@ export default function FinancePage() {
     void resolveDealerLocationFromMap(place.lat, place.lng, place.formattedAddress, place.address)
   }
 
-  const setTab = (tab: 'dealer' | 'finance') => {
-    const next = new URLSearchParams(searchParams)
-    if (tab === 'finance') next.set('tab', 'finance')
-    else next.delete('tab')
-    setSearchParams(next, { replace: true })
-  }
-
   const handleDealerProvince = async (code: string) => {
     setDealerForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
     setDealerKecamatan([])
@@ -947,7 +1039,7 @@ export default function FinancePage() {
       if (isDealerEdit && selectedId) await updateDealer(selectedId, payload)
       else await createDealer(payload)
       await loadBaseData()
-      navigate('/finance?tab=dealer')
+      navigate('/dealer')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan dealer')
     } finally {
@@ -974,7 +1066,7 @@ export default function FinancePage() {
       if (isCompanyEdit && selectedId) await updateFinanceCompany(selectedId, payload)
       else await createFinanceCompany(payload)
       await loadBaseData()
-      navigate('/finance?tab=finance')
+      navigate('/finance')
     } catch (err: any) {
       window.alert(err?.response?.data?.error || 'Gagal menyimpan finance company')
     } finally {
@@ -1039,11 +1131,11 @@ export default function FinancePage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canManage && selectedId && (
-              <button className="btn" onClick={() => navigate(`/finance/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
+              <button className="btn" onClick={() => navigate(`/dealer/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
                 Edit Dealer
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/finance?tab=dealer')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/dealer')}>Kembali</button>
           </div>
         </div>
 
@@ -1175,7 +1267,7 @@ export default function FinancePage() {
                 Edit Finance Company
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/finance?tab=finance')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali</button>
           </div>
         </div>
 
@@ -1265,7 +1357,7 @@ export default function FinancePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Input Dealer Baru'}</div>
             <div style={{ color: '#64748b' }}>Form dealer terpisah dari tabel</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance?tab=dealer')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/dealer')}>Kembali ke Tabel</button>
         </div>
 
         <div className="page">
@@ -1379,7 +1471,7 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate('/finance?tab=dealer')}>Batal</button>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/dealer')}>Batal</button>
                 <button className="btn" type="submit" disabled={savingDealer}>
                   {savingDealer ? 'Menyimpan...' : isDealerEdit ? 'Update Dealer' : 'Tambah Dealer'}
                 </button>
@@ -1399,7 +1491,7 @@ export default function FinancePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Input Finance Company Baru'}</div>
             <div style={{ color: '#64748b' }}>Form finance company terpisah dari tabel</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance?tab=finance')}>Kembali ke Tabel</button>
+          <button className="btn-ghost" onClick={() => navigate('/finance')}>Kembali ke Tabel</button>
         </div>
 
         <div className="page">
@@ -1467,7 +1559,7 @@ export default function FinancePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate('/finance?tab=finance')}>Batal</button>
+                <button className="btn-ghost" type="button" onClick={() => navigate('/finance')}>Batal</button>
                 <button className="btn" type="submit" disabled={savingFinance}>
                   {savingFinance ? 'Menyimpan...' : isCompanyEdit ? 'Update Finance' : 'Tambah Finance'}
                 </button>
@@ -1483,18 +1575,17 @@ export default function FinancePage() {
     <div>
       <div className="header">
           <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Dealer & Finance Management</div>
-          <div style={{ color: '#64748b' }}>Map is shown for Dealer only. Finance Company is shown in table format.</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{listSection === 'dealer' ? 'Dealer Management' : 'Finance Management'}</div>
+          <div style={{ color: '#64748b' }}>
+            {listSection === 'dealer'
+              ? 'Dealer list, map, and dealer performance.'
+              : 'Finance company list and finance performance.'}
+          </div>
         </div>
       </div>
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
-        <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className={listTab === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => setTab('dealer')}>Dealers</button>
-          <button className={listTab === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => setTab('finance')}>Finance</button>
-        </div>
-
-        {listTab === 'dealer' && (
+        {listSection === 'dealer' && (
           <>
             <div className="card">
               <div style={{ marginBottom: 10 }}>
@@ -1514,7 +1605,7 @@ export default function FinancePage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h3>Dealers</h3>
-                {canManage && <button className="btn" onClick={() => navigate('/finance/dealers/create')}>Create Dealer</button>}
+                {canManage && <button className="btn" onClick={() => navigate('/dealer/dealers/create')}>Create Dealer</button>}
               </div>
 
               <table className="table finance-dealer-table">
@@ -1555,12 +1646,12 @@ export default function FinancePage() {
                             {
                               key: 'view',
                               label: 'View',
-                              onClick: () => navigate(`/finance/dealers/${dealer.id}`, { state: { dealer } }),
+                              onClick: () => navigate(`/dealer/dealers/${dealer.id}`, { state: { dealer } }),
                             },
                             {
                               key: 'edit',
                               label: 'Edit',
-                              onClick: () => navigate(`/finance/dealers/${dealer.id}/edit`, { state: { dealer } }),
+                              onClick: () => navigate(`/dealer/dealers/${dealer.id}/edit`, { state: { dealer } }),
                               hidden: !canManage,
                             },
                             {
@@ -1624,42 +1715,179 @@ export default function FinancePage() {
               </div>
             </div>
 
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Dealer Performance</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
-              </div>
-
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
-                <div>
-                  <label>Select Dealer</label>
-                  <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                    <option value="">Select dealer</option>
-                    {dealers.map((dealer) => (
-                      <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                    ))}
-                  </select>
+            <div className="dealer-performance-grid">
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Dealer Performance</h3>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
                 </div>
-              </div>
 
-              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
-              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
+                  <div>
+                    <label>Select Dealer</label>
+                    <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                      <option value="">Select dealer</option>
+                      {dealers.map((dealer) => (
+                        <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-              {metrics && (
-                <>
+                {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+                {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+                {metrics && (
                   <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
                     <Metric label="Total Order" value={metrics.total_orders} />
                     <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
                     <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
                     <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
                   </div>
-                </>
-              )}
+                )}
+              </div>
+
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Finance Approval</h3>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+                </div>
+
+                {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance approval stats.</div>}
+                {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+
+                {metrics && (
+                  <div className="finance-approval-compact">
+                    <div className="finance-approval-top">
+                      <div className="finance-approval-filter">
+                        <label>Select Finance 1</label>
+                        <select
+                          value={selectedTransitionFromFinanceID}
+                          onChange={(e) => setSelectedTransitionFromFinanceID(e.target.value)}
+                        >
+                          {transitionFromFinanceOptions.length === 0 && <option value="">No data</option>}
+                          {transitionFromFinanceOptions.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="finance-approval-kpi-grid">
+                        <MiniMetric label="Finance 1" value={selectedTransitionFromFinanceName} />
+                        <MiniMetric label="Total" value={selectedTransitionSummary.total} />
+                        <MiniMetric label="Approved" value={selectedTransitionSummary.approved} />
+                        <MiniMetric label="Rejected" value={selectedTransitionSummary.rejected} />
+                        <MiniMetric label="Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
+                      </div>
+                    </div>
+
+                    <div className="compact-section">
+                      <div className="compact-section-title">Finance Snapshot</div>
+                      <table className="table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Finance</th>
+                            <th>Total</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dealerFinanceRows.map((fc: any) => {
+                            const total = Number(fc?.total_orders || 0)
+                            const approvedRaw = fc?.approved_count
+                            const rejectedRaw = fc?.rejected_count
+                            const approved = Number.isFinite(Number(approvedRaw))
+                              ? Number(approvedRaw)
+                              : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                            const rejected = Number.isFinite(Number(rejectedRaw))
+                              ? Number(rejectedRaw)
+                              : Math.max(0, total - approved)
+                            return (
+                              <tr key={`dealer-approval-${fc.finance_company_id}`}>
+                                <td>{fc.finance_company_name}</td>
+                                <td>{total}</td>
+                                <td>{approved}</td>
+                                <td>{rejected}</td>
+                              </tr>
+                            )
+                          })}
+                          {financeMetricRows.length === 0 && (
+                            <tr>
+                              <td colSpan={4}>No finance company metric for this dealer.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      {dealerFinanceTotalData > 0 && (
+                        <Pagination
+                          page={dealerFinancePage}
+                          totalPages={dealerFinanceTotalPages}
+                          totalData={dealerFinanceTotalData}
+                          limit={dealerFinanceLimit}
+                          onPageChange={setDealerFinancePage}
+                          onLimitChange={(next) => {
+                            setDealerFinanceLimit(next)
+                            setDealerFinancePage(1)
+                          }}
+                          limitOptions={[5, 10, 20, 50]}
+                        />
+                      )}
+                    </div>
+
+                    <div className="compact-section">
+                      <div className="compact-section-title">Finance 1 Reject to Finance 2 Outcome</div>
+                      <table className="table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Finance 2 Name</th>
+                            <th>Total Data</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                            <th>Approval Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dealerTransitionRows.map((item: any) => (
+                            <tr key={`${item.finance_1_company_id}-${item.finance_2_company_id}`}>
+                              <td>{item.finance_2_company_name || '-'}</td>
+                              <td>{Number(item.total_data || 0)}</td>
+                              <td>{Number(item.approved_count || 0)}</td>
+                              <td>{Number(item.rejected_count || 0)}</td>
+                              <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
+                            </tr>
+                          ))}
+                          {filteredTransitionRows.length === 0 && (
+                            <tr>
+                              <td colSpan={5}>No finance transition data for this dealer.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      {dealerTransitionTotalData > 0 && (
+                        <Pagination
+                          page={dealerTransitionPage}
+                          totalPages={dealerTransitionTotalPages}
+                          totalData={dealerTransitionTotalData}
+                          limit={dealerTransitionLimit}
+                          onPageChange={setDealerTransitionPage}
+                          onLimitChange={(next) => {
+                            setDealerTransitionLimit(next)
+                            setDealerTransitionPage(1)
+                          }}
+                          limitOptions={[5, 10, 20, 50]}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
 
-        {listTab === 'finance' && (
+        {listSection === 'finance' && (
           <>
             <div className="card">
               <div style={{ marginBottom: 10 }}>
@@ -1771,24 +1999,39 @@ export default function FinancePage() {
                         <tr>
                           <th>Finance</th>
                           <th>Total</th>
-                          <th>Approve</th>
+                          <th>Approved</th>
+                          <th>Rejected</th>
+                          <th>Approve %</th>
                           <th>Lead Avg</th>
                           <th>Rescue FC2</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {financeMetricRows.map((fc: any) => (
-                          <tr key={fc.finance_company_id}>
-                            <td>{fc.finance_company_name}</td>
-                            <td>{fc.total_orders}</td>
-                            <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                            <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                            <td>{fc.rescue_approved_fc2 || 0}</td>
-                          </tr>
-                        ))}
+                        {financeMetricRows.map((fc: any) => {
+                          const total = Number(fc?.total_orders || 0)
+                          const approvedRaw = fc?.approved_count
+                          const rejectedRaw = fc?.rejected_count
+                          const approved = Number.isFinite(Number(approvedRaw))
+                            ? Number(approvedRaw)
+                            : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                          const rejected = Number.isFinite(Number(rejectedRaw))
+                            ? Number(rejectedRaw)
+                            : Math.max(0, total - approved)
+                          return (
+                            <tr key={fc.finance_company_id}>
+                              <td>{fc.finance_company_name}</td>
+                              <td>{total}</td>
+                              <td>{approved}</td>
+                              <td>{rejected}</td>
+                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
+                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                              <td>{fc.rescue_approved_fc2 || 0}</td>
+                            </tr>
+                          )
+                        })}
                         {financeMetricRows.length === 0 && (
                           <tr>
-                            <td colSpan={5}>No finance company metric for this dealer.</td>
+                            <td colSpan={7}>No finance company metric for this dealer.</td>
                           </tr>
                         )}
                       </tbody>
@@ -1800,6 +2043,14 @@ export default function FinancePage() {
                     {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
                     {financeMetricRows.map((fc: any) => {
                       const total = Number(fc?.total_orders || 0)
+                      const approvedRaw = fc?.approved_count
+                      const rejectedRaw = fc?.rejected_count
+                      const approved = Number.isFinite(Number(approvedRaw))
+                        ? Number(approvedRaw)
+                        : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
+                      const rejected = Number.isFinite(Number(rejectedRaw))
+                        ? Number(rejectedRaw)
+                        : Math.max(0, total - approved)
                       const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
                       return (
                         <div key={`chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
@@ -1819,7 +2070,7 @@ export default function FinancePage() {
                             />
                           </div>
                           <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                            Approval {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
+                            Approve {approved} | Reject {rejected} | {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
                           </div>
                         </div>
                       )
@@ -1841,6 +2092,15 @@ function MapFly({ center }: { center: [number, number] }) {
     if (center?.length === 2) map.flyTo(center, map.getZoom(), { duration: 0.5 })
   }, [center, map])
   return null
+}
+
+function MiniMetric({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="mini-metric">
+      <div className="mini-metric-label">{label}</div>
+      <div className="mini-metric-value">{value}</div>
+    </div>
+  )
 }
 
 function Metric({ label, value }: { label: string; value: any }) {

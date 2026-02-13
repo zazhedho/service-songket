@@ -4,6 +4,7 @@ import Protected from './components/Protected'
 import CreditPage from './pages/Credit'
 import DashboardPage from './pages/Dashboard'
 import FinancePage from './pages/Finance'
+import FinanceReportPage from './pages/FinanceReport'
 import InstallmentsPage from './pages/Installments'
 import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
@@ -52,14 +53,19 @@ export default function App() {
         <Route path="/installments/:id/edit" element={<Guarded><InstallmentsPage /></Guarded>} />
 
         <Route path="/master-settings" element={<Guarded><MasterSettingsPage /></Guarded>} />
+        <Route path="/master-settings/form" element={<Guarded><MasterSettingsPage /></Guarded>} />
 
+        <Route path="/business" element={<Guarded><Navigate to="/finance" replace /></Guarded>} />
         <Route path="/finance" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/finance/dealers/create" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/finance/dealers/:id" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/finance/dealers/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/create" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/:id" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/finance-report" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/finance-report/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/dealer" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/dealer/dealers/create" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/dealer/dealers/:id" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/dealer/dealers/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
 
         <Route path="/news" element={<Guarded><NewsPage /></Guarded>} />
         <Route path="/news/scrape" element={<Guarded><NewsPage /></Guarded>} />

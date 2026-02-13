@@ -40,9 +40,6 @@ const defaultForm = {
   finance_company2_id: '',
   result_status2: '',
   result_notes2: '',
-  finance_company3_id: '',
-  result_status3: '',
-  result_notes3: '',
 }
 
 function parseMode(pathname: string) {
@@ -96,6 +93,8 @@ export default function OrdersPage() {
   const fetchedKecamatanRef = useRef<Set<string>>(new Set())
 
   const stateOrder = (location.state as any)?.order || null
+  const stateBackTo = (location.state as any)?.back_to
+  const backTo = typeof stateBackTo === 'string' && stateBackTo.trim() ? stateBackTo : '/orders'
 
   const loadList = async (params?: Record<string, unknown>) => {
     const request = params || { page, limit }
@@ -240,7 +239,6 @@ export default function OrdersPage() {
   const applyOrderToForm = (order: any) => {
     const firstAttempt = getAttempt(order, 1)
     const secondAttempt = getAttempt(order, 2)
-    const thirdAttempt = getAttempt(order, 3)
     setForm({
       pooling_number: order.pooling_number || '',
       pooling_at: order.pooling_at || dayjs().toISOString(),
@@ -264,9 +262,6 @@ export default function OrdersPage() {
       finance_company2_id: secondAttempt?.finance_company_id || '',
       result_status2: secondAttempt?.status || '',
       result_notes2: secondAttempt?.notes || '',
-      finance_company3_id: thirdAttempt?.finance_company_id || '',
-      result_status3: thirdAttempt?.status || '',
-      result_notes3: thirdAttempt?.notes || '',
     })
   }
 
@@ -336,8 +331,13 @@ export default function OrdersPage() {
     }
   }, [filteredMotorTypes, form.motor_type_id])
 
-  const showAttempt2 = form.result_status === 'reject'
-  const showAttempt3 = showAttempt2 && form.result_status2 === 'reject'
+  const poolingRowsCount = useMemo(() => {
+    const key = String(form.pooling_number || '').trim().toLowerCase()
+    if (!key) return 0
+    return list.filter((item) => String(item?.pooling_number || '').trim().toLowerCase() === key).length
+  }, [form.pooling_number, list])
+  const hasAttempt2Value = Boolean(form.finance_company2_id || form.result_status2 || form.result_notes2)
+  const showAttempt2 = form.result_status === 'reject' && (poolingRowsCount < 2 || hasAttempt2Value)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -349,16 +349,11 @@ export default function OrdersPage() {
       payload.finance_company2_id = ''
       payload.result_status2 = ''
       payload.result_notes2 = ''
-      payload.finance_company3_id = ''
-      payload.result_status3 = ''
-      payload.result_notes3 = ''
     }
 
-    if (payload.result_status2 !== 'reject') {
-      payload.finance_company3_id = ''
-      payload.result_status3 = ''
-      payload.result_notes3 = ''
-    }
+    payload.finance_company3_id = ''
+    payload.result_status3 = ''
+    payload.result_notes3 = ''
 
     if (payload.finance_company2_id && !payload.result_status2) {
       window.alert('Pilih hasil untuk Finance Company 2.')
@@ -368,15 +363,6 @@ export default function OrdersPage() {
       window.alert('Pilih Finance Company 2 sebelum mengisi hasil Finance 2.')
       return
     }
-    if (payload.finance_company3_id && !payload.result_status3) {
-      window.alert('Pilih hasil untuk Finance Company 3.')
-      return
-    }
-    if (!payload.finance_company3_id && payload.result_status3) {
-      window.alert('Pilih Finance Company 3 sebelum mengisi hasil Finance 3.')
-      return
-    }
-
     setLoading(true)
     setError('')
 
@@ -442,7 +428,10 @@ export default function OrdersPage() {
     }
 
     return attempts
-      .filter((item: any) => Number(item?.attempt_no || 0) > 0)
+      .filter((item: any) => {
+        const attemptNo = Number(item?.attempt_no || 0)
+        return attemptNo > 0 && attemptNo <= 2
+      })
       .sort((a: any, b: any) => Number(a?.attempt_no || 0) - Number(b?.attempt_no || 0))
       .filter((item: any, index: number, rows: any[]) => {
         if (index === 0) return true
@@ -496,11 +485,14 @@ export default function OrdersPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/orders/${selectedId}/edit`, { state: { order: selectedOrder } })}>
+              <button
+                className="btn"
+                onClick={() => navigate(`/orders/${selectedId}/edit`, { state: { order: selectedOrder, back_to: backTo } })}
+              >
                 Edit Order
               </button>
             )}
-            <button className="btn-ghost" onClick={() => navigate('/orders')}>Kembali</button>
+            <button className="btn-ghost" onClick={() => navigate(backTo)}>Kembali</button>
           </div>
         </div>
 
@@ -752,7 +744,7 @@ export default function OrdersPage() {
 
               <div>
                 <label>OTR (auto)</label>
-                <input value={selectedMotor?.otr || ''} readOnly />
+                <input value={selectedMotor?.otr ? formatRupiah(selectedMotor.otr) : ''} readOnly />
               </div>
 
               <div>
@@ -799,6 +791,12 @@ export default function OrdersPage() {
                 <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} />
               </div>
 
+              {form.result_status === 'reject' && !showAttempt2 && poolingRowsCount >= 2 && (
+                <div style={{ gridColumn: '1 / -1', color: '#64748b', fontSize: 12 }}>
+                  Pooling number ini sudah memiliki 2 data, sehingga tidak bisa menambah finance attempt baru.
+                </div>
+              )}
+
               {showAttempt2 && (
                 <>
                   <div style={{ gridColumn: '1 / -1', marginTop: 4, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
@@ -831,42 +829,6 @@ export default function OrdersPage() {
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label>Keterangan Finance 2</label>
                     <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
-                  </div>
-                </>
-              )}
-
-              {showAttempt3 && (
-                <>
-                  <div style={{ gridColumn: '1 / -1', marginTop: 4, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance Attempt 3</div>
-                    <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
-                      Attempt 3 akan tampil ketika hasil attempt 2 adalah reject.
-                    </div>
-                  </div>
-
-                  <div>
-                    <label>Finance Company 3</label>
-                    <select value={form.finance_company3_id} onChange={(e) => set('finance_company3_id', e.target.value)}>
-                      <option value="">Pilih</option>
-                      {lookups?.finance_companies?.map((finance: any) => (
-                        <option key={finance.id} value={finance.id}>{finance.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label>Hasil Finance 3</label>
-                    <select value={form.result_status3} onChange={(e) => set('result_status3', e.target.value)}>
-                      <option value="">--</option>
-                      <option value="approve">Approve</option>
-                      <option value="pending">Pending</option>
-                      <option value="reject">Reject</option>
-                    </select>
-                  </div>
-
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Keterangan Finance 3</label>
-                    <input value={form.result_notes3} onChange={(e) => set('result_notes3', e.target.value)} />
                   </div>
                 </>
               )}

@@ -337,30 +337,47 @@ func seedDefaults(db *gorm.DB) error {
 }
 
 func seedMasterSettings(db *gorm.DB) error {
-	defaultSetting := songket.MasterSetting{
-		Id:              utils.CreateUUID(),
-		Key:             songket.MasterSettingKeyNewsScrapeCron,
-		IsActive:        true,
-		IntervalMinutes: 5,
-		Description:     "Auto scrape portal berita",
+	defaultSettings := []songket.MasterSetting{
+		{
+			Id:              utils.CreateUUID(),
+			Key:             songket.MasterSettingKeyNewsScrapeCron,
+			IsActive:        true,
+			IntervalMinutes: 5,
+			Description:     "Auto scrape portal berita",
+		},
+		{
+			Id:              utils.CreateUUID(),
+			Key:             songket.MasterSettingKeyPriceScrapeCron,
+			IsActive:        true,
+			IntervalMinutes: 24 * 60,
+			Description:     "Auto scrape harga pangan",
+		},
 	}
 
-	var existing songket.MasterSetting
-	err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
-	if err == nil {
-		existing.DeletedAt = gorm.DeletedAt{}
-		if existing.IntervalMinutes <= 0 {
-			existing.IntervalMinutes = defaultSetting.IntervalMinutes
+	for _, defaultSetting := range defaultSettings {
+		var existing songket.MasterSetting
+		err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
+		if err == nil {
+			existing.DeletedAt = gorm.DeletedAt{}
+			if existing.IntervalMinutes <= 0 {
+				existing.IntervalMinutes = defaultSetting.IntervalMinutes
+			}
+			if strings.TrimSpace(existing.Description) == "" {
+				existing.Description = defaultSetting.Description
+			}
+			if err := db.Save(&existing).Error; err != nil {
+				return err
+			}
+			continue
 		}
-		if strings.TrimSpace(existing.Description) == "" {
-			existing.Description = defaultSetting.Description
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
 		}
-		return db.Save(&existing).Error
+		if err := db.Create(&defaultSetting).Error; err != nil {
+			return err
+		}
 	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-	return db.Create(&defaultSetting).Error
+	return nil
 }
 
 func ensureMotorTypeIndexes(db *gorm.DB) error {
@@ -646,26 +663,41 @@ func seedPermissions(db *gorm.DB) (map[string]string, error) {
 }
 
 func seedMenus(db *gorm.DB) (map[string]string, error) {
-	menus := []domainmenu.MenuItem{
-		{Name: "dashboard", DisplayName: "Dashboard", Path: "/dashboard", Icon: "bi-speedometer2", OrderIndex: 1},
-		{Name: "orders", DisplayName: "Order In", Path: "/orders", Icon: "bi-journal-text", OrderIndex: 2},
-		{Name: "finance", DisplayName: "Finance", Path: "/finance", Icon: "bi-geo-alt", OrderIndex: 3},
-		{Name: "credit", DisplayName: "Credit Capability", Path: "/credit", Icon: "bi-credit-card", OrderIndex: 4},
-		{Name: "quadrants", DisplayName: "Quadrants", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5},
-		{Name: "prices", DisplayName: "Commodity Prices", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6},
-		{Name: "news", DisplayName: "News Portal", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7},
-		{Name: "jobs", DisplayName: "Jobs & Net Income", Path: "/jobs", Icon: "bi-briefcase", OrderIndex: 8},
-		{Name: "installments", DisplayName: "Motor Types & Installments", Path: "/installments", Icon: "bi-wallet2", OrderIndex: 9},
-		{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 90},
-		{Name: "roles", DisplayName: "Roles & Access", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 91},
-		{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92},
-		{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 93},
-		{Name: "scrape_sources", DisplayName: "Scrape Sources", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94},
-		{Name: "master_settings", DisplayName: "Master Settings", Path: "/master-settings", Icon: "bi-sliders", OrderIndex: 95},
+	type menuSeed struct {
+		domainmenu.MenuItem
+		ParentName string
+	}
+
+	menus := []menuSeed{
+		{MenuItem: domainmenu.MenuItem{Name: "dashboard", DisplayName: "Dashboard", Path: "/dashboard", Icon: "bi-speedometer2", OrderIndex: 1}},
+		{MenuItem: domainmenu.MenuItem{Name: "orders", DisplayName: "Order In", Path: "/orders", Icon: "bi-journal-text", OrderIndex: 2}},
+		{MenuItem: domainmenu.MenuItem{Name: "business", DisplayName: "Business", Path: "/business", Icon: "bi-briefcase", OrderIndex: 3}},
+		{MenuItem: domainmenu.MenuItem{Name: "finance", DisplayName: "Finance", Path: "/finance", Icon: "bi-bank", OrderIndex: 31}, ParentName: "business"},
+		{MenuItem: domainmenu.MenuItem{Name: "dealer", DisplayName: "Dealer", Path: "/dealer", Icon: "bi-shop", OrderIndex: 32}, ParentName: "business"},
+		{MenuItem: domainmenu.MenuItem{Name: "finance_report", DisplayName: "Report Finance", Path: "/finance-report", Icon: "bi-file-earmark-bar-graph", OrderIndex: 33}, ParentName: "business"},
+		{MenuItem: domainmenu.MenuItem{Name: "credit", DisplayName: "Credit Capability", Path: "/credit", Icon: "bi-credit-card", OrderIndex: 4}},
+		{MenuItem: domainmenu.MenuItem{Name: "quadrants", DisplayName: "Quadrants", Path: "/quadrants", Icon: "bi-grid", OrderIndex: 5}},
+		{MenuItem: domainmenu.MenuItem{Name: "prices", DisplayName: "Commodity Prices", Path: "/prices", Icon: "bi-cash-stack", OrderIndex: 6}},
+		{MenuItem: domainmenu.MenuItem{Name: "news", DisplayName: "News Portal", Path: "/news", Icon: "bi-newspaper", OrderIndex: 7}},
+		{MenuItem: domainmenu.MenuItem{Name: "jobs", DisplayName: "Jobs & Net Income", Path: "/jobs", Icon: "bi-briefcase", OrderIndex: 8}},
+		{MenuItem: domainmenu.MenuItem{Name: "installments", DisplayName: "Motor Types & Installments", Path: "/installments", Icon: "bi-wallet2", OrderIndex: 9}},
+		{MenuItem: domainmenu.MenuItem{Name: "users", DisplayName: "Users", Path: "/users", Icon: "bi-people", OrderIndex: 90}},
+		{MenuItem: domainmenu.MenuItem{Name: "roles", DisplayName: "Roles & Access", Path: "/roles", Icon: "bi-shield-lock", OrderIndex: 91}},
+		{MenuItem: domainmenu.MenuItem{Name: "role_menu_access", DisplayName: "Roles Menu Access", Path: "/role-menu-access", Icon: "bi-diagram-3", OrderIndex: 92}},
+		{MenuItem: domainmenu.MenuItem{Name: "menus", DisplayName: "Menus", Path: "/menus", Icon: "bi-list-ul", OrderIndex: 93}},
+		{MenuItem: domainmenu.MenuItem{Name: "scrape_sources", DisplayName: "Scrape Sources", Path: "/scrape-sources", Icon: "bi-link-45deg", OrderIndex: 94}},
+		{MenuItem: domainmenu.MenuItem{Name: "master_settings", DisplayName: "Master Settings", Path: "/master-settings", Icon: "bi-sliders", OrderIndex: 95}},
 	}
 
 	result := make(map[string]string)
-	for _, m := range menus {
+	for _, seed := range menus {
+		m := seed.MenuItem
+		if seed.ParentName != "" {
+			if parentID, ok := result[seed.ParentName]; ok {
+				m.ParentId = &parentID
+			}
+		}
+
 		var existing domainmenu.MenuItem
 		err := db.Unscoped().Where("name = ?", m.Name).First(&existing).Error
 		if err == nil {
@@ -694,6 +726,13 @@ func seedMenus(db *gorm.DB) (map[string]string, error) {
 			return nil, err
 		}
 		result[m.Name] = existing.Id
+	}
+
+	businessID := result["business"]
+	if strings.TrimSpace(businessID) != "" {
+		if err := db.Model(&domainmenu.MenuItem{}).Where("name IN ?", []string{"finance", "dealer", "finance_report"}).Updates(map[string]interface{}{"parent_id": businessID}).Error; err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
@@ -864,7 +903,7 @@ func seedRoleMenus(db *gorm.DB, roleIDs, menuIDs map[string]string) error {
 	}
 
 	// main dealer: dashboard + operational menus
-	mainDealerMenus := []string{"dashboard", "orders", "installments", "finance", "credit", "quadrants", "prices", "news", "jobs"}
+	mainDealerMenus := []string{"dashboard", "orders", "business", "finance", "dealer", "finance_report", "installments", "credit", "quadrants", "prices", "news", "jobs"}
 	if err := assign(utils.RoleMainDealer, mainDealerMenus); err != nil {
 		return err
 	}
