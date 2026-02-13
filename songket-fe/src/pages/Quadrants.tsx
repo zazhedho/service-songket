@@ -421,7 +421,9 @@ export default function QuadrantsPage() {
               <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
               <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
 
-              {chart.borderTicks.map((value) => (
+              {chart.borderTicks
+                .filter((value) => value < 100)
+                .map((value) => (
                 <text
                   key={`bottom-${value}`}
                   x={chart.toX(value)}
@@ -433,21 +435,7 @@ export default function QuadrantsPage() {
                 >
                   {value}%
                 </text>
-              ))}
-
-              {chart.borderTicks.map((value) => (
-                <text
-                  key={`top-${value}`}
-                  x={chart.toX(value) + (value === 0 ? 6 : value === 100 ? -6 : 0)}
-                  y={chart.top + (isMobile ? 10 : 13)}
-                  textAnchor={value === 0 ? 'start' : value === 100 ? 'end' : 'middle'}
-                  fontSize={isMobile ? 7.5 : 10}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {100 - value}%
-                </text>
-              ))}
+                ))}
 
               {chart.borderTicks
                 .filter((value) => value !== chart.splitYPercent)
@@ -465,19 +453,21 @@ export default function QuadrantsPage() {
                   </text>
                 ))}
 
-              {chart.borderTicks.map((value) => (
-                <text
-                  key={`right-${value}`}
-                  x={chart.right + (isMobile ? 2 : 4)}
-                  y={chart.toY(value) + 3}
-                  textAnchor="start"
-                  fontSize={isMobile ? 7.5 : 10}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {100 - value}%
-                </text>
-              ))}
+              {chart.borderTicks
+                .filter((value) => value === 0)
+                .map((value) => (
+                  <text
+                    key={`right-${value}`}
+                    x={chart.right + (isMobile ? 2 : 4)}
+                    y={chart.toY(value) + 3}
+                    textAnchor="start"
+                    fontSize={isMobile ? 7.5 : 10}
+                    fontWeight={700}
+                    fill="#111827"
+                  >
+                    {100 - value}%
+                  </text>
+                ))}
 
               <text
                 x={chart.xSplit}
