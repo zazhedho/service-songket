@@ -263,6 +263,36 @@ func (h *Handler) FinanceMigrationReport(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/finance/report/migrations/:id/order-ins
+func (h *Handler) FinanceMigrationOrderInDetail(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	orderID, err := utils.ValidateUUID(ctx, logId)
+	if err != nil {
+		return
+	}
+
+	params, err := filter.GetBaseParams(ctx, "pooling_at", "desc", 10)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"finance_2_status"})
+
+	data, total, err := h.svc.ListFinanceMigrationOrderInDetail(orderID, params)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+
+	res := response.PaginationResponse(http.StatusOK, int(total), params.Page, params.Limit, logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // POST /api/songket/finance/dealers
 func (h *Handler) CreateDealer(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
