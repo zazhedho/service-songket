@@ -58,6 +58,23 @@ type LocationNames = {
   district: string
 }
 
+type FinanceApprovalSnapshotRow = {
+  finance_company_name: string
+  total_orders: number
+  approved_count: number
+  rejected_count: number
+  approval_rate: number
+}
+
+type FinanceApprovalTransitionRow = {
+  finance_1_company_name: string
+  finance_2_company_name: string
+  total_data: number
+  approved_count: number
+  rejected_count: number
+  approval_rate: number
+}
+
 function formatDateTime(value?: string) {
   if (!value) return '-'
   const d = new Date(value)
@@ -67,6 +84,15 @@ function formatDateTime(value?: string) {
 
 function normalizeText(value: unknown) {
   return String(value || '').trim()
+}
+
+function normalizeFinanceStatus(status: unknown) {
+  const value = String(status || '').trim().toLowerCase()
+  if (value.startsWith('approve')) return 'approve'
+  if (value.startsWith('reject')) return 'reject'
+  if (value === 'success') return 'approve'
+  if (value === 'error') return 'reject'
+  return value
 }
 
 function lookupOptionName(options: OptionItem[], codeOrName: string) {
@@ -98,6 +124,15 @@ function DetailTable({ rows }: { rows: Array<{ label: string; value: ReactNode }
   )
 }
 
+function MiniMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="mini-metric">
+      <div className="mini-metric-label">{label}</div>
+      <div className="mini-metric-value">{value}</div>
+    </div>
+  )
+}
+
 export default function FinanceReportPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -125,6 +160,15 @@ export default function FinanceReportPage() {
   const [search, setSearch] = useState('')
   const [month, setMonth] = useState('')
   const [year, setYear] = useState('')
+  const [financeApprovalLoading, setFinanceApprovalLoading] = useState(false)
+  const [financeApprovalError, setFinanceApprovalError] = useState('')
+  const [financeApprovalSnapshotRows, setFinanceApprovalSnapshotRows] = useState<FinanceApprovalSnapshotRow[]>([])
+  const [financeApprovalTransitionRows, setFinanceApprovalTransitionRows] = useState<FinanceApprovalTransitionRow[]>([])
+  const [selectedTransitionFromFinanceName, setSelectedTransitionFromFinanceName] = useState('')
+  const [approvalFinancePage, setApprovalFinancePage] = useState(1)
+  const [approvalFinanceLimit, setApprovalFinanceLimit] = useState(10)
+  const [approvalTransitionPage, setApprovalTransitionPage] = useState(1)
+  const [approvalTransitionLimit, setApprovalTransitionLimit] = useState(5)
 
   const yearOptions = useMemo(() => {
     const now = new Date().getFullYear()
@@ -170,6 +214,129 @@ export default function FinanceReportPage() {
     if (isDetail) return
     void loadList()
   }, [canList, isDetail, page, limit, search, month, year])
+
+  useEffect(() => {
+    if (!canList || isDetail) return
+    let cancelled = false
+
+    const loadFinanceApprovalSummary = async () => {
+      setFinanceApprovalLoading(true)
+      setFinanceApprovalError('')
+
+      const summaryParams: Record<string, unknown> = {
+        order_by: 'pooling_at',
+        order_direction: 'desc',
+      }
+      if (search.trim()) summaryParams.search = search.trim()
+      if (month) summaryParams.month = Number(month)
+      if (year) summaryParams.year = Number(year)
+
+      const financeSnapshotMap = new Map<string, { name: string; total: number; approved: number; rejected: number }>()
+      const financeTransitionMap = new Map<string, { from: string; to: string; total: number; approved: number; rejected: number }>()
+      const ingestRows = (dataRows: FinanceMigrationRow[]) => {
+        dataRows.forEach((row) => {
+          const finance1Name = normalizeText(row.finance_1_name) || '-'
+          const finance2Name = normalizeText(row.finance_2_name) || '-'
+          const status = normalizeFinanceStatus(row.finance_2_status)
+
+          const finance2Key = finance2Name.toLowerCase()
+          const currentSnapshot = financeSnapshotMap.get(finance2Key) || {
+            name: finance2Name,
+            total: 0,
+            approved: 0,
+            rejected: 0,
+          }
+          currentSnapshot.total += 1
+          if (status === 'approve') currentSnapshot.approved += 1
+          if (status === 'reject') currentSnapshot.rejected += 1
+          financeSnapshotMap.set(finance2Key, currentSnapshot)
+
+          const transitionKey = `${finance1Name.toLowerCase()}::${finance2Key}`
+          const currentTransition = financeTransitionMap.get(transitionKey) || {
+            from: finance1Name,
+            to: finance2Name,
+            total: 0,
+            approved: 0,
+            rejected: 0,
+          }
+          currentTransition.total += 1
+          if (status === 'approve') currentTransition.approved += 1
+          if (status === 'reject') currentTransition.rejected += 1
+          financeTransitionMap.set(transitionKey, currentTransition)
+        })
+      }
+
+      try {
+        const pageLimit = 200
+        let currentPage = 1
+        let totalPagesToFetch = 1
+
+        while (currentPage <= totalPagesToFetch) {
+          const res = await listFinanceMigrationReport({
+            ...summaryParams,
+            page: currentPage,
+            limit: pageLimit,
+          })
+          if (cancelled) return
+
+          const payload = res?.data || {}
+          const data = Array.isArray(payload?.data) ? (payload.data as FinanceMigrationRow[]) : []
+          ingestRows(data)
+
+          if (currentPage === 1) {
+            const totalPagesRaw = Number(payload?.total_pages || 1)
+            totalPagesToFetch = Number.isFinite(totalPagesRaw) && totalPagesRaw > 0 ? totalPagesRaw : 1
+          }
+          currentPage += 1
+        }
+
+        if (cancelled) return
+
+        const nextSnapshotRows: FinanceApprovalSnapshotRow[] = Array.from(financeSnapshotMap.values())
+          .map((item) => ({
+            finance_company_name: item.name,
+            total_orders: item.total,
+            approved_count: item.approved,
+            rejected_count: item.rejected,
+            approval_rate: item.total > 0 ? item.approved / item.total : 0,
+          }))
+          .sort((a, b) => {
+            if (b.total_orders !== a.total_orders) return b.total_orders - a.total_orders
+            return a.finance_company_name.localeCompare(b.finance_company_name)
+          })
+
+        const nextTransitionRows: FinanceApprovalTransitionRow[] = Array.from(financeTransitionMap.values())
+          .map((item) => ({
+            finance_1_company_name: item.from,
+            finance_2_company_name: item.to,
+            total_data: item.total,
+            approved_count: item.approved,
+            rejected_count: item.rejected,
+            approval_rate: item.total > 0 ? item.approved / item.total : 0,
+          }))
+          .sort((a, b) => {
+            const byFrom = a.finance_1_company_name.localeCompare(b.finance_1_company_name)
+            if (byFrom !== 0) return byFrom
+            return a.finance_2_company_name.localeCompare(b.finance_2_company_name)
+          })
+
+        setFinanceApprovalSnapshotRows(nextSnapshotRows)
+        setFinanceApprovalTransitionRows(nextTransitionRows)
+      } catch (err: any) {
+        if (cancelled) return
+        setFinanceApprovalSnapshotRows([])
+        setFinanceApprovalTransitionRows([])
+        setFinanceApprovalError(err?.response?.data?.error || 'Failed to load finance approval summary.')
+      } finally {
+        if (!cancelled) setFinanceApprovalLoading(false)
+      }
+    }
+
+    void loadFinanceApprovalSummary()
+    return () => {
+      cancelled = true
+    }
+  }, [canList, isDetail, search, month, year])
 
   useEffect(() => {
     if (!canList || !isDetail || !selectedId) return
@@ -310,6 +477,82 @@ export default function FinanceReportPage() {
     setPage(1)
   }
 
+  const transitionFromFinanceOptions = useMemo(() => {
+    const unique = new Set<string>()
+    financeApprovalTransitionRows.forEach((item) => {
+      const name = normalizeText(item.finance_1_company_name)
+      if (name) unique.add(name)
+    })
+    return Array.from(unique)
+      .map((name) => ({ id: name, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [financeApprovalTransitionRows])
+
+  useEffect(() => {
+    if (transitionFromFinanceOptions.length === 0) {
+      setSelectedTransitionFromFinanceName('')
+      return
+    }
+    const hasSelected = transitionFromFinanceOptions.some((item) => item.id === selectedTransitionFromFinanceName)
+    if (!hasSelected) {
+      setSelectedTransitionFromFinanceName(transitionFromFinanceOptions[0].id)
+    }
+  }, [selectedTransitionFromFinanceName, transitionFromFinanceOptions])
+
+  const filteredTransitionRows = useMemo(() => {
+    if (!selectedTransitionFromFinanceName) return []
+    return financeApprovalTransitionRows.filter(
+      (item) => normalizeText(item.finance_1_company_name) === selectedTransitionFromFinanceName,
+    )
+  }, [financeApprovalTransitionRows, selectedTransitionFromFinanceName])
+
+  const selectedTransitionSummary = useMemo(() => {
+    const total = filteredTransitionRows.reduce((sum, item) => sum + Number(item.total_data || 0), 0)
+    const approved = filteredTransitionRows.reduce((sum, item) => sum + Number(item.approved_count || 0), 0)
+    const rejected = filteredTransitionRows.reduce((sum, item) => sum + Number(item.rejected_count || 0), 0)
+    return {
+      total,
+      approved,
+      rejected,
+      approvalRate: total > 0 ? approved / total : 0,
+    }
+  }, [filteredTransitionRows])
+
+  const approvalFinanceTotalData = financeApprovalSnapshotRows.length
+  const approvalFinanceTotalPages = Math.max(1, Math.ceil(approvalFinanceTotalData / approvalFinanceLimit))
+  const pagedApprovalFinanceRows = useMemo(() => {
+    const start = (approvalFinancePage - 1) * approvalFinanceLimit
+    return financeApprovalSnapshotRows.slice(start, start + approvalFinanceLimit)
+  }, [approvalFinanceLimit, approvalFinancePage, financeApprovalSnapshotRows])
+
+  const approvalTransitionTotalData = filteredTransitionRows.length
+  const approvalTransitionTotalPages = Math.max(1, Math.ceil(approvalTransitionTotalData / approvalTransitionLimit))
+  const pagedApprovalTransitionRows = useMemo(() => {
+    const start = (approvalTransitionPage - 1) * approvalTransitionLimit
+    return filteredTransitionRows.slice(start, start + approvalTransitionLimit)
+  }, [approvalTransitionLimit, approvalTransitionPage, filteredTransitionRows])
+
+  useEffect(() => {
+    setApprovalFinancePage(1)
+    setApprovalTransitionPage(1)
+  }, [search, month, year])
+
+  useEffect(() => {
+    if (approvalFinancePage > approvalFinanceTotalPages) {
+      setApprovalFinancePage(approvalFinanceTotalPages)
+    }
+  }, [approvalFinancePage, approvalFinanceTotalPages])
+
+  useEffect(() => {
+    setApprovalTransitionPage(1)
+  }, [selectedTransitionFromFinanceName])
+
+  useEffect(() => {
+    if (approvalTransitionPage > approvalTransitionTotalPages) {
+      setApprovalTransitionPage(approvalTransitionTotalPages)
+    }
+  }, [approvalTransitionPage, approvalTransitionTotalPages])
+
   if (!canList) {
     return (
       <div className="page">
@@ -446,6 +689,133 @@ export default function FinanceReportPage() {
       </div>
 
       <div className="page" style={{ overflowX: 'hidden' }}>
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>Finance Approval</h3>
+            <div style={{ color: '#64748b', fontSize: 12 }}>Summary based on current report filters</div>
+          </div>
+
+          {financeApprovalError && <div className="alert" style={{ marginTop: 12 }}>{financeApprovalError}</div>}
+          {financeApprovalLoading && <div style={{ marginTop: 12, color: '#64748b' }}>Loading finance approval summary...</div>}
+
+          {!financeApprovalLoading && (
+            <div className="finance-approval-compact">
+              <div className="finance-approval-top">
+                <div className="finance-approval-filter">
+                  <label>Select Finance 1</label>
+                  <select
+                    value={selectedTransitionFromFinanceName}
+                    onChange={(e) => setSelectedTransitionFromFinanceName(e.target.value)}
+                    disabled={transitionFromFinanceOptions.length === 0}
+                  >
+                    {transitionFromFinanceOptions.length === 0 && <option value="">No data</option>}
+                    {transitionFromFinanceOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="finance-approval-kpi-grid">
+                  <MiniMetric label="Finance 1" value={selectedTransitionFromFinanceName || '-'} />
+                  <MiniMetric label="Total" value={selectedTransitionSummary.total.toLocaleString('id-ID')} />
+                  <MiniMetric label="Approved" value={selectedTransitionSummary.approved.toLocaleString('id-ID')} />
+                  <MiniMetric label="Rejected" value={selectedTransitionSummary.rejected.toLocaleString('id-ID')} />
+                  <MiniMetric label="Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
+                </div>
+              </div>
+
+              <div className="compact-section">
+                <div className="compact-section-title">Finance Snapshot</div>
+                <table className="table compact-table">
+                  <thead>
+                    <tr>
+                      <th>Finance</th>
+                      <th>Total</th>
+                      <th>Approved</th>
+                      <th>Rejected</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedApprovalFinanceRows.map((item) => (
+                      <tr key={`report-finance-snapshot-${item.finance_company_name}`}>
+                        <td>{item.finance_company_name || '-'}</td>
+                        <td>{Number(item.total_orders || 0).toLocaleString('id-ID')}</td>
+                        <td>{Number(item.approved_count || 0).toLocaleString('id-ID')}</td>
+                        <td>{Number(item.rejected_count || 0).toLocaleString('id-ID')}</td>
+                      </tr>
+                    ))}
+                    {approvalFinanceTotalData === 0 && (
+                      <tr>
+                        <td colSpan={4}>No finance snapshot data for current filter.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {approvalFinanceTotalData > 0 && (
+                  <Pagination
+                    page={approvalFinancePage}
+                    totalPages={approvalFinanceTotalPages}
+                    totalData={approvalFinanceTotalData}
+                    limit={approvalFinanceLimit}
+                    onPageChange={setApprovalFinancePage}
+                    onLimitChange={(next) => {
+                      setApprovalFinanceLimit(next)
+                      setApprovalFinancePage(1)
+                    }}
+                    limitOptions={[5, 10, 20, 50]}
+                  />
+                )}
+              </div>
+
+              <div className="compact-section">
+                <div className="compact-section-title">Finance 1 Reject to Finance 2 Outcome</div>
+                <table className="table compact-table">
+                  <thead>
+                    <tr>
+                      <th>Finance 2 Name</th>
+                      <th>Total Data</th>
+                      <th>Approved</th>
+                      <th>Rejected</th>
+                      <th>Approval Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedApprovalTransitionRows.map((item) => (
+                      <tr key={`report-finance-transition-${item.finance_1_company_name}-${item.finance_2_company_name}`}>
+                        <td>{item.finance_2_company_name || '-'}</td>
+                        <td>{Number(item.total_data || 0).toLocaleString('id-ID')}</td>
+                        <td>{Number(item.approved_count || 0).toLocaleString('id-ID')}</td>
+                        <td>{Number(item.rejected_count || 0).toLocaleString('id-ID')}</td>
+                        <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                    {approvalTransitionTotalData === 0 && (
+                      <tr>
+                        <td colSpan={5}>No finance transition data for selected Finance 1.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {approvalTransitionTotalData > 0 && (
+                  <Pagination
+                    page={approvalTransitionPage}
+                    totalPages={approvalTransitionTotalPages}
+                    totalData={approvalTransitionTotalData}
+                    limit={approvalTransitionLimit}
+                    onPageChange={setApprovalTransitionPage}
+                    onLimitChange={(next) => {
+                      setApprovalTransitionLimit(next)
+                      setApprovalTransitionPage(1)
+                    }}
+                    limitOptions={[5, 10, 20, 50]}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="card" style={{ minWidth: 0, maxWidth: '100%' }}>
           <div
             className="mobile-filter-grid"
