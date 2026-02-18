@@ -324,12 +324,12 @@ export default function QuadrantsPage() {
     if (!activePoint) return null
     const offsetX = 12
     const offsetY = -12
-    const width = 220
-    const height = 34
+    const width = isMobile ? 240 : 290
+    const height = 54
     const x = Math.min(Math.max(activePoint.x + offsetX, chart.left + 4), chart.right - width - 4)
     const y = Math.min(Math.max(activePoint.y + offsetY, chart.top + 4), chart.bottom - height - 4)
     return { x, y, width, height }
-  }, [activePoint, chart.bottom, chart.left, chart.right, chart.top])
+  }, [activePoint, chart.bottom, chart.left, chart.right, chart.top, isMobile])
 
   return (
     <div>
@@ -574,6 +574,9 @@ export default function QuadrantsPage() {
                   <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={6} fill="#0f172a" opacity={0.94} />
                   <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={isMobile ? 11 : 12} fill="#fff" fontWeight={700}>
                     {`${activePoint.provinceLabel} - ${activePoint.regencyLabel}`}
+                  </text>
+                  <text x={tooltip.x + 10} y={tooltip.y + 40} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
+                    {`Total Order In: ${Number(activePoint.totalOrders || 0).toLocaleString('id-ID')}`}
                   </text>
                 </g>
               )}
