@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
           <div className="card">
             <h3>Latest Prices</h3>
-            <table className="table">
+            <table className="table dashboard-latest-prices-table">
               <thead>
                 <tr>
                   <th>Commodity</th>
