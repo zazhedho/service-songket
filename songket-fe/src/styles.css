@@ -892,6 +892,155 @@ h4 {
     margin-bottom: 6px;
   }
 
+  .finance-report-approval-card {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.08), transparent 35%),
+      #fff;
+  }
+
+  .finance-report-approval-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #d9e3f0;
+  }
+
+  .finance-report-approval-title {
+    display: grid;
+    gap: 4px;
+  }
+
+  .finance-report-approval-subtitle {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 64ch;
+  }
+
+  .finance-report-approval-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .finance-report-approval-meta-item {
+    border: 1px solid #c9d8ef;
+    border-radius: 999px;
+    background: #f1f6ff;
+    color: #1e3a8a;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .finance-report-approval-body {
+    margin-top: 12px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .finance-report-approval-top {
+    display: grid;
+    grid-template-columns: minmax(220px, 290px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .finance-report-approval-filter-panel {
+    border: 1px solid #d7e2f2;
+    border-radius: 12px;
+    background: #fff;
+    padding: 10px;
+  }
+
+  .finance-report-approval-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+  }
+
+  .finance-report-approval-kpi-grid .mini-metric {
+    border-color: #cfddf2;
+    background: #f8fbff;
+    padding: 10px;
+  }
+
+  .finance-report-approval-kpi-grid .mini-metric-value {
+    font-size: 14px;
+  }
+
+  .finance-report-approval-section {
+    border-color: #d8e4f3;
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .finance-report-approval-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .finance-report-approval-caption {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .finance-report-approval-table-wrap {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .finance-report-approval-table {
+    min-width: 560px;
+  }
+
+  .finance-report-approval-table th:not(:first-child),
+  .finance-report-approval-table td:not(:first-child) {
+    text-align: right;
+  }
+
+  .finance-report-approval-table td:first-child {
+    max-width: 32ch;
+    white-space: normal;
+  }
+
+  .finance-report-rate {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .finance-report-rate.good {
+    color: #166534;
+    background: #dcfce7;
+  }
+
+  .finance-report-rate.warn {
+    color: #92400e;
+    background: #fef3c7;
+  }
+
+  .finance-report-rate.bad {
+    color: #991b1b;
+    background: #fee2e2;
+  }
+
   .table.compact-table {
     font-size: 12px;
   }
@@ -1463,6 +1612,14 @@ h4 {
     grid-template-columns: 1fr;
   }
 
+  .finance-report-approval-top {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-report-approval-meta {
+    width: 100%;
+  }
+
   .topbar-subtitle {
     max-width: 58vw;
   }
@@ -1661,6 +1818,23 @@ h4 {
 
   .table.responsive-stack tbody td.action-cell::before {
     margin-right: auto;
+  }
+
+  .finance-report-approval-subtitle {
+    font-size: 11px;
+  }
+
+  .finance-report-approval-meta-item {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .finance-report-approval-section {
+    padding: 8px;
+  }
+
+  .finance-report-approval-table {
+    min-width: 0;
   }
 
   .mobile-filter-grid {

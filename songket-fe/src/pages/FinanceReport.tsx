@@ -95,6 +95,13 @@ function normalizeFinanceStatus(status: unknown) {
   return value
 }
 
+function approvalRateTone(rate: number) {
+  const value = Number(rate || 0)
+  if (value >= 0.6) return 'good'
+  if (value >= 0.4) return 'warn'
+  return 'bad'
+}
+
 function lookupOptionName(options: OptionItem[], codeOrName: string) {
   const needle = normalizeText(codeOrName)
   if (!needle) return '-'
@@ -689,19 +696,31 @@ export default function FinanceReportPage() {
       </div>
 
       <div className="page" style={{ overflowX: 'hidden' }}>
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>Finance Approval</h3>
-            <div style={{ color: '#64748b', fontSize: 12 }}>Summary based on current report filters</div>
+        <div className="card finance-report-approval-card">
+          <div className="finance-report-approval-header">
+            <div className="finance-report-approval-title">
+              <h3>Finance Approval</h3>
+              <div className="finance-report-approval-subtitle">
+                Ringkasan performa approval berdasarkan filter report saat ini (search, month, year).
+              </div>
+            </div>
+            <div className="finance-report-approval-meta">
+              <span className="finance-report-approval-meta-item">
+                Snapshot: {approvalFinanceTotalData.toLocaleString('id-ID')}
+              </span>
+              <span className="finance-report-approval-meta-item">
+                Transition: {financeApprovalTransitionRows.length.toLocaleString('id-ID')}
+              </span>
+            </div>
           </div>
 
           {financeApprovalError && <div className="alert" style={{ marginTop: 12 }}>{financeApprovalError}</div>}
           {financeApprovalLoading && <div style={{ marginTop: 12, color: '#64748b' }}>Loading finance approval summary...</div>}
 
           {!financeApprovalLoading && (
-            <div className="finance-approval-compact">
-              <div className="finance-approval-top">
-                <div className="finance-approval-filter">
+            <div className="finance-report-approval-body">
+              <div className="finance-report-approval-top">
+                <div className="finance-report-approval-filter-panel">
                   <label>Select Finance 1</label>
                   <select
                     value={selectedTransitionFromFinanceName}
@@ -716,42 +735,54 @@ export default function FinanceReportPage() {
                     ))}
                   </select>
                 </div>
-                <div className="finance-approval-kpi-grid">
+                <div className="finance-report-approval-kpi-grid">
                   <MiniMetric label="Finance 1" value={selectedTransitionFromFinanceName || '-'} />
                   <MiniMetric label="Total" value={selectedTransitionSummary.total.toLocaleString('id-ID')} />
                   <MiniMetric label="Approved" value={selectedTransitionSummary.approved.toLocaleString('id-ID')} />
                   <MiniMetric label="Rejected" value={selectedTransitionSummary.rejected.toLocaleString('id-ID')} />
-                  <MiniMetric label="Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
+                  <MiniMetric
+                    label="Rate"
+                    value={
+                      <span className={`finance-report-rate ${approvalRateTone(selectedTransitionSummary.approvalRate)}`}>
+                        {(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%
+                      </span>
+                    }
+                  />
                 </div>
               </div>
 
-              <div className="compact-section">
-                <div className="compact-section-title">Finance Snapshot</div>
-                <table className="table compact-table">
-                  <thead>
-                    <tr>
-                      <th>Finance</th>
-                      <th>Total</th>
-                      <th>Approved</th>
-                      <th>Rejected</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedApprovalFinanceRows.map((item) => (
-                      <tr key={`report-finance-snapshot-${item.finance_company_name}`}>
-                        <td>{item.finance_company_name || '-'}</td>
-                        <td>{Number(item.total_orders || 0).toLocaleString('id-ID')}</td>
-                        <td>{Number(item.approved_count || 0).toLocaleString('id-ID')}</td>
-                        <td>{Number(item.rejected_count || 0).toLocaleString('id-ID')}</td>
-                      </tr>
-                    ))}
-                    {approvalFinanceTotalData === 0 && (
+              <div className="compact-section finance-report-approval-section">
+                <div className="finance-report-approval-section-header">
+                  <div className="compact-section-title">Finance Snapshot</div>
+                  <div className="finance-report-approval-caption">Distribusi hasil approval per Finance 2</div>
+                </div>
+                <div className="finance-report-approval-table-wrap">
+                  <table className="table compact-table finance-report-approval-table">
+                    <thead>
                       <tr>
-                        <td colSpan={4}>No finance snapshot data for current filter.</td>
+                        <th>Finance</th>
+                        <th>Total</th>
+                        <th>Approved</th>
+                        <th>Rejected</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {pagedApprovalFinanceRows.map((item) => (
+                        <tr key={`report-finance-snapshot-${item.finance_company_name}`}>
+                          <td>{item.finance_company_name || '-'}</td>
+                          <td>{Number(item.total_orders || 0).toLocaleString('id-ID')}</td>
+                          <td>{Number(item.approved_count || 0).toLocaleString('id-ID')}</td>
+                          <td>{Number(item.rejected_count || 0).toLocaleString('id-ID')}</td>
+                        </tr>
+                      ))}
+                      {approvalFinanceTotalData === 0 && (
+                        <tr>
+                          <td colSpan={4}>No finance snapshot data for current filter.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
                 {approvalFinanceTotalData > 0 && (
                   <Pagination
                     page={approvalFinancePage}
@@ -768,35 +799,44 @@ export default function FinanceReportPage() {
                 )}
               </div>
 
-              <div className="compact-section">
-                <div className="compact-section-title">Finance 1 Reject to Finance 2 Outcome</div>
-                <table className="table compact-table">
-                  <thead>
-                    <tr>
-                      <th>Finance 2 Name</th>
-                      <th>Total Data</th>
-                      <th>Approved</th>
-                      <th>Rejected</th>
-                      <th>Approval Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedApprovalTransitionRows.map((item) => (
-                      <tr key={`report-finance-transition-${item.finance_1_company_name}-${item.finance_2_company_name}`}>
-                        <td>{item.finance_2_company_name || '-'}</td>
-                        <td>{Number(item.total_data || 0).toLocaleString('id-ID')}</td>
-                        <td>{Number(item.approved_count || 0).toLocaleString('id-ID')}</td>
-                        <td>{Number(item.rejected_count || 0).toLocaleString('id-ID')}</td>
-                        <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                    {approvalTransitionTotalData === 0 && (
+              <div className="compact-section finance-report-approval-section">
+                <div className="finance-report-approval-section-header">
+                  <div className="compact-section-title">Finance 1 Reject to Finance 2 Outcome</div>
+                  <div className="finance-report-approval-caption">Hasil akhir berdasarkan Finance 1 yang dipilih</div>
+                </div>
+                <div className="finance-report-approval-table-wrap">
+                  <table className="table compact-table finance-report-approval-table">
+                    <thead>
                       <tr>
-                        <td colSpan={5}>No finance transition data for selected Finance 1.</td>
+                        <th>Finance 2 Name</th>
+                        <th>Total Data</th>
+                        <th>Approved</th>
+                        <th>Rejected</th>
+                        <th>Approval Rate</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {pagedApprovalTransitionRows.map((item) => (
+                        <tr key={`report-finance-transition-${item.finance_1_company_name}-${item.finance_2_company_name}`}>
+                          <td>{item.finance_2_company_name || '-'}</td>
+                          <td>{Number(item.total_data || 0).toLocaleString('id-ID')}</td>
+                          <td>{Number(item.approved_count || 0).toLocaleString('id-ID')}</td>
+                          <td>{Number(item.rejected_count || 0).toLocaleString('id-ID')}</td>
+                          <td>
+                            <span className={`finance-report-rate ${approvalRateTone(Number(item.approval_rate || 0))}`}>
+                              {(Number(item.approval_rate || 0) * 100).toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {approvalTransitionTotalData === 0 && (
+                        <tr>
+                          <td colSpan={5}>No finance transition data for selected Finance 1.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
                 {approvalTransitionTotalData > 0 && (
                   <Pagination
                     page={approvalTransitionPage}
