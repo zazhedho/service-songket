@@ -1429,6 +1429,93 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 	return rows, total, nil
 }
 
+// ListFinanceMigrationOrderInDetail returns order-in rows that match migration flow finance 1 reject -> finance 2.
+func (s *Service) ListFinanceMigrationOrderInDetail(anchorOrderID string, params filter.BaseParams) ([]FinanceMigrationReportItem, int64, error) {
+	type financeMigrationOrderInAnchor struct {
+		DealerID          string `gorm:"column:dealer_id"`
+		Finance1CompanyID string `gorm:"column:finance_1_company_id"`
+		Finance2CompanyID string `gorm:"column:finance_2_company_id"`
+	}
+
+	var anchor financeMigrationOrderInAnchor
+	if err := s.db.
+		Table("orders o").
+		Joins(`
+			JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a1 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 2
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					o2.id AS order_id
+				FROM orders o2
+				WHERE o2.deleted_at IS NULL
+					AND o2.pooling_number = o.pooling_number
+					AND o2.dealer_id = o.dealer_id
+					AND o2.id <> o.id
+				ORDER BY o2.created_at ASC, o2.id ASC
+				LIMIT 1
+			) o2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id
+				FROM order_finance_attempts a
+				WHERE a.order_id = o2.order_id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) o2a1 ON TRUE
+		`).
+		Where("o.deleted_at IS NULL").
+		Where("o.id = ?", anchorOrderID).
+		Where("a1.status = ?", "reject").
+		Select(`
+			o.dealer_id AS dealer_id,
+			a1.finance_company_id::text AS finance_1_company_id,
+			COALESCE(a2.finance_company_id::text, o2a1.finance_company_id::text, '') AS finance_2_company_id
+		`).
+		Take(&anchor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return []FinanceMigrationReportItem{}, 0, nil
+		}
+		return nil, 0, err
+	}
+
+	if strings.TrimSpace(anchor.DealerID) == "" || strings.TrimSpace(anchor.Finance1CompanyID) == "" || strings.TrimSpace(anchor.Finance2CompanyID) == "" {
+		return []FinanceMigrationReportItem{}, 0, nil
+	}
+
+	reportParams := params
+	reportParams.Filters = map[string]interface{}{
+		"dealer_id":            anchor.DealerID,
+		"finance_1_company_id": anchor.Finance1CompanyID,
+		"finance_2_company_id": anchor.Finance2CompanyID,
+	}
+
+	return s.ListFinanceMigrationReport(reportParams, 0, 0)
+}
+
 // ListDealers returns dealers with pagination support.
 func (s *Service) ListDealers(params filter.BaseParams) ([]Dealer, int64, error) {
 	query := s.db.Model(&Dealer{})
