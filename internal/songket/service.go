@@ -1165,6 +1165,7 @@ type FinanceMigrationReportItem struct {
 	PoolingAt         time.Time  `gorm:"column:pooling_at" json:"pooling_at"`
 	ResultAt          *time.Time `gorm:"column:result_at" json:"result_at"`
 	DealerOrderTotal  int        `gorm:"column:dealer_order_total" json:"dealer_order_total"`
+	TransitionTotal   int        `gorm:"column:transition_total_data" json:"transition_total_data"`
 	DealerName        string     `gorm:"column:dealer_name" json:"dealer_name"`
 	DealerProvince    string     `gorm:"column:dealer_province" json:"dealer_province"`
 	DealerRegency     string     `gorm:"column:dealer_regency" json:"dealer_regency"`
@@ -1372,19 +1373,22 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 	rows := make([]FinanceMigrationReportItem, 0, params.Limit)
 	if err := query.
 		Select(`
-			o.id AS order_id,
-			o.pooling_number AS pooling_number,
-			o.pooling_at AS pooling_at,
-			o.result_at AS result_at,
+				o.id AS order_id,
+				o.pooling_number AS pooling_number,
+				o.pooling_at AS pooling_at,
+				o.result_at AS result_at,
 			(
 				SELECT COUNT(1)
 				FROM orders od
 				WHERE od.deleted_at IS NULL
 					AND od.dealer_id = o.dealer_id
-					AND (? = 0 OR EXTRACT(MONTH FROM od.pooling_at) = ?)
-					AND (? = 0 OR EXTRACT(YEAR FROM od.pooling_at) = ?)
-			) AS dealer_order_total,
-			COALESCE(d.name, '-') AS dealer_name,
+						AND (? = 0 OR EXTRACT(MONTH FROM od.pooling_at) = ?)
+						AND (? = 0 OR EXTRACT(YEAR FROM od.pooling_at) = ?)
+				) AS dealer_order_total,
+				COUNT(1) OVER (
+					PARTITION BY o.dealer_id, a1.finance_company_id, COALESCE(a2.finance_company_id, o2a1.finance_company_id)
+				) AS transition_total_data,
+				COALESCE(d.name, '-') AS dealer_name,
 			COALESCE(d.province, '-') AS dealer_province,
 			COALESCE(d.regency, '-') AS dealer_regency,
 			COALESCE(d.district, '-') AS dealer_district,
