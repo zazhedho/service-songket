@@ -18,6 +18,7 @@ type FinanceMigrationRow = {
   pooling_at: string
   result_at?: string
   dealer_order_total?: number
+  transition_total_data?: number
   dealer_name: string
   dealer_province?: string
   dealer_regency?: string
@@ -65,6 +66,28 @@ type LocationNames = {
   district: string
 }
 
+type SummaryBucket = {
+  label: string
+  total: number
+}
+
+type DonutSlice = SummaryBucket & {
+  percent: number
+  color: string
+}
+
+type DetailFinanceSummary = {
+  totalOrders: number
+  totalDealers: number
+  approvedCount: number
+  rejectedCount: number
+  approvalRate: number
+  leadAvgSeconds: number | null
+  rescueFc2: number
+  locationTotals: SummaryBucket[]
+  motorTypeTotals: SummaryBucket[]
+}
+
 function formatDateTime(value?: string) {
   if (!value) return '-'
   const d = new Date(value)
@@ -74,6 +97,109 @@ function formatDateTime(value?: string) {
 
 function normalizeText(value: unknown) {
   return String(value || '').trim()
+}
+
+function truncateTableText(value: unknown, max = 150) {
+  const text = normalizeText(value)
+  if (!text) return '-'
+  if (text.length <= max) return text
+  return `${text.slice(0, max)}...`
+}
+
+function toTopBuckets(counter: Record<string, number>, maxItems = 8): SummaryBucket[] {
+  return Object.entries(counter)
+    .map(([label, total]) => ({ label, total: Number(total || 0) }))
+    .filter((item) => item.total > 0)
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+    .slice(0, maxItems)
+}
+
+function buildDonutSlices(buckets: SummaryBucket[], maxSlices = 6): DonutSlice[] {
+  const palette = ['#2563eb', '#0ea5e9', '#22c55e', '#eab308', '#f97316', '#ef4444', '#8b5cf6', '#14b8a6']
+  if (!Array.isArray(buckets) || buckets.length === 0) return []
+
+  const top = buckets.slice(0, maxSlices)
+  const othersTotal = buckets.slice(maxSlices).reduce((sum, item) => sum + Number(item.total || 0), 0)
+  const merged = othersTotal > 0 ? [...top, { label: 'Others', total: othersTotal }] : top
+  const total = merged.reduce((sum, item) => sum + Number(item.total || 0), 0)
+
+  return merged.map((item, idx) => ({
+    label: item.label,
+    total: Number(item.total || 0),
+    percent: total > 0 ? (Number(item.total || 0) / total) * 100 : 0,
+    color: palette[idx % palette.length],
+  }))
+}
+
+function buildDonutGradient(slices: DonutSlice[]) {
+  if (!Array.isArray(slices) || slices.length === 0) return '#e2e8f0'
+  let start = 0
+  const segments = slices.map((slice) => {
+    const end = start + slice.percent
+    const segment = `${slice.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`
+    start = end
+    return segment
+  })
+  return `conic-gradient(${segments.join(', ')})`
+}
+
+function buildDetailFinanceSummary(rows: FinanceMigrationRow[], provinceNameMap: Record<string, string> = {}): DetailFinanceSummary {
+  const validRows = Array.isArray(rows) ? rows : []
+  const totalOrders = validRows.length
+
+  const dealerSet = new Set(
+    validRows
+      .map((row) => normalizeText(row.dealer_name).toLowerCase())
+      .filter(Boolean),
+  )
+
+  const approveStatuses = new Set(['approve', 'approved', 'success'])
+  const rejectStatuses = new Set(['reject', 'rejected', 'error'])
+
+  let approvedCount = 0
+  let rejectedCount = 0
+  let rescueFc2 = 0
+  let leadSumSeconds = 0
+  let leadCount = 0
+
+  const locationCounter: Record<string, number> = {}
+  const motorTypeCounter: Record<string, number> = {}
+
+  validRows.forEach((row) => {
+    const finance2Status = normalizeText(row.finance_2_status).toLowerCase()
+    const finance1Status = normalizeText(row.finance_1_status).toLowerCase()
+
+    if (approveStatuses.has(finance2Status)) approvedCount += 1
+    if (rejectStatuses.has(finance2Status)) rejectedCount += 1
+    if (finance1Status === 'reject' && approveStatuses.has(finance2Status)) rescueFc2 += 1
+
+    const poolingTime = new Date(row.pooling_at).getTime()
+    const leadEndRaw = row.result_at || row.finance_2_decision_at || row.order_updated_at
+    const leadEndTime = leadEndRaw ? new Date(leadEndRaw).getTime() : NaN
+    if (Number.isFinite(poolingTime) && Number.isFinite(leadEndTime) && leadEndTime >= poolingTime) {
+      leadSumSeconds += (leadEndTime - poolingTime) / 1000
+      leadCount += 1
+    }
+
+    const provinceCode = normalizeText(row.province)
+    const province = provinceNameMap[provinceCode] || provinceCode || '-'
+    locationCounter[province] = (locationCounter[province] || 0) + 1
+
+    const motorType = normalizeText(row.motor_type_name) || '-'
+    motorTypeCounter[motorType] = (motorTypeCounter[motorType] || 0) + 1
+  })
+
+  return {
+    totalOrders,
+    totalDealers: dealerSet.size,
+    approvedCount,
+    rejectedCount,
+    approvalRate: totalOrders > 0 ? approvedCount / totalOrders : 0,
+    leadAvgSeconds: leadCount > 0 ? leadSumSeconds / leadCount : null,
+    rescueFc2,
+    locationTotals: toTopBuckets(locationCounter),
+    motorTypeTotals: toTopBuckets(motorTypeCounter),
+  }
 }
 
 function lookupOptionName(options: OptionItem[], codeOrName: string) {
@@ -90,14 +216,32 @@ function statusBadge(status: string) {
   return <span className={`badge ${s}`}>{s}</span>
 }
 
-function DetailTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
+function DetailTable({
+  rows,
+  wrapValue = false,
+}: {
+  rows: Array<{ label: string; value: ReactNode }>
+  wrapValue?: boolean
+}) {
   return (
     <table className="table">
       <tbody>
         {rows.map((row) => (
           <tr key={row.label}>
             <th style={{ width: 200 }}>{row.label}</th>
-            <td>{row.value}</td>
+            <td
+              style={wrapValue
+                ? {
+                    maxWidth: 'none',
+                    whiteSpace: 'normal',
+                    overflow: 'visible',
+                    textOverflow: 'clip',
+                    wordBreak: 'break-word',
+                  }
+                : undefined}
+            >
+              {row.value}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -144,6 +288,10 @@ export default function FinanceReportPage() {
   const [detailOrderInTotalPages, setDetailOrderInTotalPages] = useState(1)
   const [detailOrderInSearchInput, setDetailOrderInSearchInput] = useState('')
   const [detailOrderInSearch, setDetailOrderInSearch] = useState('')
+  const [selectedOrderInRow, setSelectedOrderInRow] = useState<FinanceMigrationRow | null>(null)
+  const [detailFinanceSummary, setDetailFinanceSummary] = useState<DetailFinanceSummary | null>(null)
+  const [detailFinanceSummaryLoading, setDetailFinanceSummaryLoading] = useState(false)
+  const [detailFinanceSummaryError, setDetailFinanceSummaryError] = useState('')
 
   const yearOptions = useMemo(() => {
     const now = new Date().getFullYear()
@@ -270,6 +418,9 @@ export default function FinanceReportPage() {
     setDetailOrderInSearchInput('')
     setDetailOrderInSearch('')
     setDetailOrderInPage(1)
+    setSelectedOrderInRow(null)
+    setDetailFinanceSummary(null)
+    setDetailFinanceSummaryError('')
   }, [isDetail, selectedId])
 
   useEffect(() => {
@@ -318,6 +469,73 @@ export default function FinanceReportPage() {
       setDetailOrderInPage(detailOrderInTotalPages)
     }
   }, [detailOrderInPage, detailOrderInTotalPages])
+
+  useEffect(() => {
+    if (!canList || !isDetail || !selectedId) return
+    let mounted = true
+    setDetailFinanceSummaryLoading(true)
+    setDetailFinanceSummaryError('')
+
+    const loadSummary = async () => {
+      const limitPerPage = 200
+      const maxPages = 120
+      const collected: FinanceMigrationRow[] = []
+      let nextPage = 1
+      let totalPagesRemote = 1
+
+      while (nextPage <= totalPagesRemote && nextPage <= maxPages) {
+        const params: Record<string, unknown> = {
+          page: nextPage,
+          limit: limitPerPage,
+          order_by: 'pooling_at',
+          order_direction: 'desc',
+        }
+        if (detailOrderInSearch.trim()) params.search = detailOrderInSearch.trim()
+
+        const res = await listFinanceMigrationOrderInDetail(selectedId, params)
+        const payload = res?.data || {}
+        const data = Array.isArray(payload?.data) ? (payload.data as FinanceMigrationRow[]) : []
+        totalPagesRemote = Number(payload?.total_pages || totalPagesRemote)
+        collected.push(...data)
+        nextPage += 1
+      }
+
+      const provinceNameMap: Record<string, string> = {}
+      try {
+        const provinceRes = await fetchProvinces()
+        const provinceRaw = provinceRes?.data?.data || provinceRes?.data || []
+        const provinceList: OptionItem[] = Array.isArray(provinceRaw) ? provinceRaw : []
+        provinceList.forEach((province) => {
+          const code = normalizeText(province?.code)
+          const name = normalizeText(province?.name)
+          if (code && name) provinceNameMap[code] = name
+        })
+      } catch {
+        // use fallback province code when lookup failed
+      }
+
+      if (!mounted) return
+      setDetailFinanceSummary(buildDetailFinanceSummary(collected, provinceNameMap))
+
+      if (nextPage <= totalPagesRemote) {
+        setDetailFinanceSummaryError('Summary is partial due to data volume limit.')
+      }
+    }
+
+    loadSummary()
+      .catch((err: any) => {
+        if (!mounted) return
+        setDetailFinanceSummary(null)
+        setDetailFinanceSummaryError(err?.response?.data?.error || 'Failed to load finance summary.')
+      })
+      .finally(() => {
+        if (mounted) setDetailFinanceSummaryLoading(false)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [canList, isDetail, selectedId, detailOrderInSearch])
 
   const sourceRows = useMemo(() => {
     if (isDetail) {
@@ -453,24 +671,31 @@ export default function FinanceReportPage() {
 
   if (isDetail) {
     const item = detailRow
-    const namedLocation = item ? locationNamesByOrderId[item.order_id] : null
-    const locationText = item
+    const financePairText = item ? `${item.finance_1_name || '-'} -> ${item.finance_2_name || '-'}` : '-'
+    const modalLocationNamed = selectedOrderInRow ? locationNamesByOrderId[selectedOrderInRow.order_id] : null
+    const modalLocationText = selectedOrderInRow
       ? [
-          namedLocation?.province || item.province || '-',
-          namedLocation?.regency || item.regency || '-',
-          namedLocation?.district || item.district || '-',
-          item.village || '-',
-          item.address || '-',
+          modalLocationNamed?.province || selectedOrderInRow.province || '-',
+          modalLocationNamed?.regency || selectedOrderInRow.regency || '-',
+          modalLocationNamed?.district || selectedOrderInRow.district || '-',
+          selectedOrderInRow.village || '-',
+          selectedOrderInRow.address || '-',
         ].join(', ')
       : '-'
-    const motorOtrText = item ? `${item.motor_type_name || '-'} | ${formatRupiah(Number(item.otr || 0))}` : '-'
+    const modalMotorOtrText = selectedOrderInRow
+      ? `${selectedOrderInRow.motor_type_name || '-'} | ${formatRupiah(Number(selectedOrderInRow.otr || 0))}`
+      : '-'
+    const locationDonutSlices = buildDonutSlices(detailFinanceSummary?.locationTotals || [], 6)
+    const motorTypeDonutSlices = buildDonutSlices(detailFinanceSummary?.motorTypeTotals || [], 6)
+    const locationDonutGradient = buildDonutGradient(locationDonutSlices)
+    const motorTypeDonutGradient = buildDonutGradient(motorTypeDonutSlices)
 
     return (
       <div style={{ overflowX: 'hidden' }}>
         <div className="header">
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance Detail</div>
-            <div style={{ color: '#64748b' }}>Detailed migration data from finance 1 to finance 2</div>
+            <div style={{ color: '#64748b' }}>Detailed migration data: {financePairText}</div>
           </div>
           <button className="btn-ghost" onClick={() => navigate('/finance-report')}>
             Back
@@ -485,11 +710,39 @@ export default function FinanceReportPage() {
           {item && (
             <>
               <div className="card">
+                <h3>Finance Detail Identity</h3>
+                <div
+                  className="mobile-filter-grid"
+                  style={{
+                    marginTop: 10,
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr)',
+                    gap: 10,
+                    alignItems: 'center',
+                  }}
+                >
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                    <div className="muted" style={{ fontSize: 12 }}>Finance Pair</div>
+                    <div style={{ marginTop: 4, fontWeight: 700 }}>{financePairText}</div>
+                  </div>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                    <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Status Finance 1</div>
+                    {statusBadge(item.finance_1_status || '')}
+                  </div>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                    <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Status Finance 2</div>
+                    {statusBadge(item.finance_2_status || '')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
                 <h3>Order In Data</h3>
                 <div
                   className="mobile-filter-grid"
                   style={{
                     marginTop: 10,
+                    marginBottom: 12,
                     display: 'grid',
                     gridTemplateColumns: 'minmax(0, 1fr) auto',
                     gap: 10,
@@ -528,17 +781,18 @@ export default function FinanceReportPage() {
                         <th>Status 1</th>
                         <th>Status 2</th>
                         <th>Order Status</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detailOrderInLoading && (
                         <tr>
-                          <td colSpan={9}>Loading order in data...</td>
+                          <td colSpan={10}>Loading order in data...</td>
                         </tr>
                       )}
                       {!detailOrderInLoading && detailOrderInRows.length === 0 && (
                         <tr>
-                          <td colSpan={9}>No order in data found for this migration.</td>
+                          <td colSpan={10}>No order in data found for this migration.</td>
                         </tr>
                       )}
                       {!detailOrderInLoading && detailOrderInRows.map((row) => {
@@ -563,6 +817,20 @@ export default function FinanceReportPage() {
                             <td>{statusBadge(row.finance_1_status || '')}</td>
                             <td>{statusBadge(row.finance_2_status || '')}</td>
                             <td>{statusBadge(row.order_result_status || '')}</td>
+                            <td className="action-cell">
+                              <button
+                                type="button"
+                                className="btn-ghost"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+                                onClick={() => setSelectedOrderInRow(row)}
+                              >
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                                  <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
+                                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                                </svg>
+                                View
+                              </button>
+                            </td>
                           </tr>
                         )
                       })}
@@ -584,49 +852,197 @@ export default function FinanceReportPage() {
               </div>
 
               <div className="card">
-                <h3>Order Information</h3>
-                <DetailTable
-                  rows={[
-                    { label: 'Pooling Number', value: item.pooling_number || '-' },
-                    { label: 'Pooling Date', value: formatDateTime(item.pooling_at) },
-                    { label: 'Result Date', value: formatDateTime(item.result_at) },
-                    { label: 'Created At', value: formatDateTime(item.order_created_at) },
-                    { label: 'Updated At', value: formatDateTime(item.order_updated_at) },
-                    { label: 'Dealer', value: item.dealer_name || '-' },
-                    { label: 'Consumer Name', value: item.consumer_name || '-' },
-                    { label: 'Consumer Phone', value: item.consumer_phone || '-' },
-                    { label: 'Location', value: locationText },
-                    { label: 'Job', value: item.job_name || '-' },
-                    { label: 'Motor Type / OTR', value: motorOtrText },
-                    { label: 'DP Gross', value: formatRupiah(Number(item.dp_gross || 0)) },
-                    { label: 'DP Paid', value: formatRupiah(Number(item.dp_paid || 0)) },
-                    { label: 'DP Percentage', value: `${Number(item.dp_pct || 0).toFixed(2)}%` },
-                    { label: 'Tenor', value: `${Number(item.tenor || 0)} months` },
-                    { label: 'Order Status', value: statusBadge(item.order_result_status || '') },
-                    { label: 'Order Notes', value: item.order_result_notes || '-' },
-                  ]}
-                />
-              </div>
+                <h3>Finance Result Summary</h3>
+                {detailFinanceSummaryError && <div className="alert" style={{ marginTop: 10 }}>{detailFinanceSummaryError}</div>}
+                {detailFinanceSummaryLoading && <div className="muted" style={{ marginTop: 10 }}>Loading summary...</div>}
 
-              <div className="card">
-                <h3>Finance Result</h3>
-                <DetailTable
-                  rows={[
-                    { label: 'Finance 1', value: item.finance_1_name || '-' },
-                    { label: 'Status 1', value: statusBadge(item.finance_1_status) },
-                    { label: 'Decision At 1', value: formatDateTime(item.finance_1_decision_at) },
-                    { label: 'Notes Finance 1', value: item.finance_1_notes || '-' },
-                    { label: 'Finance 2', value: item.finance_2_name || '-' },
-                    { label: 'Status 2', value: statusBadge(item.finance_2_status) },
-                    { label: 'Decision At 2', value: formatDateTime(item.finance_2_decision_at) },
-                    { label: 'Notes Finance 2', value: item.finance_2_notes || '-' },
-                  ]}
-                />
+                {!detailFinanceSummaryLoading && detailFinanceSummary && (
+                  <>
+                    <div
+                      style={{
+                        marginTop: 10,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                        <div className="muted" style={{ fontSize: 12 }}>Total Order Data</div>
+                        <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
+                      </div>
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                        <div className="muted" style={{ fontSize: 12 }}>Total Dealer</div>
+                        <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.totalDealers}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performence</div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="table" style={{ minWidth: 760 }}>
+                          <thead>
+                            <tr>
+                              <th>Total</th>
+                              <th>Approve</th>
+                              <th>Rejected</th>
+                              <th>Approve %</th>
+                              <th>Lead Avg</th>
+                              <th>Rescue FC2</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>{detailFinanceSummary.totalOrders}</td>
+                              <td>{detailFinanceSummary.approvedCount}</td>
+                              <td>{detailFinanceSummary.rejectedCount}</td>
+                              <td>{(detailFinanceSummary.approvalRate * 100).toFixed(1)}%</td>
+                              <td>{detailFinanceSummary.leadAvgSeconds != null ? `${detailFinanceSummary.leadAvgSeconds.toFixed(1)} s` : '-'}</td>
+                              <td>{detailFinanceSummary.rescueFc2}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 12,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 12,
+                      }}
+                      className="mobile-filter-grid"
+                    >
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Location Summary (Province)</div>
+                        <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
+                          {locationDonutSlices.length === 0 && <div className="muted">No location summary.</div>}
+                          {locationDonutSlices.length > 0 && (
+                            <>
+                              <div style={{ display: 'grid', placeItems: 'center' }}>
+                                <div style={{ width: 132, height: 132, borderRadius: '50%', background: locationDonutGradient, position: 'relative' }}>
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 18,
+                                      borderRadius: '50%',
+                                      background: '#fff',
+                                      display: 'grid',
+                                      placeItems: 'center',
+                                      textAlign: 'center',
+                                      border: '1px solid #e2e8f0',
+                                    }}
+                                  >
+                                    <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Location</div>
+                                    <div style={{ fontSize: 16, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
+                                {locationDonutSlices.map((slice) => (
+                                  <div key={`loc-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
+                                    <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
+                                    <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
+                                    <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
+                                    <div style={{ fontWeight: 700 }}>{slice.total}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Motor Type Summary</div>
+                        <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
+                          {motorTypeDonutSlices.length === 0 && <div className="muted">No motor type summary.</div>}
+                          {motorTypeDonutSlices.length > 0 && (
+                            <>
+                              <div style={{ display: 'grid', placeItems: 'center' }}>
+                                <div style={{ width: 132, height: 132, borderRadius: '50%', background: motorTypeDonutGradient, position: 'relative' }}>
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 18,
+                                      borderRadius: '50%',
+                                      background: '#fff',
+                                      display: 'grid',
+                                      placeItems: 'center',
+                                      textAlign: 'center',
+                                      border: '1px solid #e2e8f0',
+                                    }}
+                                  >
+                                    <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Motor Type</div>
+                                    <div style={{ fontSize: 16, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
+                                {motorTypeDonutSlices.map((slice) => (
+                                  <div key={`motor-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
+                                    <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
+                                    <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
+                                    <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
+                                    <div style={{ fontWeight: 700 }}>{slice.total}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
             </>
           )}
         </div>
+
+        {selectedOrderInRow && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Order In Detail" onClick={() => setSelectedOrderInRow(null)}>
+            <div className="modal" style={{ width: 'min(880px, 100%)' }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <h3>Order In Detail</h3>
+                <button className="btn-ghost" onClick={() => setSelectedOrderInRow(null)}>Close</button>
+              </div>
+              <DetailTable
+                wrapValue
+                rows={[
+                  { label: 'Pooling Number', value: selectedOrderInRow.pooling_number || '-' },
+                  { label: 'Pooling Date', value: formatDateTime(selectedOrderInRow.pooling_at) },
+                  { label: 'Result Date', value: formatDateTime(selectedOrderInRow.result_at) },
+                  { label: 'Created At', value: formatDateTime(selectedOrderInRow.order_created_at) },
+                  { label: 'Updated At', value: formatDateTime(selectedOrderInRow.order_updated_at) },
+                  { label: 'Dealer', value: selectedOrderInRow.dealer_name || '-' },
+                  { label: 'Consumer Name', value: selectedOrderInRow.consumer_name || '-' },
+                  { label: 'Consumer Phone', value: selectedOrderInRow.consumer_phone || '-' },
+                  { label: 'Location', value: modalLocationText },
+                  { label: 'Job', value: selectedOrderInRow.job_name || '-' },
+                  { label: 'Motor Type / OTR', value: modalMotorOtrText },
+                  { label: 'Installment', value: formatRupiah(Number(selectedOrderInRow.installment_amount || 0)) },
+                  { label: 'Net Income', value: formatRupiah(Number(selectedOrderInRow.net_income || 0)) },
+                  { label: 'DP Gross', value: formatRupiah(Number(selectedOrderInRow.dp_gross || 0)) },
+                  { label: 'DP Paid', value: formatRupiah(Number(selectedOrderInRow.dp_paid || 0)) },
+                  { label: 'DP Percentage', value: `${Number(selectedOrderInRow.dp_pct || 0).toFixed(2)}%` },
+                  { label: 'Tenor', value: `${Number(selectedOrderInRow.tenor || 0)} months` },
+                  { label: 'Order Status', value: statusBadge(selectedOrderInRow.order_result_status || '') },
+                  { label: 'Order Notes', value: selectedOrderInRow.order_result_notes || '-' },
+                  { label: 'Finance 1', value: selectedOrderInRow.finance_1_name || '-' },
+                  { label: 'Status 1', value: statusBadge(selectedOrderInRow.finance_1_status || '') },
+                  { label: 'Decision At 1', value: formatDateTime(selectedOrderInRow.finance_1_decision_at) },
+                  { label: 'Notes Finance 1', value: selectedOrderInRow.finance_1_notes || '-' },
+                  { label: 'Finance 2', value: selectedOrderInRow.finance_2_name || '-' },
+                  { label: 'Status 2', value: statusBadge(selectedOrderInRow.finance_2_status || '') },
+                  { label: 'Decision At 2', value: formatDateTime(selectedOrderInRow.finance_2_decision_at) },
+                  { label: 'Notes Finance 2', value: selectedOrderInRow.finance_2_notes || '-' },
+                ]}
+              />
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -704,79 +1120,39 @@ export default function FinanceReportPage() {
           {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
           <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
-            <table className="table" style={{ minWidth: 3380, tableLayout: 'auto' }}>
+            <table className="table" style={{ minWidth: 1120, tableLayout: 'fixed' }}>
               <thead>
                 <tr>
                   <th style={{ width: 56 }}>No</th>
-                  <th style={{ width: 160 }}>Finance 2</th>
-                  <th style={{ width: 130 }}>Status Finance 2</th>
-                  <th style={{ width: 240 }}>Keterangan Finance 2</th>
-                  <th style={{ width: 150 }}>Pooling Number</th>
-                  <th style={{ width: 180 }}>Pooling Date</th>
-                  <th style={{ width: 190 }}>Nama Konsumen</th>
-                  <th style={{ width: 500 }}>Alamat Konsumen</th>
-                  <th style={{ width: 190 }}>Nama Dealer</th>
-                  <th style={{ width: 420 }}>Area Dealer</th>
-                  <th style={{ width: 240 }}>Tipe Motor</th>
-                  <th style={{ width: 180 }}>OTR</th>
-                  <th style={{ width: 180 }}>Angsuran</th>
-                  <th style={{ width: 180 }}>Net Income</th>
-                  <th style={{ width: 160 }}>Finance 1</th>
-                  <th style={{ width: 130 }}>Status Finance 1</th>
-                  <th style={{ width: 220 }}>Keterangan Finance 1</th>
-                  <th style={{ width: 120 }}>Action</th>
+                  <th style={{ width: 130 }}>Finance 2</th>
+                  <th style={{ width: 120 }}>Status Finance 2</th>
+                  <th style={{ width: 200 }}>Keterangan Finance 2</th>
+                  <th style={{ width: 100 }}>Total Data</th>
+                  <th style={{ width: 130 }}>Finance 1</th>
+                  <th style={{ width: 120 }}>Status Finance 1</th>
+                  <th style={{ width: 200 }}>Keterangan Finance 1</th>
+                  <th style={{ width: 96 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={18}>No finance migration data.</td>
+                    <td colSpan={9}>No finance migration data.</td>
                   </tr>
                 )}
                 {rows.map((item, idx) => {
                   const rowNumber = (page - 1) * limit + idx + 1
-                  const namedLocation = locationNamesByOrderId[item.order_id]
-                  const consumerAddress = [
-                    namedLocation?.province || item.province || '-',
-                    namedLocation?.regency || item.regency || '-',
-                    namedLocation?.district || item.district || '-',
-                    item.village || '-',
-                    item.address || '-',
-                  ]
-                    .map((it) => String(it || '').trim())
-                    .filter(Boolean)
-                    .join(', ')
-                  const dealerArea = [
-                    item.dealer_province || '-',
-                    item.dealer_regency || '-',
-                    item.dealer_district || '-',
-                    item.dealer_village || '-',
-                    item.dealer_address || '-',
-                  ]
-                    .map((it) => String(it || '').trim())
-                    .filter(Boolean)
-                    .join(', ')
-                  const motorTypeCombined = `${item.motor_type_name || '-'} | ${formatRupiah(Number(item.otr || 0))}`
 
                   return (
                     <tr key={`${item.order_id}-${idx}`}>
                       <td>{rowNumber}</td>
-                      <td title={item.finance_2_name || '-'}>{item.finance_2_name || '-'}</td>
+                      <td title={item.finance_2_name || '-'}>{truncateTableText(item.finance_2_name)}</td>
                       <td>{statusBadge(item.finance_2_status)}</td>
-                      <td title={item.finance_2_notes || '-'}>{item.finance_2_notes || '-'}</td>
-                      <td title={item.pooling_number || '-'}>{item.pooling_number || '-'}</td>
-                      <td title={formatDateTime(item.pooling_at)}>{formatDateTime(item.pooling_at)}</td>
-                      <td title={item.consumer_name || '-'}>{item.consumer_name || '-'}</td>
-                      <td title={consumerAddress || '-'}>{consumerAddress || '-'}</td>
-                      <td title={item.dealer_name || '-'}>{item.dealer_name || '-'}</td>
-                      <td title={dealerArea || '-'}>{dealerArea || '-'}</td>
-                      <td title={motorTypeCombined}>{motorTypeCombined}</td>
-                      <td title={formatRupiah(Number(item.otr || 0))}>{formatRupiah(Number(item.otr || 0))}</td>
-                      <td title={formatRupiah(Number(item.installment_amount || 0))}>{formatRupiah(Number(item.installment_amount || 0))}</td>
-                      <td title={formatRupiah(Number(item.net_income || 0))}>{formatRupiah(Number(item.net_income || 0))}</td>
-                      <td title={item.finance_1_name || '-'}>{item.finance_1_name || '-'}</td>
+                      <td title={item.finance_2_notes || '-'}>{truncateTableText(item.finance_2_notes)}</td>
+                      <td>{Number(item.transition_total_data || 0)}</td>
+                      <td title={item.finance_1_name || '-'}>{truncateTableText(item.finance_1_name)}</td>
                       <td>{statusBadge(item.finance_1_status)}</td>
-                      <td title={item.finance_1_notes || '-'}>{item.finance_1_notes || '-'}</td>
+                      <td title={item.finance_1_notes || '-'}>{truncateTableText(item.finance_1_notes)}</td>
                       <td className="action-cell">
                         <button
                           type="button"
