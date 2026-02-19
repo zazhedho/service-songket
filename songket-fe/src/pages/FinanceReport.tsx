@@ -79,6 +79,7 @@ type DonutSlice = SummaryBucket & {
 type DetailFinanceSummary = {
   totalOrders: number
   totalDealers: number
+  dealerCoveragePercent: number
   approvedCount: number
   rejectedCount: number
   approvalRate: number
@@ -192,6 +193,7 @@ function buildDetailFinanceSummary(rows: FinanceMigrationRow[], provinceNameMap:
   return {
     totalOrders,
     totalDealers: dealerSet.size,
+    dealerCoveragePercent: totalOrders > 0 ? (dealerSet.size / totalOrders) * 100 : 0,
     approvedCount,
     rejectedCount,
     approvalRate: totalOrders > 0 ? approvedCount / totalOrders : 0,
@@ -862,7 +864,7 @@ export default function FinanceReportPage() {
                       style={{
                         marginTop: 10,
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                         gap: 10,
                       }}
                     >
@@ -873,6 +875,11 @@ export default function FinanceReportPage() {
                       <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
                         <div className="muted" style={{ fontSize: 12 }}>Total Dealer</div>
                         <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.totalDealers}</div>
+                      </div>
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                        <div className="muted" style={{ fontSize: 12 }}>Dealer Coverage</div>
+                        <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.dealerCoveragePercent.toFixed(1)}%</div>
+                        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Unique dealer / total order data</div>
                       </div>
                     </div>
 
