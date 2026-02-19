@@ -782,7 +782,6 @@ export default function FinanceReportPage() {
                         <th>Motor / OTR</th>
                         <th>Status 1</th>
                         <th>Status 2</th>
-                        <th>Order Status</th>
                         <th>Action</th>
                       </tr>
                     </thead>
@@ -818,7 +817,6 @@ export default function FinanceReportPage() {
                             <td>{rowMotorOtrText}</td>
                             <td>{statusBadge(row.finance_1_status || '')}</td>
                             <td>{statusBadge(row.finance_2_status || '')}</td>
-                            <td>{statusBadge(row.order_result_status || '')}</td>
                             <td className="action-cell">
                               <button
                                 type="button"
