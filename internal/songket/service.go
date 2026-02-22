@@ -1196,6 +1196,8 @@ type FinanceMigrationReportItem struct {
 	Finance2Name      string     `gorm:"column:finance_2_name" json:"finance_2_name"`
 	Finance2Status    string     `gorm:"column:finance_2_status" json:"finance_2_status"`
 	Finance2Notes     string     `gorm:"column:finance_2_notes" json:"finance_2_notes"`
+	TotalApproveFc2   int        `gorm:"column:total_approve_finance_2" json:"total_approve_finance_2"`
+	TotalRejectFc2    int        `gorm:"column:total_reject_finance_2" json:"total_reject_finance_2"`
 	OrderCreatedAt    time.Time  `gorm:"column:order_created_at" json:"order_created_at"`
 	OrderUpdatedAt    time.Time  `gorm:"column:order_updated_at" json:"order_updated_at"`
 	Finance1Decision  time.Time  `gorm:"column:finance_1_decision_at" json:"finance_1_decision_at"`
@@ -1423,6 +1425,204 @@ func (s *Service) ListFinanceMigrationReport(params filter.BaseParams, month, ye
 			a1.created_at AS finance_1_decision_at,
 			COALESCE(a2.created_at, o2a1.created_at, o2.created_at, o.updated_at) AS finance_2_decision_at
 		`, month, month, year, year).
+		Order(fmt.Sprintf("%s %s", orderColumn, orderDirection)).
+		Offset(params.Offset).
+		Limit(params.Limit).
+		Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return rows, total, nil
+}
+
+// ListFinanceMigrationReportGroupedByFinance2 returns grouped rows by finance 2 company for list table.
+func (s *Service) ListFinanceMigrationReportGroupedByFinance2(params filter.BaseParams, month, year int) ([]FinanceMigrationReportItem, int64, error) {
+	baseQuery := s.db.
+		Table("orders o").
+		Joins(`
+			JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a1 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o.id AND a.attempt_no = 2
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) a2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					o2.id AS order_id,
+					o2.result_status,
+					o2.result_notes,
+					o2.created_at
+				FROM orders o2
+				WHERE o2.deleted_at IS NULL
+					AND o2.pooling_number = o.pooling_number
+					AND o2.dealer_id = o.dealer_id
+					AND o2.id <> o.id
+				ORDER BY o2.created_at ASC, o2.id ASC
+				LIMIT 1
+			) o2 ON TRUE
+		`).
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT
+					a.order_id,
+					a.finance_company_id,
+					LOWER(a.status) AS status,
+					a.notes,
+					a.created_at
+				FROM order_finance_attempts a
+				WHERE a.order_id = o2.order_id AND a.attempt_no = 1
+				ORDER BY a.created_at DESC, a.id DESC
+				LIMIT 1
+			) o2a1 ON TRUE
+		`).
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc2 ON fc2.id = a2.finance_company_id AND fc2.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc2_clone ON fc2_clone.id = o2a1.finance_company_id AND fc2_clone.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("a1.status = ?", "reject").
+		Where("(a2.finance_company_id IS NOT NULL OR o2a1.finance_company_id IS NOT NULL)").
+		Where(`
+			NOT EXISTS (
+				SELECT 1
+				FROM orders prev
+				WHERE prev.deleted_at IS NULL
+					AND prev.pooling_number = o.pooling_number
+					AND prev.dealer_id = o.dealer_id
+					AND prev.id <> o.id
+					AND (
+						prev.created_at < o.created_at
+						OR (prev.created_at = o.created_at AND prev.id < o.id)
+					)
+			)
+		`)
+
+	if month > 0 {
+		baseQuery = baseQuery.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", month)
+	}
+	if year > 0 {
+		baseQuery = baseQuery.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", year)
+	}
+
+	if v, ok := params.Filters["dealer_id"]; ok {
+		dealerID := strings.TrimSpace(fmt.Sprint(v))
+		if dealerID != "" {
+			baseQuery = baseQuery.Where("o.dealer_id = ?", dealerID)
+		}
+	}
+	if v, ok := params.Filters["finance_1_company_id"]; ok {
+		finance1ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance1ID != "" {
+			baseQuery = baseQuery.Where("a1.finance_company_id = ?", finance1ID)
+		}
+	}
+	if v, ok := params.Filters["finance_2_company_id"]; ok {
+		finance2ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance2ID != "" {
+			baseQuery = baseQuery.Where("COALESCE(a2.finance_company_id, o2a1.finance_company_id) = ?", finance2ID)
+		}
+	}
+
+	if strings.TrimSpace(params.Search) != "" {
+		search := "%" + strings.ToLower(strings.TrimSpace(params.Search)) + "%"
+		baseQuery = baseQuery.Where(`
+			LOWER(o.pooling_number) LIKE ?
+			OR LOWER(o.consumer_name) LIKE ?
+			OR LOWER(o.consumer_phone) LIKE ?
+			OR LOWER(d.name) LIKE ?
+			OR LOWER(fc1.name) LIKE ?
+			OR LOWER(fc2.name) LIKE ?
+			OR LOWER(fc2_clone.name) LIKE ?
+			OR LOWER(mt.name) LIKE ?
+		`, search, search, search, search, search, search, search, search)
+	}
+
+	finance2StatusExpr := "COALESCE(NULLIF(a2.status, ''), NULLIF(o2a1.status, ''), LOWER(NULLIF(o2.result_status, '')), '-')"
+	finance2CompanyExpr := "COALESCE(a2.finance_company_id::text, o2a1.finance_company_id::text)"
+	finance2DecisionExpr := "COALESCE(a2.created_at, o2a1.created_at, o2.created_at, o.updated_at)"
+
+	groupedSubquery := baseQuery.Select(fmt.Sprintf(`
+		o.id AS order_id,
+		COALESCE(fc1.name, '-') AS finance_1_name,
+		COALESCE(a1.status, '-') AS finance_1_status,
+		COALESCE(fc2.name, fc2_clone.name, '-') AS finance_2_name,
+		%s AS finance_2_status,
+		%s AS finance_2_decision_at,
+		%s AS finance_2_company_id,
+		COUNT(1) OVER (PARTITION BY %s) AS transition_total_data,
+		SUM(CASE WHEN %s IN ('approve', 'approved', 'success') THEN 1 ELSE 0 END) OVER (PARTITION BY %s) AS total_approve_finance_2,
+		SUM(CASE WHEN %s IN ('reject', 'rejected', 'error') THEN 1 ELSE 0 END) OVER (PARTITION BY %s) AS total_reject_finance_2,
+		ROW_NUMBER() OVER (
+			PARTITION BY %s
+			ORDER BY %s DESC, o.created_at DESC, o.id DESC
+		) AS finance_2_rank
+	`, finance2StatusExpr, finance2DecisionExpr, finance2CompanyExpr, finance2CompanyExpr, finance2StatusExpr, finance2CompanyExpr, finance2StatusExpr, finance2CompanyExpr, finance2CompanyExpr, finance2DecisionExpr))
+
+	groupedQuery := s.db.Table("(?) AS grouped", groupedSubquery).
+		Where("grouped.finance_2_rank = 1")
+
+	var total int64
+	if err := groupedQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderByMap := map[string]string{
+		"finance_2_name":          "grouped.finance_2_name",
+		"finance_2_status":        "grouped.finance_2_status",
+		"finance_1_name":          "grouped.finance_1_name",
+		"finance_2_decision":      "grouped.finance_2_decision_at",
+		"total_data":              "grouped.transition_total_data",
+		"total_approve_finance_2": "grouped.total_approve_finance_2",
+		"total_reject_finance_2":  "grouped.total_reject_finance_2",
+		"last_status_finance_2":   "grouped.finance_2_status",
+	}
+	orderColumn, ok := orderByMap[strings.TrimSpace(params.OrderBy)]
+	if !ok || orderColumn == "" {
+		orderColumn = "grouped.finance_2_decision_at"
+	}
+
+	orderDirection := strings.ToUpper(strings.TrimSpace(params.OrderDirection))
+	if orderDirection != "ASC" {
+		orderDirection = "DESC"
+	}
+
+	rows := make([]FinanceMigrationReportItem, 0, params.Limit)
+	if err := groupedQuery.
+		Select(`
+			grouped.order_id AS order_id,
+			grouped.finance_1_name AS finance_1_name,
+			grouped.finance_1_status AS finance_1_status,
+			grouped.finance_2_name AS finance_2_name,
+			grouped.finance_2_status AS finance_2_status,
+			grouped.transition_total_data AS transition_total_data,
+			grouped.total_approve_finance_2 AS total_approve_finance_2,
+			grouped.total_reject_finance_2 AS total_reject_finance_2,
+			grouped.finance_2_decision_at AS finance_2_decision_at
+		`).
 		Order(fmt.Sprintf("%s %s", orderColumn, orderDirection)).
 		Offset(params.Offset).
 		Limit(params.Limit).

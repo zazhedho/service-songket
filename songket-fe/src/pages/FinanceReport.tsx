@@ -49,6 +49,8 @@ type FinanceMigrationRow = {
   finance_2_name: string
   finance_2_status: string
   finance_2_notes: string
+  total_approve_finance_2?: number
+  total_reject_finance_2?: number
   order_created_at?: string
   order_updated_at?: string
   finance_1_decision_at?: string
@@ -309,7 +311,7 @@ export default function FinanceReportPage() {
       const params: Record<string, unknown> = {
         page,
         limit,
-        order_by: 'pooling_at',
+        order_by: 'finance_2_decision',
         order_direction: 'desc',
       }
       const filters: Record<string, unknown> = {}
@@ -781,19 +783,21 @@ export default function FinanceReportPage() {
                         <th>Location</th>
                         <th>Motor / OTR</th>
                         <th>Status 1</th>
+                        <th>Keterangan Finance 1</th>
                         <th>Status 2</th>
+                        <th>Keterangan Finance 2</th>
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detailOrderInLoading && (
                         <tr>
-                          <td colSpan={10}>Loading order in data...</td>
+                          <td colSpan={11}>Loading order in data...</td>
                         </tr>
                       )}
                       {!detailOrderInLoading && detailOrderInRows.length === 0 && (
                         <tr>
-                          <td colSpan={10}>No order in data found for this migration.</td>
+                          <td colSpan={11}>No order in data found for this migration.</td>
                         </tr>
                       )}
                       {!detailOrderInLoading && detailOrderInRows.map((row) => {
@@ -816,7 +820,9 @@ export default function FinanceReportPage() {
                             <td>{rowLocationText}</td>
                             <td>{rowMotorOtrText}</td>
                             <td>{statusBadge(row.finance_1_status || '')}</td>
+                            <td title={row.finance_1_notes || '-'}>{truncateTableText(row.finance_1_notes || '-')}</td>
                             <td>{statusBadge(row.finance_2_status || '')}</td>
+                            <td title={row.finance_2_notes || '-'}>{truncateTableText(row.finance_2_notes || '-')}</td>
                             <td className="action-cell">
                               <button
                                 type="button"
@@ -1125,17 +1131,17 @@ export default function FinanceReportPage() {
           {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
           <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
-            <table className="table" style={{ minWidth: 1120, tableLayout: 'fixed' }}>
+            <table className="table" style={{ minWidth: 1280, tableLayout: 'fixed' }}>
               <thead>
                 <tr>
                   <th style={{ width: 56 }}>No</th>
-                  <th style={{ width: 130 }}>Finance 2</th>
-                  <th style={{ width: 120 }}>Status Finance 2</th>
-                  <th style={{ width: 200 }}>Keterangan Finance 2</th>
+                  <th style={{ width: 150 }}>Finance 2</th>
+                  <th style={{ width: 160 }}>Last Status Finance 2</th>
                   <th style={{ width: 100 }}>Total Data</th>
-                  <th style={{ width: 130 }}>Finance 1</th>
+                  <th style={{ width: 180 }}>Total Data Approve Finance 2</th>
+                  <th style={{ width: 180 }}>Total Data Reject Finance 2</th>
+                  <th style={{ width: 140 }}>Finance 1</th>
                   <th style={{ width: 120 }}>Status Finance 1</th>
-                  <th style={{ width: 200 }}>Keterangan Finance 1</th>
                   <th style={{ width: 96 }}>Action</th>
                 </tr>
               </thead>
@@ -1153,11 +1159,11 @@ export default function FinanceReportPage() {
                       <td>{rowNumber}</td>
                       <td title={item.finance_2_name || '-'}>{truncateTableText(item.finance_2_name)}</td>
                       <td>{statusBadge(item.finance_2_status)}</td>
-                      <td title={item.finance_2_notes || '-'}>{truncateTableText(item.finance_2_notes)}</td>
                       <td>{Number(item.transition_total_data || 0)}</td>
+                      <td>{Number(item.total_approve_finance_2 || 0)}</td>
+                      <td>{Number(item.total_reject_finance_2 || 0)}</td>
                       <td title={item.finance_1_name || '-'}>{truncateTableText(item.finance_1_name)}</td>
                       <td>{statusBadge(item.finance_1_status)}</td>
-                      <td title={item.finance_1_notes || '-'}>{truncateTableText(item.finance_1_notes)}</td>
                       <td className="action-cell">
                         <button
                           type="button"
