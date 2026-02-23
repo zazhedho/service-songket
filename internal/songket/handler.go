@@ -252,7 +252,13 @@ func (h *Handler) FinanceMigrationReport(ctx *gin.Context) {
 		year = parsedYear
 	}
 
-	data, total, err := h.svc.ListFinanceMigrationReport(params, month, year)
+	var data []FinanceMigrationReportItem
+	var total int64
+	if _, hasOrderIDFilter := params.Filters["order_id"]; hasOrderIDFilter {
+		data, total, err = h.svc.ListFinanceMigrationReport(params, month, year)
+	} else {
+		data, total, err = h.svc.ListFinanceMigrationReportGroupedByFinance2(params, month, year)
+	}
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
