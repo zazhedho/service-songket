@@ -91,6 +91,15 @@ type DetailFinanceSummary = {
   motorTypeTotals: SummaryBucket[]
 }
 
+type FinanceReportRouteState = {
+  row?: FinanceMigrationRow
+  context?: {
+    month?: string
+    year?: string
+    finance1?: string
+  }
+}
+
 function formatDateTime(value?: string) {
   if (!value) return '-'
   const d = new Date(value)
@@ -261,7 +270,9 @@ export default function FinanceReportPage() {
   const isDetail = Boolean(selectedId)
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_finance_dealers')
-  const stateRow = (location.state as any)?.row as FinanceMigrationRow | undefined
+  const routeState = (location.state as FinanceReportRouteState | undefined) || undefined
+  const stateRow = routeState?.row
+  const stateContext = routeState?.context
 
   const [rows, setRows] = useState<FinanceMigrationRow[]>([])
   const [detailRow, setDetailRow] = useState<FinanceMigrationRow | null>(null)
@@ -440,6 +451,9 @@ export default function FinanceReportPage() {
       order_by: 'pooling_at',
       order_direction: 'desc',
     }
+    if (stateContext?.month) params.month = Number(stateContext.month)
+    if (stateContext?.year) params.year = Number(stateContext.year)
+    if (stateContext?.finance1) params.filters = { finance_1_company_id: stateContext.finance1 }
     if (detailOrderInSearch.trim()) params.search = detailOrderInSearch.trim()
 
     listFinanceMigrationOrderInDetail(selectedId, params)
@@ -466,7 +480,17 @@ export default function FinanceReportPage() {
     return () => {
       mounted = false
     }
-  }, [canList, isDetail, selectedId, detailOrderInPage, detailOrderInLimit, detailOrderInSearch])
+  }, [
+    canList,
+    isDetail,
+    selectedId,
+    detailOrderInPage,
+    detailOrderInLimit,
+    detailOrderInSearch,
+    stateContext?.finance1,
+    stateContext?.month,
+    stateContext?.year,
+  ])
 
   useEffect(() => {
     if (detailOrderInPage > detailOrderInTotalPages) {
@@ -494,6 +518,9 @@ export default function FinanceReportPage() {
           order_by: 'pooling_at',
           order_direction: 'desc',
         }
+        if (stateContext?.month) params.month = Number(stateContext.month)
+        if (stateContext?.year) params.year = Number(stateContext.year)
+        if (stateContext?.finance1) params.filters = { finance_1_company_id: stateContext.finance1 }
         if (detailOrderInSearch.trim()) params.search = detailOrderInSearch.trim()
 
         const res = await listFinanceMigrationOrderInDetail(selectedId, params)
@@ -539,7 +566,7 @@ export default function FinanceReportPage() {
     return () => {
       mounted = false
     }
-  }, [canList, isDetail, selectedId, detailOrderInSearch])
+  }, [canList, isDetail, selectedId, detailOrderInSearch, stateContext?.finance1, stateContext?.month, stateContext?.year])
 
   const sourceRows = useMemo(() => {
     if (isDetail) {
@@ -1171,7 +1198,14 @@ export default function FinanceReportPage() {
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
                           onClick={() =>
                             navigate(`/finance-report/${item.order_id}`, {
-                              state: { row: item },
+                              state: {
+                                row: item,
+                                context: {
+                                  month,
+                                  year,
+                                  finance1,
+                                },
+                              },
                             })
                           }
                         >

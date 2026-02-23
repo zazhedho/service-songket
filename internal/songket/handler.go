@@ -285,9 +285,33 @@ func (h *Handler) FinanceMigrationOrderInDetail(ctx *gin.Context) {
 		return
 	}
 
-	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"finance_2_status"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"finance_1_company_id"})
 
-	data, total, err := h.svc.ListFinanceMigrationOrderInDetail(orderID, params)
+	month := 0
+	if rawMonth := strings.TrimSpace(ctx.Query("month")); rawMonth != "" {
+		parsedMonth, convErr := strconv.Atoi(rawMonth)
+		if convErr != nil || parsedMonth < 1 || parsedMonth > 12 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "month must be between 1 and 12"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		month = parsedMonth
+	}
+
+	year := 0
+	if rawYear := strings.TrimSpace(ctx.Query("year")); rawYear != "" {
+		parsedYear, convErr := strconv.Atoi(rawYear)
+		if convErr != nil || parsedYear < 1 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year must be a valid positive number"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		year = parsedYear
+	}
+
+	data, total, err := h.svc.ListFinanceMigrationOrderInDetail(orderID, params, month, year)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()

@@ -1633,11 +1633,9 @@ func (s *Service) ListFinanceMigrationReportGroupedByFinance2(params filter.Base
 	return rows, total, nil
 }
 
-// ListFinanceMigrationOrderInDetail returns order-in rows that match migration flow finance 1 reject -> finance 2.
-func (s *Service) ListFinanceMigrationOrderInDetail(anchorOrderID string, params filter.BaseParams) ([]FinanceMigrationReportItem, int64, error) {
+// ListFinanceMigrationOrderInDetail returns order-in rows grouped by the same finance 2 scope used in report list.
+func (s *Service) ListFinanceMigrationOrderInDetail(anchorOrderID string, params filter.BaseParams, month, year int) ([]FinanceMigrationReportItem, int64, error) {
 	type financeMigrationOrderInAnchor struct {
-		DealerID          string `gorm:"column:dealer_id"`
-		Finance1CompanyID string `gorm:"column:finance_1_company_id"`
 		Finance2CompanyID string `gorm:"column:finance_2_company_id"`
 	}
 
@@ -1695,8 +1693,6 @@ func (s *Service) ListFinanceMigrationOrderInDetail(anchorOrderID string, params
 		Where("o.id = ?", anchorOrderID).
 		Where("a1.status = ?", "reject").
 		Select(`
-			o.dealer_id AS dealer_id,
-			a1.finance_company_id::text AS finance_1_company_id,
 			COALESCE(a2.finance_company_id::text, o2a1.finance_company_id::text, '') AS finance_2_company_id
 		`).
 		Take(&anchor).Error; err != nil {
@@ -1706,18 +1702,23 @@ func (s *Service) ListFinanceMigrationOrderInDetail(anchorOrderID string, params
 		return nil, 0, err
 	}
 
-	if strings.TrimSpace(anchor.DealerID) == "" || strings.TrimSpace(anchor.Finance1CompanyID) == "" || strings.TrimSpace(anchor.Finance2CompanyID) == "" {
+	if strings.TrimSpace(anchor.Finance2CompanyID) == "" {
 		return []FinanceMigrationReportItem{}, 0, nil
 	}
 
 	reportParams := params
-	reportParams.Filters = map[string]interface{}{
-		"dealer_id":            anchor.DealerID,
-		"finance_1_company_id": anchor.Finance1CompanyID,
+	reportFilters := map[string]interface{}{
 		"finance_2_company_id": anchor.Finance2CompanyID,
 	}
+	if v, ok := params.Filters["finance_1_company_id"]; ok {
+		finance1ID := strings.TrimSpace(fmt.Sprint(v))
+		if finance1ID != "" {
+			reportFilters["finance_1_company_id"] = finance1ID
+		}
+	}
+	reportParams.Filters = reportFilters
 
-	return s.ListFinanceMigrationReport(reportParams, 0, 0)
+	return s.ListFinanceMigrationReport(reportParams, month, year)
 }
 
 // ListDealers returns dealers with pagination support.
