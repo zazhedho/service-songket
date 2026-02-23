@@ -87,9 +87,9 @@ func main() {
 	FailOnError(err, "Failed to open db")
 	defer sqlDb.Close()
 
-	if err := database.AutoMigrate(routes.DB); err != nil {
-		FailOnError(err, "Failed to automigrate")
-	}
+	//if err := database.AutoMigrate(routes.DB); err != nil {
+	//	FailOnError(err, "Failed to automigrate")
+	//}
 
 	songketService := songket.NewService(routes.DB)
 	newsCronScheduler := songket.NewNewsScrapeCronScheduler(songketService)
