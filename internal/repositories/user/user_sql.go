@@ -5,6 +5,7 @@ import (
 	domainuser "starter-kit/internal/domain/user"
 	interfaceuser "starter-kit/internal/interfaces/user"
 	"starter-kit/pkg/filter"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -21,11 +22,15 @@ func (r *repo) Store(m domainuser.Users) error {
 	return r.DB.Create(&m).Error
 }
 
-func (r *repo) GetByEmail(email string) (ret domainuser.Users, err error) {
-	if err = r.DB.Where("email = ?", email).First(&ret).Error; err != nil {
+func (r *repo) GetByEmail(email string) (domainuser.Users, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	var ret domainuser.Users
+	if err := r.DB.
+		Where("LOWER(email) = ?", email).
+		First(&ret).Error; err != nil {
 		return domainuser.Users{}, err
 	}
-
 	return ret, nil
 }
 
