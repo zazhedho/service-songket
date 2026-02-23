@@ -57,6 +57,14 @@ type AreaRow = {
   cells_by_motor: Record<string, WorksheetCell>
 }
 
+type MatrixDisplayRow = {
+  area_key: string
+  area_name: string
+  motor_type_id: string
+  motor_type_name: string
+  cell?: WorksheetCell
+}
+
 const EMPTY_WORKSHEET: WorksheetPayload = {
   areas: [],
   jobs_master: [],
@@ -106,7 +114,7 @@ export default function CreditPage() {
   const [motorSearch, setMotorSearch] = useState('')
 
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(5)
+  const [limit, setLimit] = useState(10)
 
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_credit')
@@ -221,7 +229,26 @@ export default function CreditPage() {
     return all.filter((item) => normalizeNeedle(item.motor_type_name).includes(needle))
   }, [filteredRows, motorSearch])
 
-  const matrixPagination = useMemo(() => paginate(filteredRows, page, limit), [filteredRows, page, limit])
+  const displayRows = useMemo(() => {
+    const motors = motorColumns.length > 0 ? motorColumns : [{ motor_type_id: '', motor_type_name: '-' }]
+    const rows: MatrixDisplayRow[] = []
+
+    for (const area of filteredRows) {
+      for (const motor of motors) {
+        rows.push({
+          area_key: area.area_key,
+          area_name: area.area_name,
+          motor_type_id: motor.motor_type_id,
+          motor_type_name: motor.motor_type_name,
+          cell: motor.motor_type_id ? area.cells_by_motor[motor.motor_type_id] : undefined,
+        })
+      }
+    }
+
+    return rows
+  }, [filteredRows, motorColumns])
+
+  const matrixPagination = useMemo(() => paginate(displayRows, page, limit), [displayRows, page, limit])
   useEffect(() => setPage(matrixPagination.safePage), [matrixPagination.safePage])
 
   const formatNumber = (value: number) =>
@@ -310,21 +337,17 @@ export default function CreditPage() {
                       </tr>
                     )}
 
-                    {matrixPagination.pageItems.map((area) => {
-                      const motors = motorColumns.length > 0 ? motorColumns : [{ motor_type_id: '', motor_type_name: '-' }]
-                      return motors.map((motor, idx) => {
-                        const cell = motor.motor_type_id ? area.cells_by_motor[motor.motor_type_id] : undefined
-                        const style = cell ? rateCellStyle(cell.capability_rate) : undefined
-                        return (
-                          <tr key={`${area.area_key}-${motor.motor_type_id || 'empty'}-${idx}`}>
-                            {idx === 0 && <td rowSpan={motors.length}>{area.area_name}</td>}
-                            <td>{motor.motor_type_name}</td>
-                            <td style={style}>{cell ? formatPercent(cell.capability_rate) : '-'}</td>
-                            <td>{motor.motor_type_name}</td>
-                            <td style={style}>{cell ? formatNumber(cell.program_suggestion) : '-'}</td>
-                          </tr>
-                        )
-                      })
+                    {matrixPagination.pageItems.map((row, idx) => {
+                      const style = row.cell ? rateCellStyle(row.cell.capability_rate) : undefined
+                      return (
+                        <tr key={`${row.area_key}-${row.motor_type_id || 'empty'}-${idx}`}>
+                          <td>{row.area_name}</td>
+                          <td>{row.motor_type_name}</td>
+                          <td style={style}>{row.cell ? formatPercent(row.cell.capability_rate) : '-'}</td>
+                          <td>{row.motor_type_name}</td>
+                          <td style={style}>{row.cell ? formatNumber(row.cell.program_suggestion) : '-'}</td>
+                        </tr>
+                      )
                     })}
                   </tbody>
                 </table>
