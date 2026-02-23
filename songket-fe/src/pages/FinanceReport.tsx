@@ -87,7 +87,7 @@ type DetailFinanceSummary = {
   approvalRate: number
   leadAvgSeconds: number | null
   rescueFc2: number
-  locationTotals: SummaryBucket[]
+  dealerTotals: SummaryBucket[]
   motorTypeTotals: SummaryBucket[]
 }
 
@@ -155,7 +155,7 @@ function buildDonutGradient(slices: DonutSlice[]) {
   return `conic-gradient(${segments.join(', ')})`
 }
 
-function buildDetailFinanceSummary(rows: FinanceMigrationRow[], provinceNameMap: Record<string, string> = {}): DetailFinanceSummary {
+function buildDetailFinanceSummary(rows: FinanceMigrationRow[]): DetailFinanceSummary {
   const validRows = Array.isArray(rows) ? rows : []
   const totalOrders = validRows.length
 
@@ -174,7 +174,7 @@ function buildDetailFinanceSummary(rows: FinanceMigrationRow[], provinceNameMap:
   let leadSumSeconds = 0
   let leadCount = 0
 
-  const locationCounter: Record<string, number> = {}
+  const dealerCounter: Record<string, number> = {}
   const motorTypeCounter: Record<string, number> = {}
 
   validRows.forEach((row) => {
@@ -193,9 +193,8 @@ function buildDetailFinanceSummary(rows: FinanceMigrationRow[], provinceNameMap:
       leadCount += 1
     }
 
-    const provinceCode = normalizeText(row.province)
-    const province = provinceNameMap[provinceCode] || provinceCode || '-'
-    locationCounter[province] = (locationCounter[province] || 0) + 1
+    const dealerName = normalizeText(row.dealer_name) || '-'
+    dealerCounter[dealerName] = (dealerCounter[dealerName] || 0) + 1
 
     const motorType = normalizeText(row.motor_type_name) || '-'
     motorTypeCounter[motorType] = (motorTypeCounter[motorType] || 0) + 1
@@ -210,7 +209,7 @@ function buildDetailFinanceSummary(rows: FinanceMigrationRow[], provinceNameMap:
     approvalRate: totalOrders > 0 ? approvedCount / totalOrders : 0,
     leadAvgSeconds: leadCount > 0 ? leadSumSeconds / leadCount : null,
     rescueFc2,
-    locationTotals: toTopBuckets(locationCounter),
+    dealerTotals: toTopBuckets(dealerCounter),
     motorTypeTotals: toTopBuckets(motorTypeCounter),
   }
 }
@@ -531,22 +530,8 @@ export default function FinanceReportPage() {
         nextPage += 1
       }
 
-      const provinceNameMap: Record<string, string> = {}
-      try {
-        const provinceRes = await fetchProvinces()
-        const provinceRaw = provinceRes?.data?.data || provinceRes?.data || []
-        const provinceList: OptionItem[] = Array.isArray(provinceRaw) ? provinceRaw : []
-        provinceList.forEach((province) => {
-          const code = normalizeText(province?.code)
-          const name = normalizeText(province?.name)
-          if (code && name) provinceNameMap[code] = name
-        })
-      } catch {
-        // use fallback province code when lookup failed
-      }
-
       if (!mounted) return
-      setDetailFinanceSummary(buildDetailFinanceSummary(collected, provinceNameMap))
+      setDetailFinanceSummary(buildDetailFinanceSummary(collected))
 
       if (nextPage <= totalPagesRemote) {
         setDetailFinanceSummaryError('Summary is partial due to data volume limit.')
@@ -716,9 +701,9 @@ export default function FinanceReportPage() {
     const modalMotorOtrText = selectedOrderInRow
       ? `${selectedOrderInRow.motor_type_name || '-'} | ${formatRupiah(Number(selectedOrderInRow.otr || 0))}`
       : '-'
-    const locationDonutSlices = buildDonutSlices(detailFinanceSummary?.locationTotals || [], 6)
+    const dealerDonutSlices = buildDonutSlices(detailFinanceSummary?.dealerTotals || [], 6)
     const motorTypeDonutSlices = buildDonutSlices(detailFinanceSummary?.motorTypeTotals || [], 6)
-    const locationDonutGradient = buildDonutGradient(locationDonutSlices)
+    const dealerDonutGradient = buildDonutGradient(dealerDonutSlices)
     const motorTypeDonutGradient = buildDonutGradient(motorTypeDonutSlices)
 
     return (
@@ -952,13 +937,13 @@ export default function FinanceReportPage() {
                       className="mobile-filter-grid"
                     >
                       <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Location Summary (Province)</div>
+                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Dealer Summary</div>
                         <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
-                          {locationDonutSlices.length === 0 && <div className="muted">No location summary.</div>}
-                          {locationDonutSlices.length > 0 && (
+                          {dealerDonutSlices.length === 0 && <div className="muted">No dealer summary.</div>}
+                          {dealerDonutSlices.length > 0 && (
                             <>
                               <div style={{ display: 'grid', placeItems: 'center' }}>
-                                <div style={{ width: 132, height: 132, borderRadius: '50%', background: locationDonutGradient, position: 'relative' }}>
+                                <div style={{ width: 132, height: 132, borderRadius: '50%', background: dealerDonutGradient, position: 'relative' }}>
                                   <div
                                     style={{
                                       position: 'absolute',
@@ -971,14 +956,14 @@ export default function FinanceReportPage() {
                                       border: '1px solid #e2e8f0',
                                     }}
                                   >
-                                    <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Location</div>
+                                    <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Dealer</div>
                                     <div style={{ fontSize: 16, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
                                   </div>
                                 </div>
                               </div>
                               <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                                {locationDonutSlices.map((slice) => (
-                                  <div key={`loc-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
+                                {dealerDonutSlices.map((slice) => (
+                                  <div key={`dealer-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
                                     <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
                                     <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
                                     <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
