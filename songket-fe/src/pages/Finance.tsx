@@ -32,6 +32,7 @@ const markerIcon = new L.Icon({
 
 type Option = { code: string; name: string }
 type DealerLocationNames = { province: string; regency: string; district: string }
+type CompanyLocationNames = { regency: string }
 
 type DealerForm = {
   name: string
@@ -168,6 +169,7 @@ export default function FinancePage() {
   const dealerKabupatenCacheRef = useRef<Record<string, Option[]>>({})
   const dealerKecamatanCacheRef = useRef<Record<string, Option[]>>({})
   const [dealerLocationNameMap, setDealerLocationNameMap] = useState<Record<string, DealerLocationNames>>({})
+  const [financeCompanyLocationNameMap, setFinanceCompanyLocationNameMap] = useState<Record<string, CompanyLocationNames>>({})
 
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
@@ -691,6 +693,55 @@ export default function FinancePage() {
       mounted = false
     }
   }, [dealers, provinces])
+
+  useEffect(() => {
+    let mounted = true
+
+    const resolveFinanceCompanyLocationNames = async () => {
+      if (!financeCompanies.length) {
+        if (mounted) setFinanceCompanyLocationNameMap({})
+        return
+      }
+
+      const kabupatenByProvince: Record<string, Option[]> = {}
+      const uniqueProvinceCodes = Array.from(
+        new Set(
+          financeCompanies
+            .map((company) => String(company?.province || '').trim())
+            .filter(Boolean),
+        ),
+      )
+
+      await Promise.all(
+        uniqueProvinceCodes.map(async (provinceCode) => {
+          kabupatenByProvince[provinceCode] = await fetchKabupatenByProvinceCode(provinceCode)
+        }),
+      )
+
+      const nextMap: Record<string, CompanyLocationNames> = {}
+      financeCompanies.forEach((company) => {
+        const companyID = String(company?.id || '').trim()
+        if (!companyID) return
+
+        const provinceCode = String(company?.province || '').trim()
+        const regencyCode = String(company?.regency || '').trim()
+        const regencyName = provinceCode
+          ? lookupOptionName(kabupatenByProvince[provinceCode] || [], regencyCode)
+          : lookupOptionName([], regencyCode)
+
+        nextMap[companyID] = {
+          regency: regencyName,
+        }
+      })
+
+      if (mounted) setFinanceCompanyLocationNameMap(nextMap)
+    }
+
+    void resolveFinanceCompanyLocationNames()
+    return () => {
+      mounted = false
+    }
+  }, [financeCompanies])
 
   const inferProvinceFromMasterByRegency = async (
     provinceOptions: Option[],
@@ -1923,7 +1974,7 @@ export default function FinancePage() {
                   {financeCompanies.map((company) => (
                     <tr key={company.id}>
                       <td>{company.name}</td>
-                      <td>{company.regency || '-'}</td>
+                      <td>{financeCompanyLocationNameMap[String(company.id)]?.regency || company.regency || '-'}</td>
                       <td>{company.phone || '-'}</td>
                       <td className="action-cell">
                         <ActionMenu

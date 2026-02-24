@@ -51,15 +51,19 @@ type MotorOption = {
   motor_type_name: string
 }
 
-type AreaRow = {
+type AreaJobRow = {
   area_key: string
   area_name: string
+  job_id: string
+  job_name: string
   cells_by_motor: Record<string, WorksheetCell>
 }
 
 type MatrixDisplayRow = {
   area_key: string
   area_name: string
+  job_id: string
+  job_name: string
   motor_type_id: string
   motor_type_name: string
   cell?: WorksheetCell
@@ -165,12 +169,9 @@ export default function CreditPage() {
   }, [areas])
 
   useEffect(() => {
-    if (jobOptions.length === 0) {
+    if (!selectedJobId) return
+    if (!jobOptions.some((opt) => opt.job_id === selectedJobId)) {
       setSelectedJobId('')
-      return
-    }
-    if (!selectedJobId || !jobOptions.some((opt) => opt.job_id === selectedJobId)) {
-      setSelectedJobId(jobOptions[0].job_id)
     }
   }, [jobOptions, selectedJobId])
 
@@ -186,28 +187,29 @@ export default function CreditPage() {
   }, [selectedJobId, selectedAreaKey, motorSearch])
 
   const filteredRows = useMemo(() => {
-    if (!selectedJobId) return [] as AreaRow[]
-
-    const out: AreaRow[] = []
+    const out: AreaJobRow[] = []
     for (const area of areas) {
       if (selectedAreaKey && area.area_key !== selectedAreaKey) continue
 
       const areaName = area.regency_name || area.regency_code || '-'
+      for (const matrixRow of area.matrix || []) {
+        const jobID = String(matrixRow?.job_id || '').trim()
+        if (selectedJobId && jobID !== selectedJobId) continue
 
-      const matrixRow = (area.matrix || []).find((row) => row.job_id === selectedJobId)
-      if (!matrixRow) continue
+        const cellsByMotor: Record<string, WorksheetCell> = {}
+        for (const cell of matrixRow.cells || []) {
+          if (!cell?.motor_type_id) continue
+          cellsByMotor[cell.motor_type_id] = cell
+        }
 
-      const cellsByMotor: Record<string, WorksheetCell> = {}
-      for (const cell of matrixRow.cells || []) {
-        if (!cell?.motor_type_id) continue
-        cellsByMotor[cell.motor_type_id] = cell
+        out.push({
+          area_key: area.area_key,
+          area_name: areaName,
+          job_id: jobID,
+          job_name: matrixRow?.job_name || jobID || '-',
+          cells_by_motor: cellsByMotor,
+        })
       }
-
-      out.push({
-        area_key: area.area_key,
-        area_name: areaName,
-        cells_by_motor: cellsByMotor,
-      })
     }
     return out
   }, [areas, selectedAreaKey, selectedJobId])
@@ -233,14 +235,16 @@ export default function CreditPage() {
     const motors = motorColumns.length > 0 ? motorColumns : [{ motor_type_id: '', motor_type_name: '-' }]
     const rows: MatrixDisplayRow[] = []
 
-    for (const area of filteredRows) {
+    for (const row of filteredRows) {
       for (const motor of motors) {
         rows.push({
-          area_key: area.area_key,
-          area_name: area.area_name,
+          area_key: row.area_key,
+          area_name: row.area_name,
+          job_id: row.job_id,
+          job_name: row.job_name,
           motor_type_id: motor.motor_type_id,
           motor_type_name: motor.motor_type_name,
-          cell: motor.motor_type_id ? area.cells_by_motor[motor.motor_type_id] : undefined,
+          cell: motor.motor_type_id ? row.cells_by_motor[motor.motor_type_id] : undefined,
         })
       }
     }
@@ -284,6 +288,7 @@ export default function CreditPage() {
                 <div>
                   <label htmlFor="credit-job-select">Select Pekerjaan</label>
                   <select id="credit-job-select" value={selectedJobId} onChange={(e) => setSelectedJobId(e.target.value)}>
+                    <option value="">Semua Pekerjaan</option>
                     {jobOptions.map((job) => (
                       <option key={job.job_id} value={job.job_id}>
                         {job.job_name}
@@ -320,6 +325,7 @@ export default function CreditPage() {
                   <thead>
                     <tr>
                       <th rowSpan={2}>Area</th>
+                      <th rowSpan={2}>Pekerjaan</th>
                       <th colSpan={2}>Credit Capability</th>
                       <th colSpan={2}>Program Suggestion</th>
                     </tr>
@@ -333,15 +339,16 @@ export default function CreditPage() {
                   <tbody>
                     {matrixPagination.pageItems.length === 0 && (
                       <tr>
-                        <td colSpan={5}>No data for current filter.</td>
+                        <td colSpan={6}>No data for current filter.</td>
                       </tr>
                     )}
 
                     {matrixPagination.pageItems.map((row, idx) => {
                       const style = row.cell ? rateCellStyle(row.cell.capability_rate) : undefined
                       return (
-                        <tr key={`${row.area_key}-${row.motor_type_id || 'empty'}-${idx}`}>
+                        <tr key={`${row.area_key}-${row.job_id || 'all'}-${row.motor_type_id || 'empty'}-${idx}`}>
                           <td>{row.area_name}</td>
+                          <td>{row.job_name || '-'}</td>
                           <td>{row.motor_type_name}</td>
                           <td style={style}>{row.cell ? formatPercent(row.cell.capability_rate) : '-'}</td>
                           <td>{row.motor_type_name}</td>
