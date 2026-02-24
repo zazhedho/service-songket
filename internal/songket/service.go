@@ -2916,18 +2916,8 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 	return results, nil
 }
 
-// CreditCapabilityWorksheet builds worksheet-style capability matrix based on Order In data.
+// CreditCapabilityWorksheet builds worksheet-style capability matrix based on net income and installment masters.
 func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (map[string]interface{}, error) {
-	type worksheetOrderAnchorRow struct {
-		JobID         string `gorm:"column:job_id"`
-		JobName       string `gorm:"column:job_name"`
-		MotorTypeID   string `gorm:"column:motor_type_id"`
-		MotorTypeName string `gorm:"column:motor_type_name"`
-		ProvinceCode  string `gorm:"column:province_code"`
-		ProvinceName  string `gorm:"column:province_name"`
-		RegencyCode   string `gorm:"column:regency_code"`
-		RegencyName   string `gorm:"column:regency_name"`
-	}
 	type worksheetJobIncomeRow struct {
 		JobID         string         `gorm:"column:job_id"`
 		JobName       string         `gorm:"column:job_name"`
@@ -3035,69 +3025,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		return area
 	}
 
-	// 1) Anchor matrix dimension from Order In rows to guarantee worksheet matches transactional data.
-	var anchors []worksheetOrderAnchorRow
-	if err := s.db.
-		Table("orders o").
-		Select(`
-			o.job_id AS job_id,
-			COALESCE(j.name, '') AS job_name,
-			o.motor_type_id AS motor_type_id,
-			COALESCE(mt.name, '') AS motor_type_name,
-			COALESCE(NULLIF(mt.province_code, ''), '') AS province_code,
-			COALESCE(NULLIF(mt.province_name, ''), NULLIF(o.province, ''), '') AS province_name,
-			COALESCE(NULLIF(mt.regency_code, ''), '') AS regency_code,
-			COALESCE(NULLIF(mt.regency_name, ''), NULLIF(o.regency, ''), '') AS regency_name
-		`).
-		Joins("LEFT JOIN jobs j ON j.id::text = NULLIF(TRIM(o.job_id::text), '') AND j.deleted_at IS NULL").
-		Joins("LEFT JOIN motor_types mt ON mt.id::text = NULLIF(TRIM(o.motor_type_id::text), '') AND mt.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
-		Where("NULLIF(TRIM(o.job_id::text), '') IS NOT NULL").
-		Where("NULLIF(TRIM(o.motor_type_id::text), '') IS NOT NULL").
-		Group(`
-			o.job_id, j.name,
-			o.motor_type_id, mt.name,
-			mt.province_code, mt.province_name,
-			mt.regency_code, mt.regency_name,
-			o.province, o.regency
-		`).
-		Scan(&anchors).Error; err != nil {
-		return nil, err
-	}
-
-	for _, row := range anchors {
-		jobID := strings.TrimSpace(row.JobID)
-		motorID := strings.TrimSpace(row.MotorTypeID)
-		if jobID == "" || motorID == "" {
-			continue
-		}
-		if strings.TrimSpace(row.RegencyCode) == "" && strings.TrimSpace(row.RegencyName) == "" {
-			continue
-		}
-		if !matchesArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName) {
-			continue
-		}
-
-		area := ensureArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName)
-		if _, exists := area.JobsByID[jobID]; !exists {
-			area.JobsByID[jobID] = CreditWorksheetJob{
-				JobID:     jobID,
-				JobName:   strings.TrimSpace(row.JobName),
-				NetIncome: 0,
-				Area:      area.RegencyName,
-			}
-		}
-		if _, exists := area.MotorsByID[motorID]; !exists {
-			area.MotorsByID[motorID] = CreditWorksheetMotor{
-				MotorTypeID:   motorID,
-				MotorTypeName: strings.TrimSpace(row.MotorTypeName),
-				Installment:   0,
-				Area:          area.RegencyName,
-			}
-		}
-	}
-
-	// 2) Lookup net income values from job master (with area-specific mapping and fallback by job).
+	// 1) Load net income by job and area coverage.
 	jobIncomeByArea := map[string]jobIncomeValue{}
 	jobIncomeByJob := map[string]jobIncomeValue{}
 	var jobRows []worksheetJobIncomeRow
@@ -3105,16 +3033,16 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		Table("job_net_incomes").
 		Select(`
 			job_net_incomes.job_id,
-			jobs.name AS job_name,
+			COALESCE(jobs.name, '') AS job_name,
 			job_net_incomes.net_income,
 			job_net_incomes.area_net_income
 		`).
-		Joins("JOIN jobs ON jobs.id = job_net_incomes.job_id").
+		Joins("JOIN jobs ON jobs.id = job_net_incomes.job_id AND jobs.deleted_at IS NULL").
 		Where("job_net_incomes.deleted_at IS NULL").
-		Where("jobs.deleted_at IS NULL").
 		Scan(&jobRows).Error; err != nil {
 		return nil, err
 	}
+
 	for _, row := range jobRows {
 		jobID := strings.TrimSpace(row.JobID)
 		if jobID == "" {
@@ -3129,6 +3057,26 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 
 		areas := decodeAreaNetIncome(row.AreaNetIncome)
 		for _, area := range areas {
+			if strings.TrimSpace(area.RegencyCode) == "" && strings.TrimSpace(area.RegencyName) == "" {
+				continue
+			}
+			if !matchesArea(area.ProvinceCode, area.ProvinceName, area.RegencyCode, area.RegencyName) {
+				continue
+			}
+			areaAgg := ensureArea(area.ProvinceCode, area.ProvinceName, area.RegencyCode, area.RegencyName)
+			if _, exists := areaAgg.JobsByID[jobID]; !exists {
+				jobName := strings.TrimSpace(row.JobName)
+				if jobName == "" {
+					jobName = jobID
+				}
+				areaAgg.JobsByID[jobID] = CreditWorksheetJob{
+					JobID:     jobID,
+					JobName:   jobName,
+					NetIncome: row.NetIncome,
+					Area:      areaAgg.RegencyName,
+				}
+			}
+
 			key := jobAreaKey(jobID, area.RegencyCode, area.RegencyName)
 			if key == strings.ToLower(jobID)+"|" {
 				continue
@@ -3140,7 +3088,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		}
 	}
 
-	// 3) Lookup installment values from motor + installment master (area-specific with fallback by motor id).
+	// 2) Load installment values from motor + installment master.
 	motorInstallmentByArea := map[string]motorInstallmentValue{}
 	motorInstallmentByID := map[string]motorInstallmentValue{}
 	var motorRows []worksheetMotorRow
@@ -3172,6 +3120,27 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		}
 		if _, ok := motorInstallmentByID[motorID]; !ok {
 			motorInstallmentByID[motorID] = value
+		}
+
+		if strings.TrimSpace(row.RegencyCode) == "" && strings.TrimSpace(row.RegencyName) == "" {
+			continue
+		}
+		if !matchesArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName) {
+			continue
+		}
+
+		area := ensureArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName)
+		if _, exists := area.MotorsByID[motorID]; !exists {
+			motorName := strings.TrimSpace(row.MotorTypeName)
+			if motorName == "" {
+				motorName = motorID
+			}
+			area.MotorsByID[motorID] = CreditWorksheetMotor{
+				MotorTypeID:   motorID,
+				MotorTypeName: motorName,
+				Installment:   row.Installment,
+				Area:          area.RegencyName,
+			}
 		}
 
 		key := motorAreaKey(motorID, row.RegencyCode, row.RegencyName)
