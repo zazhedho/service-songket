@@ -1229,11 +1229,8 @@ export default function FinancePage() {
                           value: `${(Number(dealerDetailMetrics.approval_rate || 0) * 100).toFixed(1)}%`,
                         },
                         {
-                          label: 'Lead Time Avg (s)',
-                          value:
-                            dealerDetailMetrics.lead_time_seconds_avg == null
-                              ? '-'
-                              : Number(dealerDetailMetrics.lead_time_seconds_avg).toFixed(1),
+                          label: 'Lead Time Avg (h)',
+                          value: formatLeadTimeHours(dealerDetailMetrics.lead_time_seconds_avg),
                         },
                         { label: 'Rescue FC2', value: Number(dealerDetailMetrics.rescue_approved_fc2 || 0) },
                         {
@@ -1252,7 +1249,7 @@ export default function FinancePage() {
                             <th>Finance Company</th>
                             <th>Total Orders</th>
                             <th>Approval Rate</th>
-                            <th>Lead Avg (s)</th>
+                            <th>Lead Avg (h)</th>
                             <th>Rescue FC2</th>
                           </tr>
                         </thead>
@@ -1262,7 +1259,7 @@ export default function FinancePage() {
                               <td>{item.finance_company_name || '-'}</td>
                               <td>{Number(item.total_orders || 0)}</td>
                               <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              <td>{item.lead_time_seconds_avg ? Number(item.lead_time_seconds_avg).toFixed(1) : '-'}</td>
+                              <td>{formatLeadTimeHours(item.lead_time_seconds_avg)}</td>
                               <td>{Number(item.rescue_approved_fc2 || 0)}</td>
                             </tr>
                           ))}
@@ -1792,7 +1789,7 @@ export default function FinancePage() {
                   <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
                     <Metric label="Total Order" value={metrics.total_orders} />
                     <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                    <Metric label="Lead Time Avg (s)" value={metrics.lead_time_seconds_avg ? metrics.lead_time_seconds_avg.toFixed(1) : '-'} />
+                    <Metric label="Lead Time Avg (h)" value={formatLeadTimeHours(metrics.lead_time_seconds_avg)} />
                     <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
                   </div>
                 )}
@@ -2354,6 +2351,13 @@ function formatDateTime(value?: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleString('en-US')
+}
+
+function formatLeadTimeHours(value: unknown) {
+  if (value === null || value === undefined || value === '') return '-'
+  const seconds = Number(value)
+  if (!Number.isFinite(seconds)) return '-'
+  return (seconds / 3600).toFixed(2)
 }
 
 function roundCoordinate(value: number) {
