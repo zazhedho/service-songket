@@ -17,6 +17,10 @@ type MenuItem = {
   order_index?: number
 }
 
+const FORCE_TOP_LEVEL_PATHS = new Set(['/business'])
+const ALWAYS_HIDDEN_MENU_PATHS = new Set(['/finance-report'])
+const LEGACY_BUSINESS_TAB_PATHS = new Set(['/dealer', '/finance'])
+
 function isMenuActive(pathname: string, menuPath?: string): boolean {
   const basePath = menuPathWithoutQuery(menuPath)
   if (!basePath) return false
@@ -198,8 +202,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       return menu
     })
 
+    const hasBusinessMenu = normalized.some((menu) => menuPathWithoutQuery(menu.path) === '/business')
+    const visibleMenus = normalized.filter((menu) => {
+      const menuPath = menuPathWithoutQuery(menu.path)
+      if (ALWAYS_HIDDEN_MENU_PATHS.has(menuPath)) return false
+      if (hasBusinessMenu && LEGACY_BUSINESS_TAB_PATHS.has(menuPath)) return false
+      return true
+    })
+
     const dedup = new Map<string, MenuItem>()
-    normalized.forEach((menu) => {
+    visibleMenus.forEach((menu) => {
       const key = menuPathWithoutQuery(menu.path)
       if (!key) return
 
@@ -215,7 +227,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       }
     })
 
-    return Array.from(dedup.values()).sort((a, b) => {
+    const dedupedMenus = Array.from(dedup.values())
+
+    return dedupedMenus.sort((a, b) => {
       const aOrder = Number(a.order_index ?? Number.MAX_SAFE_INTEGER)
       const bOrder = Number(b.order_index ?? Number.MAX_SAFE_INTEGER)
       if (aOrder !== bOrder) return aOrder - bOrder
@@ -235,7 +249,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const childrenByParent = new Map<string, MenuItem[]>()
     preparedMenus.forEach((menu) => {
       const parentID = menu.parent_id ? String(menu.parent_id) : ''
-      if (parentID && byID.has(parentID)) {
+      const menuPath = menuPathWithoutQuery(menu.path)
+      const forceTopLevel = FORCE_TOP_LEVEL_PATHS.has(menuPath)
+
+      if (parentID && byID.has(parentID) && !forceTopLevel) {
         const children = childrenByParent.get(parentID) || []
         children.push(menu)
         childrenByParent.set(parentID, children)

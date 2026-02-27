@@ -221,20 +221,26 @@ export default function OrdersPage() {
     if (!selectedId) return null
     return list.find((order) => order.id === selectedId) || (stateOrder?.id === selectedId ? stateOrder : null)
   }, [list, selectedId, stateOrder])
+  const selectedDealer = useMemo(() => {
+    const rows = Array.isArray(lookups?.dealers) ? lookups.dealers : []
+    return rows.find((dealer: any) => dealer.id === form.dealer_id) || null
+  }, [form.dealer_id, lookups?.dealers])
   const detailProvinceCode = selectedOrder?.province || ''
   const detailRegencyCode = selectedOrder?.regency || ''
 
   const filteredMotorTypes = useMemo(() => {
     const rows = Array.isArray(lookups?.motor_types) ? lookups.motor_types : []
-    if (!form.province && !form.regency) return rows
+    const dealerProvinceCode = `${selectedDealer?.province || ''}`.trim()
+    const dealerRegencyCode = `${selectedDealer?.regency || ''}`.trim()
+    if (!dealerProvinceCode && !dealerRegencyCode) return rows
     return rows.filter((motor: any) => {
       const provinceCode = `${motor?.province_code || ''}`.trim()
       const regencyCode = `${motor?.regency_code || ''}`.trim()
-      if (form.province && provinceCode !== form.province) return false
-      if (form.regency && regencyCode !== form.regency) return false
+      if (dealerProvinceCode && provinceCode !== dealerProvinceCode) return false
+      if (dealerRegencyCode && regencyCode !== dealerRegencyCode) return false
       return true
     })
-  }, [form.province, form.regency, lookups?.motor_types])
+  }, [lookups?.motor_types, selectedDealer])
 
   const applyOrderToForm = (order: any) => {
     const firstAttempt = getAttempt(order, 1)

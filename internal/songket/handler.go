@@ -102,6 +102,81 @@ func (h *Handler) DashboardOrders(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// GET /api/songket/dashboard/summary
+func (h *Handler) DashboardSummary(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+
+	req := DashboardSummaryQuery{
+		Area:             strings.TrimSpace(ctx.Query("area")),
+		DealerID:         strings.TrimSpace(ctx.Query("dealer_id")),
+		FinanceCompanyID: strings.TrimSpace(ctx.Query("finance_company_id")),
+		Date:             strings.TrimSpace(ctx.Query("date")),
+		From:             strings.TrimSpace(ctx.Query("from")),
+		To:               strings.TrimSpace(ctx.Query("to")),
+		Holidays:         strings.TrimSpace(ctx.Query("holidays")),
+	}
+
+	if rawMonth := strings.TrimSpace(ctx.Query("month")); rawMonth != "" {
+		parsedMonth, err := strconv.Atoi(rawMonth)
+		if err != nil || parsedMonth < 1 || parsedMonth > 12 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "month must be between 1 and 12"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		req.Month = parsedMonth
+	}
+	if rawYear := strings.TrimSpace(ctx.Query("year")); rawYear != "" {
+		parsedYear, err := strconv.Atoi(rawYear)
+		if err != nil || parsedYear < 1 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year must be a valid positive number"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		req.Year = parsedYear
+	}
+	if req.Date != "" {
+		if _, err := time.Parse("2006-01-02", req.Date); err != nil {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "date must use YYYY-MM-DD format"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	}
+	if req.From != "" {
+		if _, err := time.Parse("2006-01-02", req.From); err != nil {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "from must use YYYY-MM-DD format"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	}
+	if req.To != "" {
+		if _, err := time.Parse("2006-01-02", req.To); err != nil {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "to must use YYYY-MM-DD format"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	role := utils.InterfaceString(auth["role"])
+
+	data, err := h.svc.DashboardSummary(req, role, userID)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "success", logId, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 // PUT /api/songket/orders/:id
 func (h *Handler) UpdateOrder(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)

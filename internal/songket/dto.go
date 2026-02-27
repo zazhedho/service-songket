@@ -166,3 +166,15 @@ type DateRange struct {
 	From time.Time
 	To   time.Time
 }
+
+type DashboardSummaryQuery struct {
+	Area             string `form:"area"`
+	DealerID         string `form:"dealer_id"`
+	FinanceCompanyID string `form:"finance_company_id"`
+	Month            int    `form:"month"`
+	Year             int    `form:"year"`
+	Date             string `form:"date"`     // YYYY-MM-DD
+	From             string `form:"from"`     // YYYY-MM-DD
+	To               string `form:"to"`       // YYYY-MM-DD
+	Holidays         string `form:"holidays"` // comma-separated YYYY-MM-DD list
+}

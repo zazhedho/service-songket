@@ -55,15 +55,27 @@ export default function App() {
         <Route path="/master-settings" element={<Guarded><MasterSettingsPage /></Guarded>} />
         <Route path="/master-settings/form" element={<Guarded><MasterSettingsPage /></Guarded>} />
 
-        <Route path="/business" element={<Guarded><Navigate to="/finance" replace /></Guarded>} />
-        <Route path="/finance" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/finance/companies/create" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/business/summary" element={<Guarded><Navigate to="/business" replace /></Guarded>} />
+        <Route path="/business/migrations/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/business/finance" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/finance/companies/create" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/finance/companies/:id" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/finance/companies/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/dealer" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/dealer/dealers/create" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/dealer/dealers/:id" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/business/dealer/dealers/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
+
+        <Route path="/finance" element={<Guarded><Navigate to="/business/finance" replace /></Guarded>} />
+        <Route path="/finance/migrations/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/finance/companies/create" element={<Guarded><Navigate to="/business/finance/companies/create" replace /></Guarded>} />
         <Route path="/finance/companies/:id" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/finance-report" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/finance-report" element={<Guarded><Navigate to="/business" replace /></Guarded>} />
         <Route path="/finance-report/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
-        <Route path="/dealer" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/dealer/dealers/create" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/dealer" element={<Guarded><Navigate to="/business/dealer" replace /></Guarded>} />
+        <Route path="/dealer/dealers/create" element={<Guarded><Navigate to="/business/dealer/dealers/create" replace /></Guarded>} />
         <Route path="/dealer/dealers/:id" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/dealer/dealers/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
 

@@ -176,11 +176,26 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		resultAt = &rt
 	}
 
+	dealerID := strings.TrimSpace(req.DealerID)
+	if dealerID == "" {
+		if defaultDealerID := strings.TrimSpace(fmt.Sprint(utils.GetEnv("DEFAULT_DEALER_ID", ""))); defaultDealerID != "" {
+			dealerID = defaultDealerID
+		}
+	}
+	if dealerID == "" {
+		return Order{}, fmt.Errorf("dealer_id is required")
+	}
+
+	var dealer Dealer
+	if err := s.db.Select("id", "province", "regency").First(&dealer, "id = ?", dealerID).Error; err != nil {
+		return Order{}, fmt.Errorf("dealer not found")
+	}
+
 	var motor MotorType
 	if err := s.db.First(&motor, "id = ?", req.MotorTypeID).Error; err != nil {
 		return Order{}, fmt.Errorf("motor type not found")
 	}
-	if err := validateMotorTypeArea(motor, req.Province, req.Regency); err != nil {
+	if err := validateMotorTypeArea(motor, dealer.Province, dealer.Regency); err != nil {
 		return Order{}, err
 	}
 
@@ -195,7 +210,7 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		PoolingNumber: req.PoolingNumber,
 		PoolingAt:     poolingAt,
 		ResultAt:      resultAt,
-		DealerID:      req.DealerID,
+		DealerID:      dealerID,
 		ConsumerName:  req.ConsumerName,
 		ConsumerPhone: req.ConsumerPhone,
 		Province:      req.Province,
@@ -213,16 +228,6 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		ResultStatus:  strings.ToLower(req.ResultStatus),
 		ResultNotes:   req.ResultNotes,
 		CreatedBy:     createdBy,
-	}
-
-	// Optional default dealer id from env if not provided
-	if order.DealerID == "" {
-		if dealerId := utils.GetEnv("DEFAULT_DEALER_ID", "").(string); dealerId != "" {
-			order.DealerID = dealerId
-		}
-	}
-	if order.DealerID == "" {
-		return Order{}, fmt.Errorf("dealer_id is required")
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -421,7 +426,13 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 				order.OTR = motor.OTR
 			}
 		}
-		if err := validateMotorTypeArea(*selectedMotor, order.Province, order.Regency); err != nil {
+
+		var dealer Dealer
+		if err := s.db.Select("id", "province", "regency").First(&dealer, "id = ?", order.DealerID).Error; err != nil {
+			return Order{}, fmt.Errorf("dealer not found")
+		}
+
+		if err := validateMotorTypeArea(*selectedMotor, dealer.Province, dealer.Regency); err != nil {
 			return Order{}, err
 		}
 	}
@@ -692,6 +703,433 @@ func (s *Service) ListOrders(params filter.BaseParams, role, userId string) ([]O
 	}
 
 	return orders, total, nil
+}
+
+type dashboardSummaryRow struct {
+	PoolingAt          time.Time  `gorm:"column:pooling_at"`
+	ResultAt           *time.Time `gorm:"column:result_at"`
+	ResultStatus       string     `gorm:"column:result_status"`
+	DPPct              float64    `gorm:"column:dp_pct"`
+	JobName            string     `gorm:"column:job_name"`
+	MotorTypeName      string     `gorm:"column:motor_type_name"`
+	FinanceCompanyName string     `gorm:"column:finance_company_name"`
+}
+
+type dashboardMonthCount struct {
+	Year  int   `gorm:"column:year"`
+	Month int   `gorm:"column:month"`
+	Total int64 `gorm:"column:total"`
+}
+
+func (s *Service) buildDashboardSummaryBaseQuery(req DashboardSummaryQuery, role, userID string) *gorm.DB {
+	query := s.db.
+		Table("orders o").
+		Select(`
+			o.pooling_at,
+			o.result_at,
+			LOWER(COALESCE(o.result_status, '')) AS result_status,
+			COALESCE(o.dp_pct, 0) AS dp_pct,
+			COALESCE(NULLIF(j.name, ''), '-') AS job_name,
+			COALESCE(NULLIF(mt.name, ''), '-') AS motor_type_name,
+			COALESCE(NULLIF(fc1.name, ''), '-') AS finance_company_name
+		`).
+		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
+		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN order_finance_attempts a1 ON a1.order_id = o.id AND a1.attempt_no = 1").
+		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL")
+
+	if role == utils.RoleDealer {
+		query = query.Where("o.created_by = ?", userID)
+	}
+
+	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
+		query = query.Where("o.dealer_id = ?", dealerID)
+	}
+	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
+		query = query.Where("a1.finance_company_id = ?", financeCompanyID)
+	}
+	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
+		query = query.Where(
+			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
+			area,
+			area,
+		)
+	}
+
+	return query
+}
+
+func applyDashboardPeriodFilters(query *gorm.DB, req DashboardSummaryQuery) *gorm.DB {
+	if date := strings.TrimSpace(req.Date); date != "" {
+		query = query.Where("DATE(o.pooling_at) = ?", date)
+	}
+	if from := strings.TrimSpace(req.From); from != "" {
+		query = query.Where("DATE(o.pooling_at) >= ?", from)
+	}
+	if to := strings.TrimSpace(req.To); to != "" {
+		query = query.Where("DATE(o.pooling_at) <= ?", to)
+	}
+	if req.Month >= 1 && req.Month <= 12 {
+		query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", req.Month)
+	}
+	if req.Year > 0 {
+		query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
+	}
+	return query
+}
+
+func parseDashboardHolidaySet(rawValues ...string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, raw := range rawValues {
+		for _, token := range strings.Split(raw, ",") {
+			candidate := strings.TrimSpace(token)
+			if candidate == "" {
+				continue
+			}
+			parsed, err := time.Parse("2006-01-02", candidate)
+			if err != nil {
+				continue
+			}
+			out[parsed.Format("2006-01-02")] = struct{}{}
+		}
+	}
+	return out
+}
+
+func workingDaysInMonth(year, month int, holidays map[string]struct{}) int {
+	if year <= 0 || month < 1 || month > 12 {
+		return 0
+	}
+	totalDays := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	workingDays := 0
+	for day := 1; day <= totalDays; day++ {
+		current := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		if current.Weekday() == time.Sunday {
+			continue
+		}
+		if _, isHoliday := holidays[current.Format("2006-01-02")]; isHoliday {
+			continue
+		}
+		workingDays++
+	}
+	return workingDays
+}
+
+func parseYearMonthKey(key string) (year int, month int, ok bool) {
+	t, err := time.Parse("2006-01", strings.TrimSpace(key))
+	if err != nil {
+		return 0, 0, false
+	}
+	return t.Year(), int(t.Month()), true
+}
+
+func previousYearMonth(year, month int) (int, int) {
+	if month <= 1 {
+		return year - 1, 12
+	}
+	return year, month - 1
+}
+
+// DashboardSummary computes dashboard analytics and chart-ready aggregations.
+func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID string) (map[string]interface{}, error) {
+	baseQuery := s.buildDashboardSummaryBaseQuery(req, role, userID)
+	query := applyDashboardPeriodFilters(baseQuery, req)
+
+	var rows []dashboardSummaryRow
+	if err := query.Order("o.pooling_at ASC").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	totalOrders := int64(len(rows))
+	approvedOrders := int64(0)
+	leadTotalSeconds := 0.0
+	leadCount := int64(0)
+
+	dailyCounter := map[string]int64{}
+	monthlyCounter := map[string]int64{}
+	jobCounter := map[string]int64{}
+	productCounter := map[string]int64{}
+	financeCounter := map[string]int64{}
+
+	dpLabels := []string{
+		"<10%",
+		"10% - 12.5%",
+		"12.5% - 15%",
+		"15% - 20%",
+		"20% - 25%",
+		"25% - 30%",
+		"30% - 40%",
+		">=40%",
+	}
+	dpCounter := map[string]int64{}
+	for _, label := range dpLabels {
+		dpCounter[label] = 0
+	}
+
+	for _, row := range rows {
+		dateKey := row.PoolingAt.Format("2006-01-02")
+		monthKey := row.PoolingAt.Format("2006-01")
+		dailyCounter[dateKey]++
+		monthlyCounter[monthKey]++
+
+		jobLabel := strings.TrimSpace(row.JobName)
+		if jobLabel == "" {
+			jobLabel = "-"
+		}
+		jobCounter[jobLabel]++
+
+		productLabel := strings.TrimSpace(row.MotorTypeName)
+		if productLabel == "" {
+			productLabel = "-"
+		}
+		productCounter[productLabel]++
+
+		financeLabel := strings.TrimSpace(row.FinanceCompanyName)
+		if financeLabel == "" {
+			financeLabel = "-"
+		}
+		financeCounter[financeLabel]++
+
+		if row.ResultStatus == "approve" {
+			approvedOrders++
+		}
+		if row.ResultAt != nil {
+			if row.ResultAt.After(row.PoolingAt) {
+				leadTotalSeconds += row.ResultAt.Sub(row.PoolingAt).Seconds()
+				leadCount++
+			}
+		}
+
+		dp := row.DPPct
+		switch {
+		case dp < 10:
+			dpCounter["<10%"]++
+		case dp < 12.5:
+			dpCounter["10% - 12.5%"]++
+		case dp < 15:
+			dpCounter["12.5% - 15%"]++
+		case dp < 20:
+			dpCounter["15% - 20%"]++
+		case dp < 25:
+			dpCounter["20% - 25%"]++
+		case dp < 30:
+			dpCounter["25% - 30%"]++
+		case dp < 40:
+			dpCounter["30% - 40%"]++
+		default:
+			dpCounter[">=40%"]++
+		}
+	}
+
+	approvalRate := 0.0
+	if totalOrders > 0 {
+		approvalRate = float64(approvedOrders) / float64(totalOrders)
+	}
+	leadAvgSeconds := 0.0
+	if leadCount > 0 {
+		leadAvgSeconds = leadTotalSeconds / float64(leadCount)
+	}
+
+	dailyKeys := make([]string, 0, len(dailyCounter))
+	for key := range dailyCounter {
+		dailyKeys = append(dailyKeys, key)
+	}
+	sort.Strings(dailyKeys)
+	dailySeries := make([]map[string]interface{}, 0, len(dailyKeys))
+	for _, key := range dailyKeys {
+		dailySeries = append(dailySeries, map[string]interface{}{
+			"date":  key,
+			"total": dailyCounter[key],
+		})
+	}
+
+	holidayEnv := strings.TrimSpace(fmt.Sprint(utils.GetEnv("DASHBOARD_HOLIDAYS", "")))
+	holidaySet := parseDashboardHolidaySet(holidayEnv, req.Holidays)
+
+	monthlyKeys := make([]string, 0, len(monthlyCounter))
+	for key := range monthlyCounter {
+		monthlyKeys = append(monthlyKeys, key)
+	}
+	sort.Strings(monthlyKeys)
+	if len(monthlyKeys) > 12 {
+		monthlyKeys = monthlyKeys[len(monthlyKeys)-12:]
+	}
+	monthlySeries := make([]map[string]interface{}, 0, len(monthlyKeys))
+	for _, key := range monthlyKeys {
+		year, month, ok := parseYearMonthKey(key)
+		workingDays := 0
+		if ok {
+			workingDays = workingDaysInMonth(year, month, holidaySet)
+		}
+		if workingDays <= 0 {
+			workingDays = 1
+		}
+		total := monthlyCounter[key]
+		avgDaily := float64(total) / float64(workingDays)
+		monthlySeries = append(monthlySeries, map[string]interface{}{
+			"month":        key,
+			"total":        total,
+			"working_days": workingDays,
+			"avg_daily":    avgDaily,
+		})
+	}
+
+	type proportionItem struct {
+		Label string
+		Total int64
+	}
+	buildProportions := func(counter map[string]int64) []map[string]interface{} {
+		items := make([]proportionItem, 0, len(counter))
+		for label, total := range counter {
+			if total <= 0 {
+				continue
+			}
+			items = append(items, proportionItem{Label: label, Total: total})
+		}
+		sort.Slice(items, func(i, j int) bool {
+			if items[i].Total != items[j].Total {
+				return items[i].Total > items[j].Total
+			}
+			return strings.ToLower(items[i].Label) < strings.ToLower(items[j].Label)
+		})
+		result := make([]map[string]interface{}, 0, len(items))
+		for _, item := range items {
+			percent := 0.0
+			if totalOrders > 0 {
+				percent = (float64(item.Total) / float64(totalOrders)) * 100
+			}
+			result = append(result, map[string]interface{}{
+				"label":   item.Label,
+				"total":   item.Total,
+				"percent": percent,
+			})
+		}
+		return result
+	}
+
+	dpSeries := make([]map[string]interface{}, 0, len(dpLabels))
+	for _, label := range dpLabels {
+		total := dpCounter[label]
+		percent := 0.0
+		if totalOrders > 0 {
+			percent = (float64(total) / float64(totalOrders)) * 100
+		}
+		dpSeries = append(dpSeries, map[string]interface{}{
+			"label":   label,
+			"total":   total,
+			"percent": percent,
+		})
+	}
+
+	growthQuery := s.buildDashboardSummaryBaseQuery(req, role, userID)
+	var growthRows []dashboardMonthCount
+	if err := growthQuery.
+		Select(`
+			EXTRACT(YEAR FROM o.pooling_at)::int AS year,
+			EXTRACT(MONTH FROM o.pooling_at)::int AS month,
+			COUNT(*) AS total
+		`).
+		Group("EXTRACT(YEAR FROM o.pooling_at), EXTRACT(MONTH FROM o.pooling_at)").
+		Scan(&growthRows).Error; err != nil {
+		return nil, err
+	}
+	growthMap := map[string]int64{}
+	for _, row := range growthRows {
+		if row.Year <= 0 || row.Month < 1 || row.Month > 12 {
+			continue
+		}
+		key := fmt.Sprintf("%04d-%02d", row.Year, row.Month)
+		growthMap[key] = row.Total
+	}
+
+	targetYear := 0
+	targetMonth := 0
+	if req.Year > 0 && req.Month >= 1 && req.Month <= 12 {
+		targetYear = req.Year
+		targetMonth = req.Month
+	}
+	if targetYear == 0 {
+		if dateRaw := strings.TrimSpace(req.Date); dateRaw != "" {
+			if parsed, err := time.Parse("2006-01-02", dateRaw); err == nil {
+				targetYear = parsed.Year()
+				targetMonth = int(parsed.Month())
+			}
+		}
+	}
+	if targetYear == 0 {
+		if toRaw := strings.TrimSpace(req.To); toRaw != "" {
+			if parsed, err := time.Parse("2006-01-02", toRaw); err == nil {
+				targetYear = parsed.Year()
+				targetMonth = int(parsed.Month())
+			}
+		}
+	}
+	if targetYear == 0 && len(monthlyKeys) > 0 {
+		if year, month, ok := parseYearMonthKey(monthlyKeys[len(monthlyKeys)-1]); ok {
+			targetYear = year
+			targetMonth = month
+		}
+	}
+	if targetYear == 0 && len(growthRows) > 0 {
+		latest := growthRows[0]
+		for _, row := range growthRows {
+			if row.Year > latest.Year || (row.Year == latest.Year && row.Month > latest.Month) {
+				latest = row
+			}
+		}
+		targetYear = latest.Year
+		targetMonth = latest.Month
+	}
+
+	growth := 0.0
+	avgOrderDailyM := 0.0
+	avgOrderDailyPrev := 0.0
+	growthMonthKey := ""
+	prevGrowthMonthKey := ""
+	if targetYear > 0 && targetMonth >= 1 && targetMonth <= 12 {
+		prevYear, prevMonth := previousYearMonth(targetYear, targetMonth)
+		growthMonthKey = fmt.Sprintf("%04d-%02d", targetYear, targetMonth)
+		prevGrowthMonthKey = fmt.Sprintf("%04d-%02d", prevYear, prevMonth)
+
+		currentWorkingDays := workingDaysInMonth(targetYear, targetMonth, holidaySet)
+		if currentWorkingDays <= 0 {
+			currentWorkingDays = 1
+		}
+		prevWorkingDays := workingDaysInMonth(prevYear, prevMonth, holidaySet)
+		if prevWorkingDays <= 0 {
+			prevWorkingDays = 1
+		}
+
+		currentTotal := growthMap[growthMonthKey]
+		prevTotal := growthMap[prevGrowthMonthKey]
+		avgOrderDailyM = float64(currentTotal) / float64(currentWorkingDays)
+		avgOrderDailyPrev = float64(prevTotal) / float64(prevWorkingDays)
+		if avgOrderDailyPrev > 0 {
+			growth = (avgOrderDailyM / avgOrderDailyPrev) - 1
+		}
+	}
+
+	return map[string]interface{}{
+		"total_orders":               totalOrders,
+		"approved_orders":            approvedOrders,
+		"approval_rate":              approvalRate,
+		"lead_time_avg_seconds":      leadAvgSeconds,
+		"lead_time_avg_hours":        leadAvgSeconds / 3600,
+		"growth":                     growth,
+		"growth_percent":             growth * 100,
+		"growth_month":               growthMonthKey,
+		"growth_prev_month":          prevGrowthMonthKey,
+		"avg_order_in_daily_m":       avgOrderDailyM,
+		"avg_order_in_daily_prev_m":  avgOrderDailyPrev,
+		"daily_order_in":             dailySeries,
+		"monthly_order_in":           monthlySeries,
+		"job_proportion":             buildProportions(jobCounter),
+		"product_proportion":         buildProportions(productCounter),
+		"finance_company_proportion": buildProportions(financeCounter),
+		"dp_range":                   dpSeries,
+	}, nil
 }
 
 // DealerMetrics computes finance performance for a dealer (optionally filtered by finance company).
@@ -3093,18 +3531,17 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	motorInstallmentByID := map[string]motorInstallmentValue{}
 	var motorRows []worksheetMotorRow
 	if err := s.db.
-		Table("installments").
+		Table("motor_types").
 		Select(`
-			installments.motor_type_id,
+			motor_types.id AS motor_type_id,
 			motor_types.name AS motor_type_name,
-			installments.amount AS installment,
+			COALESCE(installments.amount, 0) AS installment,
 			motor_types.province_code,
 			motor_types.province_name,
 			motor_types.regency_code,
 			motor_types.regency_name
 		`).
-		Joins("JOIN motor_types ON motor_types.id = installments.motor_type_id").
-		Where("installments.deleted_at IS NULL").
+		Joins("LEFT JOIN installments ON installments.motor_type_id = motor_types.id AND installments.deleted_at IS NULL").
 		Where("motor_types.deleted_at IS NULL").
 		Scan(&motorRows).Error; err != nil {
 		return nil, err

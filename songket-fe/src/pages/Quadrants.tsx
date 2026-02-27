@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchKabupaten, fetchProvinces, fetchQuadrantSummary } from '../api'
+import { fetchDashboardSummary, fetchKabupaten, fetchProvinces, fetchQuadrantSummary } from '../api'
 import Pagination from '../components/Pagination'
 
 type QuadrantItem = {
@@ -37,11 +37,17 @@ function quadrantColor(value: number) {
   }
 }
 
+function buildAnalysisText(item: QuadrantItem, growthPercent: number | null) {
+  const growthText = growthPercent == null ? '-' : `${growthPercent >= 0 ? '+' : ''}${growthPercent.toFixed(2)}%`
+  return `Order in ${Number(item.total_orders || 0).toLocaleString('id-ID')} Unit, atau ${Number(item.order_in_percent || 0).toFixed(2)}% dari order in total dengan credit capability ${Number(item.credit_capability || 0).toFixed(2)}% dan growth order in ${growthText}.`
+}
+
 export default function QuadrantsPage() {
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 767 : false))
   const [items, setItems] = useState<QuadrantItem[]>([])
   const [activePointId, setActivePointId] = useState<string>('')
   const [filter, setFilter] = useState({ province: '', regency: '', search: '' })
+  const [growthPercent, setGrowthPercent] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
@@ -56,6 +62,24 @@ export default function QuadrantsPage() {
       .then((res) => setItems(res.data.data || res.data || []))
       .catch(() => setItems([]))
   }, [])
+
+  useEffect(() => {
+    const params: Record<string, unknown> = {}
+    if (filter.regency) params.area = filter.regency
+
+    fetchDashboardSummary(params)
+      .then((res) => {
+        const payload = res.data?.data || res.data || {}
+        const growth = Number(payload?.growth_percent)
+        if (Number.isFinite(growth)) {
+          setGrowthPercent(growth)
+          return
+        }
+        const fallbackGrowth = Number(payload?.growth || 0) * 100
+        setGrowthPercent(Number.isFinite(fallbackGrowth) ? fallbackGrowth : null)
+      })
+      .catch(() => setGrowthPercent(null))
+  }, [filter.regency])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 767)
@@ -595,6 +619,7 @@ export default function QuadrantsPage() {
                 <th>Order In %</th>
                 <th>Credit Capability %</th>
                 <th>Quadrant</th>
+                <th>Analisa</th>
               </tr>
             </thead>
             <tbody>
@@ -610,11 +635,14 @@ export default function QuadrantsPage() {
                       Q{row.quadrant}
                     </span>
                   </td>
+                  <td style={{ maxWidth: 420, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                    {buildAnalysisText(row, growthPercent)}
+                  </td>
                 </tr>
               ))}
               {paged.length === 0 && (
                 <tr>
-                  <td colSpan={6}>No data found.</td>
+                  <td colSpan={7}>No data found.</td>
                 </tr>
               )}
             </tbody>

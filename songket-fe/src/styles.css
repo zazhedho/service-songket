@@ -1257,6 +1257,220 @@ h4 {
     background: #fee2e2;
   }
 
+  .business-top-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.85fr) minmax(340px, 1fr);
+    gap: 12px;
+  }
+
+  .business-map-card {
+    padding: 12px;
+  }
+
+  .business-map-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .business-map-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .business-map-shell {
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .business-map-shell .leaflet-container {
+    width: 100%;
+    height: 360px;
+  }
+
+  .business-master-stack {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .business-master-card {
+    padding: 12px;
+  }
+
+  .business-master-card .table {
+    table-layout: fixed;
+    margin-top: 0;
+  }
+
+  .business-master-card .pagination-wrap {
+    margin-top: 8px;
+  }
+
+  .business-master-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .business-master-tabs {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .business-master-tab {
+    border: 1px solid var(--card-border);
+    background: #fff;
+    color: #334155;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .business-master-tab.active {
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+
+  .business-master-list {
+    display: grid;
+    gap: 8px;
+    max-height: 352px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .business-master-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+  }
+
+  .business-master-row.active {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+
+  .business-master-main {
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 0;
+    width: 100%;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .business-master-name {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .business-master-subtext {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .business-filter-card {
+    border: 1px solid var(--card-border);
+    margin-top: 12px;
+  }
+
+  .business-filter-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr) minmax(0, 0.85fr) auto;
+    gap: 10px;
+    align-items: end;
+  }
+
+  .business-section {
+    border: 1px solid var(--card-border);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .business-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #eef4ff, #f8fafc);
+    border-bottom: 1px solid var(--card-border);
+    flex-wrap: wrap;
+  }
+
+  .business-section-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .business-section-side {
+    color: #1e3a8a;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 4px 10px;
+    border: 1px solid #bfdbfe;
+    background: #dbeafe;
+  }
+
+  .business-dealer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .business-summary-chart {
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 10px;
+    background: #f8fafc;
+  }
+
+  .business-summary-row {
+    padding: 12px 12px 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .business-summary-item {
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 8px 10px;
+  }
+
   .table.compact-table {
     font-size: 12px;
   }
@@ -2089,6 +2303,34 @@ h4 {
 
   .mobile-filter-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .business-filter-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .business-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .business-map-shell .leaflet-container {
+    height: 280px;
+  }
+
+  .business-master-list {
+    max-height: none;
+  }
+
+  .business-dealer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .business-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .business-section-title {
+    font-size: 22px;
   }
 
   .pagination-wrap {
