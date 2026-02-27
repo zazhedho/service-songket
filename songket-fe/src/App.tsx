@@ -56,11 +56,12 @@ export default function App() {
         <Route path="/master-settings/form" element={<Guarded><MasterSettingsPage /></Guarded>} />
 
         <Route path="/business" element={<Guarded><Navigate to="/finance" replace /></Guarded>} />
-        <Route path="/finance" element={<Guarded><FinancePage /></Guarded>} />
+        <Route path="/finance" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/finance/migrations/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
         <Route path="/finance/companies/create" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/:id" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/finance/companies/:id/edit" element={<Guarded><FinancePage /></Guarded>} />
-        <Route path="/finance-report" element={<Guarded><FinanceReportPage /></Guarded>} />
+        <Route path="/finance-report" element={<Guarded><Navigate to="/finance" replace /></Guarded>} />
         <Route path="/finance-report/:id" element={<Guarded><FinanceReportPage /></Guarded>} />
         <Route path="/dealer" element={<Guarded><FinancePage /></Guarded>} />
         <Route path="/dealer/dealers/create" element={<Guarded><FinancePage /></Guarded>} />
