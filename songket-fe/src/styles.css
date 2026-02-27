@@ -1306,12 +1306,45 @@ h4 {
     padding: 12px;
   }
 
+  .business-master-card .table {
+    table-layout: fixed;
+    margin-top: 0;
+  }
+
+  .business-master-card .pagination-wrap {
+    margin-top: 8px;
+  }
+
   .business-master-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
     margin-bottom: 10px;
+  }
+
+  .business-master-tabs {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .business-master-tab {
+    border: 1px solid var(--card-border);
+    background: #fff;
+    color: #334155;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .business-master-tab.active {
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    background: #eff6ff;
   }
 
   .business-master-list {

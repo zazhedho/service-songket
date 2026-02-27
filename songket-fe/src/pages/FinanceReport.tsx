@@ -4,8 +4,6 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
-  deleteDealer,
-  deleteFinanceCompany,
   fetchDealerMetrics,
   fetchDealers,
   fetchFinanceCompanies,
@@ -15,8 +13,6 @@ import {
   listFinanceMigrationOrderInDetail,
   listFinanceMigrationReport,
 } from '../api'
-import ActionMenu from '../components/ActionMenu'
-import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 import { formatRupiah } from '../utils/currency'
@@ -84,17 +80,6 @@ type DealerRow = {
   lng?: number | string
   latitude?: number | string
   longitude?: number | string
-}
-
-type FinanceCompanyRow = {
-  id: string
-  name: string
-  province?: string
-  regency?: string
-  district?: string
-  village?: string
-  address?: string
-  phone?: string
 }
 
 type DealerMapPoint = DealerRow & {
@@ -187,6 +172,13 @@ function joinNonEmpty(parts: unknown[], delimiter: string) {
 function summarizeLocation(parts: unknown[]) {
   const text = joinNonEmpty(parts, ' / ')
   return text || '-'
+}
+
+function formatDateForQuery(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function truncateTableText(value: unknown, max = 150) {
@@ -359,8 +351,6 @@ export default function FinanceReportPage() {
   const isDetail = Boolean(selectedId)
   const perms = useAuth((s) => s.permissions)
   const canList = perms.includes('list_finance_dealers')
-  const canManage = canList
-  const confirm = useConfirm()
   const routeState = (location.state as FinanceReportRouteState | undefined) || undefined
   const stateRow = routeState?.row
   const stateContext = routeState?.context
@@ -385,7 +375,6 @@ export default function FinanceReportPage() {
   const [year, setYear] = useState('')
   const [finance1, setFinance1] = useState('')
   const [dealerRows, setDealerRows] = useState<DealerRow[]>([])
-  const [financeRows, setFinanceRows] = useState<FinanceCompanyRow[]>([])
   const [dealerOptions, setDealerOptions] = useState<OptionItem[]>([])
   const [finance1Options, setFinance1Options] = useState<OptionItem[]>([])
   const [selectedDealerId, setSelectedDealerId] = useState('')
@@ -416,12 +405,13 @@ export default function FinanceReportPage() {
   const activeDealerId = useMemo(() => {
     if (selectedDealerId) return selectedDealerId
     if (stateContext?.dealer_id) return stateContext.dealer_id
-    return dealerRows[0]?.id || ''
-  }, [dealerRows, selectedDealerId, stateContext?.dealer_id])
+    return ''
+  }, [selectedDealerId, stateContext?.dealer_id])
 
   const activeDealerName = useMemo(() => {
+    if (!activeDealerId) return 'All Dealer'
     const found = dealerRows.find((item) => item.id === activeDealerId)
-    return normalizeText(found?.name) || '-'
+    return normalizeText(found?.name) || 'All Dealer'
   }, [activeDealerId, dealerRows])
 
   const activeFinance1Name = useMemo(() => {
@@ -476,11 +466,41 @@ export default function FinanceReportPage() {
     return dealerPoints.find((dealerItem) => dealerItem.id === activeDealerId) || null
   }, [activeDealerId, dealerPoints])
 
+  const dealerMapZoom = useMemo(() => {
+    if (activeDealerPoint) return 6
+    if (dealerPoints.length > 0) return 6
+    return 5
+  }, [activeDealerPoint, dealerPoints.length])
+
   const dealerMapCenter: [number, number] = useMemo(() => {
     if (activeDealerPoint) return [activeDealerPoint._lat, activeDealerPoint._lng]
     if (dealerPoints.length > 0) return [dealerPoints[0]._lat, dealerPoints[0]._lng]
     return [-2.5489, 118.0149]
   }, [activeDealerPoint, dealerPoints])
+
+  const dealerMetricRange = useMemo(() => {
+    const monthNum = Number(month)
+    const yearNum = Number(year)
+    const nowYear = new Date().getFullYear()
+
+    if (Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12) {
+      const safeYear = Number.isFinite(yearNum) && yearNum > 0 ? yearNum : nowYear
+      const fromDate = new Date(safeYear, monthNum - 1, 1)
+      const toDate = new Date(safeYear, monthNum, 1)
+      const from = formatDateForQuery(fromDate)
+      const to = formatDateForQuery(toDate)
+      return { from, to }
+    }
+
+    if (Number.isFinite(yearNum) && yearNum > 0) {
+      return {
+        from: formatDateForQuery(new Date(yearNum, 0, 1)),
+        to: formatDateForQuery(new Date(yearNum + 1, 0, 1)),
+      }
+    }
+
+    return null
+  }, [month, year])
 
   const loadList = async () => {
     if (!canList) return
@@ -540,7 +560,7 @@ export default function FinanceReportPage() {
     const financeRaw = financeRes?.data?.data || financeRes?.data || []
 
     const nextDealers: DealerRow[] = Array.isArray(dealerRaw) ? dealerRaw : []
-    const nextFinances: FinanceCompanyRow[] = Array.isArray(financeRaw) ? financeRaw : []
+    const nextFinances = Array.isArray(financeRaw) ? financeRaw : []
 
     const nextDealerOptions: OptionItem[] = nextDealers
       .map((item: any) => ({
@@ -559,49 +579,8 @@ export default function FinanceReportPage() {
       .sort((a, b) => a.name.localeCompare(b.name))
 
     setDealerRows(nextDealers)
-    setFinanceRows(nextFinances)
     setDealerOptions(nextDealerOptions)
     setFinance1Options(nextFinanceOptions)
-  }
-
-  const removeDealer = async (id: string) => {
-    if (!canManage) return
-    const ok = await confirm({
-      title: 'Delete Dealer',
-      description: 'Are you sure you want to delete this dealer?',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      tone: 'danger',
-    })
-    if (!ok) return
-
-    try {
-      await deleteDealer(id)
-      await loadMasterData()
-      await loadList()
-    } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menghapus dealer')
-    }
-  }
-
-  const removeFinance = async (id: string) => {
-    if (!canManage) return
-    const ok = await confirm({
-      title: 'Delete Finance Company',
-      description: 'Are you sure you want to delete this finance company?',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      tone: 'danger',
-    })
-    if (!ok) return
-
-    try {
-      await deleteFinanceCompany(id)
-      await loadMasterData()
-      await loadList()
-    } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menghapus finance company')
-    }
   }
 
   useEffect(() => {
@@ -622,7 +601,6 @@ export default function FinanceReportPage() {
       .catch((err: any) => {
         if (cancelled) return
         setDealerRows([])
-        setFinanceRows([])
         setDealerOptions([])
         setFinance1Options([])
         setMasterError(err?.response?.data?.error || 'Failed to load dealer/finance data.')
@@ -637,32 +615,135 @@ export default function FinanceReportPage() {
   }, [canList, isDetail])
 
   useEffect(() => {
-    if (dealerRows.length === 0) {
+    if (!selectedDealerId) return
+    if (!dealerRows.some((item) => item.id === selectedDealerId)) {
       setSelectedDealerId('')
-      return
-    }
-    if (!selectedDealerId || !dealerRows.some((item) => item.id === selectedDealerId)) {
-      setSelectedDealerId(dealerRows[0].id)
     }
   }, [dealerRows, selectedDealerId])
 
   useEffect(() => {
     if (!canList || isDetail) return
-    if (!activeDealerId) {
-      setDealerMetrics(null)
-      setDealerMetricsError('')
-      setDealerMetricsLoading(false)
-      return
-    }
-
     let cancelled = false
     setDealerMetricsLoading(true)
     setDealerMetricsError('')
 
-    fetchDealerMetrics(activeDealerId)
-      .then((res) => {
+    const metricsParams = dealerMetricRange ? { from: dealerMetricRange.from, to: dealerMetricRange.to } : undefined
+
+    const loadMetrics = async () => {
+      if (activeDealerId) {
+        const res = await fetchDealerMetrics(activeDealerId, metricsParams)
+        return (res?.data?.data || res?.data || null) as DealerMetricPayload | null
+      }
+
+      const dealerIds = dealerRows.map((item) => normalizeText(item.id)).filter(Boolean)
+      if (dealerIds.length === 0) {
+        return {
+          total_orders: 0,
+          approval_rate: 0,
+          lead_time_seconds_avg: 0,
+          rescue_approved_fc2: 0,
+          finance_companies: [],
+        } as DealerMetricPayload
+      }
+
+      const settled = await Promise.allSettled(dealerIds.map((dealerId) => fetchDealerMetrics(dealerId, metricsParams)))
+      const companyMap = new Map<
+      string,
+      {
+        finance_company_id: string
+        finance_company_name: string
+        total_orders: number
+        approved_count: number
+        rejected_count: number
+        rescue_approved_fc2: number
+        lead_weight_sum: number
+        lead_weight_count: number
+      }
+      >()
+
+      let totalOrders = 0
+      let totalApproved = 0
+      let totalRescue = 0
+      let leadWeightSum = 0
+      let leadWeightCount = 0
+
+      settled.forEach((result) => {
+        if (result.status !== 'fulfilled') return
+        const payload = (result.value?.data?.data || result.value?.data || null) as DealerMetricPayload | null
+        const rows = Array.isArray(payload?.finance_companies) ? payload?.finance_companies : []
+
+        rows.forEach((item) => {
+          const financeCompanyID = normalizeText(item?.finance_company_id) || normalizeText(item?.finance_company_name) || 'unknown'
+          const financeCompanyName = normalizeText(item?.finance_company_name) || '-'
+          const total = toSafeNumber(item?.total_orders)
+          const approvedRaw = toSafeNumber(item?.approved_count)
+          const rejectedRaw = toSafeNumber(item?.rejected_count)
+          const approved = approvedRaw > 0 || rejectedRaw > 0
+            ? approvedRaw
+            : Math.max(0, Math.min(total, Math.round(toSafeNumber(item?.approval_rate) * total)))
+          const rejected = approvedRaw > 0 || rejectedRaw > 0
+            ? rejectedRaw
+            : Math.max(0, total - approved)
+          const rescue = toSafeNumber(item?.rescue_approved_fc2)
+          const lead = Number(item?.lead_time_seconds_avg)
+
+          const current = companyMap.get(financeCompanyID) || {
+            finance_company_id: financeCompanyID,
+            finance_company_name: financeCompanyName,
+            total_orders: 0,
+            approved_count: 0,
+            rejected_count: 0,
+            rescue_approved_fc2: 0,
+            lead_weight_sum: 0,
+            lead_weight_count: 0,
+          }
+
+          current.total_orders += total
+          current.approved_count += approved
+          current.rejected_count += rejected
+          current.rescue_approved_fc2 += rescue
+          if (Number.isFinite(lead) && total > 0) {
+            current.lead_weight_sum += lead * total
+            current.lead_weight_count += total
+          }
+          companyMap.set(financeCompanyID, current)
+
+          totalOrders += total
+          totalApproved += approved
+          totalRescue += rescue
+          if (Number.isFinite(lead) && total > 0) {
+            leadWeightSum += lead * total
+            leadWeightCount += total
+          }
+        })
+      })
+
+      const financeCompanies: DealerFinanceMetric[] = Array.from(companyMap.values())
+        .map((item) => ({
+          finance_company_id: item.finance_company_id,
+          finance_company_name: item.finance_company_name,
+          total_orders: item.total_orders,
+          approved_count: item.approved_count,
+          rejected_count: item.rejected_count,
+          approval_rate: item.total_orders > 0 ? item.approved_count / item.total_orders : 0,
+          lead_time_seconds_avg: item.lead_weight_count > 0 ? item.lead_weight_sum / item.lead_weight_count : null,
+          rescue_approved_fc2: item.rescue_approved_fc2,
+        }))
+        .sort((a, b) => toSafeNumber(b.total_orders) - toSafeNumber(a.total_orders))
+
+      return {
+        total_orders: totalOrders,
+        approval_rate: totalOrders > 0 ? totalApproved / totalOrders : 0,
+        lead_time_seconds_avg: leadWeightCount > 0 ? leadWeightSum / leadWeightCount : 0,
+        rescue_approved_fc2: totalRescue,
+        finance_companies: financeCompanies,
+      } as DealerMetricPayload
+    }
+
+    loadMetrics()
+      .then((payload) => {
         if (cancelled) return
-        setDealerMetrics((res?.data?.data || res?.data || null) as DealerMetricPayload | null)
+        setDealerMetrics(payload)
       })
       .catch((err: any) => {
         if (cancelled) return
@@ -676,7 +757,7 @@ export default function FinanceReportPage() {
     return () => {
       cancelled = true
     }
-  }, [activeDealerId, canList, isDetail])
+  }, [activeDealerId, canList, dealerMetricRange, dealerRows, isDetail])
 
   useEffect(() => {
     if (!canList || !isDetail || !selectedId) return
@@ -938,7 +1019,7 @@ export default function FinanceReportPage() {
     setMonth(monthInput)
     setYear(yearInput)
     setFinance1(finance1Input)
-    if (dealerInput) setSelectedDealerId(dealerInput)
+    setSelectedDealerId(dealerInput || '')
     setPage(1)
   }
 
@@ -951,6 +1032,7 @@ export default function FinanceReportPage() {
     setMonth('')
     setYear('')
     setFinance1('')
+    setSelectedDealerId('')
     setPage(1)
   }
 
@@ -1004,7 +1086,7 @@ export default function FinanceReportPage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance Detail</div>
             <div style={{ color: '#64748b' }}>Detailed migration data: {financePairText}</div>
           </div>
-          <button className="btn-ghost" onClick={() => navigate('/finance')}>
+          <button className="btn-ghost" onClick={() => navigate('/business')}>
             Back
           </button>
         </div>
@@ -1381,12 +1463,12 @@ export default function FinanceReportPage() {
               </div>
             </div>
             <div className="business-map-shell">
-              <MapContainer center={dealerMapCenter} zoom={dealerPoints.length > 0 ? 6 : 5} scrollWheelZoom={false}>
+              <MapContainer center={dealerMapCenter} zoom={dealerMapZoom} scrollWheelZoom={false}>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <MapFly center={dealerMapCenter} />
+                <MapFly center={dealerMapCenter} zoom={dealerMapZoom} />
                 {dealerPoints.map((dealerItem) => (
                   <Marker
                     key={`business-map-${dealerItem.id}`}
@@ -1428,101 +1510,13 @@ export default function FinanceReportPage() {
 
           <div className="business-master-stack">
             <div className="card business-master-card">
-              <div className="business-master-head">
-                <h3>Dealer List</h3>
-                {canManage && (
-                  <button className="btn" onClick={() => navigate('/dealer/dealers/create')}>
-                    Create Dealer
-                  </button>
-                )}
+              <h3>Master Menu</h3>
+              <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                Dealer dan Finance dipisah ke menu masing-masing.
               </div>
-              <div className="business-master-list">
-                {dealerRows.map((dealerItem) => (
-                  <div key={`business-dealer-${dealerItem.id}`} className={`business-master-row${dealerItem.id === activeDealerId ? ' active' : ''}`}>
-                    <button
-                      type="button"
-                      className="business-master-main"
-                      onClick={() => {
-                        setSelectedDealerId(dealerItem.id)
-                        setDealerInput(dealerItem.id)
-                      }}
-                    >
-                      <div className="business-master-name">{dealerItem.name || '-'}</div>
-                      <div className="business-master-subtext">
-                        {summarizeLocation([dealerItem.regency, dealerItem.district, dealerItem.village])}
-                      </div>
-                    </button>
-                    <ActionMenu
-                      items={[
-                        {
-                          key: 'view',
-                          label: 'View',
-                          onClick: () => navigate(`/dealer/dealers/${dealerItem.id}`, { state: { dealer: dealerItem } }),
-                        },
-                        {
-                          key: 'edit',
-                          label: 'Edit',
-                          hidden: !canManage,
-                          onClick: () => navigate(`/dealer/dealers/${dealerItem.id}/edit`, { state: { dealer: dealerItem } }),
-                        },
-                        {
-                          key: 'delete',
-                          label: 'Delete',
-                          hidden: !canManage,
-                          danger: true,
-                          onClick: () => void removeDealer(dealerItem.id),
-                        },
-                      ]}
-                    />
-                  </div>
-                ))}
-                {dealerRows.length === 0 && <div className="muted">No dealer data.</div>}
-              </div>
-            </div>
-
-            <div className="card business-master-card">
-              <div className="business-master-head">
-                <h3>Finance List</h3>
-                {canManage && (
-                  <button className="btn" onClick={() => navigate('/finance/companies/create')}>
-                    Create Finance
-                  </button>
-                )}
-              </div>
-              <div className="business-master-list">
-                {financeRows.map((company) => (
-                  <div key={`business-finance-${company.id}`} className="business-master-row">
-                    <div className="business-master-main" style={{ cursor: 'default' }}>
-                      <div className="business-master-name">{company.name || '-'}</div>
-                      <div className="business-master-subtext">
-                        {summarizeLocation([company.regency, company.district, company.village])}
-                      </div>
-                    </div>
-                    <ActionMenu
-                      items={[
-                        {
-                          key: 'view',
-                          label: 'View',
-                          onClick: () => navigate(`/finance/companies/${company.id}`, { state: { company } }),
-                        },
-                        {
-                          key: 'edit',
-                          label: 'Edit',
-                          hidden: !canManage,
-                          onClick: () => navigate(`/finance/companies/${company.id}/edit`, { state: { company } }),
-                        },
-                        {
-                          key: 'delete',
-                          label: 'Delete',
-                          hidden: !canManage,
-                          danger: true,
-                          onClick: () => void removeFinance(company.id),
-                        },
-                      ]}
-                    />
-                  </div>
-                ))}
-                {financeRows.length === 0 && <div className="muted">No finance company data.</div>}
+              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                <button className="btn" onClick={() => navigate('/dealer')}>Open Dealer Menu</button>
+                <button className="btn" onClick={() => navigate('/finance')}>Open Finance Menu</button>
               </div>
             </div>
           </div>
@@ -1535,7 +1529,12 @@ export default function FinanceReportPage() {
           <div className="business-filter-row mobile-filter-grid">
             <div>
               <label>Dealer</label>
-              <select value={dealerInput} onChange={(e) => setDealerInput(e.target.value)}>
+              <select
+                value={dealerInput}
+                onChange={(e) => {
+                  setDealerInput(e.target.value)
+                }}
+              >
                 <option value="">All Dealer</option>
                 {dealerOptions.map((item) => (
                   <option key={item.code} value={item.code}>
@@ -1753,7 +1752,7 @@ export default function FinanceReportPage() {
                           className="btn-ghost"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
                           onClick={() =>
-                            navigate(`/finance/migrations/${item.order_id}`, {
+                            navigate(`/business/migrations/${item.order_id}`, {
                               state: {
                                 row: item,
                                 context: {
@@ -1802,14 +1801,14 @@ export default function FinanceReportPage() {
   )
 }
 
-function MapFly({ center }: { center: [number, number] }) {
+function MapFly({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap()
 
   useEffect(() => {
     if (center?.length === 2) {
-      map.flyTo(center, map.getZoom(), { duration: 0.5 })
+      map.flyTo(center, zoom, { duration: 0.5 })
     }
-  }, [center, map])
+  }, [center, map, zoom])
 
   return null
 }

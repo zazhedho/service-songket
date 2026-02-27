@@ -17,15 +17,12 @@ type MenuItem = {
   order_index?: number
 }
 
-const BUSINESS_MENU_BASE_PATHS = new Set(['/business', '/finance', '/dealer', '/finance-report'])
-const BUSINESS_MENU_ACTIVE_PATHS = ['/business', '/finance', '/dealer', '/finance-report']
+const FORCE_TOP_LEVEL_PATHS = new Set(['/business', '/dealer', '/finance'])
+const HIDDEN_MENU_PATHS = new Set(['/finance-report'])
 
 function isMenuActive(pathname: string, menuPath?: string): boolean {
   const basePath = menuPathWithoutQuery(menuPath)
   if (!basePath) return false
-  if (basePath === '/finance') {
-    return BUSINESS_MENU_ACTIVE_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
-  }
   return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }
 
@@ -204,8 +201,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       return menu
     })
 
+    const visibleMenus = normalized.filter((menu) => !HIDDEN_MENU_PATHS.has(menuPathWithoutQuery(menu.path)))
+
     const dedup = new Map<string, MenuItem>()
-    normalized.forEach((menu) => {
+    visibleMenus.forEach((menu) => {
       const key = menuPathWithoutQuery(menu.path)
       if (!key) return
 
@@ -222,43 +221,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     })
 
     const dedupedMenus = Array.from(dedup.values())
-    const businessMenus = dedupedMenus.filter((menu) => BUSINESS_MENU_BASE_PATHS.has(menuPathWithoutQuery(menu.path)))
 
-    let mergedMenus = dedupedMenus
-    if (businessMenus.length > 0) {
-      const businessParent = businessMenus.find((menu) => menuPathWithoutQuery(menu.path) === '/business')
-      const preferredMenu =
-        businessParent ??
-        businessMenus.find((menu) => menuPathWithoutQuery(menu.path) === '/finance') ??
-        businessMenus.find((menu) => menuPathWithoutQuery(menu.path) === '/dealer') ??
-        businessMenus[0]
-
-      const labelSource =
-        businessParent ??
-        businessMenus.find((menu) => /business/i.test(String(menu.display_name || menu.name || ''))) ??
-        preferredMenu
-      const businessLabel = labelSource?.display_name || labelSource?.name || 'Business'
-      const minOrder = businessMenus.reduce((lowest, menu) => {
-        const current = Number(menu.order_index ?? Number.MAX_SAFE_INTEGER)
-        return current < lowest ? current : lowest
-      }, Number.MAX_SAFE_INTEGER)
-
-      const mergedBusinessMenu: MenuItem = {
-        ...preferredMenu,
-        path: '/finance',
-        parent_id: null,
-        display_name: businessLabel,
-        name: businessLabel,
-        order_index: Number.isFinite(minOrder) ? minOrder : preferredMenu.order_index,
-      }
-
-      mergedMenus = [
-        ...dedupedMenus.filter((menu) => !BUSINESS_MENU_BASE_PATHS.has(menuPathWithoutQuery(menu.path))),
-        mergedBusinessMenu,
-      ]
-    }
-
-    return mergedMenus.sort((a, b) => {
+    return dedupedMenus.sort((a, b) => {
       const aOrder = Number(a.order_index ?? Number.MAX_SAFE_INTEGER)
       const bOrder = Number(b.order_index ?? Number.MAX_SAFE_INTEGER)
       if (aOrder !== bOrder) return aOrder - bOrder
@@ -278,7 +242,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const childrenByParent = new Map<string, MenuItem[]>()
     preparedMenus.forEach((menu) => {
       const parentID = menu.parent_id ? String(menu.parent_id) : ''
-      if (parentID && byID.has(parentID)) {
+      const menuPath = menuPathWithoutQuery(menu.path)
+      const forceTopLevel = FORCE_TOP_LEVEL_PATHS.has(menuPath)
+
+      if (parentID && byID.has(parentID) && !forceTopLevel) {
         const children = childrenByParent.get(parentID) || []
         children.push(menu)
         childrenByParent.set(parentID, children)

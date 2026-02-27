@@ -61,6 +61,7 @@ type DashboardNewsItem = {
 
 type DashboardPriceItem = {
   id: string
+  commodity_id?: string
   commodity?: {
     name?: string
     unit?: string
@@ -113,6 +114,8 @@ export default function DashboardPage() {
   const [latestNews, setLatestNews] = useState<DashboardNewsItem[]>([])
   const [latestPrices, setLatestPrices] = useState<DashboardPriceItem[]>([])
   const [latestCardsLoading, setLatestCardsLoading] = useState(false)
+  const [activeNewsIndex, setActiveNewsIndex] = useState(0)
+  const [selectedTrendCommodity, setSelectedTrendCommodity] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -126,7 +129,7 @@ export default function DashboardPage() {
     setLatestCardsLoading(true)
     Promise.all([
       listDashboardNewsItems({ page: 1, limit: 5, order_by: 'published_at', order_direction: 'desc' }),
-      listDashboardPrices({ page: 1, limit: 5, order_by: 'collected_at', order_direction: 'desc' }),
+      listDashboardPrices({ page: 1, limit: 200, order_by: 'collected_at', order_direction: 'desc' }),
     ])
       .then(([newsRes, priceRes]) => {
         const newsPayload = newsRes?.data || {}
@@ -142,6 +145,26 @@ export default function DashboardPage() {
       })
       .finally(() => setLatestCardsLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (latestNews.length === 0) {
+      setActiveNewsIndex(0)
+      return
+    }
+    if (activeNewsIndex >= latestNews.length) {
+      setActiveNewsIndex(0)
+    }
+  }, [activeNewsIndex, latestNews.length])
+
+  useEffect(() => {
+    if (latestNews.length <= 1) return
+    const timer = window.setInterval(() => {
+      setActiveNewsIndex((prev) => (prev + 1) % latestNews.length)
+    }, 5000)
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [latestNews.length])
 
   useEffect(() => {
     const params: Record<string, unknown> = {}
@@ -231,6 +254,62 @@ export default function DashboardPage() {
     () => summary.monthly_order_in.map((item) => Number(item.avg_daily || 0)),
     [summary.monthly_order_in],
   )
+
+  const activeNewsItem = latestNews[activeNewsIndex] || null
+  const activeNewsThumb = useMemo(
+    () => (activeNewsItem ? extractNewsThumbnail(activeNewsItem.images) : ''),
+    [activeNewsItem],
+  )
+
+  const trendCommodityOptions = useMemo(() => {
+    const map = new Map<string, { value: string; label: string }>()
+    latestPrices.forEach((item) => {
+      const key = getCommodityKey(item)
+      const label = String(item?.commodity?.name || '').trim()
+      if (!key || !label || map.has(key)) return
+      map.set(key, { value: key, label })
+    })
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label))
+  }, [latestPrices])
+
+  useEffect(() => {
+    if (trendCommodityOptions.length === 0) {
+      setSelectedTrendCommodity('')
+      return
+    }
+    if (!trendCommodityOptions.some((item) => item.value === selectedTrendCommodity)) {
+      setSelectedTrendCommodity(trendCommodityOptions[0].value)
+    }
+  }, [selectedTrendCommodity, trendCommodityOptions])
+
+  const selectedPriceRows = useMemo(() => {
+    if (!selectedTrendCommodity) return latestPrices
+    return latestPrices.filter((item) => getCommodityKey(item) === selectedTrendCommodity)
+  }, [latestPrices, selectedTrendCommodity])
+
+  const latestPriceTableRows = useMemo(() => selectedPriceRows.slice(0, 5), [selectedPriceRows])
+
+  const priceTrend = useMemo(() => {
+    const grouped = new Map<string, { date: string; sum: number; count: number }>()
+    selectedPriceRows.forEach((item) => {
+      const date = item.collected_at ? dayjs(item.collected_at).format('YYYY-MM-DD') : ''
+      if (!date) return
+      const bucket = grouped.get(date) || { date, sum: 0, count: 0 }
+      bucket.sum += Number(item.price || 0)
+      bucket.count += 1
+      grouped.set(date, bucket)
+    })
+
+    const rows = Array.from(grouped.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-14)
+
+    return {
+      dates: rows.map((item) => item.date),
+      labels: rows.map((item) => dayjs(item.date).format('DD MMM')),
+      values: rows.map((item) => (item.count > 0 ? item.sum / item.count : 0)),
+    }
+  }, [selectedPriceRows])
 
   const applyFilters = () => {
     setFiltersApplied(filtersInput)
@@ -417,58 +496,128 @@ export default function DashboardPage() {
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
           <div className="card">
             <h3>Latest News</h3>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Ringkasan berita terbaru.</div>
-            <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Ringkasan berita terbaru (slideshow).</div>
+            <div style={{ marginTop: 10 }}>
               {latestCardsLoading && <div style={{ color: '#64748b', fontSize: 12 }}>Loading news...</div>}
               {!latestCardsLoading && latestNews.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No news data.</div>}
-              {!latestCardsLoading && latestNews.map((item) => {
-                const thumbnail = extractNewsThumbnail(item.images)
-                return (
+              {!latestCardsLoading && activeNewsItem && (
+                <>
                   <a
-                    key={item.id}
-                    href={item.url || '#'}
+                    href={activeNewsItem.url || '#'}
                     target="_blank"
                     rel="noreferrer"
                     style={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: 10,
-                      padding: '8px 10px',
+                      border: '1px solid #dbe3ef',
+                      borderRadius: 12,
                       color: '#0f172a',
                       textDecoration: 'none',
                       background: '#fff',
+                      overflow: 'hidden',
+                      display: 'block',
                     }}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: thumbnail ? '78px minmax(0, 1fr)' : '1fr', gap: 10, alignItems: 'center' }}>
-                      {thumbnail && (
-                        <img
-                          src={thumbnail}
-                          alt={item.title || 'News thumbnail'}
-                          style={{
-                            width: 78,
-                            height: 56,
-                            objectFit: 'cover',
-                            borderRadius: 8,
-                            border: '1px solid #dbe3ef',
-                            background: '#f8fafc',
-                          }}
-                        />
-                      )}
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{item.title || '-'}</div>
-                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                          {item.source_name || '-'} • {item.published_at ? dayjs(item.published_at).format('DD MMM YYYY HH:mm') : '-'}
-                        </div>
+                    {activeNewsThumb && (
+                      <img
+                        src={activeNewsThumb}
+                        alt={activeNewsItem.title || 'News thumbnail'}
+                        style={{ width: '100%', height: 190, objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.4 }}>{activeNewsItem.title || '-'}</div>
+                      <div style={{ color: '#64748b', fontSize: 11, marginTop: 5 }}>
+                        {activeNewsItem.source_name || '-'} • {activeNewsItem.published_at ? dayjs(activeNewsItem.published_at).format('DD MMM YYYY HH:mm') : '-'}
                       </div>
                     </div>
                   </a>
-                )
-              })}
+
+                  {latestNews.length > 1 && (
+                    <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => setActiveNewsIndex((prev) => (prev - 1 + latestNews.length) % latestNews.length)}
+                      >
+                        Prev
+                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {latestNews.map((_, idx) => (
+                          <button
+                            key={`news-dot-${idx}`}
+                            type="button"
+                            onClick={() => setActiveNewsIndex(idx)}
+                            aria-label={`Slide ${idx + 1}`}
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 999,
+                              border: '0',
+                              cursor: 'pointer',
+                              background: idx === activeNewsIndex ? '#2563eb' : '#cbd5e1',
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => setActiveNewsIndex((prev) => (prev + 1) % latestNews.length)}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+                    {latestNews.map((item, idx) => (
+                      <a
+                        key={`news-list-${item.id || idx}`}
+                        href={item.url || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        onMouseEnter={() => setActiveNewsIndex(idx)}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 8,
+                          padding: '7px 9px',
+                          color: '#0f172a',
+                          textDecoration: 'none',
+                          background: idx === activeNewsIndex ? '#eff6ff' : '#fff',
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.35 }}>
+                          {item.title || '-'}
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>
+                          {item.source_name || '-'} • {item.published_at ? dayjs(item.published_at).format('DD MMM YYYY HH:mm') : '-'}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           <div className="card">
             <h3>Harga Pangan Terbaru</h3>
             <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Update harga komoditas terbaru.</div>
+            <div style={{ marginTop: 8 }}>
+              <label>Grafik Komoditas</label>
+              <select
+                value={selectedTrendCommodity}
+                onChange={(e) => setSelectedTrendCommodity(e.target.value)}
+                disabled={trendCommodityOptions.length === 0}
+              >
+                {trendCommodityOptions.length === 0 && <option value="">No commodity</option>}
+                {trendCommodityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <PriceTrendChart labels={priceTrend.labels} values={priceTrend.values} dates={priceTrend.dates} />
+            </div>
             <div style={{ marginTop: 10, overflowX: 'auto' }}>
               <table className="table dashboard-latest-prices-table">
                 <thead>
@@ -485,12 +634,12 @@ export default function DashboardPage() {
                       <td colSpan={4}>Loading prices...</td>
                     </tr>
                   )}
-                  {!latestCardsLoading && latestPrices.length === 0 && (
+                  {!latestCardsLoading && latestPriceTableRows.length === 0 && (
                     <tr>
                       <td colSpan={4}>No price data.</td>
                     </tr>
                   )}
-                  {!latestCardsLoading && latestPrices.map((item) => (
+                  {!latestCardsLoading && latestPriceTableRows.map((item) => (
                     <tr key={item.id}>
                       <td>{item.commodity?.name || '-'}</td>
                       <td>{formatRupiah(Number(item.price || 0))}</td>
@@ -585,6 +734,12 @@ function extractNewsThumbnail(raw: unknown): string {
   return list.length > 0 ? String(list[0]) : ''
 }
 
+function getCommodityKey(item: DashboardPriceItem): string {
+  const commodityId = String(item?.commodity_id || '').trim()
+  if (commodityId) return commodityId
+  return String(item?.commodity?.name || '').trim().toLowerCase()
+}
+
 function KpiCard({
   label,
   value,
@@ -601,6 +756,106 @@ function KpiCard({
       <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4, color: valueColor || '#0f172a' }}>{value}</div>
       {note && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{note}</div>}
+    </div>
+  )
+}
+
+function PriceTrendChart({ labels, values, dates }: { labels: string[]; values: number[]; dates?: string[] }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
+  if (!labels.length || !values.length) {
+    return <div style={{ color: '#64748b', fontSize: 12 }}>No price trend data.</div>
+  }
+
+  const width = Math.max(420, labels.length * 44 + 84)
+  const height = 200
+  const left = 40
+  const right = width - 18
+  const top = 14
+  const bottom = height - 40
+  const plotWidth = right - left
+  const plotHeight = bottom - top
+  const rawMin = Math.min(...values)
+  const rawMax = Math.max(...values)
+  const pad = Math.max(1, Math.abs(rawMax || rawMin) * 0.05)
+  const yMin = rawMin === rawMax ? rawMin - pad : rawMin
+  const yMax = rawMin === rawMax ? rawMax + pad : rawMax
+  const span = Math.max(0.0001, yMax - yMin)
+  const stepX = labels.length > 1 ? plotWidth / (labels.length - 1) : 0
+  const showStep = labels.length <= 9 ? 1 : Math.ceil(labels.length / 7)
+  const singlePointX = left + plotWidth / 2
+
+  const points = values.map((value, idx) => {
+    const x = labels.length === 1 ? singlePointX : left + stepX * idx
+    const y = bottom - ((value - yMin) / span) * plotHeight
+    return { x, y, value }
+  })
+  const path = points.map((point, idx) => `${idx === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ')
+  const hoveredPoint = hoveredIndex != null ? points[hoveredIndex] : null
+  const hoveredDate = hoveredIndex != null ? String(dates?.[hoveredIndex] || '') : ''
+  const hoveredLabel = hoveredDate ? dayjs(hoveredDate).format('DD MMM YYYY') : (hoveredIndex != null ? labels[hoveredIndex] : '')
+  const tooltipPrice = hoveredPoint ? formatRupiah(Number(hoveredPoint.value || 0)) : ''
+  const tooltipWidth = 150
+  const tooltipX = hoveredPoint ? Math.min(Math.max(left + 4, hoveredPoint.x + 8), right - tooltipWidth) : left
+  const tooltipY = top + 6
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ minWidth: width, display: 'block' }}>
+        <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={left} y1={top} x2={left} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
+
+        <path d={path} fill="none" stroke="#0ea5e9" strokeWidth={2.2} />
+        {points.map((point, idx) => (
+          <g key={`price-point-${idx}`}>
+            <rect
+              x={idx === 0 ? left : (points[idx - 1].x + point.x) / 2}
+              y={top}
+              width={(idx === points.length - 1 ? right : (point.x + points[idx + 1].x) / 2) - (idx === 0 ? left : (points[idx - 1].x + point.x) / 2)}
+              height={plotHeight}
+              fill="transparent"
+              onMouseEnter={() => setHoveredIndex(idx)}
+              onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
+            />
+            {(idx % showStep === 0 || idx === points.length - 1) && (
+              <text x={point.x} y={bottom + 14} textAnchor="middle" fontSize={10} fill="#334155">
+                {labels[idx]}
+              </text>
+            )}
+          </g>
+        ))}
+
+        {hoveredPoint && (
+          <>
+            <line
+              x1={hoveredPoint.x}
+              y1={top}
+              x2={hoveredPoint.x}
+              y2={bottom}
+              stroke="#38bdf8"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+            />
+            <rect
+              x={tooltipX}
+              y={tooltipY}
+              width={tooltipWidth}
+              height={42}
+              rx={8}
+              fill="#ffffff"
+              stroke="#dbe3ef"
+            />
+            <text x={tooltipX + 8} y={tooltipY + 16} fontSize={11} fill="#0f172a" fontWeight={700}>
+              {tooltipPrice}
+            </text>
+            <text x={tooltipX + 8} y={tooltipY + 31} fontSize={10} fill="#64748b">
+              {hoveredLabel}
+            </text>
+          </>
+        )}
+
+        <text x={left} y={11} fontSize={11} fill="#0f172a" fontWeight={700}>Tren Harga Harian</text>
+      </svg>
     </div>
   )
 }
