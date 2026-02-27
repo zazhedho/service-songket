@@ -616,7 +616,7 @@ export default function DashboardPage() {
               </select>
             </div>
             <div style={{ marginTop: 10 }}>
-              <PriceTrendChart labels={priceTrend.labels} values={priceTrend.values} dates={priceTrend.dates} />
+              <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Harga Pangan Harian" />
             </div>
             <div style={{ marginTop: 10, overflowX: 'auto' }}>
               <table className="table dashboard-latest-prices-table">

@@ -17,8 +17,9 @@ type MenuItem = {
   order_index?: number
 }
 
-const FORCE_TOP_LEVEL_PATHS = new Set(['/business', '/dealer', '/finance'])
-const HIDDEN_MENU_PATHS = new Set(['/finance-report'])
+const FORCE_TOP_LEVEL_PATHS = new Set(['/business'])
+const ALWAYS_HIDDEN_MENU_PATHS = new Set(['/finance-report'])
+const LEGACY_BUSINESS_TAB_PATHS = new Set(['/dealer', '/finance'])
 
 function isMenuActive(pathname: string, menuPath?: string): boolean {
   const basePath = menuPathWithoutQuery(menuPath)
@@ -201,7 +202,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       return menu
     })
 
-    const visibleMenus = normalized.filter((menu) => !HIDDEN_MENU_PATHS.has(menuPathWithoutQuery(menu.path)))
+    const hasBusinessMenu = normalized.some((menu) => menuPathWithoutQuery(menu.path) === '/business')
+    const visibleMenus = normalized.filter((menu) => {
+      const menuPath = menuPathWithoutQuery(menu.path)
+      if (ALWAYS_HIDDEN_MENU_PATHS.has(menuPath)) return false
+      if (hasBusinessMenu && LEGACY_BUSINESS_TAB_PATHS.has(menuPath)) return false
+      return true
+    })
 
     const dedup = new Map<string, MenuItem>()
     visibleMenus.forEach((menu) => {

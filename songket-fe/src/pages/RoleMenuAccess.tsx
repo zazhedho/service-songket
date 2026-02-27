@@ -11,7 +11,7 @@ type TargetRole = (typeof TARGET_ROLES)[number]
 
 // Path kategori
 const DEALER_PATHS = ['/orders']
-const MAIN_DEALER_PATHS = ['/orders', '/business', '/dealer', '/finance', '/credit', '/quadrants', '/prices', '/news', '/jobs', '/net-income', '/dashboard']
+const MAIN_DEALER_PATHS = ['/orders', '/business', '/credit', '/quadrants', '/prices', '/news', '/jobs', '/net-income', '/dashboard']
 const ADMIN_ONLY_PATHS = ['/users', '/roles', '/menus', '/role-menu-access', '/scrape-sources']
 
 export default function RoleMenuAccessPage() {

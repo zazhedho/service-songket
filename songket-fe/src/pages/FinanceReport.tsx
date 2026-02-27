@@ -516,9 +516,6 @@ export default function FinanceReportPage() {
       }
       const filters: Record<string, unknown> = {}
 
-      if (month) params.month = Number(month)
-      if (year) params.year = Number(year)
-      if (dealer) filters.dealer_id = dealer
       if (finance1) filters.finance_1_company_id = finance1
       if (Object.keys(filters).length > 0) params.filters = filters
 
@@ -586,7 +583,7 @@ export default function FinanceReportPage() {
   useEffect(() => {
     if (isDetail) return
     void loadList()
-  }, [canList, isDetail, page, limit, dealer, month, year, finance1])
+  }, [canList, isDetail, page, limit, finance1])
 
   useEffect(() => {
     if (!canList || isDetail) return
@@ -1018,22 +1015,17 @@ export default function FinanceReportPage() {
     setDealer(dealerInput)
     setMonth(monthInput)
     setYear(yearInput)
-    setFinance1(finance1Input)
     setSelectedDealerId(dealerInput || '')
-    setPage(1)
   }
 
   const resetFilters = () => {
     setDealerInput('')
     setMonthInput('')
     setYearInput('')
-    setFinance1Input('')
     setDealer('')
     setMonth('')
     setYear('')
-    setFinance1('')
     setSelectedDealerId('')
-    setPage(1)
   }
 
   const applyDetailOrderInFilters = () => {
@@ -1452,6 +1444,12 @@ export default function FinanceReportPage() {
         </div>
       </div>
 
+      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn" onClick={() => navigate('/business')}>Summary</button>
+        <button className="btn-ghost" onClick={() => navigate('/business/finance')}>Finance</button>
+        <button className="btn-ghost" onClick={() => navigate('/business/dealer')}>Dealer</button>
+      </div>
+
       <div className="page" style={{ overflowX: 'hidden' }}>
         <div className="business-top-grid">
           <div className="card business-map-card">
@@ -1506,19 +1504,6 @@ export default function FinanceReportPage() {
                 No dealer coordinates found. Set latitude/longitude in dealer data.
               </div>
             )}
-          </div>
-
-          <div className="business-master-stack">
-            <div className="card business-master-card">
-              <h3>Master Menu</h3>
-              <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                Dealer dan Finance dipisah ke menu masing-masing.
-              </div>
-              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-                <button className="btn" onClick={() => navigate('/dealer')}>Open Dealer Menu</button>
-                <button className="btn" onClick={() => navigate('/finance')}>Open Finance Menu</button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1756,9 +1741,6 @@ export default function FinanceReportPage() {
                               state: {
                                 row: item,
                                 context: {
-                                  dealer_id: dealer,
-                                  month,
-                                  year,
                                   finance1,
                                 },
                               },
