@@ -38,6 +38,17 @@ export default function ProfilePage() {
     if (chunks.length === 0) return 'U'
     return chunks.map((chunk) => chunk.charAt(0).toUpperCase()).join('')
   }, [profile.name])
+  const passwordValidationRules = useMemo(() => {
+    const value = passwordForm.new_password || ''
+    return [
+      { label: 'At least 8 characters', valid: value.length >= 8 },
+      { label: 'Maximum 64 characters', valid: value.length <= 64 },
+      { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(value) },
+      { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(value) },
+      { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(value) },
+      { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(value) },
+    ]
+  }, [passwordForm.new_password])
 
   const loadProfile = async () => {
     setLoadingProfile(true)
@@ -234,6 +245,13 @@ export default function ProfilePage() {
         <div className="card profile-password-card">
           <h3>Change Password</h3>
           <div className="profile-help">Use a strong password with uppercase, lowercase, number, and symbol.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 12, rowGap: 3 }}>
+            {passwordValidationRules.map((rule) => (
+              <div key={rule.label} style={{ color: rule.valid ? '#166534' : '#b91c1c', fontSize: 12, fontWeight: 600 }}>
+                {rule.label}
+              </div>
+            ))}
+          </div>
           <form onSubmit={savePassword} className="profile-form-grid" style={{ marginTop: 12 }}>
             <div>
               <label>Current Password</label>
