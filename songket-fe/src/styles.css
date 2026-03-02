@@ -1296,6 +1296,41 @@ h4 {
     height: 360px;
   }
 
+  .business-dealer-detail-card {
+    padding: 12px;
+  }
+
+  .business-dealer-detail-grid {
+    display: grid;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .business-dealer-detail-item {
+    display: grid;
+    grid-template-columns: 124px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #fff;
+  }
+
+  .business-dealer-detail-label {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .business-dealer-detail-value {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: normal;
+    word-break: break-word;
+  }
+
   .business-master-stack {
     display: grid;
     gap: 12px;
@@ -2370,6 +2405,11 @@ h4 {
   .business-tabs-pane {
     margin-left: 12px;
     margin-right: 12px;
+  }
+
+  .business-dealer-detail-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .business-map-shell .leaflet-container {

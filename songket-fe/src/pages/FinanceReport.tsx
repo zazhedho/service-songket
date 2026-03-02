@@ -200,6 +200,12 @@ function formatLeadTimeHours(value: unknown) {
   return `${(seconds / 3600).toFixed(2)} jam`
 }
 
+function formatCoordinate(value: unknown) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  return num.toFixed(6)
+}
+
 function toTopBuckets(counter: Record<string, number>, maxItems = 8): SummaryBucket[] {
   return Object.entries(counter)
     .map(([label, total]) => ({ label, total: Number(total || 0) }))
@@ -1508,6 +1514,58 @@ export default function FinanceReportPage() {
             {dealerPoints.length === 0 && (
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
                 No dealer coordinates found. Set latitude/longitude in dealer data.
+              </div>
+            )}
+          </div>
+
+          <div className="card business-dealer-detail-card">
+            <div className="business-map-head">
+              <h3>Detail Dealer</h3>
+              <div className="business-map-meta">
+                <span className="muted">Source:</span>
+                <span style={{ fontWeight: 700 }}>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</span>
+              </div>
+            </div>
+
+            {!activeDealerPoint && (
+              <div className="muted" style={{ fontSize: 12 }}>
+                Klik titik dealer pada map untuk menampilkan detail dealer.
+              </div>
+            )}
+
+            {activeDealerPoint && (
+              <div className="business-dealer-detail-grid">
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Nama Dealer</div>
+                  <div className="business-dealer-detail-value">{activeDealerPoint.name || '-'}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Phone</div>
+                  <div className="business-dealer-detail-value">{activeDealerPoint.phone || '-'}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Lokasi</div>
+                  <div className="business-dealer-detail-value">
+                    {summarizeLocation([
+                      activeDealerPoint.province,
+                      activeDealerPoint.regency,
+                      activeDealerPoint.district,
+                      activeDealerPoint.village,
+                    ])}
+                  </div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Alamat</div>
+                  <div className="business-dealer-detail-value">{activeDealerPoint.address || '-'}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Latitude</div>
+                  <div className="business-dealer-detail-value">{formatCoordinate(activeDealerPoint._lat)}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Longitude</div>
+                  <div className="business-dealer-detail-value">{formatCoordinate(activeDealerPoint._lng)}</div>
+                </div>
               </div>
             )}
           </div>
