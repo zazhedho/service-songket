@@ -1638,14 +1638,22 @@ export default function FinancePage() {
       </div>
 
       {isBusinessTabMode && (
-        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn-ghost" onClick={() => navigate('/business')}>
+        <div className="business-tabs-pane">
+          <button type="button" className="business-tab-btn" onClick={() => navigate('/business')}>
             Summary
           </button>
-          <button className={listSection === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => navigate('/business/finance')}>
+          <button
+            type="button"
+            className={`business-tab-btn ${listSection === 'finance' ? 'active' : ''}`}
+            onClick={() => navigate('/business/finance')}
+          >
             Finance
           </button>
-          <button className={listSection === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => navigate('/business/dealer')}>
+          <button
+            type="button"
+            className={`business-tab-btn ${listSection === 'dealer' ? 'active' : ''}`}
+            onClick={() => navigate('/business/dealer')}
+          >
             Dealer
           </button>
         </div>

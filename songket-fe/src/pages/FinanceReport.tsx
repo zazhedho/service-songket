@@ -1444,10 +1444,16 @@ export default function FinanceReportPage() {
         </div>
       </div>
 
-      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn" onClick={() => navigate('/business')}>Summary</button>
-        <button className="btn-ghost" onClick={() => navigate('/business/finance')}>Finance</button>
-        <button className="btn-ghost" onClick={() => navigate('/business/dealer')}>Dealer</button>
+      <div className="business-tabs-pane">
+        <button type="button" className="business-tab-btn active" onClick={() => navigate('/business')}>
+          Summary
+        </button>
+        <button type="button" className="business-tab-btn" onClick={() => navigate('/business/finance')}>
+          Finance
+        </button>
+        <button type="button" className="business-tab-btn" onClick={() => navigate('/business/dealer')}>
+          Dealer
+        </button>
       </div>
 
       <div className="page" style={{ overflowX: 'hidden' }}>
