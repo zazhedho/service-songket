@@ -849,6 +849,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 
 	dailyCounter := map[string]int64{}
 	monthlyCounter := map[string]int64{}
+	dailyMotorCounter := map[string]map[string]int64{}
+	monthlyMotorCounter := map[string]map[string]int64{}
 	jobCounter := map[string]int64{}
 	productCounter := map[string]int64{}
 	financeCounter := map[string]int64{}
@@ -885,6 +887,14 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			productLabel = "-"
 		}
 		productCounter[productLabel]++
+		if _, ok := dailyMotorCounter[dateKey]; !ok {
+			dailyMotorCounter[dateKey] = map[string]int64{}
+		}
+		dailyMotorCounter[dateKey][productLabel]++
+		if _, ok := monthlyMotorCounter[monthKey]; !ok {
+			monthlyMotorCounter[monthKey] = map[string]int64{}
+		}
+		monthlyMotorCounter[monthKey][productLabel]++
 
 		financeLabel := strings.TrimSpace(row.FinanceCompanyName)
 		if financeLabel == "" {
@@ -932,6 +942,11 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		leadAvgSeconds = leadTotalSeconds / float64(leadCount)
 	}
 
+	type proportionItem struct {
+		Label string
+		Total int64
+	}
+
 	dailyKeys := make([]string, 0, len(dailyCounter))
 	for key := range dailyCounter {
 		dailyKeys = append(dailyKeys, key)
@@ -943,6 +958,33 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"date":  key,
 			"total": dailyCounter[key],
 		})
+	}
+	dailyMotorSeries := make([]map[string]interface{}, 0)
+	for _, key := range dailyKeys {
+		rowCounter := dailyMotorCounter[key]
+		if len(rowCounter) == 0 {
+			continue
+		}
+		items := make([]proportionItem, 0, len(rowCounter))
+		for label, total := range rowCounter {
+			if total <= 0 {
+				continue
+			}
+			items = append(items, proportionItem{Label: label, Total: total})
+		}
+		sort.Slice(items, func(i, j int) bool {
+			if items[i].Total != items[j].Total {
+				return items[i].Total > items[j].Total
+			}
+			return strings.ToLower(items[i].Label) < strings.ToLower(items[j].Label)
+		})
+		for _, item := range items {
+			dailyMotorSeries = append(dailyMotorSeries, map[string]interface{}{
+				"date":       key,
+				"motor_type": item.Label,
+				"total":      item.Total,
+			})
+		}
 	}
 
 	holidayEnv := strings.TrimSpace(fmt.Sprint(utils.GetEnv("DASHBOARD_HOLIDAYS", "")))
@@ -957,6 +999,7 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		monthlyKeys = monthlyKeys[len(monthlyKeys)-12:]
 	}
 	monthlySeries := make([]map[string]interface{}, 0, len(monthlyKeys))
+	monthlyMotorSeries := make([]map[string]interface{}, 0)
 	for _, key := range monthlyKeys {
 		year, month, ok := parseYearMonthKey(key)
 		workingDays := 0
@@ -974,12 +1017,35 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"working_days": workingDays,
 			"avg_daily":    avgDaily,
 		})
+
+		rowCounter := monthlyMotorCounter[key]
+		if len(rowCounter) == 0 {
+			continue
+		}
+		items := make([]proportionItem, 0, len(rowCounter))
+		for label, itemTotal := range rowCounter {
+			if itemTotal <= 0 {
+				continue
+			}
+			items = append(items, proportionItem{Label: label, Total: itemTotal})
+		}
+		sort.Slice(items, func(i, j int) bool {
+			if items[i].Total != items[j].Total {
+				return items[i].Total > items[j].Total
+			}
+			return strings.ToLower(items[i].Label) < strings.ToLower(items[j].Label)
+		})
+		for _, item := range items {
+			monthlyMotorSeries = append(monthlyMotorSeries, map[string]interface{}{
+				"month":        key,
+				"motor_type":   item.Label,
+				"total":        item.Total,
+				"working_days": workingDays,
+				"avg_daily":    float64(item.Total) / float64(workingDays),
+			})
+		}
 	}
 
-	type proportionItem struct {
-		Label string
-		Total int64
-	}
 	buildProportions := func(counter map[string]int64) []map[string]interface{} {
 		items := make([]proportionItem, 0, len(counter))
 		for label, total := range counter {
@@ -1124,7 +1190,9 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		"avg_order_in_daily_m":       avgOrderDailyM,
 		"avg_order_in_daily_prev_m":  avgOrderDailyPrev,
 		"daily_order_in":             dailySeries,
+		"daily_order_in_by_motor":    dailyMotorSeries,
 		"monthly_order_in":           monthlySeries,
+		"monthly_order_in_by_motor":  monthlyMotorSeries,
 		"job_proportion":             buildProportions(jobCounter),
 		"product_proportion":         buildProportions(productCounter),
 		"finance_company_proportion": buildProportions(financeCounter),

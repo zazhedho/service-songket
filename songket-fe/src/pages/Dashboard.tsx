@@ -23,8 +23,22 @@ type DailyItem = {
   total: number
 }
 
+type DailyMotorItem = {
+  date: string
+  motor_type: string
+  total: number
+}
+
 type MonthlyItem = {
   month: string
+  total: number
+  working_days: number
+  avg_daily: number
+}
+
+type MonthlyMotorItem = {
+  month: string
+  motor_type: string
   total: number
   working_days: number
   avg_daily: number
@@ -43,7 +57,9 @@ type DashboardSummary = {
   avg_order_in_daily_m: number
   avg_order_in_daily_prev_m: number
   daily_order_in: DailyItem[]
+  daily_order_in_by_motor: DailyMotorItem[]
   monthly_order_in: MonthlyItem[]
+  monthly_order_in_by_motor: MonthlyMotorItem[]
   job_proportion: SeriesItem[]
   product_proportion: SeriesItem[]
   finance_company_proportion: SeriesItem[]
@@ -99,7 +115,9 @@ const emptySummary: DashboardSummary = {
   avg_order_in_daily_m: 0,
   avg_order_in_daily_prev_m: 0,
   daily_order_in: [],
+  daily_order_in_by_motor: [],
   monthly_order_in: [],
+  monthly_order_in_by_motor: [],
   job_proportion: [],
   product_proportion: [],
   finance_company_proportion: [],
@@ -239,21 +257,31 @@ export default function DashboardPage() {
     return Array.from({ length: 8 }, (_, idx) => String(currentYear - idx))
   }, [])
 
-  const dailyLabels = useMemo(
-    () => summary.daily_order_in.map((item) => dayjs(item.date).format('DD MMM')),
-    [summary.daily_order_in],
-  )
-  const dailyValues = useMemo(() => summary.daily_order_in.map((item) => Number(item.total || 0)), [summary.daily_order_in])
+  const dailyChartRows = useMemo(() => {
+    return summary.daily_order_in_by_motor.map((item) => ({
+      label: String(item.motor_type || '-'),
+      value: Number(item.total || 0),
+      detail: `${dayjs(item.date).format('DD MMM YYYY')} • ${String(item.motor_type || '-')}`,
+    }))
+  }, [summary.daily_order_in_by_motor])
 
-  const monthlyLabels = useMemo(
-    () => summary.monthly_order_in.map((item) => dayjs(`${item.month}-01`).format('MMM YY')),
-    [summary.monthly_order_in],
-  )
-  const monthlyValues = useMemo(() => summary.monthly_order_in.map((item) => Number(item.total || 0)), [summary.monthly_order_in])
-  const monthlyAvgValues = useMemo(
-    () => summary.monthly_order_in.map((item) => Number(item.avg_daily || 0)),
-    [summary.monthly_order_in],
-  )
+  const monthlyChartRows = useMemo(() => {
+    return summary.monthly_order_in_by_motor.map((item) => ({
+      label: String(item.motor_type || '-'),
+      value: Number(item.total || 0),
+      avgDaily: Number(item.avg_daily || 0),
+      detail: `${dayjs(`${item.month}-01`).format('MMM YYYY')} • ${String(item.motor_type || '-')}`,
+    }))
+  }, [summary.monthly_order_in_by_motor])
+
+  const dailyLabels = useMemo(() => dailyChartRows.map((item) => item.label), [dailyChartRows])
+  const dailyValues = useMemo(() => dailyChartRows.map((item) => item.value), [dailyChartRows])
+  const dailyDetails = useMemo(() => dailyChartRows.map((item) => item.detail), [dailyChartRows])
+
+  const monthlyLabels = useMemo(() => monthlyChartRows.map((item) => item.label), [monthlyChartRows])
+  const monthlyValues = useMemo(() => monthlyChartRows.map((item) => item.value), [monthlyChartRows])
+  const monthlyAvgValues = useMemo(() => monthlyChartRows.map((item) => item.avgDaily), [monthlyChartRows])
+  const monthlyDetails = useMemo(() => monthlyChartRows.map((item) => item.detail), [monthlyChartRows])
 
   const activeNewsItem = latestNews[activeNewsIndex] || null
   const activeNewsThumb = useMemo(
@@ -438,7 +466,13 @@ export default function DashboardPage() {
             <h3>Order In Harian</h3>
             <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Grafik jumlah order in per hari.</div>
             <div style={{ marginTop: 10 }}>
-              <BarLineChart labels={dailyLabels} barValues={dailyValues} barName="Order In" />
+              <BarLineChart
+                labels={dailyLabels}
+                barValues={dailyValues}
+                barName="Order In"
+                xAxisLabel="Type Motor (per hari)"
+                tooltipDetails={dailyDetails}
+              />
             </div>
           </div>
 
@@ -454,6 +488,8 @@ export default function DashboardPage() {
                 lineValues={monthlyAvgValues}
                 barName="Order In"
                 lineName="Avg Daily"
+                xAxisLabel="Type Motor (per bulan)"
+                tooltipDetails={monthlyDetails}
               />
             </div>
           </div>
@@ -682,8 +718,20 @@ function normalizeSummary(raw: any): DashboardSummary {
       date: String(item?.date || ''),
       total: toNumber(item?.total),
     })),
+    daily_order_in_by_motor: safeArray(raw?.daily_order_in_by_motor).map((item: any) => ({
+      date: String(item?.date || ''),
+      motor_type: String(item?.motor_type || item?.motor_type_name || '-'),
+      total: toNumber(item?.total),
+    })),
     monthly_order_in: safeArray(raw?.monthly_order_in).map((item: any) => ({
       month: String(item?.month || ''),
+      total: toNumber(item?.total),
+      working_days: toNumber(item?.working_days),
+      avg_daily: toNumber(item?.avg_daily),
+    })),
+    monthly_order_in_by_motor: safeArray(raw?.monthly_order_in_by_motor).map((item: any) => ({
+      month: String(item?.month || ''),
+      motor_type: String(item?.motor_type || item?.motor_type_name || '-'),
       total: toNumber(item?.total),
       working_days: toNumber(item?.working_days),
       avg_daily: toNumber(item?.avg_daily),
@@ -860,19 +908,33 @@ function PriceTrendChart({ labels, values, dates }: { labels: string[]; values: 
   )
 }
 
+function formatChartNumber(value: number) {
+  if (!Number.isFinite(value)) return '0'
+  if (Math.abs(value) >= 1000) return Math.round(value).toLocaleString('id-ID')
+  if (Math.abs(value) >= 100) return Math.round(value).toString()
+  if (Number.isInteger(value)) return value.toString()
+  return value.toFixed(1)
+}
+
 function BarLineChart({
   labels,
   barValues,
   lineValues,
   barName,
   lineName,
+  xAxisLabel,
+  tooltipDetails,
 }: {
   labels: string[]
   barValues: number[]
   lineValues?: number[]
   barName: string
   lineName?: string
+  xAxisLabel?: string
+  tooltipDetails?: string[]
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
   if (!labels.length || !barValues.length) {
     return <div style={{ color: '#64748b', fontSize: 12 }}>No chart data.</div>
   }
@@ -882,19 +944,19 @@ function BarLineChart({
   const paddedBarValues = barValues.slice(0, maxLabel)
   const paddedLineValues = Array.isArray(lineValues) ? lineValues.slice(0, maxLabel) : []
 
-  const width = Math.max(520, paddedLabels.length * 54 + 90)
+  const width = Math.max(520, paddedLabels.length * 54 + 110)
   const height = 250
-  const left = 44
+  const left = 52
   const right = width - 24
-  const top = 16
+  const top = 20
   const bottom = height - 54
   const plotWidth = right - left
   const plotHeight = bottom - top
   const slotWidth = plotWidth / paddedLabels.length
   const barWidth = Math.min(26, Math.max(10, slotWidth * 0.6))
   const maxValue = Math.max(1, ...paddedBarValues, ...paddedLineValues)
-
   const showStep = paddedLabels.length <= 10 ? 1 : Math.ceil(paddedLabels.length / 8)
+  const yTicks = Array.from({ length: 6 }, (_, idx) => (maxValue / 5) * idx)
 
   const linePoints = paddedLineValues.map((value, idx) => {
     const centerX = left + slotWidth * idx + slotWidth / 2
@@ -902,10 +964,38 @@ function BarLineChart({
     return { x: centerX, y }
   })
   const linePath = linePoints.map((point, idx) => `${idx === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ')
+  const hoverIdx = hoveredIndex != null && hoveredIndex >= 0 && hoveredIndex < paddedLabels.length ? hoveredIndex : null
+  const hoverCenterX = hoverIdx != null ? left + slotWidth * hoverIdx + slotWidth / 2 : null
+  const tooltipWidth = 188
+  const tooltipHeight = paddedLineValues.length > 0 ? 58 : 42
+  const tooltipX = hoverCenterX != null ? Math.min(Math.max(left + 6, hoverCenterX + 10), right - tooltipWidth) : left + 6
+  const tooltipY = top + 8
+  const tooltipTitle = hoverIdx != null ? (tooltipDetails?.[hoverIdx] || paddedLabels[hoverIdx]) : ''
+  const tooltipBarValue = hoverIdx != null ? paddedBarValues[hoverIdx] : 0
+  const tooltipLineValue = hoverIdx != null && paddedLineValues.length > 0 ? paddedLineValues[hoverIdx] : null
 
   return (
     <div style={{ overflowX: 'auto' }}>
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ minWidth: width, display: 'block' }}>
+        {yTicks.map((tick, idx) => {
+          const y = bottom - (tick / maxValue) * plotHeight
+          return (
+            <g key={`y-tick-${idx}`}>
+              <line
+                x1={left}
+                y1={y}
+                x2={right}
+                y2={y}
+                stroke={idx === 0 ? '#94a3b8' : '#e2e8f0'}
+                strokeWidth={idx === 0 ? 1 : 0.9}
+              />
+              <text x={left - 6} y={y + 3} textAnchor="end" fontSize={10} fill="#475569">
+                {formatChartNumber(tick)}
+              </text>
+            </g>
+          )
+        })}
+
         <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
         <line x1={left} y1={top} x2={left} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
 
@@ -913,9 +1003,28 @@ function BarLineChart({
           const x = left + slotWidth * idx + (slotWidth - barWidth) / 2
           const h = (value / maxValue) * plotHeight
           const y = bottom - h
+          const slotX = left + slotWidth * idx
           return (
             <g key={`${paddedLabels[idx]}-${idx}`}>
-              <rect x={x} y={y} width={barWidth} height={Math.max(1, h)} rx={4} fill="#22d3ee" />
+              <rect
+                x={slotX}
+                y={top}
+                width={slotWidth}
+                height={plotHeight}
+                fill="transparent"
+                onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
+              />
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={Math.max(1, h)}
+                rx={4}
+                fill={idx === hoverIdx ? '#0891b2' : '#22d3ee'}
+                onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
+              />
               {idx % showStep === 0 || idx === paddedLabels.length - 1 ? (
                 <text
                   x={x + barWidth / 2}
@@ -936,14 +1045,53 @@ function BarLineChart({
           <g>
             <path d={linePath} fill="none" stroke="#f97316" strokeWidth={2} />
             {linePoints.map((point, idx) => (
-              <circle key={`line-${idx}`} cx={point.x} cy={point.y} r={3} fill="#f97316" />
+              <circle key={`line-${idx}`} cx={point.x} cy={point.y} r={idx === hoverIdx ? 4 : 3} fill="#f97316" />
             ))}
           </g>
+        )}
+
+        {hoverIdx != null && hoverCenterX != null && (
+          <>
+            <line
+              x1={hoverCenterX}
+              y1={top}
+              x2={hoverCenterX}
+              y2={bottom}
+              stroke="#38bdf8"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+            />
+            <rect
+              x={tooltipX}
+              y={tooltipY}
+              width={tooltipWidth}
+              height={tooltipHeight}
+              rx={8}
+              fill="#ffffff"
+              stroke="#dbe3ef"
+            />
+            <text x={tooltipX + 8} y={tooltipY + 15} fontSize={10.5} fill="#475569">
+              {tooltipTitle}
+            </text>
+            <text x={tooltipX + 8} y={tooltipY + 30} fontSize={11} fill="#0f172a" fontWeight={700}>
+              {barName}: {formatChartNumber(tooltipBarValue)}
+            </text>
+            {lineName && tooltipLineValue != null && (
+              <text x={tooltipX + 8} y={tooltipY + 45} fontSize={10.5} fill="#ea580c" fontWeight={700}>
+                {lineName}: {formatChartNumber(tooltipLineValue)}
+              </text>
+            )}
+          </>
         )}
 
         <text x={left} y={12} fontSize={11} fill="#0f172a" fontWeight={700}>{barName}</text>
         {lineName && paddedLineValues.length > 0 && (
           <text x={left + 70} y={12} fontSize={11} fill="#f97316" fontWeight={700}>{lineName}</text>
+        )}
+        {xAxisLabel && (
+          <text x={(left + right) / 2} y={height - 8} textAnchor="middle" fontSize={10.5} fill="#475569" fontWeight={600}>
+            {xAxisLabel}
+          </text>
         )}
       </svg>
     </div>
@@ -951,9 +1099,27 @@ function BarLineChart({
 }
 
 function DonutCard({ title, subtitle, items }: { title: string; subtitle: string; items: SeriesItem[] }) {
+  const [hoveredSliceIdx, setHoveredSliceIdx] = useState<number | null>(null)
   const slices = useMemo(() => buildDonutSlices(items), [items])
-  const gradient = useMemo(() => buildDonutGradient(slices), [slices])
   const total = useMemo(() => slices.reduce((sum, item) => sum + item.total, 0), [slices])
+  const ringSize = 120
+  const ringStroke = 24
+  const ringRadius = (ringSize - ringStroke) / 2
+  const ringCircumference = 2 * Math.PI * ringRadius
+  const ringSlices = useMemo(() => {
+    let consumed = 0
+    return slices.map((slice) => {
+      const length = (slice.percent / 100) * ringCircumference
+      const segment = {
+        ...slice,
+        length,
+        offset: consumed,
+      }
+      consumed += length
+      return segment
+    })
+  }, [ringCircumference, slices])
+  const activeSlice = hoveredSliceIdx != null ? slices[hoveredSliceIdx] : null
 
   return (
     <div className="card">
@@ -963,7 +1129,40 @@ function DonutCard({ title, subtitle, items }: { title: string; subtitle: string
       <div style={{ display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr)', gap: 10, marginTop: 12, alignItems: 'center' }}>
         {slices.length > 0 && (
           <div style={{ display: 'grid', placeItems: 'center' }}>
-            <div style={{ width: 120, height: 120, borderRadius: '50%', background: gradient, position: 'relative' }}>
+            <div style={{ width: ringSize, height: ringSize, position: 'relative' }}>
+              <svg viewBox={`0 0 ${ringSize} ${ringSize}`} width={ringSize} height={ringSize} style={{ display: 'block' }}>
+                <circle
+                  cx={ringSize / 2}
+                  cy={ringSize / 2}
+                  r={ringRadius}
+                  fill="none"
+                  stroke="#e2e8f0"
+                  strokeWidth={ringStroke}
+                />
+                {ringSlices.map((slice, idx) => (
+                  <circle
+                    key={`donut-slice-${slice.label}-${idx}`}
+                    cx={ringSize / 2}
+                    cy={ringSize / 2}
+                    r={ringRadius}
+                    fill="none"
+                    stroke={slice.color}
+                    strokeWidth={ringStroke}
+                    strokeDasharray={`${slice.length} ${ringCircumference}`}
+                    strokeDashoffset={-slice.offset}
+                    transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                    style={{
+                      cursor: 'pointer',
+                      opacity: hoveredSliceIdx == null || hoveredSliceIdx === idx ? 1 : 0.55,
+                      transition: 'opacity .18s ease',
+                    }}
+                    onMouseEnter={() => setHoveredSliceIdx(idx)}
+                    onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+                  >
+                    <title>{`${slice.label}: ${formatInteger(slice.total)} (${slice.percent.toFixed(1)}%)`}</title>
+                  </circle>
+                ))}
+              </svg>
               <div
                 style={{
                   position: 'absolute',
@@ -976,17 +1175,55 @@ function DonutCard({ title, subtitle, items }: { title: string; subtitle: string
                 }}
               >
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>Total</div>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>{formatInteger(total)}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>{activeSlice ? 'Hover' : 'Total'}</div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>
+                    {activeSlice ? `${activeSlice.percent.toFixed(1)}%` : formatInteger(total)}
+                  </div>
+                  {activeSlice && (
+                    <div style={{ marginTop: 2, color: '#64748b', fontSize: 10 }}>
+                      {formatInteger(activeSlice.total)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+            {activeSlice && (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: '#334155',
+                  fontWeight: 600,
+                  maxWidth: 124,
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={activeSlice.label}
+              >
+                {activeSlice.label}
+              </div>
+            )}
           </div>
         )}
 
         <div style={{ display: 'grid', gap: 6, maxHeight: 185, overflowY: 'auto', paddingRight: 4 }}>
-          {slices.map((slice) => (
-            <div key={slice.label} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
+          {slices.map((slice, idx) => (
+            <div
+              key={slice.label}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
+                gap: 8,
+                alignItems: 'center',
+                background: hoveredSliceIdx === idx ? '#eef6ff' : 'transparent',
+                borderRadius: 8,
+                padding: '2px 4px',
+              }}
+              onMouseEnter={() => setHoveredSliceIdx(idx)}
+              onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+            >
               <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
               <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{slice.label}</div>
               <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
@@ -1025,16 +1262,4 @@ function buildDonutSlices(items: SeriesItem[], maxSlices = 6): DonutSlice[] {
     percent: sumTotal > 0 ? (item.total / sumTotal) * 100 : 0,
     color: palette[idx % palette.length],
   }))
-}
-
-function buildDonutGradient(slices: DonutSlice[]) {
-  if (!slices.length) return '#e2e8f0'
-  let start = 0
-  const parts = slices.map((slice) => {
-    const end = start + slice.percent
-    const segment = `${slice.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`
-    start = end
-    return segment
-  })
-  return `conic-gradient(${parts.join(', ')})`
 }
