@@ -200,6 +200,12 @@ function formatLeadTimeHours(value: unknown) {
   return `${(seconds / 3600).toFixed(2)} jam`
 }
 
+function formatCoordinate(value: unknown) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  return num.toFixed(6)
+}
+
 function toTopBuckets(counter: Record<string, number>, maxItems = 8): SummaryBucket[] {
   return Object.entries(counter)
     .map(([label, total]) => ({ label, total: Number(total || 0) }))
@@ -1444,10 +1450,16 @@ export default function FinanceReportPage() {
         </div>
       </div>
 
-      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn" onClick={() => navigate('/business')}>Summary</button>
-        <button className="btn-ghost" onClick={() => navigate('/business/finance')}>Finance</button>
-        <button className="btn-ghost" onClick={() => navigate('/business/dealer')}>Dealer</button>
+      <div className="business-tabs-pane">
+        <button type="button" className="business-tab-btn active" onClick={() => navigate('/business')}>
+          Summary
+        </button>
+        <button type="button" className="business-tab-btn" onClick={() => navigate('/business/finance')}>
+          Finance
+        </button>
+        <button type="button" className="business-tab-btn" onClick={() => navigate('/business/dealer')}>
+          Dealer
+        </button>
       </div>
 
       <div className="page" style={{ overflowX: 'hidden' }}>
@@ -1502,6 +1514,58 @@ export default function FinanceReportPage() {
             {dealerPoints.length === 0 && (
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
                 No dealer coordinates found. Set latitude/longitude in dealer data.
+              </div>
+            )}
+          </div>
+
+          <div className="card business-dealer-detail-card">
+            <div className="business-map-head">
+              <h3>Detail Dealer</h3>
+              <div className="business-map-meta">
+                <span className="muted">Source:</span>
+                <span style={{ fontWeight: 700 }}>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</span>
+              </div>
+            </div>
+
+            {!activeDealerPoint && (
+              <div className="muted" style={{ fontSize: 12 }}>
+                Klik titik dealer pada map untuk menampilkan detail dealer.
+              </div>
+            )}
+
+            {activeDealerPoint && (
+              <div className="business-dealer-detail-grid">
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Nama Dealer</div>
+                  <div className="business-dealer-detail-value">{activeDealerPoint.name || '-'}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Phone</div>
+                  <div className="business-dealer-detail-value">{activeDealerPoint.phone || '-'}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Lokasi</div>
+                  <div className="business-dealer-detail-value">
+                    {summarizeLocation([
+                      activeDealerPoint.province,
+                      activeDealerPoint.regency,
+                      activeDealerPoint.district,
+                      activeDealerPoint.village,
+                    ])}
+                  </div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Alamat</div>
+                  <div className="business-dealer-detail-value">{activeDealerPoint.address || '-'}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Latitude</div>
+                  <div className="business-dealer-detail-value">{formatCoordinate(activeDealerPoint._lat)}</div>
+                </div>
+                <div className="business-dealer-detail-item">
+                  <div className="business-dealer-detail-label">Longitude</div>
+                  <div className="business-dealer-detail-value">{formatCoordinate(activeDealerPoint._lng)}</div>
+                </div>
               </div>
             )}
           </div>
@@ -1563,6 +1627,55 @@ export default function FinanceReportPage() {
         <div className="card business-section">
           <div className="business-section-head">
             <h3 className="business-section-title">Dealer Performance</h3>
+            <div className="business-section-side">{activeDealerName}</div>
+          </div>
+
+          <div style={{ padding: 12 }}>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+              <div>
+                <label>Select Dealer</label>
+                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                  <option value="">Select dealer</option>
+                  {dealerRows.map((dealerItem) => (
+                    <option key={`summary-dealer-${dealerItem.id}`} value={dealerItem.id}>
+                      {dealerItem.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+            {selectedDealerId && !dealerMetrics && (
+              <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>
+            )}
+
+            {dealerMetrics && (
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Total Order</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.total_orders)}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Approval Rate</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{`${(toSafeNumber(dealerMetrics.approval_rate) * 100).toFixed(1)}%`}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Lead Time Avg (h)</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{formatLeadTimeHours(dealerMetrics.lead_time_seconds_avg)}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Rescue FC2</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.rescue_approved_fc2)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card business-section">
+          <div className="business-section-head">
+            <h3 className="business-section-title">Finance Performance</h3>
             <div className="business-section-side">{activeDealerName}</div>
           </div>
 

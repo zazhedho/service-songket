@@ -178,8 +178,6 @@ export default function FinancePage() {
 
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
-  const [dealerDetailMetrics, setDealerDetailMetrics] = useState<any>(null)
-  const [dealerDetailMetricsLoading, setDealerDetailMetricsLoading] = useState(false)
   const [detailDealerKabupaten, setDetailDealerKabupaten] = useState<Option[]>([])
   const [detailDealerKecamatan, setDetailDealerKecamatan] = useState<Option[]>([])
   const [detailCompanyKabupaten, setDetailCompanyKabupaten] = useState<Option[]>([])
@@ -302,20 +300,6 @@ export default function FinancePage() {
     if (!selectedId) return null
     return financeCompanies.find((company) => company.id === selectedId) || (stateCompany?.id === selectedId ? stateCompany : null)
   }, [financeCompanies, selectedId, stateCompany])
-
-  useEffect(() => {
-    if (!isDealerDetail || !selectedDealer?.id) {
-      setDealerDetailMetrics(null)
-      setDealerDetailMetricsLoading(false)
-      return
-    }
-
-    setDealerDetailMetricsLoading(true)
-    fetchDealerMetrics(selectedDealer.id)
-      .then((res) => setDealerDetailMetrics(res.data.data || res.data || null))
-      .catch(() => setDealerDetailMetrics(null))
-      .finally(() => setDealerDetailMetricsLoading(false))
-  }, [isDealerDetail, selectedDealer?.id])
 
   useEffect(() => {
     if (!isDealerDetail || !selectedDealer?.province) {
@@ -1218,68 +1202,6 @@ export default function FinancePage() {
                 />
               </div>
 
-              <div className="card">
-                <h3>Dealer Performance</h3>
-                {dealerDetailMetricsLoading && <div className="muted">Loading dealer performance...</div>}
-                {!dealerDetailMetricsLoading && !dealerDetailMetrics && (
-                  <div className="muted">No performance data for this dealer yet.</div>
-                )}
-                {!dealerDetailMetricsLoading && dealerDetailMetrics && (
-                  <>
-                    <DetailTable
-                      rows={[
-                        { label: 'Total Orders', value: Number(dealerDetailMetrics.total_orders || 0) },
-                        {
-                          label: 'Approval Rate',
-                          value: `${(Number(dealerDetailMetrics.approval_rate || 0) * 100).toFixed(1)}%`,
-                        },
-                        {
-                          label: 'Lead Time Avg (h)',
-                          value: formatLeadTimeHours(dealerDetailMetrics.lead_time_seconds_avg),
-                        },
-                        { label: 'Rescue FC2', value: Number(dealerDetailMetrics.rescue_approved_fc2 || 0) },
-                        {
-                          label: 'Finance Companies',
-                          value: Array.isArray(dealerDetailMetrics.finance_companies)
-                            ? dealerDetailMetrics.finance_companies.length
-                            : 0,
-                        },
-                      ]}
-                    />
-
-                    <div style={{ marginTop: 12 }}>
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Finance Company</th>
-                            <th>Total Orders</th>
-                            <th>Approval Rate</th>
-                            <th>Lead Avg (h)</th>
-                            <th>Rescue FC2</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(dealerDetailMetrics.finance_companies || []).map((item: any) => (
-                            <tr key={item.finance_company_id}>
-                              <td>{item.finance_company_name || '-'}</td>
-                              <td>{Number(item.total_orders || 0)}</td>
-                              <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              <td>{formatLeadTimeHours(item.lead_time_seconds_avg)}</td>
-                              <td>{Number(item.rescue_approved_fc2 || 0)}</td>
-                            </tr>
-                          ))}
-                          {(dealerDetailMetrics.finance_companies || []).length === 0 && (
-                            <tr>
-                              <td colSpan={5}>No related finance company data for this dealer.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
-
               <div className="card" style={{ minHeight: 360 }}>
                 <h3>Dealer Map</h3>
                 <div style={{ marginTop: 10 }}>
@@ -1638,14 +1560,22 @@ export default function FinancePage() {
       </div>
 
       {isBusinessTabMode && (
-        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn-ghost" onClick={() => navigate('/business')}>
+        <div className="business-tabs-pane">
+          <button type="button" className="business-tab-btn" onClick={() => navigate('/business')}>
             Summary
           </button>
-          <button className={listSection === 'finance' ? 'btn' : 'btn-ghost'} onClick={() => navigate('/business/finance')}>
+          <button
+            type="button"
+            className={`business-tab-btn ${listSection === 'finance' ? 'active' : ''}`}
+            onClick={() => navigate('/business/finance')}
+          >
             Finance
           </button>
-          <button className={listSection === 'dealer' ? 'btn' : 'btn-ghost'} onClick={() => navigate('/business/dealer')}>
+          <button
+            type="button"
+            className={`business-tab-btn ${listSection === 'dealer' ? 'active' : ''}`}
+            onClick={() => navigate('/business/dealer')}
+          >
             Dealer
           </button>
         </div>
@@ -1782,175 +1712,6 @@ export default function FinancePage() {
               </div>
             </div>
 
-            <div className="dealer-performance-grid">
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Dealer Performance</h3>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
-                </div>
-
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
-                  <div>
-                    <label>Select Dealer</label>
-                    <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                      <option value="">Select dealer</option>
-                      {dealers.map((dealer) => (
-                        <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
-                {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
-
-                {metrics && (
-                  <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                    <Metric label="Total Order" value={metrics.total_orders} />
-                    <Metric label="Approval Rate" value={`${((metrics.approval_rate || 0) * 100).toFixed(1)}%`} />
-                    <Metric label="Lead Time Avg (h)" value={formatLeadTimeHours(metrics.lead_time_seconds_avg)} />
-                    <Metric label="Rescue FC2" value={metrics.rescue_approved_fc2} />
-                  </div>
-                )}
-              </div>
-
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Finance Approval</h3>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
-                </div>
-
-                {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance approval stats.</div>}
-                {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
-
-                {metrics && (
-                  <div className="finance-approval-compact">
-                    <div className="finance-approval-top">
-                      <div className="finance-approval-filter">
-                        <label>Select Finance 1</label>
-                        <select
-                          value={selectedTransitionFromFinanceID}
-                          onChange={(e) => setSelectedTransitionFromFinanceID(e.target.value)}
-                        >
-                          {transitionFromFinanceOptions.length === 0 && <option value="">No data</option>}
-                          {transitionFromFinanceOptions.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="finance-approval-kpi-grid">
-                        <MiniMetric label="Finance 1" value={selectedTransitionFromFinanceName} />
-                        <MiniMetric label="Total" value={selectedTransitionSummary.total} />
-                        <MiniMetric label="Approved" value={selectedTransitionSummary.approved} />
-                        <MiniMetric label="Rejected" value={selectedTransitionSummary.rejected} />
-                        <MiniMetric label="Rate" value={`${(selectedTransitionSummary.approvalRate * 100).toFixed(1)}%`} />
-                      </div>
-                    </div>
-
-                    <div className="compact-section">
-                      <div className="compact-section-title">Finance Snapshot</div>
-                      <table className="table compact-table">
-                        <thead>
-                          <tr>
-                            <th>Finance</th>
-                            <th>Total</th>
-                            <th>Approved</th>
-                            <th>Rejected</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dealerFinanceRows.map((fc: any) => {
-                            const total = Number(fc?.total_orders || 0)
-                            const approvedRaw = fc?.approved_count
-                            const rejectedRaw = fc?.rejected_count
-                            const approved = Number.isFinite(Number(approvedRaw))
-                              ? Number(approvedRaw)
-                              : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
-                            const rejected = Number.isFinite(Number(rejectedRaw))
-                              ? Number(rejectedRaw)
-                              : Math.max(0, total - approved)
-                            return (
-                              <tr key={`dealer-approval-${fc.finance_company_id}`}>
-                                <td>{fc.finance_company_name}</td>
-                                <td>{total}</td>
-                                <td>{approved}</td>
-                                <td>{rejected}</td>
-                              </tr>
-                            )
-                          })}
-                          {financeMetricRows.length === 0 && (
-                            <tr>
-                              <td colSpan={4}>No finance company metric for this dealer.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      {dealerFinanceTotalData > 0 && (
-                        <Pagination
-                          page={dealerFinancePage}
-                          totalPages={dealerFinanceTotalPages}
-                          totalData={dealerFinanceTotalData}
-                          limit={dealerFinanceLimit}
-                          onPageChange={setDealerFinancePage}
-                          onLimitChange={(next) => {
-                            setDealerFinanceLimit(next)
-                            setDealerFinancePage(1)
-                          }}
-                          limitOptions={[5, 10, 20, 50]}
-                        />
-                      )}
-                    </div>
-
-                    <div className="compact-section">
-                      <div className="compact-section-title">Finance 1 Reject to Finance 2 Outcome</div>
-                      <table className="table compact-table">
-                        <thead>
-                          <tr>
-                            <th>Finance 2 Name</th>
-                            <th>Total Data</th>
-                            <th>Approved</th>
-                            <th>Rejected</th>
-                            <th>Approval Rate</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dealerTransitionRows.map((item: any) => (
-                            <tr key={`${item.finance_1_company_id}-${item.finance_2_company_id}`}>
-                              <td>{item.finance_2_company_name || '-'}</td>
-                              <td>{Number(item.total_data || 0)}</td>
-                              <td>{Number(item.approved_count || 0)}</td>
-                              <td>{Number(item.rejected_count || 0)}</td>
-                              <td>{(Number(item.approval_rate || 0) * 100).toFixed(1)}%</td>
-                            </tr>
-                          ))}
-                          {filteredTransitionRows.length === 0 && (
-                            <tr>
-                              <td colSpan={5}>No finance transition data for this dealer.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      {dealerTransitionTotalData > 0 && (
-                        <Pagination
-                          page={dealerTransitionPage}
-                          totalPages={dealerTransitionTotalPages}
-                          totalData={dealerTransitionTotalData}
-                          limit={dealerTransitionLimit}
-                          onPageChange={setDealerTransitionPage}
-                          onLimitChange={(next) => {
-                            setDealerTransitionLimit(next)
-                            setDealerTransitionPage(1)
-                          }}
-                          limitOptions={[5, 10, 20, 50]}
-                        />
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           </>
         )}
 
