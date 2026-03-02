@@ -1626,7 +1626,7 @@ export default function FinanceReportPage() {
 
         <div className="card business-section">
           <div className="business-section-head">
-            <h3 className="business-section-title">Dealer Performance</h3>
+            <h3 className="business-section-title">Finance Performance</h3>
             <div className="business-section-side">{activeDealerName}</div>
           </div>
 
