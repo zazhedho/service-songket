@@ -1626,6 +1626,55 @@ export default function FinanceReportPage() {
 
         <div className="card business-section">
           <div className="business-section-head">
+            <h3 className="business-section-title">Dealer Performance</h3>
+            <div className="business-section-side">{activeDealerName}</div>
+          </div>
+
+          <div style={{ padding: 12 }}>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+              <div>
+                <label>Select Dealer</label>
+                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
+                  <option value="">Select dealer</option>
+                  {dealerRows.map((dealerItem) => (
+                    <option key={`summary-dealer-${dealerItem.id}`} value={dealerItem.id}>
+                      {dealerItem.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
+            {selectedDealerId && !dealerMetrics && (
+              <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>
+            )}
+
+            {dealerMetrics && (
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Total Order</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.total_orders)}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Approval Rate</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{`${(toSafeNumber(dealerMetrics.approval_rate) * 100).toFixed(1)}%`}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Lead Time Avg (h)</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{formatLeadTimeHours(dealerMetrics.lead_time_seconds_avg)}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Rescue FC2</div>
+                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.rescue_approved_fc2)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card business-section">
+          <div className="business-section-head">
             <h3 className="business-section-title">Finance Performance</h3>
             <div className="business-section-side">{activeDealerName}</div>
           </div>
