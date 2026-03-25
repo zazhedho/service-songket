@@ -29,6 +29,13 @@ type DailyMotorItem = {
   total: number
 }
 
+type DailyFinanceDecisionByCompanyItem = {
+  date: string
+  finance_company: string
+  approve_total: number
+  reject_total: number
+}
+
 type MonthlyItem = {
   month: string
   total: number
@@ -56,7 +63,11 @@ type DashboardSummary = {
   growth_prev_month: string
   avg_order_in_daily_m: number
   avg_order_in_daily_prev_m: number
+  avg_retail_sales_daily_m: number
   daily_order_in: DailyItem[]
+  daily_retail_sales: DailyItem[]
+  daily_finance_reject: DailyItem[]
+  daily_finance_decision_by_company: DailyFinanceDecisionByCompanyItem[]
   daily_order_in_by_motor: DailyMotorItem[]
   monthly_order_in: MonthlyItem[]
   monthly_order_in_by_motor: MonthlyMotorItem[]
@@ -114,7 +125,11 @@ const emptySummary: DashboardSummary = {
   growth_prev_month: '',
   avg_order_in_daily_m: 0,
   avg_order_in_daily_prev_m: 0,
+  avg_retail_sales_daily_m: 0,
   daily_order_in: [],
+  daily_retail_sales: [],
+  daily_finance_reject: [],
+  daily_finance_decision_by_company: [],
   daily_order_in_by_motor: [],
   monthly_order_in: [],
   monthly_order_in_by_motor: [],
@@ -257,31 +272,37 @@ export default function DashboardPage() {
     return Array.from({ length: 8 }, (_, idx) => String(currentYear - idx))
   }, [])
 
-  const dailyChartRows = useMemo(() => {
-    return summary.daily_order_in_by_motor.map((item) => ({
-      label: String(item.motor_type || '-'),
-      value: Number(item.total || 0),
-      detail: `${dayjs(item.date).format('DD MMM YYYY')} • ${String(item.motor_type || '-')}`,
-    }))
-  }, [summary.daily_order_in_by_motor])
+  const dailyDistributionTrend = useMemo(
+    () =>
+      buildDailyTrendSeries({
+        rows: summary.daily_order_in,
+        targetValue: summary.avg_order_in_daily_m,
+        month: filtersApplied.month,
+        year: filtersApplied.year,
+        day: filtersApplied.day,
+      }),
+    [filtersApplied.day, filtersApplied.month, filtersApplied.year, summary.avg_order_in_daily_m, summary.daily_order_in],
+  )
 
-  const monthlyChartRows = useMemo(() => {
-    return summary.monthly_order_in_by_motor.map((item) => ({
-      label: String(item.motor_type || '-'),
-      value: Number(item.total || 0),
-      avgDaily: Number(item.avg_daily || 0),
-      detail: `${dayjs(`${item.month}-01`).format('MMM YYYY')} • ${String(item.motor_type || '-')}`,
-    }))
-  }, [summary.monthly_order_in_by_motor])
-
-  const dailyLabels = useMemo(() => dailyChartRows.map((item) => item.label), [dailyChartRows])
-  const dailyValues = useMemo(() => dailyChartRows.map((item) => item.value), [dailyChartRows])
-  const dailyDetails = useMemo(() => dailyChartRows.map((item) => item.detail), [dailyChartRows])
-
-  const monthlyLabels = useMemo(() => monthlyChartRows.map((item) => item.label), [monthlyChartRows])
-  const monthlyValues = useMemo(() => monthlyChartRows.map((item) => item.value), [monthlyChartRows])
-  const monthlyAvgValues = useMemo(() => monthlyChartRows.map((item) => item.avgDaily), [monthlyChartRows])
-  const monthlyDetails = useMemo(() => monthlyChartRows.map((item) => item.detail), [monthlyChartRows])
+  const dailyFinanceDecisionTrend = useMemo(
+    () =>
+      buildDailyFinanceDecisionSeries({
+        approveRows: summary.daily_retail_sales,
+        rejectRows: summary.daily_finance_reject,
+        companyRows: summary.daily_finance_decision_by_company,
+        month: filtersApplied.month,
+        year: filtersApplied.year,
+        day: filtersApplied.day,
+      }),
+    [
+      filtersApplied.day,
+      filtersApplied.month,
+      filtersApplied.year,
+      summary.daily_finance_decision_by_company,
+      summary.daily_finance_reject,
+      summary.daily_retail_sales,
+    ],
+  )
 
   const activeNewsItem = latestNews[activeNewsIndex] || null
   const activeNewsThumb = useMemo(
@@ -463,33 +484,42 @@ export default function DashboardPage() {
 
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 12 }}>
           <div className="card">
-            <h3>Order In Harian</h3>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Grafik jumlah order in per hari.</div>
+            <h3>Daily Order In Trend</h3>
+            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+              Order in harian berdasarkan pooling date.
+            </div>
             <div style={{ marginTop: 10 }}>
               <BarLineChart
-                labels={dailyLabels}
-                barValues={dailyValues}
+                labels={dailyDistributionTrend.labels}
+                barValues={dailyDistributionTrend.values}
                 barName="Order In"
-                xAxisLabel="Type Motor (per hari)"
-                tooltipDetails={dailyDetails}
+                xAxisLabel="Tanggal"
+                tooltipDetails={dailyDistributionTrend.tooltipDetails}
+                barColor="#f97316"
+                barHoverColor="#ea580c"
               />
             </div>
           </div>
 
           <div className="card">
-            <h3>Order In Bulanan + Avg Daily</h3>
+            <h3>Daily Finance Approve</h3>
             <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-              Avg daily = jumlah order in / jumlah hari kerja (hari minggu + hari libur dikurangi).
+              Data approve/reject harian dari tabel order_finance_attempts (sesuai filter dashboard).
             </div>
             <div style={{ marginTop: 10 }}>
               <BarLineChart
-                labels={monthlyLabels}
-                barValues={monthlyValues}
-                lineValues={monthlyAvgValues}
-                barName="Order In"
-                lineName="Avg Daily"
-                xAxisLabel="Type Motor (per bulan)"
-                tooltipDetails={monthlyDetails}
+                labels={dailyFinanceDecisionTrend.labels}
+                barValues={dailyFinanceDecisionTrend.approveValues}
+                secondaryBarValues={dailyFinanceDecisionTrend.rejectValues}
+                barName="Finance Approve"
+                secondaryBarName="Finance Reject"
+                xAxisLabel="Tanggal"
+                tooltipDetails={dailyFinanceDecisionTrend.tooltipDetails}
+                tooltipExtraLines={dailyFinanceDecisionTrend.tooltipExtraLines}
+                barColor="#3b82f6"
+                barHoverColor="#2563eb"
+                secondaryBarColor="#ef4444"
+                secondaryBarHoverColor="#dc2626"
               />
             </div>
           </div>
@@ -714,9 +744,24 @@ function normalizeSummary(raw: any): DashboardSummary {
     growth_prev_month: String(raw?.growth_prev_month || ''),
     avg_order_in_daily_m: toNumber(raw?.avg_order_in_daily_m),
     avg_order_in_daily_prev_m: toNumber(raw?.avg_order_in_daily_prev_m),
+    avg_retail_sales_daily_m: toNumber(raw?.avg_retail_sales_daily_m),
     daily_order_in: safeArray(raw?.daily_order_in).map((item: any) => ({
       date: String(item?.date || ''),
       total: toNumber(item?.total),
+    })),
+    daily_retail_sales: safeArray(raw?.daily_retail_sales).map((item: any) => ({
+      date: String(item?.date || ''),
+      total: toNumber(item?.total),
+    })),
+    daily_finance_reject: safeArray(raw?.daily_finance_reject).map((item: any) => ({
+      date: String(item?.date || ''),
+      total: toNumber(item?.total),
+    })),
+    daily_finance_decision_by_company: safeArray(raw?.daily_finance_decision_by_company).map((item: any) => ({
+      date: String(item?.date || ''),
+      finance_company: String(item?.finance_company || '-'),
+      approve_total: toNumber(item?.approve_total),
+      reject_total: toNumber(item?.reject_total),
     })),
     daily_order_in_by_motor: safeArray(raw?.daily_order_in_by_motor).map((item: any) => ({
       date: String(item?.date || ''),
@@ -916,22 +961,261 @@ function formatChartNumber(value: number) {
   return value.toFixed(1)
 }
 
+type DailyTrendSeries = {
+  labels: string[]
+  values: number[]
+  targetValues: number[]
+  tooltipDetails: string[]
+}
+
+type DailyFinanceDecisionSeries = {
+  labels: string[]
+  approveValues: number[]
+  rejectValues: number[]
+  tooltipDetails: string[]
+  tooltipExtraLines: string[][]
+}
+
+function buildDailyTrendSeries({
+  rows,
+  targetValue,
+  month,
+  year,
+  day,
+}: {
+  rows: DailyItem[]
+  targetValue: number
+  month: DashboardFilters['month']
+  year: DashboardFilters['year']
+  day: DashboardFilters['day']
+}): DailyTrendSeries {
+  const grouped = new Map<string, number>()
+  rows.forEach((item) => {
+    const parsedDate = dayjs(item.date)
+    if (!parsedDate.isValid()) return
+    const key = parsedDate.format('YYYY-MM-DD')
+    grouped.set(key, (grouped.get(key) || 0) + Number(item.total || 0))
+  })
+
+  const yearNum = Number(year || 0)
+  const monthNum = Number(month || 0)
+  const dayNum = Number(day || 0)
+
+  let startDate: ReturnType<typeof dayjs> | null = null
+  let endDate: ReturnType<typeof dayjs> | null = null
+  if (yearNum > 0 && monthNum >= 1 && monthNum <= 12) {
+    if (dayNum >= 1 && dayNum <= 31) {
+      const parsed = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`)
+      if (parsed.isValid()) {
+        startDate = parsed.startOf('day')
+        endDate = parsed.startOf('day')
+      }
+    } else {
+      const monthStart = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-01`)
+      if (monthStart.isValid()) {
+        startDate = monthStart.startOf('day')
+        endDate = monthStart.endOf('month').startOf('day')
+      }
+    }
+  }
+
+  if (!startDate || !endDate) {
+    const sortedDates = Array.from(grouped.keys()).sort()
+    if (sortedDates.length === 0) {
+      return { labels: [], values: [], targetValues: [], tooltipDetails: [] }
+    }
+    const latestDate = dayjs(sortedDates[sortedDates.length - 1])
+    if (!latestDate.isValid()) {
+      return { labels: [], values: [], targetValues: [], tooltipDetails: [] }
+    }
+    endDate = latestDate.startOf('day')
+    startDate = endDate.subtract(6, 'day')
+  }
+
+  const values: number[] = []
+  const labels: string[] = []
+  const tooltipDetails: string[] = []
+  let cursor = startDate
+  while (!cursor.isAfter(endDate, 'day')) {
+    const key = cursor.format('YYYY-MM-DD')
+    values.push(grouped.get(key) || 0)
+    labels.push(cursor.format('DD MMM'))
+    tooltipDetails.push(cursor.format('DD MMM YYYY'))
+    cursor = cursor.add(1, 'day')
+  }
+
+  let safeTarget = Number(targetValue || 0)
+  if (!Number.isFinite(safeTarget)) {
+    safeTarget = 0
+  }
+
+  return {
+    labels,
+    values,
+    targetValues: values.map(() => safeTarget),
+    tooltipDetails,
+  }
+}
+
+function buildDailyFinanceDecisionSeries({
+  approveRows,
+  rejectRows,
+  companyRows,
+  month,
+  year,
+  day,
+}: {
+  approveRows: DailyItem[]
+  rejectRows: DailyItem[]
+  companyRows: DailyFinanceDecisionByCompanyItem[]
+  month: DashboardFilters['month']
+  year: DashboardFilters['year']
+  day: DashboardFilters['day']
+}): DailyFinanceDecisionSeries {
+  const approveByDate = new Map<string, number>()
+  approveRows.forEach((item) => {
+    const parsedDate = dayjs(item.date)
+    if (!parsedDate.isValid()) return
+    const key = parsedDate.format('YYYY-MM-DD')
+    approveByDate.set(key, (approveByDate.get(key) || 0) + Number(item.total || 0))
+  })
+
+  const rejectByDate = new Map<string, number>()
+  rejectRows.forEach((item) => {
+    const parsedDate = dayjs(item.date)
+    if (!parsedDate.isValid()) return
+    const key = parsedDate.format('YYYY-MM-DD')
+    rejectByDate.set(key, (rejectByDate.get(key) || 0) + Number(item.total || 0))
+  })
+
+  const companyByDate = new Map<string, { approve: Array<{ name: string; total: number }>; reject: Array<{ name: string; total: number }> }>()
+  companyRows.forEach((item) => {
+    const parsedDate = dayjs(item.date)
+    if (!parsedDate.isValid()) return
+    const dateKey = parsedDate.format('YYYY-MM-DD')
+    const companyName = String(item.finance_company || '-').trim() || '-'
+    const bucket = companyByDate.get(dateKey) || { approve: [], reject: [] }
+    const approveTotal = Number(item.approve_total || 0)
+    const rejectTotal = Number(item.reject_total || 0)
+    if (approveTotal > 0) {
+      bucket.approve.push({ name: companyName, total: approveTotal })
+    }
+    if (rejectTotal > 0) {
+      bucket.reject.push({ name: companyName, total: rejectTotal })
+    }
+    companyByDate.set(dateKey, bucket)
+  })
+
+  const yearNum = Number(year || 0)
+  const monthNum = Number(month || 0)
+  const dayNum = Number(day || 0)
+
+  let startDate: ReturnType<typeof dayjs> | null = null
+  let endDate: ReturnType<typeof dayjs> | null = null
+  if (yearNum > 0 && monthNum >= 1 && monthNum <= 12) {
+    if (dayNum >= 1 && dayNum <= 31) {
+      const parsed = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`)
+      if (parsed.isValid()) {
+        startDate = parsed.startOf('day')
+        endDate = parsed.startOf('day')
+      }
+    } else {
+      const monthStart = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-01`)
+      if (monthStart.isValid()) {
+        startDate = monthStart.startOf('day')
+        endDate = monthStart.endOf('month').startOf('day')
+      }
+    }
+  }
+
+  if (!startDate || !endDate) {
+    const keys = Array.from(new Set([...approveByDate.keys(), ...rejectByDate.keys()])).sort()
+    if (keys.length === 0) {
+      return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
+    }
+    const latestDate = dayjs(keys[keys.length - 1])
+    if (!latestDate.isValid()) {
+      return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
+    }
+    endDate = latestDate.startOf('day')
+    startDate = endDate.subtract(6, 'day')
+  }
+
+  const labels: string[] = []
+  const approveValues: number[] = []
+  const rejectValues: number[] = []
+  const tooltipDetails: string[] = []
+  const tooltipExtraLines: string[][] = []
+
+  const summarizeCompanies = (items: Array<{ name: string; total: number }>) => {
+    if (!items.length) return ''
+    const sorted = [...items].sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total
+      return a.name.localeCompare(b.name)
+    })
+    const top = sorted.slice(0, 2).map((item) => `${item.name}(${formatChartNumber(item.total)})`).join(', ')
+    const remaining = sorted.length - 2
+    return remaining > 0 ? `${top} +${remaining} lainnya` : top
+  }
+
+  let cursor = startDate
+  while (!cursor.isAfter(endDate, 'day')) {
+    const key = cursor.format('YYYY-MM-DD')
+    labels.push(cursor.format('DD MMM'))
+    tooltipDetails.push(cursor.format('DD MMM YYYY'))
+    approveValues.push(approveByDate.get(key) || 0)
+    rejectValues.push(rejectByDate.get(key) || 0)
+    const companyBucket = companyByDate.get(key) || { approve: [], reject: [] }
+    const extraLines: string[] = []
+    const approveSummary = summarizeCompanies(companyBucket.approve)
+    const rejectSummary = summarizeCompanies(companyBucket.reject)
+    if (approveSummary) extraLines.push(`Approve FC: ${approveSummary}`)
+    if (rejectSummary) extraLines.push(`Reject FC: ${rejectSummary}`)
+    tooltipExtraLines.push(extraLines)
+    cursor = cursor.add(1, 'day')
+  }
+
+  return {
+    labels,
+    approveValues,
+    rejectValues,
+    tooltipDetails,
+    tooltipExtraLines,
+  }
+}
+
 function BarLineChart({
   labels,
   barValues,
+  secondaryBarValues,
   lineValues,
   barName,
+  secondaryBarName,
   lineName,
   xAxisLabel,
   tooltipDetails,
+  tooltipExtraLines,
+  barColor,
+  barHoverColor,
+  secondaryBarColor,
+  secondaryBarHoverColor,
+  lineColor,
 }: {
   labels: string[]
   barValues: number[]
+  secondaryBarValues?: number[]
   lineValues?: number[]
   barName: string
+  secondaryBarName?: string
   lineName?: string
   xAxisLabel?: string
   tooltipDetails?: string[]
+  tooltipExtraLines?: string[][]
+  barColor?: string
+  barHoverColor?: string
+  secondaryBarColor?: string
+  secondaryBarHoverColor?: string
+  lineColor?: string
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
@@ -942,7 +1226,14 @@ function BarLineChart({
   const maxLabel = labels.length
   const paddedLabels = labels.slice(0, maxLabel)
   const paddedBarValues = barValues.slice(0, maxLabel)
+  const paddedSecondaryBarValues = Array.isArray(secondaryBarValues) ? secondaryBarValues.slice(0, maxLabel) : []
   const paddedLineValues = Array.isArray(lineValues) ? lineValues.slice(0, maxLabel) : []
+  const hasSecondaryBars = paddedSecondaryBarValues.length > 0
+  const resolvedBarColor = barColor || '#22d3ee'
+  const resolvedBarHoverColor = barHoverColor || '#0891b2'
+  const resolvedSecondaryBarColor = secondaryBarColor || '#ef4444'
+  const resolvedSecondaryBarHoverColor = secondaryBarHoverColor || '#dc2626'
+  const resolvedLineColor = lineColor || '#f97316'
 
   const width = Math.max(520, paddedLabels.length * 54 + 110)
   const height = 250
@@ -953,8 +1244,10 @@ function BarLineChart({
   const plotWidth = right - left
   const plotHeight = bottom - top
   const slotWidth = plotWidth / paddedLabels.length
-  const barWidth = Math.min(26, Math.max(10, slotWidth * 0.6))
-  const maxValue = Math.max(1, ...paddedBarValues, ...paddedLineValues)
+  const barWidth = hasSecondaryBars ? Math.min(16, Math.max(6, (slotWidth - 6) / 2)) : Math.min(26, Math.max(10, slotWidth * 0.6))
+  const groupGap = hasSecondaryBars ? 4 : 0
+  const groupWidth = hasSecondaryBars ? barWidth * 2 + groupGap : barWidth
+  const maxValue = Math.max(1, ...paddedBarValues, ...paddedSecondaryBarValues, ...paddedLineValues)
   const showStep = paddedLabels.length <= 10 ? 1 : Math.ceil(paddedLabels.length / 8)
   const yTicks = Array.from({ length: 6 }, (_, idx) => (maxValue / 5) * idx)
 
@@ -966,13 +1259,19 @@ function BarLineChart({
   const linePath = linePoints.map((point, idx) => `${idx === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ')
   const hoverIdx = hoveredIndex != null && hoveredIndex >= 0 && hoveredIndex < paddedLabels.length ? hoveredIndex : null
   const hoverCenterX = hoverIdx != null ? left + slotWidth * hoverIdx + slotWidth / 2 : null
-  const tooltipWidth = 188
-  const tooltipHeight = paddedLineValues.length > 0 ? 58 : 42
+  const tooltipExtra = hoverIdx != null ? tooltipExtraLines?.[hoverIdx] || [] : []
+  const tooltipWidth = tooltipExtra.length > 0 ? 280 : 188
+  const tooltipBarValue = hoverIdx != null ? paddedBarValues[hoverIdx] : 0
+  const tooltipSecondaryBarValue = hoverIdx != null && hasSecondaryBars ? paddedSecondaryBarValues[hoverIdx] : null
+  const tooltipLineValue = hoverIdx != null && paddedLineValues.length > 0 ? paddedLineValues[hoverIdx] : null
+  const coreRows = 1 + (secondaryBarName && tooltipSecondaryBarValue != null ? 1 : 0) + (lineName && tooltipLineValue != null ? 1 : 0)
+  const totalRows = coreRows + tooltipExtra.length
+  const tooltipHeight = 28 + totalRows * 14
   const tooltipX = hoverCenterX != null ? Math.min(Math.max(left + 6, hoverCenterX + 10), right - tooltipWidth) : left + 6
   const tooltipY = top + 8
   const tooltipTitle = hoverIdx != null ? (tooltipDetails?.[hoverIdx] || paddedLabels[hoverIdx]) : ''
-  const tooltipBarValue = hoverIdx != null ? paddedBarValues[hoverIdx] : 0
-  const tooltipLineValue = hoverIdx != null && paddedLineValues.length > 0 ? paddedLineValues[hoverIdx] : null
+  const secondaryLegendX = left + 90
+  const lineLegendX = left + (hasSecondaryBars ? 208 : 70)
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -1000,9 +1299,14 @@ function BarLineChart({
         <line x1={left} y1={top} x2={left} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
 
         {paddedBarValues.map((value, idx) => {
-          const x = left + slotWidth * idx + (slotWidth - barWidth) / 2
+          const groupStartX = left + slotWidth * idx + (slotWidth - groupWidth) / 2
+          const primaryX = groupStartX
+          const secondaryX = groupStartX + barWidth + groupGap
           const h = (value / maxValue) * plotHeight
           const y = bottom - h
+          const secondaryValue = hasSecondaryBars ? paddedSecondaryBarValues[idx] || 0 : 0
+          const secondaryH = (secondaryValue / maxValue) * plotHeight
+          const secondaryY = bottom - secondaryH
           const slotX = left + slotWidth * idx
           return (
             <g key={`${paddedLabels[idx]}-${idx}`}>
@@ -1016,23 +1320,35 @@ function BarLineChart({
                 onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
               />
               <rect
-                x={x}
+                x={primaryX}
                 y={y}
                 width={barWidth}
                 height={Math.max(1, h)}
                 rx={4}
-                fill={idx === hoverIdx ? '#0891b2' : '#22d3ee'}
+                fill={idx === hoverIdx ? resolvedBarHoverColor : resolvedBarColor}
                 onMouseEnter={() => setHoveredIndex(idx)}
                 onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
               />
+              {hasSecondaryBars && (
+                <rect
+                  x={secondaryX}
+                  y={secondaryY}
+                  width={barWidth}
+                  height={Math.max(1, secondaryH)}
+                  rx={4}
+                  fill={idx === hoverIdx ? resolvedSecondaryBarHoverColor : resolvedSecondaryBarColor}
+                  onMouseEnter={() => setHoveredIndex(idx)}
+                  onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
+                />
+              )}
               {idx % showStep === 0 || idx === paddedLabels.length - 1 ? (
                 <text
-                  x={x + barWidth / 2}
+                  x={slotX + slotWidth / 2}
                   y={bottom + 14}
                   textAnchor="middle"
                   fontSize={10}
                   fill="#334155"
-                  transform={`rotate(-28 ${x + barWidth / 2} ${bottom + 14})`}
+                  transform={`rotate(-28 ${slotX + slotWidth / 2} ${bottom + 14})`}
                 >
                   {paddedLabels[idx]}
                 </text>
@@ -1043,9 +1359,9 @@ function BarLineChart({
 
         {paddedLineValues.length > 0 && linePath && (
           <g>
-            <path d={linePath} fill="none" stroke="#f97316" strokeWidth={2} />
+            <path d={linePath} fill="none" stroke={resolvedLineColor} strokeWidth={2} />
             {linePoints.map((point, idx) => (
-              <circle key={`line-${idx}`} cx={point.x} cy={point.y} r={idx === hoverIdx ? 4 : 3} fill="#f97316" />
+              <circle key={`line-${idx}`} cx={point.x} cy={point.y} r={idx === hoverIdx ? 4 : 3} fill={resolvedLineColor} />
             ))}
           </g>
         )}
@@ -1073,20 +1389,51 @@ function BarLineChart({
             <text x={tooltipX + 8} y={tooltipY + 15} fontSize={10.5} fill="#475569">
               {tooltipTitle}
             </text>
-            <text x={tooltipX + 8} y={tooltipY + 30} fontSize={11} fill="#0f172a" fontWeight={700}>
+            <text x={tooltipX + 8} y={tooltipY + 29} fontSize={11} fill="#0f172a" fontWeight={700}>
               {barName}: {formatChartNumber(tooltipBarValue)}
             </text>
-            {lineName && tooltipLineValue != null && (
-              <text x={tooltipX + 8} y={tooltipY + 45} fontSize={10.5} fill="#ea580c" fontWeight={700}>
-                {lineName}: {formatChartNumber(tooltipLineValue)}
-              </text>
-            )}
+            {(() => {
+              let nextY = tooltipY + 43
+              const nodes: JSX.Element[] = []
+
+              if (secondaryBarName && tooltipSecondaryBarValue != null) {
+                nodes.push(
+                  <text key="tooltip-secondary-bar" x={tooltipX + 8} y={nextY} fontSize={10.5} fill={resolvedSecondaryBarColor} fontWeight={700}>
+                    {secondaryBarName}: {formatChartNumber(tooltipSecondaryBarValue)}
+                  </text>,
+                )
+                nextY += 14
+              }
+
+              if (lineName && tooltipLineValue != null) {
+                nodes.push(
+                  <text key="tooltip-line" x={tooltipX + 8} y={nextY} fontSize={10.5} fill={resolvedLineColor} fontWeight={700}>
+                    {lineName}: {formatChartNumber(tooltipLineValue)}
+                  </text>,
+                )
+                nextY += 14
+              }
+
+              tooltipExtra.forEach((line, idx) => {
+                nodes.push(
+                  <text key={`tooltip-extra-${idx}`} x={tooltipX + 8} y={nextY} fontSize={10} fill="#475569">
+                    {line}
+                  </text>,
+                )
+                nextY += 14
+              })
+
+              return nodes
+            })()}
           </>
         )}
 
         <text x={left} y={12} fontSize={11} fill="#0f172a" fontWeight={700}>{barName}</text>
+        {secondaryBarName && hasSecondaryBars && (
+          <text x={secondaryLegendX} y={12} fontSize={11} fill={resolvedSecondaryBarColor} fontWeight={700}>{secondaryBarName}</text>
+        )}
         {lineName && paddedLineValues.length > 0 && (
-          <text x={left + 70} y={12} fontSize={11} fill="#f97316" fontWeight={700}>{lineName}</text>
+          <text x={lineLegendX} y={12} fontSize={11} fill={resolvedLineColor} fontWeight={700}>{lineName}</text>
         )}
         {xAxisLabel && (
           <text x={(left + right) / 2} y={height - 8} textAnchor="middle" fontSize={10.5} fill="#475569" fontWeight={600}>

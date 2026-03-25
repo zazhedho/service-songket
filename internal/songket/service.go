@@ -848,7 +848,10 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	leadCount := int64(0)
 
 	dailyCounter := map[string]int64{}
+	dailyRetailCounter := map[string]int64{}
+	dailyFinanceRejectCounter := map[string]int64{}
 	monthlyCounter := map[string]int64{}
+	monthlyRetailCounter := map[string]int64{}
 	dailyMotorCounter := map[string]map[string]int64{}
 	monthlyMotorCounter := map[string]map[string]int64{}
 	jobCounter := map[string]int64{}
@@ -942,6 +945,129 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		leadAvgSeconds = leadTotalSeconds / float64(leadCount)
 	}
 
+	type financeDecisionDailyRow struct {
+		DateKey      string `gorm:"column:date_key"`
+		ApproveTotal int64  `gorm:"column:approve_total"`
+		RejectTotal  int64  `gorm:"column:reject_total"`
+	}
+	type financeDecisionByCompanyRow struct {
+		DateKey        string `gorm:"column:date_key"`
+		FinanceCompany string `gorm:"column:finance_company"`
+		ApproveTotal   int64  `gorm:"column:approve_total"`
+		RejectTotal    int64  `gorm:"column:reject_total"`
+	}
+
+	financeApproveQuery := s.db.
+		Table("orders o").
+		Select(`
+			TO_CHAR(DATE(o.pooling_at), 'YYYY-MM-DD') AS date_key,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
+		`).
+		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
+
+	if role == utils.RoleDealer {
+		financeApproveQuery = financeApproveQuery.Where("o.created_by = ?", userID)
+	}
+	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
+		financeApproveQuery = financeApproveQuery.Where("o.dealer_id = ?", dealerID)
+	}
+	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
+		financeApproveQuery = financeApproveQuery.Where("oa.finance_company_id = ?", financeCompanyID)
+	}
+	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
+		financeApproveQuery = financeApproveQuery.Where(
+			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
+			area,
+			area,
+		)
+	}
+	financeApproveQuery = applyDashboardPeriodFilters(financeApproveQuery, req)
+
+	var financeApproveRows []financeDecisionDailyRow
+	if err := financeApproveQuery.
+		Group("DATE(o.pooling_at)").
+		Order("DATE(o.pooling_at) ASC").
+		Scan(&financeApproveRows).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range financeApproveRows {
+		dateKey := strings.TrimSpace(item.DateKey)
+		if dateKey == "" {
+			continue
+		}
+		dailyRetailCounter[dateKey] += item.ApproveTotal
+		dailyFinanceRejectCounter[dateKey] += item.RejectTotal
+		monthKey := dateKey
+		if len(monthKey) >= 7 {
+			monthKey = monthKey[:7]
+			monthlyRetailCounter[monthKey] += item.ApproveTotal
+		}
+	}
+
+	financeDecisionByCompanyQuery := s.db.
+		Table("orders o").
+		Select(`
+			TO_CHAR(DATE(o.pooling_at), 'YYYY-MM-DD') AS date_key,
+			COALESCE(NULLIF(fc.name, ''), '-') AS finance_company,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
+		`).
+		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN finance_companies fc ON fc.id = oa.finance_company_id AND fc.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
+
+	if role == utils.RoleDealer {
+		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where("o.created_by = ?", userID)
+	}
+	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
+		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where("o.dealer_id = ?", dealerID)
+	}
+	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
+		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where("oa.finance_company_id = ?", financeCompanyID)
+	}
+	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
+		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where(
+			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
+			area,
+			area,
+		)
+	}
+	financeDecisionByCompanyQuery = applyDashboardPeriodFilters(financeDecisionByCompanyQuery, req)
+
+	var financeDecisionByCompanyRows []financeDecisionByCompanyRow
+	if err := financeDecisionByCompanyQuery.
+		Group("DATE(o.pooling_at), COALESCE(NULLIF(fc.name, ''), '-')").
+		Order("DATE(o.pooling_at) ASC, COALESCE(NULLIF(fc.name, ''), '-') ASC").
+		Scan(&financeDecisionByCompanyRows).Error; err != nil {
+		return nil, err
+	}
+	dailyFinanceDecisionByCompany := make([]map[string]interface{}, 0, len(financeDecisionByCompanyRows))
+	for _, item := range financeDecisionByCompanyRows {
+		if item.ApproveTotal <= 0 && item.RejectTotal <= 0 {
+			continue
+		}
+		dateKey := strings.TrimSpace(item.DateKey)
+		if dateKey == "" {
+			continue
+		}
+		company := strings.TrimSpace(item.FinanceCompany)
+		if company == "" {
+			company = "-"
+		}
+		dailyFinanceDecisionByCompany = append(dailyFinanceDecisionByCompany, map[string]interface{}{
+			"date":            dateKey,
+			"finance_company": company,
+			"approve_total":   item.ApproveTotal,
+			"reject_total":    item.RejectTotal,
+		})
+	}
+
 	type proportionItem struct {
 		Label string
 		Total int64
@@ -953,10 +1079,20 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	}
 	sort.Strings(dailyKeys)
 	dailySeries := make([]map[string]interface{}, 0, len(dailyKeys))
+	dailyRetailSeries := make([]map[string]interface{}, 0, len(dailyKeys))
+	dailyFinanceRejectSeries := make([]map[string]interface{}, 0, len(dailyKeys))
 	for _, key := range dailyKeys {
 		dailySeries = append(dailySeries, map[string]interface{}{
 			"date":  key,
 			"total": dailyCounter[key],
+		})
+		dailyRetailSeries = append(dailyRetailSeries, map[string]interface{}{
+			"date":  key,
+			"total": dailyRetailCounter[key],
+		})
+		dailyFinanceRejectSeries = append(dailyFinanceRejectSeries, map[string]interface{}{
+			"date":  key,
+			"total": dailyFinanceRejectCounter[key],
 		})
 	}
 	dailyMotorSeries := make([]map[string]interface{}, 0)
@@ -1152,6 +1288,7 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	growth := 0.0
 	avgOrderDailyM := 0.0
 	avgOrderDailyPrev := 0.0
+	avgRetailSalesDailyM := 0.0
 	growthMonthKey := ""
 	prevGrowthMonthKey := ""
 	if targetYear > 0 && targetMonth >= 1 && targetMonth <= 12 {
@@ -1172,6 +1309,7 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		prevTotal := growthMap[prevGrowthMonthKey]
 		avgOrderDailyM = float64(currentTotal) / float64(currentWorkingDays)
 		avgOrderDailyPrev = float64(prevTotal) / float64(prevWorkingDays)
+		avgRetailSalesDailyM = float64(monthlyRetailCounter[growthMonthKey]) / float64(currentWorkingDays)
 		if avgOrderDailyPrev > 0 {
 			growth = (avgOrderDailyM / avgOrderDailyPrev) - 1
 		}
@@ -1189,7 +1327,11 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		"growth_prev_month":          prevGrowthMonthKey,
 		"avg_order_in_daily_m":       avgOrderDailyM,
 		"avg_order_in_daily_prev_m":  avgOrderDailyPrev,
+		"avg_retail_sales_daily_m":   avgRetailSalesDailyM,
 		"daily_order_in":             dailySeries,
+		"daily_retail_sales":         dailyRetailSeries,
+		"daily_finance_reject":       dailyFinanceRejectSeries,
+		"daily_finance_decision_by_company": dailyFinanceDecisionByCompany,
 		"daily_order_in_by_motor":    dailyMotorSeries,
 		"monthly_order_in":           monthlySeries,
 		"monthly_order_in_by_motor":  monthlyMotorSeries,
