@@ -296,9 +296,26 @@ export default function DashboardPage() {
   }, [lookups?.finance_companies])
 
   const yearOptions = useMemo(() => {
+    const lookupYearsRaw = Array.isArray(lookups?.dashboard_years) ? lookups.dashboard_years : []
+    const lookupYears = lookupYearsRaw
+      .map((value: any) => Number(value))
+      .filter((value: number) => Number.isFinite(value) && value > 0)
+      .map((value: number) => Math.trunc(value))
+
     const currentYear = new Date().getFullYear()
-    return Array.from({ length: 8 }, (_, idx) => String(currentYear - idx))
-  }, [])
+    const fallbackMinYear = 1900
+    const fallbackMaxYear = currentYear + 5
+    const maxLookupYear = lookupYears.length > 0 ? Math.max(...lookupYears) : fallbackMaxYear
+    const minLookupYear = lookupYears.length > 0 ? Math.min(...lookupYears) : fallbackMinYear
+    const minYear = Math.min(fallbackMinYear, minLookupYear)
+    const maxYear = Math.max(fallbackMaxYear, maxLookupYear, currentYear)
+
+    const years: string[] = []
+    for (let year = maxYear; year >= minYear; year -= 1) {
+      years.push(String(year))
+    }
+    return years
+  }, [lookups?.dashboard_years])
 
   const dailyDistributionTrend = useMemo(
     () =>

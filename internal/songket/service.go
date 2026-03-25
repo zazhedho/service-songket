@@ -6149,6 +6149,10 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 	var installments []Installment
 	var jobs []Job
 	var dealers []Dealer
+	type yearRow struct {
+		Year int `gorm:"column:year"`
+	}
+	var yearRows []yearRow
 
 	if err := s.db.Find(&fcs).Error; err != nil {
 		return nil, err
@@ -6165,6 +6169,14 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 	if err := s.db.Find(&dealers).Error; err != nil {
 		return nil, err
 	}
+	if err := s.db.
+		Table("orders").
+		Select("DISTINCT EXTRACT(YEAR FROM pooling_at)::int AS year").
+		Where("deleted_at IS NULL").
+		Order("year DESC").
+		Scan(&yearRows).Error; err != nil {
+		return nil, err
+	}
 
 	// distinct regency from dealers
 	regencyMap := map[string]struct{}{}
@@ -6177,6 +6189,15 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 	for k := range regencyMap {
 		regencies = append(regencies, k)
 	}
+	years := make([]int, 0, len(yearRows))
+	for _, row := range yearRows {
+		if row.Year > 0 {
+			years = append(years, row.Year)
+		}
+	}
+	if len(years) == 0 {
+		years = append(years, time.Now().Year())
+	}
 
 	return map[string]interface{}{
 		"finance_companies": fcs,
@@ -6185,5 +6206,6 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 		"jobs":              jobs,
 		"dealers":           dealers,
 		"regencies":         regencies,
+		"dashboard_years":   years,
 	}, nil
 }
