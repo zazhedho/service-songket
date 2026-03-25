@@ -3,11 +3,16 @@ import dayjs from 'dayjs'
 import { fetchDashboardSummary, fetchLookups, listDashboardNewsItems, listDashboardPrices } from '../api'
 import { formatRupiah } from '../utils/currency'
 
+type DashboardAnalysis = 'yearly' | 'monthly' | 'daily' | 'custom'
+
 type DashboardFilters = {
   area: string
+  analysis: DashboardAnalysis
   month: string
-  day: string
   year: string
+  date: string
+  from: string
+  to: string
   dealer_id: string
   finance_company_id: string
 }
@@ -34,6 +39,16 @@ type DailyFinanceDecisionByCompanyItem = {
   finance_company: string
   approve_total: number
   reject_total: number
+}
+
+type OrderDecisionSnapshotItem = {
+  label: string
+  row_type: 'value' | 'growth'
+  order_in: number
+  approve: number
+  reject: number
+  approve_rate_percent: number
+  reject_rate_percent: number
 }
 
 type MonthlyItem = {
@@ -64,10 +79,12 @@ type DashboardSummary = {
   avg_order_in_daily_m: number
   avg_order_in_daily_prev_m: number
   avg_retail_sales_daily_m: number
+  analysis_applied: string
   daily_order_in: DailyItem[]
   daily_retail_sales: DailyItem[]
   daily_finance_reject: DailyItem[]
   daily_finance_decision_by_company: DailyFinanceDecisionByCompanyItem[]
+  order_decision_snapshot: OrderDecisionSnapshotItem[]
   daily_order_in_by_motor: DailyMotorItem[]
   monthly_order_in: MonthlyItem[]
   monthly_order_in_by_motor: MonthlyMotorItem[]
@@ -104,11 +121,19 @@ type DonutSlice = {
   color: string
 }
 
+const todayStr = dayjs().format('YYYY-MM-DD')
+const oneYearBackStr = dayjs().subtract(1, 'year').format('YYYY-MM-DD')
+const currentMonthStr = String(dayjs().month() + 1)
+const currentYearStr = String(dayjs().year())
+
 const defaultFilters: DashboardFilters = {
   area: '',
-  month: '',
-  day: '',
-  year: '',
+  analysis: 'custom',
+  month: currentMonthStr,
+  year: currentYearStr,
+  date: todayStr,
+  from: oneYearBackStr,
+  to: todayStr,
   dealer_id: '',
   finance_company_id: '',
 }
@@ -126,10 +151,12 @@ const emptySummary: DashboardSummary = {
   avg_order_in_daily_m: 0,
   avg_order_in_daily_prev_m: 0,
   avg_retail_sales_daily_m: 0,
+  analysis_applied: '',
   daily_order_in: [],
   daily_retail_sales: [],
   daily_finance_reject: [],
   daily_finance_decision_by_company: [],
+  order_decision_snapshot: [],
   daily_order_in_by_motor: [],
   monthly_order_in: [],
   monthly_order_in_by_motor: [],
@@ -204,16 +231,17 @@ export default function DashboardPage() {
     if (filtersApplied.area) params.area = filtersApplied.area
     if (filtersApplied.dealer_id) params.dealer_id = filtersApplied.dealer_id
     if (filtersApplied.finance_company_id) params.finance_company_id = filtersApplied.finance_company_id
-    if (filtersApplied.month) params.month = Number(filtersApplied.month)
-    if (filtersApplied.year) params.year = Number(filtersApplied.year)
-
-    if (filtersApplied.day && filtersApplied.month && filtersApplied.year) {
-      const yyyy = Number(filtersApplied.year)
-      const mm = Number(filtersApplied.month)
-      const dd = Number(filtersApplied.day)
-      if (yyyy > 0 && mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
-        params.date = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
-      }
+    params.analysis = filtersApplied.analysis
+    if (filtersApplied.analysis === 'yearly') {
+      if (filtersApplied.year) params.year = Number(filtersApplied.year)
+    } else if (filtersApplied.analysis === 'monthly') {
+      if (filtersApplied.year) params.year = Number(filtersApplied.year)
+      if (filtersApplied.month) params.month = Number(filtersApplied.month)
+    } else if (filtersApplied.analysis === 'daily') {
+      if (filtersApplied.date) params.date = filtersApplied.date
+    } else if (filtersApplied.analysis === 'custom') {
+      if (filtersApplied.from) params.from = filtersApplied.from
+      if (filtersApplied.to) params.to = filtersApplied.to
     }
 
     setLoading(true)
@@ -276,12 +304,10 @@ export default function DashboardPage() {
     () =>
       buildDailyTrendSeries({
         rows: summary.daily_order_in,
-        targetValue: summary.avg_order_in_daily_m,
-        month: filtersApplied.month,
-        year: filtersApplied.year,
-        day: filtersApplied.day,
+        from: '',
+        to: '',
       }),
-    [filtersApplied.day, filtersApplied.month, filtersApplied.year, summary.avg_order_in_daily_m, summary.daily_order_in],
+    [summary.daily_order_in],
   )
 
   const dailyFinanceDecisionTrend = useMemo(
@@ -290,14 +316,10 @@ export default function DashboardPage() {
         approveRows: summary.daily_retail_sales,
         rejectRows: summary.daily_finance_reject,
         companyRows: summary.daily_finance_decision_by_company,
-        month: filtersApplied.month,
-        year: filtersApplied.year,
-        day: filtersApplied.day,
+        from: '',
+        to: '',
       }),
     [
-      filtersApplied.day,
-      filtersApplied.month,
-      filtersApplied.year,
       summary.daily_finance_decision_by_company,
       summary.daily_finance_reject,
       summary.daily_retail_sales,
@@ -361,6 +383,14 @@ export default function DashboardPage() {
   }, [selectedPriceRows])
 
   const applyFilters = () => {
+    if (filtersInput.analysis === 'custom') {
+      const from = dayjs(filtersInput.from)
+      const to = dayjs(filtersInput.to)
+      if (from.isValid() && to.isValid() && to.isBefore(from, 'day')) {
+        setFiltersApplied({ ...filtersInput, from: to.format('YYYY-MM-DD'), to: from.format('YYYY-MM-DD') })
+        return
+      }
+    }
     setFiltersApplied(filtersInput)
   }
 
@@ -395,40 +425,87 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <label>Bulan</label>
-              <select value={filtersInput.month} onChange={(e) => setFiltersInput((prev) => ({ ...prev, month: e.target.value }))}>
-                <option value="">All Month</option>
-                {Array.from({ length: 12 }, (_, idx) => (
-                  <option key={idx + 1} value={String(idx + 1)}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </option>
-                ))}
+              <label>Analysis</label>
+              <select
+                value={filtersInput.analysis}
+                onChange={(e) => {
+                  const nextAnalysis = e.target.value as DashboardAnalysis
+                  const now = dayjs()
+                  setFiltersInput((prev) => ({
+                    ...prev,
+                    analysis: nextAnalysis,
+                    year: prev.year || String(now.year()),
+                    month: prev.month || String(now.month() + 1),
+                    date: prev.date || now.format('YYYY-MM-DD'),
+                    from: prev.from || now.format('YYYY-MM-DD'),
+                    to: prev.to || now.format('YYYY-MM-DD'),
+                  }))
+                }}
+              >
+                <option value="yearly">Yearly</option>
+                <option value="monthly">Monthly</option>
+                <option value="daily">Daily</option>
+                <option value="custom">Custom</option>
               </select>
             </div>
 
-            <div>
-              <label>Tanggal</label>
-              <select value={filtersInput.day} onChange={(e) => setFiltersInput((prev) => ({ ...prev, day: e.target.value }))}>
-                <option value="">All Date</option>
-                {Array.from({ length: 31 }, (_, idx) => (
-                  <option key={idx + 1} value={String(idx + 1)}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {(filtersInput.analysis === 'yearly' || filtersInput.analysis === 'monthly') && (
+              <div>
+                <label>Tahun</label>
+                <select value={filtersInput.year} onChange={(e) => setFiltersInput((prev) => ({ ...prev, year: e.target.value }))}>
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            <div>
-              <label>Tahun</label>
-              <select value={filtersInput.year} onChange={(e) => setFiltersInput((prev) => ({ ...prev, year: e.target.value }))}>
-                <option value="">All Year</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {filtersInput.analysis === 'monthly' && (
+              <div>
+                <label>Bulan</label>
+                <select value={filtersInput.month} onChange={(e) => setFiltersInput((prev) => ({ ...prev, month: e.target.value }))}>
+                  {Array.from({ length: 12 }, (_, idx) => (
+                    <option key={idx + 1} value={String(idx + 1)}>
+                      {String(idx + 1).padStart(2, '0')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {filtersInput.analysis === 'daily' && (
+              <div>
+                <label>Tanggal</label>
+                <input
+                  type="date"
+                  value={filtersInput.date}
+                  onChange={(e) => setFiltersInput((prev) => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+            )}
+
+            {filtersInput.analysis === 'custom' && (
+              <>
+                <div>
+                  <label>From</label>
+                  <input
+                    type="date"
+                    value={filtersInput.from}
+                    onChange={(e) => setFiltersInput((prev) => ({ ...prev, from: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label>To</label>
+                  <input
+                    type="date"
+                    value={filtersInput.to}
+                    onChange={(e) => setFiltersInput((prev) => ({ ...prev, to: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label>Dealer</label>
@@ -522,6 +599,60 @@ export default function DashboardPage() {
                 secondaryBarHoverColor="#dc2626"
               />
             </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Order In Approve/Reject Summary</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+            Data perbandingan periode aktif vs periode sebelumnya
+          </div>
+          <div style={{ marginTop: 10, overflowX: 'auto' }}>
+            <table className="table responsive-stack">
+              <thead>
+                <tr>
+                  <th>Periode</th>
+                  <th>Order In</th>
+                  <th>Approve</th>
+                  <th>Reject</th>
+                  <th>Approve Rate</th>
+                  <th>Reject Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.order_decision_snapshot.length === 0 && (
+                  <tr>
+                    <td colSpan={6}>No summary data.</td>
+                  </tr>
+                )}
+                {summary.order_decision_snapshot.map((row, idx) => {
+                  const isGrowth = row.row_type === 'growth'
+                  const periodLabel = isGrowth ? 'Growth' : idx === 0 ? 'YTD-1' : idx === 1 ? 'YTD' : row.label || '-'
+                  return (
+                    <tr key={`decision-row-${row.label}-${idx}`}>
+                      <td data-label="Periode" style={{ fontWeight: 700 }} title={row.label || '-'}>
+                        {periodLabel}
+                      </td>
+                      <td data-label="Order In" style={{ color: isGrowth ? colorBySign(row.order_in) : undefined }}>
+                        {isGrowth ? formatGrowthPercent(row.order_in) : formatInteger(row.order_in)}
+                      </td>
+                      <td data-label="Approve" style={{ color: isGrowth ? colorBySign(row.approve) : undefined }}>
+                        {isGrowth ? formatGrowthPercent(row.approve) : formatInteger(row.approve)}
+                      </td>
+                      <td data-label="Reject" style={{ color: isGrowth ? colorBySign(row.reject) : undefined }}>
+                        {isGrowth ? formatGrowthPercent(row.reject) : formatInteger(row.reject)}
+                      </td>
+                      <td data-label="Approve Rate" style={{ color: isGrowth ? colorBySign(row.approve_rate_percent) : undefined }}>
+                        {isGrowth ? formatGrowthPercent(row.approve_rate_percent) : formatPercent(row.approve_rate_percent)}
+                      </td>
+                      <td data-label="Reject Rate" style={{ color: isGrowth ? colorBySign(row.reject_rate_percent) : undefined }}>
+                        {isGrowth ? formatGrowthPercent(row.reject_rate_percent) : formatPercent(row.reject_rate_percent)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -745,6 +876,7 @@ function normalizeSummary(raw: any): DashboardSummary {
     avg_order_in_daily_m: toNumber(raw?.avg_order_in_daily_m),
     avg_order_in_daily_prev_m: toNumber(raw?.avg_order_in_daily_prev_m),
     avg_retail_sales_daily_m: toNumber(raw?.avg_retail_sales_daily_m),
+    analysis_applied: String(raw?.analysis_applied || ''),
     daily_order_in: safeArray(raw?.daily_order_in).map((item: any) => ({
       date: String(item?.date || ''),
       total: toNumber(item?.total),
@@ -762,6 +894,15 @@ function normalizeSummary(raw: any): DashboardSummary {
       finance_company: String(item?.finance_company || '-'),
       approve_total: toNumber(item?.approve_total),
       reject_total: toNumber(item?.reject_total),
+    })),
+    order_decision_snapshot: safeArray(raw?.order_decision_snapshot).map((item: any) => ({
+      label: String(item?.label || '-'),
+      row_type: String(item?.row_type || '').toLowerCase() === 'growth' ? 'growth' : 'value',
+      order_in: toNumber(item?.order_in),
+      approve: toNumber(item?.approve),
+      reject: toNumber(item?.reject),
+      approve_rate_percent: toNumber(item?.approve_rate_percent),
+      reject_rate_percent: toNumber(item?.reject_rate_percent),
     })),
     daily_order_in_by_motor: safeArray(raw?.daily_order_in_by_motor).map((item: any) => ({
       date: String(item?.date || ''),
@@ -806,6 +947,21 @@ function normalizeSummary(raw: any): DashboardSummary {
 
 function formatInteger(value: number) {
   return Number(value || 0).toLocaleString('id-ID')
+}
+
+function formatPercent(value: number) {
+  return `${Number(value || 0).toFixed(2)}%`
+}
+
+function formatGrowthPercent(value: number) {
+  const safe = Number(value || 0)
+  return `${safe >= 0 ? '+' : ''}${safe.toFixed(2)}%`
+}
+
+function colorBySign(value: number) {
+  if (value > 0) return '#166534'
+  if (value < 0) return '#b91c1c'
+  return '#334155'
 }
 
 function extractNewsThumbnail(raw: unknown): string {
@@ -964,7 +1120,6 @@ function formatChartNumber(value: number) {
 type DailyTrendSeries = {
   labels: string[]
   values: number[]
-  targetValues: number[]
   tooltipDetails: string[]
 }
 
@@ -978,16 +1133,12 @@ type DailyFinanceDecisionSeries = {
 
 function buildDailyTrendSeries({
   rows,
-  targetValue,
-  month,
-  year,
-  day,
+  from,
+  to,
 }: {
   rows: DailyItem[]
-  targetValue: number
-  month: DashboardFilters['month']
-  year: DashboardFilters['year']
-  day: DashboardFilters['day']
+  from: string
+  to: string
 }): DailyTrendSeries {
   const grouped = new Map<string, number>()
   rows.forEach((item) => {
@@ -997,62 +1148,41 @@ function buildDailyTrendSeries({
     grouped.set(key, (grouped.get(key) || 0) + Number(item.total || 0))
   })
 
-  const yearNum = Number(year || 0)
-  const monthNum = Number(month || 0)
-  const dayNum = Number(day || 0)
-
   let startDate: ReturnType<typeof dayjs> | null = null
   let endDate: ReturnType<typeof dayjs> | null = null
-  if (yearNum > 0 && monthNum >= 1 && monthNum <= 12) {
-    if (dayNum >= 1 && dayNum <= 31) {
-      const parsed = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`)
-      if (parsed.isValid()) {
-        startDate = parsed.startOf('day')
-        endDate = parsed.startOf('day')
-      }
-    } else {
-      const monthStart = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-01`)
-      if (monthStart.isValid()) {
-        startDate = monthStart.startOf('day')
-        endDate = monthStart.endOf('month').startOf('day')
+  if (from && to) {
+    const parsedFrom = dayjs(from)
+    const parsedTo = dayjs(to)
+    if (parsedFrom.isValid() && parsedTo.isValid()) {
+      startDate = parsedFrom.startOf('day')
+      endDate = parsedTo.startOf('day')
+      if (endDate.isBefore(startDate, 'day')) {
+        startDate = parsedTo.startOf('day')
+        endDate = parsedFrom.startOf('day')
       }
     }
   }
 
-  if (!startDate || !endDate) {
-    const sortedDates = Array.from(grouped.keys()).sort()
-    if (sortedDates.length === 0) {
-      return { labels: [], values: [], targetValues: [], tooltipDetails: [] }
-    }
-    const latestDate = dayjs(sortedDates[sortedDates.length - 1])
-    if (!latestDate.isValid()) {
-      return { labels: [], values: [], targetValues: [], tooltipDetails: [] }
-    }
-    endDate = latestDate.startOf('day')
-    startDate = endDate.subtract(6, 'day')
+  const sortedDates = Array.from(grouped.keys())
+    .filter((dateKey) => {
+      if (!startDate || !endDate) return true
+      const d = dayjs(dateKey)
+      if (!d.isValid()) return false
+      return !d.isBefore(startDate, 'day') && !d.isAfter(endDate, 'day')
+    })
+    .sort()
+
+  if (sortedDates.length === 0) {
+    return { labels: [], values: [], tooltipDetails: [] }
   }
 
-  const values: number[] = []
-  const labels: string[] = []
-  const tooltipDetails: string[] = []
-  let cursor = startDate
-  while (!cursor.isAfter(endDate, 'day')) {
-    const key = cursor.format('YYYY-MM-DD')
-    values.push(grouped.get(key) || 0)
-    labels.push(cursor.format('DD MMM'))
-    tooltipDetails.push(cursor.format('DD MMM YYYY'))
-    cursor = cursor.add(1, 'day')
-  }
-
-  let safeTarget = Number(targetValue || 0)
-  if (!Number.isFinite(safeTarget)) {
-    safeTarget = 0
-  }
+  const values = sortedDates.map((dateKey) => grouped.get(dateKey) || 0)
+  const labels = sortedDates.map((dateKey) => dayjs(dateKey).format('DD MMM'))
+  const tooltipDetails = sortedDates.map((dateKey) => dayjs(dateKey).format('DD MMM YYYY'))
 
   return {
     labels,
     values,
-    targetValues: values.map(() => safeTarget),
     tooltipDetails,
   }
 }
@@ -1061,16 +1191,14 @@ function buildDailyFinanceDecisionSeries({
   approveRows,
   rejectRows,
   companyRows,
-  month,
-  year,
-  day,
+  from,
+  to,
 }: {
   approveRows: DailyItem[]
   rejectRows: DailyItem[]
   companyRows: DailyFinanceDecisionByCompanyItem[]
-  month: DashboardFilters['month']
-  year: DashboardFilters['year']
-  day: DashboardFilters['day']
+  from: string
+  to: string
 }): DailyFinanceDecisionSeries {
   const approveByDate = new Map<string, number>()
   approveRows.forEach((item) => {
@@ -1106,39 +1234,32 @@ function buildDailyFinanceDecisionSeries({
     companyByDate.set(dateKey, bucket)
   })
 
-  const yearNum = Number(year || 0)
-  const monthNum = Number(month || 0)
-  const dayNum = Number(day || 0)
-
   let startDate: ReturnType<typeof dayjs> | null = null
   let endDate: ReturnType<typeof dayjs> | null = null
-  if (yearNum > 0 && monthNum >= 1 && monthNum <= 12) {
-    if (dayNum >= 1 && dayNum <= 31) {
-      const parsed = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`)
-      if (parsed.isValid()) {
-        startDate = parsed.startOf('day')
-        endDate = parsed.startOf('day')
-      }
-    } else {
-      const monthStart = dayjs(`${yearNum}-${String(monthNum).padStart(2, '0')}-01`)
-      if (monthStart.isValid()) {
-        startDate = monthStart.startOf('day')
-        endDate = monthStart.endOf('month').startOf('day')
+  if (from && to) {
+    const parsedFrom = dayjs(from)
+    const parsedTo = dayjs(to)
+    if (parsedFrom.isValid() && parsedTo.isValid()) {
+      startDate = parsedFrom.startOf('day')
+      endDate = parsedTo.startOf('day')
+      if (endDate.isBefore(startDate, 'day')) {
+        startDate = parsedTo.startOf('day')
+        endDate = parsedFrom.startOf('day')
       }
     }
   }
 
-  if (!startDate || !endDate) {
-    const keys = Array.from(new Set([...approveByDate.keys(), ...rejectByDate.keys()])).sort()
-    if (keys.length === 0) {
-      return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
-    }
-    const latestDate = dayjs(keys[keys.length - 1])
-    if (!latestDate.isValid()) {
-      return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
-    }
-    endDate = latestDate.startOf('day')
-    startDate = endDate.subtract(6, 'day')
+  const keys = Array.from(new Set([...approveByDate.keys(), ...rejectByDate.keys()]))
+    .filter((dateKey) => {
+      if (!startDate || !endDate) return true
+      const d = dayjs(dateKey)
+      if (!d.isValid()) return false
+      return !d.isBefore(startDate, 'day') && !d.isAfter(endDate, 'day')
+    })
+    .sort()
+
+  if (keys.length === 0) {
+    return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
   }
 
   const labels: string[] = []
@@ -1158,9 +1279,8 @@ function buildDailyFinanceDecisionSeries({
     return remaining > 0 ? `${top} +${remaining} lainnya` : top
   }
 
-  let cursor = startDate
-  while (!cursor.isAfter(endDate, 'day')) {
-    const key = cursor.format('YYYY-MM-DD')
+  keys.forEach((key) => {
+    const cursor = dayjs(key)
     labels.push(cursor.format('DD MMM'))
     tooltipDetails.push(cursor.format('DD MMM YYYY'))
     approveValues.push(approveByDate.get(key) || 0)
@@ -1172,8 +1292,7 @@ function buildDailyFinanceDecisionSeries({
     if (approveSummary) extraLines.push(`Approve FC: ${approveSummary}`)
     if (rejectSummary) extraLines.push(`Reject FC: ${rejectSummary}`)
     tooltipExtraLines.push(extraLines)
-    cursor = cursor.add(1, 'day')
-  }
+  })
 
   return {
     labels,
@@ -1242,23 +1361,26 @@ function BarLineChart({
   const top = 20
   const bottom = height - 54
   const plotWidth = right - left
+  const maxSlotWidth = hasSecondaryBars ? 58 : 54
+  const effectivePlotWidth = Math.min(plotWidth, maxSlotWidth * paddedLabels.length)
+  const plotStartX = left
   const plotHeight = bottom - top
-  const slotWidth = plotWidth / paddedLabels.length
-  const barWidth = hasSecondaryBars ? Math.min(16, Math.max(6, (slotWidth - 6) / 2)) : Math.min(26, Math.max(10, slotWidth * 0.6))
-  const groupGap = hasSecondaryBars ? 4 : 0
+  const slotWidth = effectivePlotWidth / paddedLabels.length
+  const barWidth = hasSecondaryBars ? Math.min(22, Math.max(7, (slotWidth - 4) / 2)) : Math.min(34, Math.max(12, slotWidth * 0.72))
+  const groupGap = hasSecondaryBars ? 2 : 0
   const groupWidth = hasSecondaryBars ? barWidth * 2 + groupGap : barWidth
   const maxValue = Math.max(1, ...paddedBarValues, ...paddedSecondaryBarValues, ...paddedLineValues)
   const showStep = paddedLabels.length <= 10 ? 1 : Math.ceil(paddedLabels.length / 8)
   const yTicks = Array.from({ length: 6 }, (_, idx) => (maxValue / 5) * idx)
 
   const linePoints = paddedLineValues.map((value, idx) => {
-    const centerX = left + slotWidth * idx + slotWidth / 2
+    const centerX = plotStartX + slotWidth * idx + slotWidth / 2
     const y = bottom - (value / maxValue) * plotHeight
     return { x: centerX, y }
   })
   const linePath = linePoints.map((point, idx) => `${idx === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ')
   const hoverIdx = hoveredIndex != null && hoveredIndex >= 0 && hoveredIndex < paddedLabels.length ? hoveredIndex : null
-  const hoverCenterX = hoverIdx != null ? left + slotWidth * hoverIdx + slotWidth / 2 : null
+  const hoverCenterX = hoverIdx != null ? plotStartX + slotWidth * hoverIdx + slotWidth / 2 : null
   const tooltipExtra = hoverIdx != null ? tooltipExtraLines?.[hoverIdx] || [] : []
   const tooltipWidth = tooltipExtra.length > 0 ? 280 : 188
   const tooltipBarValue = hoverIdx != null ? paddedBarValues[hoverIdx] : 0
@@ -1299,7 +1421,7 @@ function BarLineChart({
         <line x1={left} y1={top} x2={left} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
 
         {paddedBarValues.map((value, idx) => {
-          const groupStartX = left + slotWidth * idx + (slotWidth - groupWidth) / 2
+          const groupStartX = plotStartX + slotWidth * idx + (slotWidth - groupWidth) / 2
           const primaryX = groupStartX
           const secondaryX = groupStartX + barWidth + groupGap
           const h = (value / maxValue) * plotHeight
@@ -1307,7 +1429,7 @@ function BarLineChart({
           const secondaryValue = hasSecondaryBars ? paddedSecondaryBarValues[idx] || 0 : 0
           const secondaryH = (secondaryValue / maxValue) * plotHeight
           const secondaryY = bottom - secondaryH
-          const slotX = left + slotWidth * idx
+          const slotX = plotStartX + slotWidth * idx
           return (
             <g key={`${paddedLabels[idx]}-${idx}`}>
               <rect

@@ -171,6 +171,7 @@ type DashboardSummaryQuery struct {
 	Area             string `form:"area"`
 	DealerID         string `form:"dealer_id"`
 	FinanceCompanyID string `form:"finance_company_id"`
+	Analysis         string `form:"analysis"` // yearly|monthly|daily|custom
 	Month            int    `form:"month"`
 	Year             int    `form:"year"`
 	Date             string `form:"date"`     // YYYY-MM-DD

@@ -721,6 +721,28 @@ type dashboardMonthCount struct {
 	Total int64 `gorm:"column:total"`
 }
 
+func applyDashboardScopeFilters(query *gorm.DB, req DashboardSummaryQuery, role, userID, financeCompanyColumn string) *gorm.DB {
+	if role == utils.RoleDealer {
+		query = query.Where("o.created_by = ?", userID)
+	}
+
+	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
+		query = query.Where("o.dealer_id = ?", dealerID)
+	}
+	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" && strings.TrimSpace(financeCompanyColumn) != "" {
+		query = query.Where(fmt.Sprintf("%s = ?", financeCompanyColumn), financeCompanyID)
+	}
+	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
+		query = query.Where(
+			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
+			area,
+			area,
+		)
+	}
+
+	return query
+}
+
 func (s *Service) buildDashboardSummaryBaseQuery(req DashboardSummaryQuery, role, userID string) *gorm.DB {
 	query := s.db.
 		Table("orders o").
@@ -740,28 +762,40 @@ func (s *Service) buildDashboardSummaryBaseQuery(req DashboardSummaryQuery, role
 		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL")
 
-	if role == utils.RoleDealer {
-		query = query.Where("o.created_by = ?", userID)
-	}
-
-	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
-		query = query.Where("o.dealer_id = ?", dealerID)
-	}
-	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
-		query = query.Where("a1.finance_company_id = ?", financeCompanyID)
-	}
-	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
-		query = query.Where(
-			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
-			area,
-			area,
-		)
-	}
-
-	return query
+	return applyDashboardScopeFilters(query, req, role, userID, "a1.finance_company_id")
 }
 
 func applyDashboardPeriodFilters(query *gorm.DB, req DashboardSummaryQuery) *gorm.DB {
+	analysis := strings.ToLower(strings.TrimSpace(req.Analysis))
+	switch analysis {
+	case "yearly":
+		if req.Year > 0 {
+			query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
+		}
+		return query
+	case "monthly":
+		if req.Year > 0 {
+			query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
+		}
+		if req.Month >= 1 && req.Month <= 12 {
+			query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", req.Month)
+		}
+		return query
+	case "daily":
+		if date := strings.TrimSpace(req.Date); date != "" {
+			query = query.Where("DATE(o.pooling_at) = ?", date)
+		}
+		return query
+	case "custom":
+		if from := strings.TrimSpace(req.From); from != "" {
+			query = query.Where("DATE(o.pooling_at) >= ?", from)
+		}
+		if to := strings.TrimSpace(req.To); to != "" {
+			query = query.Where("DATE(o.pooling_at) <= ?", to)
+		}
+		return query
+	}
+
 	if date := strings.TrimSpace(req.Date); date != "" {
 		query = query.Where("DATE(o.pooling_at) = ?", date)
 	}
@@ -832,6 +866,195 @@ func previousYearMonth(year, month int) (int, int) {
 	return year, month - 1
 }
 
+type dashboardPeriodWindow struct {
+	Analysis      string
+	CurrentFrom   time.Time
+	CurrentTo     time.Time
+	CurrentLabel  string
+	PreviousFrom  time.Time
+	PreviousTo    time.Time
+	PreviousLabel string
+}
+
+type dashboardPeriodTotals struct {
+	OrderIn int64
+	Approve int64
+	Reject  int64
+}
+
+func parseDashboardDate(raw string) (time.Time, bool) {
+	parsed, err := time.Parse("2006-01-02", strings.TrimSpace(raw))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func normalizeDashboardAnalysis(req DashboardSummaryQuery) string {
+	analysis := strings.ToLower(strings.TrimSpace(req.Analysis))
+	if analysis != "" {
+		return analysis
+	}
+	if strings.TrimSpace(req.From) != "" || strings.TrimSpace(req.To) != "" {
+		return "custom"
+	}
+	if strings.TrimSpace(req.Date) != "" {
+		return "daily"
+	}
+	if req.Year > 0 && req.Month >= 1 && req.Month <= 12 {
+		return "monthly"
+	}
+	if req.Year > 0 {
+		return "yearly"
+	}
+	return "daily"
+}
+
+func formatDashboardDateRangeLabel(from, to time.Time) string {
+	fromLabel := from.Format("2006-01-02")
+	toLabel := to.Format("2006-01-02")
+	if fromLabel == toLabel {
+		return fromLabel
+	}
+	return fmt.Sprintf("%s s/d %s", fromLabel, toLabel)
+}
+
+func resolveDashboardPeriodWindow(req DashboardSummaryQuery, fallback time.Time) dashboardPeriodWindow {
+	if fallback.IsZero() {
+		fallback = time.Now()
+	}
+	referenceDate := time.Date(fallback.Year(), fallback.Month(), fallback.Day(), 0, 0, 0, 0, time.UTC)
+	analysis := normalizeDashboardAnalysis(req)
+	window := dashboardPeriodWindow{Analysis: analysis}
+
+	switch analysis {
+	case "yearly":
+		targetYear := req.Year
+		if targetYear <= 0 {
+			targetYear = referenceDate.Year()
+		}
+		window.CurrentFrom = time.Date(targetYear, 1, 1, 0, 0, 0, 0, time.UTC)
+		window.CurrentTo = time.Date(targetYear, 12, 31, 0, 0, 0, 0, time.UTC)
+		window.PreviousFrom = time.Date(targetYear-1, 1, 1, 0, 0, 0, 0, time.UTC)
+		window.PreviousTo = time.Date(targetYear-1, 12, 31, 0, 0, 0, 0, time.UTC)
+		window.CurrentLabel = fmt.Sprintf("%04d", targetYear)
+		window.PreviousLabel = fmt.Sprintf("%04d", targetYear-1)
+	case "monthly":
+		targetYear := req.Year
+		if targetYear <= 0 {
+			targetYear = referenceDate.Year()
+		}
+		targetMonth := req.Month
+		if targetMonth < 1 || targetMonth > 12 {
+			targetMonth = int(referenceDate.Month())
+		}
+		window.CurrentFrom = time.Date(targetYear, time.Month(targetMonth), 1, 0, 0, 0, 0, time.UTC)
+		window.CurrentTo = window.CurrentFrom.AddDate(0, 1, -1)
+		window.PreviousTo = window.CurrentFrom.AddDate(0, 0, -1)
+		window.PreviousFrom = time.Date(window.PreviousTo.Year(), window.PreviousTo.Month(), 1, 0, 0, 0, 0, time.UTC)
+		window.CurrentLabel = window.CurrentFrom.Format("2006-01")
+		window.PreviousLabel = window.PreviousFrom.Format("2006-01")
+	case "custom":
+		currentFrom, okFrom := parseDashboardDate(req.From)
+		currentTo, okTo := parseDashboardDate(req.To)
+		if !okFrom {
+			currentFrom = referenceDate
+		}
+		if !okTo {
+			currentTo = currentFrom
+		}
+		if currentTo.Before(currentFrom) {
+			currentFrom, currentTo = currentTo, currentFrom
+		}
+		durationDays := int(currentTo.Sub(currentFrom).Hours()/24) + 1
+		if durationDays <= 0 {
+			durationDays = 1
+		}
+		previousTo := currentFrom.AddDate(0, 0, -1)
+		previousFrom := previousTo.AddDate(0, 0, -(durationDays - 1))
+		window.CurrentFrom = currentFrom
+		window.CurrentTo = currentTo
+		window.PreviousFrom = previousFrom
+		window.PreviousTo = previousTo
+		window.CurrentLabel = formatDashboardDateRangeLabel(currentFrom, currentTo)
+		window.PreviousLabel = formatDashboardDateRangeLabel(previousFrom, previousTo)
+	default:
+		targetDate, ok := parseDashboardDate(req.Date)
+		if !ok {
+			targetDate = referenceDate
+		}
+		window.Analysis = "daily"
+		window.CurrentFrom = targetDate
+		window.CurrentTo = targetDate
+		window.PreviousFrom = targetDate.AddDate(0, 0, -1)
+		window.PreviousTo = window.PreviousFrom
+		window.CurrentLabel = targetDate.Format("2006-01-02")
+		window.PreviousLabel = window.PreviousFrom.Format("2006-01-02")
+	}
+
+	return window
+}
+
+func pctChange(current, previous float64) float64 {
+	if previous == 0 {
+		if current == 0 {
+			return 0
+		}
+		return 100
+	}
+	return ((current - previous) / previous) * 100
+}
+
+func computeRate(numerator, denominator int64) float64 {
+	if denominator <= 0 {
+		return 0
+	}
+	return float64(numerator) / float64(denominator)
+}
+
+func (s *Service) computeDashboardPeriodTotals(req DashboardSummaryQuery, role, userID string, from, to time.Time) (dashboardPeriodTotals, error) {
+	rangeReq := req
+	rangeReq.Analysis = "custom"
+	rangeReq.Month = 0
+	rangeReq.Year = 0
+	rangeReq.Date = ""
+	rangeReq.From = from.Format("2006-01-02")
+	rangeReq.To = to.Format("2006-01-02")
+
+	var totals dashboardPeriodTotals
+	orderInQuery := applyDashboardPeriodFilters(s.buildDashboardSummaryBaseQuery(rangeReq, role, userID), rangeReq)
+	if err := orderInQuery.Distinct("o.id").Count(&totals.OrderIn).Error; err != nil {
+		return dashboardPeriodTotals{}, err
+	}
+
+	type decisionTotalsRow struct {
+		ApproveTotal int64 `gorm:"column:approve_total"`
+		RejectTotal  int64 `gorm:"column:reject_total"`
+	}
+	var decisionRow decisionTotalsRow
+
+	decisionQuery := s.db.
+		Table("orders o").
+		Select(`
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
+		`).
+		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
+	decisionQuery = applyDashboardScopeFilters(decisionQuery, rangeReq, role, userID, "oa.finance_company_id")
+	decisionQuery = applyDashboardPeriodFilters(decisionQuery, rangeReq)
+
+	if err := decisionQuery.Scan(&decisionRow).Error; err != nil {
+		return dashboardPeriodTotals{}, err
+	}
+
+	totals.Approve = decisionRow.ApproveTotal
+	totals.Reject = decisionRow.RejectTotal
+	return totals, nil
+}
+
 // DashboardSummary computes dashboard analytics and chart-ready aggregations.
 func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID string) (map[string]interface{}, error) {
 	baseQuery := s.buildDashboardSummaryBaseQuery(req, role, userID)
@@ -847,12 +1070,26 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	leadTotalSeconds := 0.0
 	leadCount := int64(0)
 
-	dailyCounter := map[string]int64{}
-	dailyRetailCounter := map[string]int64{}
-	dailyFinanceRejectCounter := map[string]int64{}
+	chartReq := req
+	chartReq.Analysis = ""
+	chartReq.Month = 0
+	chartReq.Year = 0
+	chartReq.Date = ""
+	chartReq.From = ""
+	chartReq.To = ""
+
+	chartBaseQuery := s.buildDashboardSummaryBaseQuery(chartReq, role, userID)
+	var chartRows []dashboardSummaryRow
+	if err := chartBaseQuery.Order("o.pooling_at ASC").Scan(&chartRows).Error; err != nil {
+		return nil, err
+	}
+
+	dailyCounterChart := map[string]int64{}
+	dailyRetailCounterChart := map[string]int64{}
+	dailyFinanceRejectCounterChart := map[string]int64{}
 	monthlyCounter := map[string]int64{}
 	monthlyRetailCounter := map[string]int64{}
-	dailyMotorCounter := map[string]map[string]int64{}
+	dailyMotorCounterChart := map[string]map[string]int64{}
 	monthlyMotorCounter := map[string]map[string]int64{}
 	jobCounter := map[string]int64{}
 	productCounter := map[string]int64{}
@@ -874,9 +1111,7 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	}
 
 	for _, row := range rows {
-		dateKey := row.PoolingAt.Format("2006-01-02")
 		monthKey := row.PoolingAt.Format("2006-01")
-		dailyCounter[dateKey]++
 		monthlyCounter[monthKey]++
 
 		jobLabel := strings.TrimSpace(row.JobName)
@@ -890,10 +1125,6 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			productLabel = "-"
 		}
 		productCounter[productLabel]++
-		if _, ok := dailyMotorCounter[dateKey]; !ok {
-			dailyMotorCounter[dateKey] = map[string]int64{}
-		}
-		dailyMotorCounter[dateKey][productLabel]++
 		if _, ok := monthlyMotorCounter[monthKey]; !ok {
 			monthlyMotorCounter[monthKey] = map[string]int64{}
 		}
@@ -936,6 +1167,20 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		}
 	}
 
+	for _, row := range chartRows {
+		dateKey := row.PoolingAt.Format("2006-01-02")
+		dailyCounterChart[dateKey]++
+
+		productLabel := strings.TrimSpace(row.MotorTypeName)
+		if productLabel == "" {
+			productLabel = "-"
+		}
+		if _, ok := dailyMotorCounterChart[dateKey]; !ok {
+			dailyMotorCounterChart[dateKey] = map[string]int64{}
+		}
+		dailyMotorCounterChart[dateKey][productLabel]++
+	}
+
 	approvalRate := 0.0
 	if totalOrders > 0 {
 		approvalRate = float64(approvedOrders) / float64(totalOrders)
@@ -968,23 +1213,7 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-
-	if role == utils.RoleDealer {
-		financeApproveQuery = financeApproveQuery.Where("o.created_by = ?", userID)
-	}
-	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
-		financeApproveQuery = financeApproveQuery.Where("o.dealer_id = ?", dealerID)
-	}
-	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
-		financeApproveQuery = financeApproveQuery.Where("oa.finance_company_id = ?", financeCompanyID)
-	}
-	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
-		financeApproveQuery = financeApproveQuery.Where(
-			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
-			area,
-			area,
-		)
-	}
+	financeApproveQuery = applyDashboardScopeFilters(financeApproveQuery, req, role, userID, "oa.finance_company_id")
 	financeApproveQuery = applyDashboardPeriodFilters(financeApproveQuery, req)
 
 	var financeApproveRows []financeDecisionDailyRow
@@ -999,13 +1228,41 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		if dateKey == "" {
 			continue
 		}
-		dailyRetailCounter[dateKey] += item.ApproveTotal
-		dailyFinanceRejectCounter[dateKey] += item.RejectTotal
 		monthKey := dateKey
 		if len(monthKey) >= 7 {
 			monthKey = monthKey[:7]
 			monthlyRetailCounter[monthKey] += item.ApproveTotal
 		}
+	}
+
+	financeApproveChartQuery := s.db.
+		Table("orders o").
+		Select(`
+			TO_CHAR(DATE(o.pooling_at), 'YYYY-MM-DD') AS date_key,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
+			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
+		`).
+		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
+		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
+	financeApproveChartQuery = applyDashboardScopeFilters(financeApproveChartQuery, chartReq, role, userID, "oa.finance_company_id")
+	financeApproveChartQuery = applyDashboardPeriodFilters(financeApproveChartQuery, chartReq)
+
+	var financeApproveChartRows []financeDecisionDailyRow
+	if err := financeApproveChartQuery.
+		Group("DATE(o.pooling_at)").
+		Order("DATE(o.pooling_at) ASC").
+		Scan(&financeApproveChartRows).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range financeApproveChartRows {
+		dateKey := strings.TrimSpace(item.DateKey)
+		if dateKey == "" {
+			continue
+		}
+		dailyRetailCounterChart[dateKey] += item.ApproveTotal
+		dailyFinanceRejectCounterChart[dateKey] += item.RejectTotal
 	}
 
 	financeDecisionByCompanyQuery := s.db.
@@ -1021,24 +1278,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		Joins("LEFT JOIN finance_companies fc ON fc.id = oa.finance_company_id AND fc.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-
-	if role == utils.RoleDealer {
-		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where("o.created_by = ?", userID)
-	}
-	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
-		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where("o.dealer_id = ?", dealerID)
-	}
-	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
-		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where("oa.finance_company_id = ?", financeCompanyID)
-	}
-	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
-		financeDecisionByCompanyQuery = financeDecisionByCompanyQuery.Where(
-			"(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)",
-			area,
-			area,
-		)
-	}
-	financeDecisionByCompanyQuery = applyDashboardPeriodFilters(financeDecisionByCompanyQuery, req)
+	financeDecisionByCompanyQuery = applyDashboardScopeFilters(financeDecisionByCompanyQuery, chartReq, role, userID, "oa.finance_company_id")
+	financeDecisionByCompanyQuery = applyDashboardPeriodFilters(financeDecisionByCompanyQuery, chartReq)
 
 	var financeDecisionByCompanyRows []financeDecisionByCompanyRow
 	if err := financeDecisionByCompanyQuery.
@@ -1073,8 +1314,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		Total int64
 	}
 
-	dailyKeys := make([]string, 0, len(dailyCounter))
-	for key := range dailyCounter {
+	dailyKeys := make([]string, 0, len(dailyCounterChart))
+	for key := range dailyCounterChart {
 		dailyKeys = append(dailyKeys, key)
 	}
 	sort.Strings(dailyKeys)
@@ -1084,20 +1325,20 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	for _, key := range dailyKeys {
 		dailySeries = append(dailySeries, map[string]interface{}{
 			"date":  key,
-			"total": dailyCounter[key],
+			"total": dailyCounterChart[key],
 		})
 		dailyRetailSeries = append(dailyRetailSeries, map[string]interface{}{
 			"date":  key,
-			"total": dailyRetailCounter[key],
+			"total": dailyRetailCounterChart[key],
 		})
 		dailyFinanceRejectSeries = append(dailyFinanceRejectSeries, map[string]interface{}{
 			"date":  key,
-			"total": dailyFinanceRejectCounter[key],
+			"total": dailyFinanceRejectCounterChart[key],
 		})
 	}
 	dailyMotorSeries := make([]map[string]interface{}, 0)
 	for _, key := range dailyKeys {
-		rowCounter := dailyMotorCounter[key]
+		rowCounter := dailyMotorCounterChart[key]
 		if len(rowCounter) == 0 {
 			continue
 		}
@@ -1315,30 +1556,77 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		}
 	}
 
+	periodWindow := resolveDashboardPeriodWindow(req, time.Now())
+	currentPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.CurrentFrom, periodWindow.CurrentTo)
+	if err != nil {
+		return nil, err
+	}
+	previousPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.PreviousFrom, periodWindow.PreviousTo)
+	if err != nil {
+		return nil, err
+	}
+
+	currentApproveRate := computeRate(currentPeriodTotals.Approve, currentPeriodTotals.OrderIn)
+	currentRejectRate := computeRate(currentPeriodTotals.Reject, currentPeriodTotals.OrderIn)
+	previousApproveRate := computeRate(previousPeriodTotals.Approve, previousPeriodTotals.OrderIn)
+	previousRejectRate := computeRate(previousPeriodTotals.Reject, previousPeriodTotals.OrderIn)
+
+	orderDecisionSnapshot := []map[string]interface{}{
+		{
+			"label":                periodWindow.PreviousLabel,
+			"row_type":             "value",
+			"order_in":             previousPeriodTotals.OrderIn,
+			"approve":              previousPeriodTotals.Approve,
+			"reject":               previousPeriodTotals.Reject,
+			"approve_rate_percent": previousApproveRate * 100,
+			"reject_rate_percent":  previousRejectRate * 100,
+		},
+		{
+			"label":                periodWindow.CurrentLabel,
+			"row_type":             "value",
+			"order_in":             currentPeriodTotals.OrderIn,
+			"approve":              currentPeriodTotals.Approve,
+			"reject":               currentPeriodTotals.Reject,
+			"approve_rate_percent": currentApproveRate * 100,
+			"reject_rate_percent":  currentRejectRate * 100,
+		},
+		{
+			"label":                "Growth",
+			"row_type":             "growth",
+			"order_in":             pctChange(float64(currentPeriodTotals.OrderIn), float64(previousPeriodTotals.OrderIn)),
+			"approve":              pctChange(float64(currentPeriodTotals.Approve), float64(previousPeriodTotals.Approve)),
+			"reject":               pctChange(float64(currentPeriodTotals.Reject), float64(previousPeriodTotals.Reject)),
+			"approve_rate_percent": pctChange(currentApproveRate*100, previousApproveRate*100),
+			"reject_rate_percent":  pctChange(currentRejectRate*100, previousRejectRate*100),
+		},
+	}
+
 	return map[string]interface{}{
-		"total_orders":               totalOrders,
-		"approved_orders":            approvedOrders,
-		"approval_rate":              approvalRate,
-		"lead_time_avg_seconds":      leadAvgSeconds,
-		"lead_time_avg_hours":        leadAvgSeconds / 3600,
-		"growth":                     growth,
-		"growth_percent":             growth * 100,
-		"growth_month":               growthMonthKey,
-		"growth_prev_month":          prevGrowthMonthKey,
-		"avg_order_in_daily_m":       avgOrderDailyM,
-		"avg_order_in_daily_prev_m":  avgOrderDailyPrev,
-		"avg_retail_sales_daily_m":   avgRetailSalesDailyM,
-		"daily_order_in":             dailySeries,
-		"daily_retail_sales":         dailyRetailSeries,
-		"daily_finance_reject":       dailyFinanceRejectSeries,
+		"total_orders":                      totalOrders,
+		"approved_orders":                   approvedOrders,
+		"approval_rate":                     approvalRate,
+		"lead_time_avg_seconds":             leadAvgSeconds,
+		"lead_time_avg_hours":               leadAvgSeconds / 3600,
+		"growth":                            growth,
+		"growth_percent":                    growth * 100,
+		"growth_month":                      growthMonthKey,
+		"growth_prev_month":                 prevGrowthMonthKey,
+		"avg_order_in_daily_m":              avgOrderDailyM,
+		"avg_order_in_daily_prev_m":         avgOrderDailyPrev,
+		"avg_retail_sales_daily_m":          avgRetailSalesDailyM,
+		"daily_order_in":                    dailySeries,
+		"daily_retail_sales":                dailyRetailSeries,
+		"daily_finance_reject":              dailyFinanceRejectSeries,
 		"daily_finance_decision_by_company": dailyFinanceDecisionByCompany,
-		"daily_order_in_by_motor":    dailyMotorSeries,
-		"monthly_order_in":           monthlySeries,
-		"monthly_order_in_by_motor":  monthlyMotorSeries,
-		"job_proportion":             buildProportions(jobCounter),
-		"product_proportion":         buildProportions(productCounter),
-		"finance_company_proportion": buildProportions(financeCounter),
-		"dp_range":                   dpSeries,
+		"daily_order_in_by_motor":           dailyMotorSeries,
+		"analysis_applied":                  periodWindow.Analysis,
+		"order_decision_snapshot":           orderDecisionSnapshot,
+		"monthly_order_in":                  monthlySeries,
+		"monthly_order_in_by_motor":         monthlyMotorSeries,
+		"job_proportion":                    buildProportions(jobCounter),
+		"product_proportion":                buildProportions(productCounter),
+		"finance_company_proportion":        buildProportions(financeCounter),
+		"dp_range":                          dpSeries,
 	}, nil
 }
 
