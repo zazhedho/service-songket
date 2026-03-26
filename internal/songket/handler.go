@@ -110,10 +110,22 @@ func (h *Handler) DashboardSummary(ctx *gin.Context) {
 		Area:             strings.TrimSpace(ctx.Query("area")),
 		DealerID:         strings.TrimSpace(ctx.Query("dealer_id")),
 		FinanceCompanyID: strings.TrimSpace(ctx.Query("finance_company_id")),
+		Analysis:         strings.ToLower(strings.TrimSpace(ctx.Query("analysis"))),
 		Date:             strings.TrimSpace(ctx.Query("date")),
 		From:             strings.TrimSpace(ctx.Query("from")),
 		To:               strings.TrimSpace(ctx.Query("to")),
 		Holidays:         strings.TrimSpace(ctx.Query("holidays")),
+	}
+
+	if req.Analysis != "" {
+		switch req.Analysis {
+		case "yearly", "monthly", "daily", "custom":
+		default:
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "analysis must be one of: yearly, monthly, daily, custom"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
 	}
 
 	if rawMonth := strings.TrimSpace(ctx.Query("month")); rawMonth != "" {
@@ -136,6 +148,12 @@ func (h *Handler) DashboardSummary(ctx *gin.Context) {
 		}
 		req.Year = parsedYear
 	}
+	var parsedFrom time.Time
+	var parsedTo time.Time
+	var hasDate bool
+	var hasFrom bool
+	var hasTo bool
+
 	if req.Date != "" {
 		if _, err := time.Parse("2006-01-02", req.Date); err != nil {
 			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -143,19 +161,70 @@ func (h *Handler) DashboardSummary(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, res)
 			return
 		}
+		hasDate = true
 	}
 	if req.From != "" {
-		if _, err := time.Parse("2006-01-02", req.From); err != nil {
+		parsed, err := time.Parse("2006-01-02", req.From)
+		if err != nil {
 			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
 			res.Error = "from must use YYYY-MM-DD format"
 			ctx.JSON(http.StatusBadRequest, res)
 			return
 		}
+		parsedFrom = parsed
+		hasFrom = true
 	}
 	if req.To != "" {
-		if _, err := time.Parse("2006-01-02", req.To); err != nil {
+		parsed, err := time.Parse("2006-01-02", req.To)
+		if err != nil {
 			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
 			res.Error = "to must use YYYY-MM-DD format"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		parsedTo = parsed
+		hasTo = true
+	}
+
+	if hasFrom && hasTo && parsedFrom.After(parsedTo) {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "from cannot be after to"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	switch req.Analysis {
+	case "yearly":
+		if req.Year <= 0 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year is required for yearly analysis"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	case "monthly":
+		if req.Year <= 0 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year is required for monthly analysis"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		if req.Month < 1 || req.Month > 12 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "month is required for monthly analysis"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	case "daily":
+		if !hasDate {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "date is required for daily analysis"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	case "custom":
+		if !hasFrom || !hasTo {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "from and to are required for custom analysis"
 			ctx.JSON(http.StatusBadRequest, res)
 			return
 		}
