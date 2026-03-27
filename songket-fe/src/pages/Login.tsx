@@ -186,11 +186,11 @@ export default function LoginPage() {
               <>
                 <input style={inputStyle} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
                 <input style={inputStyle} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                <select style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)}>
-                  <option value="dealer">Dealer</option>
-                  <option value="main_dealer">Main Dealer</option>
-                  <option value="superadmin">Super Admin</option>
-                </select>
+                {/*<select style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)}>*/}
+                {/*  <option value="dealer">Dealer</option>*/}
+                {/*  <option value="main_dealer">Main Dealer</option>*/}
+                {/*  <option value="superadmin">Super Admin</option>*/}
+                {/*</select>*/}
               </>
             )}
 
