@@ -3,13 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../api'
 import { useAuth } from '../store'
 
+function validatePasswordByBackendRule(password: string) {
+  if (password.length < 8) return 'Password harus minimal 8 karakter.'
+  if (!/[a-z]/.test(password)) return 'Password harus memiliki minimal 1 huruf kecil (a-z).'
+  if (!/[A-Z]/.test(password)) return 'Password harus memiliki minimal 1 huruf besar (A-Z).'
+  if (!/[0-9]/.test(password)) return 'Password harus memiliki minimal 1 angka (0-9).'
+  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password harus memiliki minimal 1 simbol (!@#$%^&*...).'
+  return ''
+}
+
+function getPasswordRuleChecks(password: string) {
+  return [
+    { label: 'Minimal 8 karakter', valid: password.length >= 8 },
+    { label: 'Minimal 1 huruf kecil (a-z)', valid: /[a-z]/.test(password) },
+    { label: 'Minimal 1 huruf besar (A-Z)', valid: /[A-Z]/.test(password) },
+    { label: 'Minimal 1 angka (0-9)', valid: /[0-9]/.test(password) },
+    { label: 'Minimal 1 simbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
+  ]
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [role, setRole] = useState('dealer')
+  const role = 'dealer'
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -26,8 +47,28 @@ export default function LoginPage() {
 
     try {
       if (isRegister) {
+        const passwordRuleError = validatePasswordByBackendRule(password)
+        if (passwordRuleError) {
+          setError(passwordRuleError)
+          return
+        }
+
+        if (!confirmPassword) {
+          setError('Password confirmation wajib diisi.')
+          return
+        }
+
+        if (password !== confirmPassword) {
+          setError('Password dan password confirmation tidak sama.')
+          return
+        }
+
         await register({ name, email, phone, password, role })
         setIsRegister(false)
+        setPassword('')
+        setConfirmPassword('')
+        setShowPassword(false)
+        setShowConfirmPassword(false)
       } else {
         const { data } = await login(email, password)
         const token = data?.data?.token || data?.token || data?.data
@@ -174,10 +215,10 @@ export default function LoginPage() {
         <div style={{ width: 'min(360px, 100%)', textAlign: 'center' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
             <img src="/songket-logo.jpeg" alt="SONGKET Logo" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover' }} />
-            <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: '#4b5563' }}>Songket</div>
+            <div style={{ fontSize: 'clamp(34px, 5vw, 42px)', fontWeight: 700, lineHeight: 1, color: '#4b5563' }}>S.O.N.G.K.E.T</div>
           </div>
 
-          <h2 style={{ margin: '0 0 20px', color: '#1f2937', fontSize: 'clamp(34px, 5vw, 42px)', lineHeight: 1.1, fontWeight: 500 }}>
+          <h2 style={{ margin: '0 0 20px', color: '#1f2937', fontSize: 22, lineHeight: 1.1, fontWeight: 500 }}>
             {isRegister ? 'Register' : 'Log in'}
           </h2>
 
@@ -237,6 +278,46 @@ export default function LoginPage() {
               </button>
             </div>
 
+            {isRegister && (
+              <PasswordRulesGuide password={password} />
+            )}
+
+            {isRegister && (
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  placeholder="Password confirmation"
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  style={{ ...inputStyle, paddingRight: 42 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 26,
+                    height: 26,
+                    border: '0',
+                    borderRadius: 8,
+                    background: 'transparent',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#374151',
+                  }}
+                >
+                  {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
+            )}
+
             {error && (
               <div
                 style={{
@@ -273,7 +354,17 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => setIsRegister((value) => !value)}
+            onClick={() =>
+              setIsRegister((value) => {
+                const next = !value
+                setError('')
+                setPassword('')
+                setConfirmPassword('')
+                setShowPassword(false)
+                setShowConfirmPassword(false)
+                return next
+              })
+            }
             style={{
               marginTop: 16,
               width: '100%',
@@ -309,5 +400,27 @@ function EyeOffIcon() {
       <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       <path d="M10.6 6.2A11.6 11.6 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.1 3.7M6.1 9.1A18.4 18.4 0 0 0 2 12s3.5 6 10 6c1.2 0 2.3-.2 3.3-.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
+  )
+}
+
+function PasswordRulesGuide({ password }: { password: string }) {
+  const checks = getPasswordRuleChecks(password)
+  return (
+    <div
+      style={{
+        border: '1px solid #d7e0ef',
+        borderRadius: 10,
+        background: '#f8fafc',
+        fontSize: 12,
+        lineHeight: 1.5,
+        padding: '10px 12px',
+      }}
+    >
+      {checks.map((rule) => (
+        <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
+          {rule.valid ? 'OK' : 'X'} {rule.label}
+        </div>
+      ))}
+    </div>
   )
 }
