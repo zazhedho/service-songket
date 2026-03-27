@@ -75,21 +75,21 @@ function roleNames(items: RoleItem[]) {
 }
 
 function validatePasswordByBackendRule(password: string) {
-  if (password.length < 8) return 'Password harus minimal 8 karakter.'
-  if (!/[a-z]/.test(password)) return 'Password harus memiliki minimal 1 huruf kecil (a-z).'
-  if (!/[A-Z]/.test(password)) return 'Password harus memiliki minimal 1 huruf besar (A-Z).'
-  if (!/[0-9]/.test(password)) return 'Password harus memiliki minimal 1 angka (0-9).'
-  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password harus memiliki minimal 1 simbol (!@#$%^&*...).'
+  if (password.length < 8) return 'Password must be at least 8 characters long.'
+  if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
+  if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
+  if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
+  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must include at least 1 symbol (!@#$%^&*...).'
   return ''
 }
 
 function getPasswordRuleChecks(password: string) {
   return [
-    { label: 'Minimal 8 karakter', valid: password.length >= 8 },
-    { label: 'Minimal 1 huruf kecil (a-z)', valid: /[a-z]/.test(password) },
-    { label: 'Minimal 1 huruf besar (A-Z)', valid: /[A-Z]/.test(password) },
-    { label: 'Minimal 1 angka (0-9)', valid: /[0-9]/.test(password) },
-    { label: 'Minimal 1 simbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
+    { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
+    { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
+    { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
+    { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
   ]
 }
 
@@ -300,6 +300,7 @@ export default function UsersPage() {
     if (backendRoles.length > 0) return backendRoles
     return ['superadmin', 'admin', 'main_dealer', 'dealer']
   }, [form.role, roleOptions])
+  const isPasswordConfirmationMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
 
   useEffect(() => {
     if (!isDetail || !selectedUser?.id) {
@@ -481,7 +482,7 @@ export default function UsersPage() {
     const trimmedPassword = String(form.password || '').trim()
     const confirmPassword = String(form.confirmPassword || '')
     if (!trimmedPassword) {
-      const message = 'Password wajib diisi.'
+      const message = 'Password is required.'
       setError(message)
       window.alert(message)
       return
@@ -495,14 +496,14 @@ export default function UsersPage() {
     }
 
     if (!confirmPassword) {
-      const message = 'Password confirmation wajib diisi.'
+      const message = 'Password confirmation is required.'
       setError(message)
       window.alert(message)
       return
     }
 
     if (trimmedPassword !== confirmPassword) {
-      const message = 'Password dan password confirmation tidak sama.'
+      const message = 'Password and password confirmation do not match.'
       setError(message)
       window.alert(message)
       return
@@ -540,7 +541,7 @@ export default function UsersPage() {
       setPermDraft([])
       navigate('/users')
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Gagal menyimpan user'
+      const message = err?.response?.data?.error || 'Failed to save user'
       setError(message)
       window.alert(message)
     } finally {
@@ -720,6 +721,11 @@ export default function UsersPage() {
                     {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
+                {isPasswordConfirmationMismatch && (
+                  <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+                    Password and password confirmation do not match.
+                  </div>
+                )}
               </div>
               <div>
                 <label>Role</label>
@@ -908,7 +914,7 @@ function PasswordRulesGuide({ password }: { password: string }) {
     >
       {checks.map((rule) => (
         <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
-          {rule.valid ? 'OK' : 'X'} {rule.label}
+          {rule.valid ? 'PASS' : 'FAIL'} {rule.label}
         </div>
       ))}
     </div>

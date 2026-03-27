@@ -4,21 +4,21 @@ import { getMe, login, register } from '../api'
 import { useAuth } from '../store'
 
 function validatePasswordByBackendRule(password: string) {
-  if (password.length < 8) return 'Password harus minimal 8 karakter.'
-  if (!/[a-z]/.test(password)) return 'Password harus memiliki minimal 1 huruf kecil (a-z).'
-  if (!/[A-Z]/.test(password)) return 'Password harus memiliki minimal 1 huruf besar (A-Z).'
-  if (!/[0-9]/.test(password)) return 'Password harus memiliki minimal 1 angka (0-9).'
-  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password harus memiliki minimal 1 simbol (!@#$%^&*...).'
+  if (password.length < 8) return 'Password must be at least 8 characters long.'
+  if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
+  if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
+  if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
+  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must include at least 1 symbol (!@#$%^&*...).'
   return ''
 }
 
 function getPasswordRuleChecks(password: string) {
   return [
-    { label: 'Minimal 8 karakter', valid: password.length >= 8 },
-    { label: 'Minimal 1 huruf kecil (a-z)', valid: /[a-z]/.test(password) },
-    { label: 'Minimal 1 huruf besar (A-Z)', valid: /[A-Z]/.test(password) },
-    { label: 'Minimal 1 angka (0-9)', valid: /[0-9]/.test(password) },
-    { label: 'Minimal 1 simbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
+    { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
+    { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
+    { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
+    { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
   ]
 }
 
@@ -39,6 +39,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const setToken = useAuth((s) => s.setToken)
   const setRoleStore = useAuth((s) => s.setRole)
+  const isRegisterPasswordMismatch = isRegister && confirmPassword.length > 0 && password !== confirmPassword
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -54,12 +55,12 @@ export default function LoginPage() {
         }
 
         if (!confirmPassword) {
-          setError('Password confirmation wajib diisi.')
+          setError('Password confirmation is required.')
           return
         }
 
         if (password !== confirmPassword) {
-          setError('Password dan password confirmation tidak sama.')
+          setError('Password and password confirmation do not match.')
           return
         }
 
@@ -318,6 +319,12 @@ export default function LoginPage() {
               </div>
             )}
 
+            {isRegisterPasswordMismatch && (
+              <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>
+                Password and password confirmation do not match.
+              </div>
+            )}
+
             {error && (
               <div
                 style={{
@@ -418,7 +425,7 @@ function PasswordRulesGuide({ password }: { password: string }) {
     >
       {checks.map((rule) => (
         <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
-          {rule.valid ? 'OK' : 'X'} {rule.label}
+          {rule.valid ? 'PASS' : 'FAIL'} {rule.label}
         </div>
       ))}
     </div>
