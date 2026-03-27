@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../api'
 import { useAuth } from '../store'
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isNarrow, setIsNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false))
 
   const navigate = useNavigate()
   const setToken = useAuth((s) => s.setToken)
@@ -55,144 +56,237 @@ export default function LoginPage() {
     }
   }
 
+  const inputStyle = {
+    width: '100%',
+    borderRadius: 12,
+    border: '1px solid #d0d8e7',
+    background: '#f9fbff',
+    color: '#0f172a',
+    padding: '11px 12px',
+    fontSize: 14,
+    outline: 'none',
+  }
+
+  useEffect(() => {
+    const handleResize = () => setIsNarrow(window.innerWidth < 1024)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   return (
     <div
       style={{
         minHeight: '100vh',
+        background: '#f4f6fb',
         display: 'grid',
-        placeItems: 'center',
-        padding: 'clamp(10px, 3vw, 18px)',
-        background: 'linear-gradient(130deg, #dbeafe, #f0f9ff 45%, #e2e8f0)',
+        gridTemplateColumns: isNarrow ? '1fr' : 'minmax(0, 2.2fr) minmax(320px, 1fr)',
       }}
     >
       <div
         style={{
-          width: 'min(980px, 100%)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-          background: '#ffffff',
-          borderRadius: 18,
+          position: 'relative',
+          padding: 'clamp(24px, 4vw, 44px)',
+          background:
+            'radial-gradient(circle at 12% 88%, rgba(103, 232, 249, 0.85), transparent 40%), radial-gradient(circle at 84% 12%, rgba(217, 70, 239, 0.48), transparent 34%), linear-gradient(140deg, #312eeb 0%, #4f46e5 40%, #6d28d9 70%, #db2777 100%)',
+          color: '#f8fafc',
           overflow: 'hidden',
-          border: '1px solid #dbe3ef',
-          boxShadow: '0 24px 50px rgba(15, 23, 42, 0.18)',
+          minHeight: isNarrow ? '52vh' : '100vh',
+          display: 'grid',
+          alignContent: 'center',
+          justifyItems: 'center',
+          gap: 20,
         }}
       >
-        <div
-          style={{
-            padding: 'clamp(16px, 4vw, 28px)',
-            background: 'linear-gradient(155deg, #1d4ed8, #2563eb 58%, #0ea5e9)',
-            color: '#eaf2ff',
-            display: 'grid',
-            alignContent: 'space-between',
-            gap: 20,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                width: 'clamp(140px, 36vw, 220px)',
-                height: 'clamp(140px, 36vw, 220px)',
-                borderRadius: 20,
-                border: '1px solid rgba(255,255,255,0.28)',
-                background: '#1e40af',
-                display: 'grid',
-                placeItems: 'center',
-                padding: 12,
-                marginBottom: 14,
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
-              }}
-            >
-              <img
-                src="/songket-logo.jpeg"
-                alt="SONGKET Logo"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 14 }}
-              />
-            </div>
-            <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9 }}>Songket Suite</div>
-            <h1 style={{ margin: '8px 0 0', fontSize: 'clamp(26px, 4vw, 34px)', lineHeight: 1.2 }}>Songket Console</h1>
-          </div>
+        <h1 style={{ margin: 0, fontSize: 'clamp(34px, 4.5vw, 52px)', lineHeight: 1.14, textAlign: 'center', fontWeight: 700 }}>
+          Songket Business Console
+        </h1>
+        <div style={{ maxWidth: 720, textAlign: 'center', color: 'rgba(248, 250, 252, 0.92)', fontSize: 16, lineHeight: 1.6 }}>
+          Monitoring order in, approval finance, dan performa dealer dalam satu dashboard operasional yang terintegrasi.
         </div>
 
-        <div style={{ padding: 'clamp(16px, 4vw, 28px)' }}>
-          <h2 style={{ marginTop: 0 }}>{isRegister ? 'Register Account' : 'Sign In'}</h2>
-          <div style={{ color: '#64748b', marginBottom: 14 }}>
-            {isRegister ? 'Create a new account to access the system.' : 'Sign in to continue to the dashboard.'}
+        <div
+          style={{
+            width: 'min(760px, 100%)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 14,
+              border: '1px solid rgba(226, 232, 240, 0.38)',
+              background: 'rgba(15, 23, 42, 0.26)',
+              backdropFilter: 'blur(4px)',
+              padding: 14,
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Dashboard</div>
+            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>Daily Order In Trend</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
+              Pantau pergerakan order in harian secara real-time lintas dealer.
+            </div>
+          </div>
+          <div
+            style={{
+              borderRadius: 14,
+              border: '1px solid rgba(226, 232, 240, 0.38)',
+              background: 'rgba(15, 23, 42, 0.26)',
+              backdropFilter: 'blur(4px)',
+              padding: 14,
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Finance</div>
+            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>Approve vs Reject</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
+              Analisis keputusan finance dan breakdown company dalam satu tampilan.
+            </div>
+          </div>
+          <div
+            style={{
+              borderRadius: 14,
+              border: '1px solid rgba(226, 232, 240, 0.38)',
+              background: 'rgba(15, 23, 42, 0.26)',
+              backdropFilter: 'blur(4px)',
+              padding: 14,
+            }}
+          >
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Analysis</div>
+            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>YTD Summary</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
+              Bandingkan performa periode berjalan dengan periode sebelumnya.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          minHeight: isNarrow ? '48vh' : '100vh',
+          display: 'grid',
+          alignContent: 'center',
+          justifyItems: 'center',
+          padding: 'clamp(18px, 3vw, 30px)',
+          background: '#f3f4f6',
+        }}
+      >
+        <div style={{ width: 'min(360px, 100%)', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <img src="/songket-logo.jpeg" alt="SONGKET Logo" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover' }} />
+            <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: '#4b5563' }}>Songket</div>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid" style={{ gap: 12 }}>
+          <h2 style={{ margin: '0 0 20px', color: '#1f2937', fontSize: 'clamp(34px, 5vw, 42px)', lineHeight: 1.1, fontWeight: 500 }}>
+            {isRegister ? 'Register' : 'Log in'}
+          </h2>
+
+          <form onSubmit={handleSubmit} className="grid" style={{ gap: 12, textAlign: 'left' }}>
             {isRegister && (
               <>
-                <div>
-                  <label>Name</label>
-                  <input value={name} onChange={(e) => setName(e.target.value)} required />
-                </div>
-
-                <div>
-                  <label>Phone</label>
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                </div>
-
-                <div>
-                  <label>Role</label>
-                  <select value={role} onChange={(e) => setRole(e.target.value)}>
-                    <option value="dealer">Dealer</option>
-                    <option value="main_dealer">Main Dealer</option>
-                    <option value="superadmin">Super Admin</option>
-                  </select>
-                </div>
+                <input style={inputStyle} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+                <input style={inputStyle} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <select style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)}>
+                  <option value="dealer">Dealer</option>
+                  <option value="main_dealer">Main Dealer</option>
+                  <option value="superadmin">Super Admin</option>
+                </select>
               </>
             )}
 
-            <div>
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              style={inputStyle}
+              placeholder="E-mail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                placeholder="Password"
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ ...inputStyle, paddingRight: 42 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 26,
+                  height: 26,
+                  border: '0',
+                  borderRadius: 8,
+                  background: 'transparent',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#374151',
+                }}
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
             </div>
 
-            <div>
-              <label>Password</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={{ paddingRight: 42 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 28,
-                    height: 28,
-                    border: '1px solid #d4dce8',
-                    borderRadius: 8,
-                    background: '#fff',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: '#475569',
-                  }}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
+            {error && (
+              <div
+                style={{
+                  color: '#991b1b',
+                  fontSize: 13,
+                  background: '#fee2e2',
+                  border: '1px solid #fecaca',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                }}
+              >
+                {error}
               </div>
-            </div>
+            )}
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
-
-            <button className="btn" type="submit" disabled={loading}>
-              {loading ? 'Loading...' : isRegister ? 'Register' : 'Login'}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                border: 0,
+                borderRadius: 8,
+                padding: '11px 12px',
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#eff6ff',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                background: '#3b82f6',
+                opacity: loading ? 0.75 : 1,
+              }}
+            >
+              {loading ? 'Loading...' : isRegister ? 'Register' : 'Log in'}
             </button>
           </form>
 
-          <button className="btn-ghost" style={{ marginTop: 10 }} onClick={() => setIsRegister((value) => !value)}>
-            {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
+          <button
+            type="button"
+            onClick={() => setIsRegister((value) => !value)}
+            style={{
+              marginTop: 16,
+              width: '100%',
+              border: '1px solid #3b82f6',
+              borderRadius: 8,
+              background: 'transparent',
+              color: '#3b82f6',
+              padding: '10px 12px',
+              fontSize: 17,
+              cursor: 'pointer',
+            }}
+          >
+            {isRegister ? 'Back to login' : 'Create an account'}
           </button>
         </div>
       </div>
