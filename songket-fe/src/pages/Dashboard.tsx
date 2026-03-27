@@ -1180,22 +1180,30 @@ function buildDailyTrendSeries({
     }
   }
 
-  const sortedDates = Array.from(grouped.keys())
-    .filter((dateKey) => {
-      if (!startDate || !endDate) return true
-      const d = dayjs(dateKey)
-      if (!d.isValid()) return false
-      return !d.isBefore(startDate, 'day') && !d.isAfter(endDate, 'day')
-    })
-    .sort()
-
-  if (sortedDates.length === 0) {
-    return { labels: [], values: [], tooltipDetails: [] }
+  if (!startDate || !endDate) {
+    const sortedDates = Array.from(grouped.keys()).sort()
+    if (sortedDates.length === 0) {
+      return { labels: [], values: [], tooltipDetails: [] }
+    }
+    const latestDate = dayjs(sortedDates[sortedDates.length - 1])
+    if (!latestDate.isValid()) {
+      return { labels: [], values: [], tooltipDetails: [] }
+    }
+    endDate = latestDate.startOf('day')
+    startDate = endDate.subtract(6, 'day')
   }
 
-  const values = sortedDates.map((dateKey) => grouped.get(dateKey) || 0)
-  const labels = sortedDates.map((dateKey) => dayjs(dateKey).format('DD MMM'))
-  const tooltipDetails = sortedDates.map((dateKey) => dayjs(dateKey).format('DD MMM YYYY'))
+  const values: number[] = []
+  const labels: string[] = []
+  const tooltipDetails: string[] = []
+  let cursor = startDate
+  while (!cursor.isAfter(endDate, 'day')) {
+    const key = cursor.format('YYYY-MM-DD')
+    values.push(grouped.get(key) || 0)
+    labels.push(cursor.format('DD MMM'))
+    tooltipDetails.push(cursor.format('DD MMM YYYY'))
+    cursor = cursor.add(1, 'day')
+  }
 
   return {
     labels,
@@ -1266,17 +1274,17 @@ function buildDailyFinanceDecisionSeries({
     }
   }
 
-  const keys = Array.from(new Set([...approveByDate.keys(), ...rejectByDate.keys()]))
-    .filter((dateKey) => {
-      if (!startDate || !endDate) return true
-      const d = dayjs(dateKey)
-      if (!d.isValid()) return false
-      return !d.isBefore(startDate, 'day') && !d.isAfter(endDate, 'day')
-    })
-    .sort()
-
-  if (keys.length === 0) {
-    return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
+  if (!startDate || !endDate) {
+    const keys = Array.from(new Set([...approveByDate.keys(), ...rejectByDate.keys()])).sort()
+    if (keys.length === 0) {
+      return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
+    }
+    const latestDate = dayjs(keys[keys.length - 1])
+    if (!latestDate.isValid()) {
+      return { labels: [], approveValues: [], rejectValues: [], tooltipDetails: [], tooltipExtraLines: [] }
+    }
+    endDate = latestDate.startOf('day')
+    startDate = endDate.subtract(6, 'day')
   }
 
   const labels: string[] = []
@@ -1296,8 +1304,9 @@ function buildDailyFinanceDecisionSeries({
     return remaining > 0 ? `${top} +${remaining} lainnya` : top
   }
 
-  keys.forEach((key) => {
-    const cursor = dayjs(key)
+  let cursor = startDate
+  while (!cursor.isAfter(endDate, 'day')) {
+    const key = cursor.format('YYYY-MM-DD')
     labels.push(cursor.format('DD MMM'))
     tooltipDetails.push(cursor.format('DD MMM YYYY'))
     approveValues.push(approveByDate.get(key) || 0)
@@ -1309,7 +1318,8 @@ function buildDailyFinanceDecisionSeries({
     if (approveSummary) extraLines.push(`Approve FC: ${approveSummary}`)
     if (rejectSummary) extraLines.push(`Reject FC: ${rejectSummary}`)
     tooltipExtraLines.push(extraLines)
-  })
+    cursor = cursor.add(1, 'day')
+  }
 
   return {
     labels,
