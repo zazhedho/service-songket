@@ -23,10 +23,11 @@ type Login struct {
 }
 
 type UserUpdate struct {
-	Name  string `json:"name" binding:"omitempty,min=3,max=100"`
-	Email string `json:"email" binding:"omitempty,email"`
-	Phone string `json:"phone" binding:"omitempty,min=9,max=15"`
-	Role  string `json:"role" binding:"omitempty"`
+	Name     string `json:"name" binding:"omitempty,min=3,max=100"`
+	Email    string `json:"email" binding:"omitempty,email"`
+	Phone    string `json:"phone" binding:"omitempty,min=9,max=15"`
+	Password string `json:"password" binding:"omitempty,min=8,max=64"`
+	Role     string `json:"role" binding:"omitempty"`
 }
 
 type ChangePassword struct {

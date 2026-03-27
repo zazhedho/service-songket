@@ -322,6 +322,18 @@ func (s *ServiceUser) Update(id, role string, req dto.UserUpdate) (domainuser.Us
 		data.Email = req.Email
 	}
 
+	if req.Password != "" {
+		if err := ValidatePasswordStrength(req.Password); err != nil {
+			return domainuser.Users{}, err
+		}
+
+		hashedPwd, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return domainuser.Users{}, err
+		}
+		data.Password = string(hashedPwd)
+	}
+
 	if role == utils.RoleAdmin && strings.TrimSpace(req.Role) != "" {
 		newRoleName := strings.ToLower(req.Role)
 

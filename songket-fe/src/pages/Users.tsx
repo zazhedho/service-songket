@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { CSSProperties, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   adminCreateUser,
@@ -17,8 +17,7 @@ import { useConfirm } from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 
-const emptyForm = { name: '', email: '', phone: '', password: '', role: 'dealer' }
-
+const emptyForm = { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'dealer' }
 type Perm = {
   id: string
   name?: string
@@ -75,6 +74,46 @@ function roleNames(items: RoleItem[]) {
   )
 }
 
+function validatePasswordByBackendRule(password: string) {
+  if (password.length < 8) return 'Password must be at least 8 characters long.'
+  if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
+  if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
+  if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
+  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must include at least 1 symbol (!@#$%^&*...).'
+  return ''
+}
+
+function getPasswordRuleChecks(password: string) {
+  return [
+    { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
+    { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
+    { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
+    { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
+  ]
+}
+
+const passwordInputWrapStyle: CSSProperties = {
+  position: 'relative',
+}
+
+const passwordToggleButtonStyle: CSSProperties = {
+  position: 'absolute',
+  right: 8,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  width: 26,
+  height: 26,
+  border: 0,
+  borderRadius: 8,
+  background: 'transparent',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  color: '#374151',
+}
+
 export default function UsersPage() {
   const navigate = useNavigate()
   const params = useParams()
@@ -104,6 +143,8 @@ export default function UsersPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
   const [form, setForm] = useState(emptyForm)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -259,6 +300,7 @@ export default function UsersPage() {
     if (backendRoles.length > 0) return backendRoles
     return ['superadmin', 'admin', 'main_dealer', 'dealer']
   }, [form.role, roleOptions])
+  const isPasswordConfirmationMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
 
   useEffect(() => {
     if (!isDetail || !selectedUser?.id) {
@@ -298,6 +340,8 @@ export default function UsersPage() {
     if (isCreate) {
       setEditingId(null)
       setForm(emptyForm)
+      setShowPassword(false)
+      setShowConfirmPassword(false)
       setPermDraft([])
       return
     }
@@ -310,8 +354,11 @@ export default function UsersPage() {
           email: target.email || '',
           phone: target.phone || '',
           password: '',
+          confirmPassword: '',
           role: target.role || 'dealer',
         })
+        setShowPassword(false)
+        setShowConfirmPassword(false)
       }
     }
   }, [isCreate, isEdit, selectedId, selectedUser])
@@ -432,19 +479,54 @@ export default function UsersPage() {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
 
+    const trimmedPassword = String(form.password || '').trim()
+    const confirmPassword = String(form.confirmPassword || '')
+    if (!trimmedPassword) {
+      const message = 'Password is required.'
+      setError(message)
+      window.alert(message)
+      return
+    }
+
+    const passwordRuleError = validatePasswordByBackendRule(trimmedPassword)
+    if (passwordRuleError) {
+      setError(passwordRuleError)
+      window.alert(passwordRuleError)
+      return
+    }
+
+    if (!confirmPassword) {
+      const message = 'Password confirmation is required.'
+      setError(message)
+      window.alert(message)
+      return
+    }
+
+    if (trimmedPassword !== confirmPassword) {
+      const message = 'Password and password confirmation do not match.'
+      setError(message)
+      window.alert(message)
+      return
+    }
+
     setLoading(true)
     setError('')
 
     try {
+      const body: any = {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        password: trimmedPassword,
+        role: form.role,
+      }
+
       if (editingId) {
-        const body: any = { ...form }
-        if (!body.password) delete body.password
         await updateUserById(editingId, body)
         if (canSetUserPerm) {
           await setUserPermissions(editingId, sanitizeIdList(permDraft))
         }
       } else {
-        const body: any = { ...form }
         const permissionIds = sanitizeIdList(permDraft)
         if (canSetUserPerm && permissionIds.length > 0) body.permission_ids = permissionIds
         await adminCreateUser(body)
@@ -453,11 +535,13 @@ export default function UsersPage() {
         await loadUsers().catch(() => undefined)
       }
       setForm(emptyForm)
+      setShowPassword(false)
+      setShowConfirmPassword(false)
       setEditingId(null)
       setPermDraft([])
       navigate('/users')
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Gagal menyimpan user'
+      const message = err?.response?.data?.error || 'Failed to save user'
       setError(message)
       window.alert(message)
     } finally {
@@ -598,8 +682,50 @@ export default function UsersPage() {
                 <input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
               </div>
               <div>
-                <label>Password {isEdit && '(opsional)'}</label>
-                <input type="password" value={form.password} onChange={(e) => set('password', e.target.value)} />
+                <label>Password</label>
+                <div style={passwordInputWrapStyle}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={(e) => set('password', e.target.value)}
+                    style={{ paddingRight: 42 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    style={passwordToggleButtonStyle}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <PasswordRulesGuide password={form.password} />
+                </div>
+              </div>
+              <div>
+                <label>Password Confirmation</label>
+                <div style={passwordInputWrapStyle}>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={form.confirmPassword}
+                    onChange={(e) => set('confirmPassword', e.target.value)}
+                    style={{ paddingRight: 42 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
+                    style={passwordToggleButtonStyle}
+                  >
+                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                {isPasswordConfirmationMismatch && (
+                  <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+                    Password and password confirmation do not match.
+                  </div>
+                )}
               </div>
               <div>
                 <label>Role</label>
@@ -641,6 +767,8 @@ export default function UsersPage() {
                   className="btn-ghost"
                   onClick={() => {
                     setForm(emptyForm)
+                    setShowPassword(false)
+                    setShowConfirmPassword(false)
                     setEditingId(null)
                     navigate('/users')
                   }}
@@ -751,4 +879,44 @@ function formatDateTime(value: unknown) {
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
   return date.toLocaleString('en-US')
+}
+
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M10.6 6.2A11.6 11.6 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.1 3.7M6.1 9.1A18.4 18.4 0 0 0 2 12s3.5 6 10 6c1.2 0 2.3-.2 3.3-.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PasswordRulesGuide({ password }: { password: string }) {
+  const checks = getPasswordRuleChecks(password)
+  return (
+    <div
+      style={{
+        border: '1px solid #d7e0ef',
+        borderRadius: 8,
+        background: '#f8fafc',
+        padding: '10px 12px',
+        fontSize: 12,
+        lineHeight: 1.5,
+      }}
+    >
+      {checks.map((rule) => (
+        <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
+          {rule.valid ? 'PASS' : 'FAIL'} {rule.label}
+        </div>
+      ))}
+    </div>
+  )
 }
