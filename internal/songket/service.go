@@ -4026,6 +4026,18 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		Name        string
 		Installment float64
 	}
+	type worksheetOrderRangeRow struct {
+		Installment   float64 `gorm:"column:installment"`
+		DPPct         float64 `gorm:"column:dp_pct"`
+		FinanceStatus string  `gorm:"column:finance_status"`
+		Province      string  `gorm:"column:province"`
+		Regency       string  `gorm:"column:regency"`
+	}
+	type rangeCounter struct {
+		Total   int64
+		Approve int64
+		Reject  int64
+	}
 
 	provinceFilter := strings.TrimSpace(provinceCode)
 	regencyFilter := strings.TrimSpace(regencyCode)
@@ -4061,6 +4073,35 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	}
 	motorAreaKey := func(motorID, regCode, regName string) string {
 		return strings.ToLower(strings.TrimSpace(motorID)) + "|" + areaPart(regCode, regName)
+	}
+	matchesOrderArea := func(province, regency string) bool {
+		if !matchFilterValue(provinceFilter, province, province) {
+			return false
+		}
+		if !matchFilterValue(regencyFilter, regency, regency) {
+			return false
+		}
+		return true
+	}
+	resolveDPRangeLabel := func(dp float64) string {
+		switch {
+		case dp < 10:
+			return "<10%"
+		case dp < 12.5:
+			return "10% - 12.5%"
+		case dp < 15:
+			return "12.5% - 15%"
+		case dp < 20:
+			return "15% - 20%"
+		case dp < 25:
+			return "20% - 25%"
+		case dp < 30:
+			return "25% - 30%"
+		case dp < 40:
+			return "30% - 40%"
+		default:
+			return ">=40%"
+		}
 	}
 
 	areasByKey := make(map[string]*worksheetAreaAggregate)
@@ -4167,6 +4208,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	// 2) Load installment values from motor + installment master.
 	motorInstallmentByArea := map[string]motorInstallmentValue{}
 	motorInstallmentByID := map[string]motorInstallmentValue{}
+	productInstallments := make([]float64, 0)
 	var motorRows []worksheetMotorRow
 	if err := s.db.
 		Table("motor_types").
@@ -4202,6 +4244,9 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		}
 		if !matchesArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName) {
 			continue
+		}
+		if row.Installment > 0 {
+			productInstallments = append(productInstallments, row.Installment)
 		}
 
 		area := ensureArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName)
@@ -4388,10 +4433,163 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		return strings.ToLower(strings.TrimSpace(motorsMaster[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motorsMaster[j].MotorTypeName))
 	})
 
+	const installmentBucketSize int64 = 250000
+	dpLabels := []string{
+		"<10%",
+		"10% - 12.5%",
+		"12.5% - 15%",
+		"15% - 20%",
+		"20% - 25%",
+		"25% - 30%",
+		"30% - 40%",
+		">=40%",
+	}
+	installmentCounterByBucket := map[int64]*rangeCounter{}
+	dpCounterByLabel := map[string]*rangeCounter{}
+	for _, label := range dpLabels {
+		dpCounterByLabel[label] = &rangeCounter{}
+	}
+	productBucketCounter := map[int64]int64{}
+	for _, amount := range productInstallments {
+		value := amount
+		if value < 0 {
+			value = 0
+		}
+		bucket := int64(value / float64(installmentBucketSize))
+		productBucketCounter[bucket]++
+	}
+
+	var orderRangeRows []worksheetOrderRangeRow
+	hasOrderInstallment := s.db.Migrator().HasColumn(&Order{}, "installment")
+	hasOrderInstallmentAmount := s.db.Migrator().HasColumn(&Order{}, "installment_amount")
+	installmentExpr := "COALESCE(inst.amount, 0)"
+	switch {
+	case hasOrderInstallment && hasOrderInstallmentAmount:
+		installmentExpr = "COALESCE(o.installment, o.installment_amount, inst.amount, 0)"
+	case hasOrderInstallment:
+		installmentExpr = "COALESCE(o.installment, inst.amount, 0)"
+	case hasOrderInstallmentAmount:
+		installmentExpr = "COALESCE(o.installment_amount, inst.amount, 0)"
+	}
+	orderRangeSelect := fmt.Sprintf(`
+		%s AS installment,
+		COALESCE(o.dp_pct, 0) AS dp_pct,
+		COALESCE(NULLIF(latest_attempt.finance_status, ''), LOWER(COALESCE(o.result_status, ''))) AS finance_status,
+		COALESCE(o.province, '') AS province,
+		COALESCE(o.regency, '') AS regency
+	`, installmentExpr)
+	if err := s.db.
+		Table("orders o").
+		Select(orderRangeSelect).
+		Joins(`
+			LEFT JOIN (
+				SELECT DISTINCT ON (a.order_id)
+					a.order_id,
+					LOWER(COALESCE(a.status, '')) AS finance_status
+				FROM order_finance_attempts a
+				ORDER BY a.order_id, a.attempt_no DESC, a.created_at DESC, a.id DESC
+			) latest_attempt ON latest_attempt.order_id = o.id
+		`).
+		Joins("LEFT JOIN installments inst ON inst.motor_type_id = o.motor_type_id AND inst.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Scan(&orderRangeRows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range orderRangeRows {
+		if !matchesOrderArea(row.Province, row.Regency) {
+			continue
+		}
+
+		installmentValue := row.Installment
+		if installmentValue < 0 {
+			installmentValue = 0
+		}
+		installmentBucket := int64(installmentValue / float64(installmentBucketSize))
+		if _, exists := installmentCounterByBucket[installmentBucket]; !exists {
+			installmentCounterByBucket[installmentBucket] = &rangeCounter{}
+		}
+		installmentCounterByBucket[installmentBucket].Total++
+
+		dpLabel := resolveDPRangeLabel(row.DPPct)
+		dpCounterByLabel[dpLabel].Total++
+
+		status := strings.ToLower(strings.TrimSpace(row.FinanceStatus))
+		if status == "approve" {
+			installmentCounterByBucket[installmentBucket].Approve++
+			dpCounterByLabel[dpLabel].Approve++
+		}
+		if status == "reject" {
+			installmentCounterByBucket[installmentBucket].Reject++
+			dpCounterByLabel[dpLabel].Reject++
+		}
+	}
+
+	buildApprovalRate := func(counter *rangeCounter) float64 {
+		if counter == nil || counter.Total <= 0 {
+			return 0
+		}
+		return (float64(counter.Approve) / float64(counter.Total)) * 100
+	}
+
+	bucketKeys := make([]int64, 0, len(installmentCounterByBucket)+len(productBucketCounter))
+	bucketKeySeen := map[int64]struct{}{}
+	for key := range installmentCounterByBucket {
+		if _, exists := bucketKeySeen[key]; exists {
+			continue
+		}
+		bucketKeySeen[key] = struct{}{}
+		bucketKeys = append(bucketKeys, key)
+	}
+	for key := range productBucketCounter {
+		if _, exists := bucketKeySeen[key]; exists {
+			continue
+		}
+		bucketKeySeen[key] = struct{}{}
+		bucketKeys = append(bucketKeys, key)
+	}
+	sort.Slice(bucketKeys, func(i, j int) bool { return bucketKeys[i] < bucketKeys[j] })
+
+	installmentRangeSeries := make([]map[string]interface{}, 0, len(bucketKeys))
+	for _, bucket := range bucketKeys {
+		counter := installmentCounterByBucket[bucket]
+		if counter == nil {
+			counter = &rangeCounter{}
+		}
+		rangeStart := bucket * installmentBucketSize
+		rangeEnd := rangeStart + installmentBucketSize
+		productCount := productBucketCounter[bucket]
+		installmentRangeSeries = append(installmentRangeSeries, map[string]interface{}{
+			"label":             fmt.Sprintf("IDR %d - < IDR %d", rangeStart, rangeEnd),
+			"range_start":       rangeStart,
+			"range_end":         rangeEnd,
+			"total":             counter.Total,
+			"approve":           counter.Approve,
+			"reject":            counter.Reject,
+			"approval_rate":     buildApprovalRate(counter),
+			"is_product_range":  productCount > 0,
+			"product_range_hit": productCount,
+		})
+	}
+
+	dpRangeSeries := make([]map[string]interface{}, 0, len(dpLabels))
+	for _, label := range dpLabels {
+		counter := dpCounterByLabel[label]
+		dpRangeSeries = append(dpRangeSeries, map[string]interface{}{
+			"label":         label,
+			"total":         counter.Total,
+			"approve":       counter.Approve,
+			"reject":        counter.Reject,
+			"approval_rate": buildApprovalRate(counter),
+		})
+	}
+
 	return map[string]interface{}{
 		"areas":              areasOut,
 		"jobs_master":        jobsMaster,
 		"motor_types_master": motorsMaster,
+		"installment_range":  installmentRangeSeries,
+		"dp_range":           dpRangeSeries,
 		"thresholds": map[string]float64{
 			"green_max_rate":  0.35,
 			"yellow_min_rate": 0.35,
