@@ -3624,18 +3624,23 @@ type CreditSummary struct {
 }
 
 type QuadrantFlowSummary struct {
-	OrderID          string  `json:"order_id"`
-	PoolingNumber    string  `json:"pooling_number"`
-	Province         string  `json:"province"`
-	Regency          string  `json:"regency"`
-	JobID            string  `json:"job_id"`
-	JobName          string  `json:"job_name"`
-	MotorTypeID      string  `json:"motor_type_id"`
-	MotorTypeName    string  `json:"motor_type_name"`
-	TotalOrders      int64   `json:"total_orders"`
-	OrderInPercent   float64 `json:"order_in_percent"`
-	CreditCapability float64 `json:"credit_capability"`
-	Quadrant         int     `json:"quadrant"`
+	OrderID              string  `json:"order_id"`
+	PoolingNumber        string  `json:"pooling_number"`
+	Province             string  `json:"province"`
+	Regency              string  `json:"regency"`
+	JobID                string  `json:"job_id"`
+	JobName              string  `json:"job_name"`
+	MotorTypeID          string  `json:"motor_type_id"`
+	MotorTypeName        string  `json:"motor_type_name"`
+	TotalOrders          int64   `json:"total_orders"`
+	OrderInPercent       float64 `json:"order_in_percent"` // backward-compatible alias (now equals growth percent)
+	OrderInGrowthPercent float64 `json:"order_in_growth_percent"`
+	OrderInCurrentTotal  int64   `json:"order_in_current_total"`
+	OrderInPreviousTotal int64   `json:"order_in_previous_total"`
+	ReferenceMonth       string  `json:"reference_month"`
+	ReferencePrevMonth   string  `json:"reference_prev_month"`
+	CreditCapability     float64 `json:"credit_capability"`
+	Quadrant             int     `json:"quadrant"`
 }
 
 type CreditWorksheetJob struct {
@@ -3765,39 +3770,110 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 }
 
 // QuadrantFlowSummary computes quadrant points with fixed thresholds:
-// - Order In percentage threshold: 20%
+// - Order In growth threshold (vs previous month): 0%
 // - Credit Capability threshold: 35%
 func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
-	const orderThresholdPct = 20.0
+	const orderGrowthThresholdPct = 0.0
 	const creditThresholdPct = 35.0
 
 	type orderAggregate struct {
 		Province string `gorm:"column:province"`
 		Regency  string `gorm:"column:regency"`
+		Year     int    `gorm:"column:year"`
+		Month    int    `gorm:"column:month"`
 		Total    int64  `gorm:"column:total"`
 	}
 
 	var orderRows []orderAggregate
 	if err := s.db.
-		Table("orders").
+		Table("orders o").
 		Select(`
-			COALESCE(NULLIF(TRIM(province), ''), '') AS province,
-			COALESCE(NULLIF(TRIM(regency), ''), '') AS regency,
+			COALESCE(NULLIF(TRIM(o.province), ''), '') AS province,
+			COALESCE(NULLIF(TRIM(o.regency), ''), '') AS regency,
+			EXTRACT(YEAR FROM o.pooling_at)::int AS year,
+			EXTRACT(MONTH FROM o.pooling_at)::int AS month,
 			COUNT(*) AS total
 		`).
-		Where("deleted_at IS NULL").
-		Where("NULLIF(TRIM(regency), '') IS NOT NULL").
-		Group("province, regency").
+		Where("o.deleted_at IS NULL").
+		Where("o.pooling_at IS NOT NULL").
+		Where("NULLIF(TRIM(o.regency), '') IS NOT NULL").
+		Group(`
+			COALESCE(NULLIF(TRIM(o.province), ''), ''),
+			COALESCE(NULLIF(TRIM(o.regency), ''), ''),
+			EXTRACT(YEAR FROM o.pooling_at),
+			EXTRACT(MONTH FROM o.pooling_at)
+		`).
 		Scan(&orderRows).Error; err != nil {
 		return nil, err
 	}
 
-	totalOrders := int64(0)
+	latestMonthKey := 0
+	latestYear := 0
+	latestMonth := 0
 	for _, row := range orderRows {
-		totalOrders += row.Total
+		if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
+			continue
+		}
+		monthKey := row.Year*100 + row.Month
+		if monthKey > latestMonthKey {
+			latestMonthKey = monthKey
+			latestYear = row.Year
+			latestMonth = row.Month
+		}
 	}
-	if totalOrders <= 0 {
+	if latestMonthKey == 0 {
 		return []QuadrantFlowSummary{}, nil
+	}
+
+	latestMonthTime := time.Date(latestYear, time.Month(latestMonth), 1, 0, 0, 0, 0, time.UTC)
+	previousMonthTime := latestMonthTime.AddDate(0, -1, 0)
+	previousYear := previousMonthTime.Year()
+	previousMonth := int(previousMonthTime.Month())
+	referenceMonth := fmt.Sprintf("%04d-%02d", latestYear, latestMonth)
+	referencePrevMonth := fmt.Sprintf("%04d-%02d", previousYear, previousMonth)
+
+	type areaOrderAggregate struct {
+		Province      string
+		Regency       string
+		CurrentTotal  int64
+		PreviousTotal int64
+	}
+
+	normalize := func(value string) string {
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+	makeKey := func(province, regency string) string {
+		return normalize(province) + "|" + normalize(regency)
+	}
+
+	ordersByArea := map[string]*areaOrderAggregate{}
+	for _, row := range orderRows {
+		if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
+			continue
+		}
+		isCurrentMonth := row.Year == latestYear && row.Month == latestMonth
+		isPreviousMonth := row.Year == previousYear && row.Month == previousMonth
+		if !isCurrentMonth && !isPreviousMonth {
+			continue
+		}
+		key := makeKey(row.Province, row.Regency)
+		if key == "|" {
+			continue
+		}
+		item, exists := ordersByArea[key]
+		if !exists {
+			item = &areaOrderAggregate{
+				Province: row.Province,
+				Regency:  row.Regency,
+			}
+			ordersByArea[key] = item
+		}
+		if isCurrentMonth {
+			item.CurrentTotal += row.Total
+		}
+		if isPreviousMonth {
+			item.PreviousTotal += row.Total
+		}
 	}
 
 	worksheetRaw, err := s.CreditCapabilityWorksheet("", "")
@@ -3810,12 +3886,6 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		return nil, fmt.Errorf("invalid worksheet area format")
 	}
 
-	normalize := func(value string) string {
-		return strings.ToLower(strings.TrimSpace(value))
-	}
-	makeKey := func(province, regency string) string {
-		return normalize(province) + "|" + normalize(regency)
-	}
 	appendUnique := func(values []string, candidate string) []string {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
@@ -3859,54 +3929,59 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		}
 	}
 
-	results := make([]QuadrantFlowSummary, 0, len(orderRows))
-	for _, row := range orderRows {
-		if strings.TrimSpace(row.Regency) == "" {
+	results := make([]QuadrantFlowSummary, 0, len(ordersByArea))
+	for _, areaOrders := range ordersByArea {
+		if strings.TrimSpace(areaOrders.Regency) == "" {
 			continue
 		}
 
-		orderPct := (float64(row.Total) / float64(totalOrders)) * 100
+		orderGrowthPct := pctChange(float64(areaOrders.CurrentTotal), float64(areaOrders.PreviousTotal))
 		capabilityPct := 0.0
-		if value, exists := capabilityByArea[makeKey(row.Province, row.Regency)]; exists {
+		if value, exists := capabilityByArea[makeKey(areaOrders.Province, areaOrders.Regency)]; exists {
 			capabilityPct = value
-		} else if value, exists := capabilityByArea[makeKey("", row.Regency)]; exists {
+		} else if value, exists := capabilityByArea[makeKey("", areaOrders.Regency)]; exists {
 			capabilityPct = value
 		}
 
-		quadrant := 4
+		quadrant := 2
 		switch {
-		// Q3: order in > 20% and credit capability >= 35%
-		case orderPct > orderThresholdPct && capabilityPct >= creditThresholdPct:
+		// Q3: growth >= 0% and credit capability >= 35%
+		case orderGrowthPct >= orderGrowthThresholdPct && capabilityPct >= creditThresholdPct:
 			quadrant = 3
-		// Q1: order in >= 20% and credit capability <= 35%
-		case orderPct >= orderThresholdPct && capabilityPct <= creditThresholdPct:
+		// Q1: growth >= 0% and credit capability < 35%
+		case orderGrowthPct >= orderGrowthThresholdPct && capabilityPct < creditThresholdPct:
 			quadrant = 1
-		// Q4: order in < 20% and credit capability > 35%
-		case orderPct < orderThresholdPct && capabilityPct > creditThresholdPct:
+		// Q4: growth < 0% and credit capability >= 35%
+		case orderGrowthPct < orderGrowthThresholdPct && capabilityPct >= creditThresholdPct:
 			quadrant = 4
-		// Q2: order in <= 20% and credit capability <= 35%
-		case orderPct <= orderThresholdPct && capabilityPct <= creditThresholdPct:
+		// Q2: growth < 0% and credit capability < 35%
+		case orderGrowthPct < orderGrowthThresholdPct && capabilityPct < creditThresholdPct:
 			quadrant = 2
-		// Tie-breakers for boundary values not fully covered by strict rules.
-		case orderPct >= orderThresholdPct:
-			quadrant = 3
 		default:
-			quadrant = 4
+			quadrant = 2
 		}
 
 		results = append(results, QuadrantFlowSummary{
-			Province:         row.Province,
-			Regency:          row.Regency,
-			TotalOrders:      row.Total,
-			OrderInPercent:   orderPct,
-			CreditCapability: capabilityPct,
-			Quadrant:         quadrant,
+			Province:             areaOrders.Province,
+			Regency:              areaOrders.Regency,
+			TotalOrders:          areaOrders.CurrentTotal,
+			OrderInPercent:       orderGrowthPct,
+			OrderInGrowthPercent: orderGrowthPct,
+			OrderInCurrentTotal:  areaOrders.CurrentTotal,
+			OrderInPreviousTotal: areaOrders.PreviousTotal,
+			ReferenceMonth:       referenceMonth,
+			ReferencePrevMonth:   referencePrevMonth,
+			CreditCapability:     capabilityPct,
+			Quadrant:             quadrant,
 		})
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		if results[i].OrderInPercent != results[j].OrderInPercent {
-			return results[i].OrderInPercent > results[j].OrderInPercent
+		if results[i].OrderInGrowthPercent != results[j].OrderInGrowthPercent {
+			return results[i].OrderInGrowthPercent > results[j].OrderInGrowthPercent
+		}
+		if results[i].CreditCapability != results[j].CreditCapability {
+			return results[i].CreditCapability > results[j].CreditCapability
 		}
 		if !strings.EqualFold(results[i].Province, results[j].Province) {
 			return strings.ToLower(results[i].Province) < strings.ToLower(results[j].Province)
