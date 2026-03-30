@@ -900,6 +900,7 @@ function EyeOffIcon() {
 }
 
 function PasswordRulesGuide({ password }: { password: string }) {
+  if (!password) return null
   const checks = getPasswordRuleChecks(password)
   return (
     <div

@@ -1347,7 +1347,7 @@ func (h *Handler) CreditWorksheet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
-// GET /api/songket/quadrants/summary (order-in% vs credit capability)
+// GET /api/songket/quadrants/summary (order-in growth% vs credit capability)
 func (h *Handler) QuadrantSummary(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	data, err := h.svc.QuadrantSummaryFlow()

@@ -18,6 +18,7 @@ type CreateOrderRequest struct {
 	Address           string  `json:"address" binding:"required"`
 	JobID             string  `json:"job_id" binding:"required"`
 	MotorTypeID       string  `json:"motor_type_id" binding:"required"`
+	Installment       float64 `json:"installment" binding:"required,gte=0"`
 	DPGross           float64 `json:"dp_gross" binding:"required"`
 	DPPaid            float64 `json:"dp_paid" binding:"required"`
 	Tenor             int     `json:"tenor" binding:"required,min=1,max=60"`
@@ -46,6 +47,7 @@ type UpdateOrderRequest struct {
 	Address           *string  `json:"address"`
 	JobID             *string  `json:"job_id"`
 	MotorTypeID       *string  `json:"motor_type_id"`
+	Installment       *float64 `json:"installment" binding:"omitempty,gte=0"`
 	DPGross           *float64 `json:"dp_gross"`
 	DPPaid            *float64 `json:"dp_paid"`
 	Tenor             *int     `json:"tenor" binding:"omitempty,min=1,max=60"`

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchDashboardSummary, fetchKabupaten, fetchProvinces, fetchQuadrantSummary } from '../api'
+import { fetchKabupaten, fetchProvinces, fetchQuadrantSummary } from '../api'
 import Pagination from '../components/Pagination'
 
 type QuadrantItem = {
@@ -7,6 +7,11 @@ type QuadrantItem = {
   regency: string
   total_orders: number
   order_in_percent: number
+  order_in_growth_percent?: number
+  order_in_current_total?: number
+  order_in_previous_total?: number
+  reference_month?: string
+  reference_prev_month?: string
   credit_capability: number
   quadrant: number
 }
@@ -24,6 +29,41 @@ function clampPercent(value: number) {
   return number
 }
 
+function getOrderInGrowth(item: QuadrantItem) {
+  const raw = Number(item.order_in_growth_percent ?? item.order_in_percent ?? 0)
+  return Number.isFinite(raw) ? raw : 0
+}
+
+function buildAxisTicks(min: number, max: number, targetTickCount = 6) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0]
+  if (max <= min) return [min]
+
+  const rawStep = (max - min) / Math.max(1, targetTickCount - 1)
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 1e-6))))
+  const normalized = rawStep / magnitude
+
+  let step = magnitude
+  if (normalized > 5) step = 10 * magnitude
+  else if (normalized > 2) step = 5 * magnitude
+  else if (normalized > 1) step = 2 * magnitude
+
+  const start = Math.floor(min / step) * step
+  const end = Math.ceil(max / step) * step
+
+  const ticks: number[] = []
+  for (let value = start; value <= end + step * 0.5; value += step) {
+    ticks.push(Number(value.toFixed(6)))
+  }
+  return ticks
+}
+
+function formatAxisPercent(value: number) {
+  const abs = Math.abs(value)
+  if (Number.isInteger(value) || abs >= 100) return `${value.toFixed(0)}%`
+  if (abs >= 10) return `${value.toFixed(1)}%`
+  return `${value.toFixed(2)}%`
+}
+
 function quadrantColor(value: number) {
   switch (value) {
     case 1:
@@ -37,9 +77,15 @@ function quadrantColor(value: number) {
   }
 }
 
-function buildAnalysisText(item: QuadrantItem, growthPercent: number | null) {
-  const growthText = growthPercent == null ? '-' : `${growthPercent >= 0 ? '+' : ''}${growthPercent.toFixed(2)}%`
-  return `Order in ${Number(item.total_orders || 0).toLocaleString('id-ID')} Unit, atau ${Number(item.order_in_percent || 0).toFixed(2)}% dari order in total dengan credit capability ${Number(item.credit_capability || 0).toFixed(2)}% dan growth order in ${growthText}.`
+function buildAnalysisText(item: QuadrantItem) {
+  const growth = getOrderInGrowth(item)
+  const growthText = `${growth >= 0 ? '+' : ''}${growth.toFixed(2)}%`
+  const currentTotal = Number(item.order_in_current_total ?? item.total_orders ?? 0)
+  const previousTotal = Number(item.order_in_previous_total ?? 0)
+  const referenceMonth = String(item.reference_month || '-')
+  const referencePrevMonth = String(item.reference_prev_month || '-')
+
+  return `Order In ${currentTotal.toLocaleString('id-ID')} unit (${referenceMonth}) vs ${previousTotal.toLocaleString('id-ID')} unit (${referencePrevMonth}), growth ${growthText}, credit capability ${Number(item.credit_capability || 0).toFixed(2)}%.`
 }
 
 export default function QuadrantsPage() {
@@ -47,7 +93,6 @@ export default function QuadrantsPage() {
   const [items, setItems] = useState<QuadrantItem[]>([])
   const [activePointId, setActivePointId] = useState<string>('')
   const [filter, setFilter] = useState({ province: '', regency: '', search: '' })
-  const [growthPercent, setGrowthPercent] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
@@ -62,24 +107,6 @@ export default function QuadrantsPage() {
       .then((res) => setItems(res.data.data || res.data || []))
       .catch(() => setItems([]))
   }, [])
-
-  useEffect(() => {
-    const params: Record<string, unknown> = {}
-    if (filter.regency) params.area = filter.regency
-
-    fetchDashboardSummary(params)
-      .then((res) => {
-        const payload = res.data?.data || res.data || {}
-        const growth = Number(payload?.growth_percent)
-        if (Number.isFinite(growth)) {
-          setGrowthPercent(growth)
-          return
-        }
-        const fallbackGrowth = Number(payload?.growth || 0) * 100
-        setGrowthPercent(Number.isFinite(fallbackGrowth) ? fallbackGrowth : null)
-      })
-      .catch(() => setGrowthPercent(null))
-  }, [filter.regency])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 767)
@@ -269,12 +296,10 @@ export default function QuadrantsPage() {
     const width = isMobile ? 560 : 920
     const height = isMobile ? 360 : 470
     const padding = isMobile ? { top: 24, right: 28, bottom: 60, left: 54 } : { top: 28, right: 40, bottom: 74, left: 84 }
-    const plotWidth = width - padding.left - padding.right
-    const plotHeight = height - padding.top - padding.bottom
     const pointInset = 10
     const axisGap = 8
     const splitXPercent = 35
-    const splitYPercent = 20
+    const splitYGrowthPercent = 0
     const borderTicks = Array.from({ length: 11 }, (_, index) => index * 10) // 0..100
 
     const crisp = (value: number) => Math.round(value) + 0.5
@@ -283,14 +308,33 @@ export default function QuadrantsPage() {
     const right = crisp(width - padding.right)
     const bottom = crisp(height - padding.bottom)
     const toX = (percent: number) => left + (clampPercent(percent) / 100) * (right - left)
-    const toY = (percent: number) => bottom - (clampPercent(percent) / 100) * (bottom - top)
+
+    const growthValues = filtered.map((item) => getOrderInGrowth(item)).filter((value) => Number.isFinite(value))
+    const observedMin = growthValues.length ? Math.min(...growthValues) : -10
+    const observedMax = growthValues.length ? Math.max(...growthValues) : 10
+    let growthMin = Math.min(observedMin, splitYGrowthPercent)
+    let growthMax = Math.max(observedMax, splitYGrowthPercent)
+    if (growthMin === growthMax) {
+      growthMin -= 10
+      growthMax += 10
+    }
+    const growthPadding = Math.max((growthMax - growthMin) * 0.12, 5)
+    growthMin -= growthPadding
+    growthMax += growthPadding
+
+    const toY = (growthPercent: number) => {
+      const clamped = Math.min(Math.max(growthPercent, growthMin), growthMax)
+      const ratio = (clamped - growthMin) / Math.max(growthMax - growthMin, 1)
+      return bottom - ratio * (bottom - top)
+    }
+    const yTicks = buildAxisTicks(growthMin, growthMax)
 
     const xSplit = crisp(toX(splitXPercent))
-    const ySplit = crisp(toY(splitYPercent))
+    const ySplit = crisp(toY(splitYGrowthPercent))
 
     const points = filtered.map((item, idx) => {
       const xRaw = clampPercent(item.credit_capability)
-      const yRaw = clampPercent(item.order_in_percent)
+      const yRaw = getOrderInGrowth(item)
 
       let x = toX(xRaw)
       let y = toY(yRaw)
@@ -302,7 +346,7 @@ export default function QuadrantsPage() {
         x = xRaw >= splitXPercent ? xSplit + axisGap : xSplit - axisGap
       }
       if (Math.abs(y - ySplit) < axisGap) {
-        y = yRaw >= splitYPercent ? ySplit - axisGap : ySplit + axisGap
+        y = yRaw >= splitYGrowthPercent ? ySplit - axisGap : ySplit + axisGap
       }
 
       return {
@@ -310,11 +354,11 @@ export default function QuadrantsPage() {
         areaLabel: displayRegency(item.province, item.regency),
         provinceLabel: displayProvince(item.province),
         regencyLabel: displayRegency(item.province, item.regency),
-        totalOrders: item.total_orders,
+        totalOrders: Number(item.order_in_current_total ?? item.total_orders ?? 0),
         x,
         y,
         quadrant: item.quadrant,
-        orderInPercent: item.order_in_percent,
+        orderInGrowthPercent: yRaw,
         creditCapability: item.credit_capability,
         axisOrderValue: yRaw,
         axisCreditValue: xRaw,
@@ -329,8 +373,9 @@ export default function QuadrantsPage() {
       xSplit,
       ySplit,
       splitXPercent,
-      splitYPercent,
+      splitYGrowthPercent,
       borderTicks,
+      yTicks,
       left,
       top,
       right,
@@ -349,17 +394,28 @@ export default function QuadrantsPage() {
     const offsetX = 12
     const offsetY = -12
     const width = isMobile ? 240 : 290
-    const height = 54
+    const height = 70
     const x = Math.min(Math.max(activePoint.x + offsetX, chart.left + 4), chart.right - width - 4)
     const y = Math.min(Math.max(activePoint.y + offsetY, chart.top + 4), chart.bottom - height - 4)
     return { x, y, width, height }
   }, [activePoint, chart.bottom, chart.left, chart.right, chart.top, isMobile])
 
+  const referencePeriod = useMemo(() => {
+    const first = filtered[0] || items[0]
+    if (!first) return '-'
+    const current = String(first.reference_month || '').trim()
+    const previous = String(first.reference_prev_month || '').trim()
+    if (!current && !previous) return '-'
+    if (!current) return `vs ${previous}`
+    if (!previous) return current
+    return `${current} vs ${previous}`
+  }, [filtered, items])
+
   return (
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Kuadran</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Quadrant</div>
         </div>
       </div>
 
@@ -367,7 +423,7 @@ export default function QuadrantsPage() {
         <div className="card">
           <h3>Quadrant Flow</h3>
           <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            Area-based points (kabupaten/kota). Vertical axis: Order In (%). Horizontal axis: Credit Capability (%).
+            Area-based points. Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
           </div>
 
           <div
@@ -445,9 +501,7 @@ export default function QuadrantsPage() {
               <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
               <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
 
-              {chart.borderTicks
-                .filter((value) => value < 100)
-                .map((value) => (
+              {chart.borderTicks.map((value) => (
                 <text
                   key={`bottom-${value}`}
                   x={chart.toX(value)}
@@ -459,39 +513,21 @@ export default function QuadrantsPage() {
                 >
                   {value}%
                 </text>
-                ))}
+              ))}
 
-              {chart.borderTicks
-                .filter((value) => value !== chart.splitYPercent)
-                .map((value) => (
-                  <text
-                    key={`left-${value}`}
-                    x={chart.left - (isMobile ? 4 : 8)}
-                    y={chart.toY(value) + 3}
-                    textAnchor="end"
-                    fontSize={isMobile ? 7.5 : 10}
-                    fontWeight={700}
-                    fill="#111827"
-                  >
-                    {value}%
-                  </text>
-                ))}
-
-              {chart.borderTicks
-                .filter((value) => value === 0)
-                .map((value) => (
-                  <text
-                    key={`right-${value}`}
-                    x={chart.right + (isMobile ? 2 : 4)}
-                    y={chart.toY(value) + 3}
-                    textAnchor="start"
-                    fontSize={isMobile ? 7.5 : 10}
-                    fontWeight={700}
-                    fill="#111827"
-                  >
-                    {100 - value}%
-                  </text>
-                ))}
+              {chart.yTicks.map((value) => (
+                <text
+                  key={`left-${value}`}
+                  x={chart.left - (isMobile ? 4 : 8)}
+                  y={chart.toY(value) + 3}
+                  textAnchor="end"
+                  fontSize={isMobile ? 7.5 : 10}
+                  fontWeight={700}
+                  fill="#111827"
+                >
+                  {formatAxisPercent(value)}
+                </text>
+              ))}
 
               <text
                 x={chart.xSplit}
@@ -512,7 +548,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#111827"
               >
-                {chart.splitYPercent}%
+                {chart.splitYGrowthPercent}%
               </text>
 
               <text
@@ -523,7 +559,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#111827"
               >
-                order in
+                order in growth
               </text>
               <text
                 x={chart.right - 6}
@@ -544,7 +580,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#16a34a"
               >
-                Kuadran 1
+                Quadrant 1
               </text>
               <text
                 x={(chart.xSplit + chart.right) / 2}
@@ -554,7 +590,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#f97316"
               >
-                Kuadran 3
+                Quadrant 3
               </text>
               <text
                 x={(chart.left + chart.xSplit) / 2}
@@ -564,7 +600,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#f59e0b"
               >
-                Kuadran 2
+                Quadrant 2
               </text>
               <text
                 x={(chart.xSplit + chart.right) / 2}
@@ -574,7 +610,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#ef4444"
               >
-                Kuadran 4
+                Quadrant 4
               </text>
 
               {chart.points.map((point) => (
@@ -602,6 +638,9 @@ export default function QuadrantsPage() {
                   <text x={tooltip.x + 10} y={tooltip.y + 40} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
                     {`Total Order In: ${Number(activePoint.totalOrders || 0).toLocaleString('id-ID')}`}
                   </text>
+                  <text x={tooltip.x + 10} y={tooltip.y + 56} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
+                    {`Order In Growth: ${activePoint.orderInGrowthPercent >= 0 ? '+' : ''}${activePoint.orderInGrowthPercent.toFixed(2)}%`}
+                  </text>
                 </g>
               )}
             </svg>
@@ -616,10 +655,10 @@ export default function QuadrantsPage() {
                 <th>Province</th>
                 <th>Regency/City</th>
                 <th>Total Order In</th>
-                <th>Order In %</th>
+                <th>Order In Growth %</th>
                 <th>Credit Capability %</th>
                 <th>Quadrant</th>
-                <th>Analisa</th>
+                <th>Analysis</th>
               </tr>
             </thead>
             <tbody>
@@ -627,8 +666,8 @@ export default function QuadrantsPage() {
                 <tr key={`${row.province}-${row.regency}-${idx}`}>
                   <td>{displayProvince(row.province)}</td>
                   <td>{displayRegency(row.province, row.regency)}</td>
-                  <td>{row.total_orders}</td>
-                  <td>{row.order_in_percent.toFixed(2)}%</td>
+                  <td>{Number(row.order_in_current_total ?? row.total_orders ?? 0).toLocaleString('id-ID')}</td>
+                  <td>{`${getOrderInGrowth(row) >= 0 ? '+' : ''}${getOrderInGrowth(row).toFixed(2)}%`}</td>
                   <td>{row.credit_capability.toFixed(2)}%</td>
                   <td>
                     <span className="badge" style={{ background: quadrantColor(row.quadrant), color: '#fff' }}>
@@ -636,7 +675,7 @@ export default function QuadrantsPage() {
                     </span>
                   </td>
                   <td style={{ maxWidth: 420, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                    {buildAnalysisText(row, growthPercent)}
+                    {buildAnalysisText(row)}
                   </td>
                 </tr>
               ))}

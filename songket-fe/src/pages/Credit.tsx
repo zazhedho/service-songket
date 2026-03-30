@@ -21,6 +21,8 @@ type WorksheetMatrixRow = {
 
 type WorksheetArea = {
   area_key: string
+  province_code?: string
+  province_name?: string
   regency_code: string
   regency_name: string
   matrix: WorksheetMatrixRow[]
@@ -34,6 +36,23 @@ type WorksheetJobMaster = {
 type WorksheetPayload = {
   areas: WorksheetArea[]
   jobs_master: WorksheetJobMaster[]
+  installment_range: InstallmentRangeItem[]
+  dp_range: RangeSummaryItem[]
+}
+
+type RangeSummaryItem = {
+  label: string
+  total: number
+  approve: number
+  reject: number
+  approval_rate: number
+}
+
+type InstallmentRangeItem = RangeSummaryItem & {
+  range_start: number
+  range_end: number
+  is_product_range?: boolean
+  product_range_hit?: number
 }
 
 type JobOption = {
@@ -72,6 +91,8 @@ type MatrixDisplayRow = {
 const EMPTY_WORKSHEET: WorksheetPayload = {
   areas: [],
   jobs_master: [],
+  installment_range: [],
+  dp_range: [],
 }
 
 function normalizeWorksheet(raw: unknown): WorksheetPayload {
@@ -79,6 +100,8 @@ function normalizeWorksheet(raw: unknown): WorksheetPayload {
   return {
     areas: Array.isArray(data.areas) ? data.areas : [],
     jobs_master: Array.isArray(data.jobs_master) ? data.jobs_master : [],
+    installment_range: Array.isArray(data.installment_range) ? (data.installment_range as InstallmentRangeItem[]) : [],
+    dp_range: Array.isArray(data.dp_range) ? (data.dp_range as RangeSummaryItem[]) : [],
   }
 }
 
@@ -132,6 +155,8 @@ export default function CreditPage() {
 
   const areas = useMemo(() => worksheet.areas || [], [worksheet])
   const jobsMaster = useMemo(() => worksheet.jobs_master || [], [worksheet])
+  const installmentRanges = useMemo(() => worksheet.installment_range || [], [worksheet])
+  const dpRanges = useMemo(() => worksheet.dp_range || [], [worksheet])
 
   const jobOptions = useMemo(() => {
     const map = new Map<string, JobOption>()
@@ -262,6 +287,20 @@ export default function CreditPage() {
     }).format(Number(value || 0))
 
   const formatPercent = (value: number) => `${(Number(value || 0) * 100).toFixed(2)}%`
+  const formatApprovalRate = (value: number) => `${Number(value || 0).toFixed(2)}%`
+  const formatCompactCurrency = (value: number) => {
+    const numeric = Number(value || 0)
+    if (numeric >= 1000000) return `Rp ${(numeric / 1000000).toFixed(2)}M`
+    if (numeric >= 1000) return `Rp ${(numeric / 1000).toFixed(0)}K`
+    return `Rp ${numeric.toFixed(0)}`
+  }
+  const formatInstallmentRangeLabel = (item: InstallmentRangeItem) =>
+    `${formatCompactCurrency(item.range_start)} - < ${formatCompactCurrency(item.range_end)}`
+  const maxInstallmentTotal = useMemo(
+    () => Math.max(1, ...installmentRanges.map((item) => Number(item.total || 0))),
+    [installmentRanges],
+  )
+  const maxDPRangeTotal = useMemo(() => Math.max(1, ...dpRanges.map((item) => Number(item.total || 0))), [dpRanges])
 
   return (
     <div>
@@ -317,6 +356,144 @@ export default function CreditPage() {
                     onChange={(e) => setMotorSearch(e.target.value)}
                     placeholder="Ketik nama tipe motor"
                   />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <div
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: 12,
+                    background: '#fff',
+                  }}
+                >
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Installment Range</div>
+                  <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
+                    Highlighted bars represent product installment ranges.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 10 }}>
+                    <div>
+                      {installmentRanges.map((item) => {
+                        const total = Number(item.total || 0)
+                        const width = Math.max(total > 0 ? 3 : 0, (total / maxInstallmentTotal) * 100)
+                        const isHighlighted = Boolean(item.is_product_range)
+                        return (
+                          <div key={`${item.range_start}-${item.range_end}`} style={{ marginBottom: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11, color: '#334155' }}>
+                              <span>{formatInstallmentRangeLabel(item)}</span>
+                              <span>{total}</span>
+                            </div>
+                            <div style={{ marginTop: 4, height: 12, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  width: `${width}%`,
+                                  height: '100%',
+                                  background: isHighlighted ? '#1d4ed8' : '#94a3b8',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {installmentRanges.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No installment range data.</div>}
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Range</th>
+                            <th>Approval Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {installmentRanges.map((item) => (
+                            <tr key={`installment-rate-${item.range_start}-${item.range_end}`}>
+                              <td>{formatInstallmentRangeLabel(item)}</td>
+                              <td>{formatApprovalRate(item.approval_rate)}</td>
+                            </tr>
+                          ))}
+                          {installmentRanges.length === 0 && (
+                            <tr>
+                              <td colSpan={2}>No data.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: 12,
+                    background: '#fff',
+                  }}
+                >
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>DP Range</div>
+                  <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
+                    Approval rate by DP percentage range.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 10 }}>
+                    <div>
+                      {dpRanges.map((item) => {
+                        const total = Number(item.total || 0)
+                        const width = Math.max(total > 0 ? 3 : 0, (total / maxDPRangeTotal) * 100)
+                        return (
+                          <div key={`dp-range-${item.label}`} style={{ marginBottom: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11, color: '#334155' }}>
+                              <span>{item.label}</span>
+                              <span>{total}</span>
+                            </div>
+                            <div style={{ marginTop: 4, height: 12, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  width: `${width}%`,
+                                  height: '100%',
+                                  background: '#0ea5e9',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {dpRanges.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No DP range data.</div>}
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Range</th>
+                            <th>Approval Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dpRanges.map((item) => (
+                            <tr key={`dp-rate-${item.label}`}>
+                              <td>{item.label}</td>
+                              <td>{formatApprovalRate(item.approval_rate)}</td>
+                            </tr>
+                          ))}
+                          {dpRanges.length === 0 && (
+                            <tr>
+                              <td colSpan={2}>No data.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -161,6 +161,13 @@ func validateMotorTypeArea(motor MotorType, provinceCode, regencyCode string) er
 	return nil
 }
 
+const fixedOrderProvince = "NUSA TENGGARA BARAT"
+
+func normalizeOrderProvince(_ string) string {
+	// Province for order-in is fixed by business rule.
+	return fixedOrderProvince
+}
+
 // CreateOrder creates order + finance attempts.
 func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role string) (Order, error) {
 	poolingAt, err := parseTimeRequired(req.PoolingAt)
@@ -198,6 +205,9 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	if err := validateMotorTypeArea(motor, dealer.Province, dealer.Regency); err != nil {
 		return Order{}, err
 	}
+	if req.Installment < 0 {
+		return Order{}, fmt.Errorf("installment must be greater than or equal to 0")
+	}
 
 	otr := motor.OTR
 	dpPct := 0.0
@@ -213,13 +223,14 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		DealerID:      dealerID,
 		ConsumerName:  req.ConsumerName,
 		ConsumerPhone: req.ConsumerPhone,
-		Province:      req.Province,
+		Province:      normalizeOrderProvince(req.Province),
 		Regency:       req.Regency,
 		District:      req.District,
 		Village:       req.Village,
 		Address:       req.Address,
 		JobID:         req.JobID,
 		MotorTypeID:   req.MotorTypeID,
+		Installment:   req.Installment,
 		OTR:           otr,
 		DPGross:       req.DPGross,
 		DPPaid:        req.DPPaid,
@@ -364,9 +375,7 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.ConsumerPhone != nil {
 		order.ConsumerPhone = *req.ConsumerPhone
 	}
-	if req.Province != nil {
-		order.Province = *req.Province
-	}
+	order.Province = normalizeOrderProvince(utils.ValueOrDefault(req.Province, ""))
 	if dealerID != nil {
 		order.DealerID = *dealerID
 	}
@@ -393,6 +402,12 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 		}
 		order.OTR = motor.OTR
 		selectedMotor = &motor
+	}
+	if req.Installment != nil {
+		if *req.Installment < 0 {
+			return Order{}, fmt.Errorf("installment must be greater than or equal to 0")
+		}
+		order.Installment = *req.Installment
 	}
 	if req.DPGross != nil {
 		order.DPGross = *req.DPGross
@@ -595,6 +610,7 @@ func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, clon
 		Address:       source.Address,
 		JobID:         source.JobID,
 		MotorTypeID:   source.MotorTypeID,
+		Installment:   source.Installment,
 		OTR:           source.OTR,
 		DPGross:       source.DPGross,
 		DPPaid:        source.DPPaid,
@@ -849,6 +865,52 @@ func workingDaysInMonth(year, month int, holidays map[string]struct{}) int {
 		workingDays++
 	}
 	return workingDays
+}
+
+func workingSecondsWithinDailyWindow(start, end time.Time, windowStartHour, windowEndHour int) float64 {
+	if !end.After(start) {
+		return 0
+	}
+	if windowEndHour <= windowStartHour {
+		return 0
+	}
+
+	loc := start.Location()
+	if loc == nil {
+		loc = end.Location()
+	}
+	if loc == nil {
+		loc = time.Local
+	}
+
+	startAt := start.In(loc)
+	endAt := end.In(loc)
+	dayCursor := time.Date(startAt.Year(), startAt.Month(), startAt.Day(), 0, 0, 0, 0, loc)
+	lastDay := time.Date(endAt.Year(), endAt.Month(), endAt.Day(), 0, 0, 0, 0, loc)
+
+	totalSeconds := 0.0
+	for !dayCursor.After(lastDay) {
+		windowStart := time.Date(dayCursor.Year(), dayCursor.Month(), dayCursor.Day(), windowStartHour, 0, 0, 0, loc)
+		windowEnd := time.Date(dayCursor.Year(), dayCursor.Month(), dayCursor.Day(), windowEndHour, 0, 0, 0, loc)
+
+		overlapStart := windowStart
+		if startAt.After(overlapStart) {
+			overlapStart = startAt
+		}
+
+		overlapEnd := windowEnd
+		if endAt.Before(overlapEnd) {
+			overlapEnd = endAt
+		}
+
+		if overlapEnd.After(overlapStart) {
+			totalSeconds += overlapEnd.Sub(overlapStart).Seconds()
+		}
+
+		dayCursor = dayCursor.AddDate(0, 0, 1)
+	}
+
+	return totalSeconds
 }
 
 func parseYearMonthKey(key string) (year int, month int, ok bool) {
@@ -1141,8 +1203,11 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		}
 		if row.ResultAt != nil {
 			if row.ResultAt.After(row.PoolingAt) {
-				leadTotalSeconds += row.ResultAt.Sub(row.PoolingAt).Seconds()
-				leadCount++
+				leadSeconds := workingSecondsWithinDailyWindow(row.PoolingAt, *row.ResultAt, 8, 19)
+				if leadSeconds > 0 {
+					leadTotalSeconds += leadSeconds
+					leadCount++
+				}
 			}
 		}
 
@@ -3559,18 +3624,23 @@ type CreditSummary struct {
 }
 
 type QuadrantFlowSummary struct {
-	OrderID          string  `json:"order_id"`
-	PoolingNumber    string  `json:"pooling_number"`
-	Province         string  `json:"province"`
-	Regency          string  `json:"regency"`
-	JobID            string  `json:"job_id"`
-	JobName          string  `json:"job_name"`
-	MotorTypeID      string  `json:"motor_type_id"`
-	MotorTypeName    string  `json:"motor_type_name"`
-	TotalOrders      int64   `json:"total_orders"`
-	OrderInPercent   float64 `json:"order_in_percent"`
-	CreditCapability float64 `json:"credit_capability"`
-	Quadrant         int     `json:"quadrant"`
+	OrderID              string  `json:"order_id"`
+	PoolingNumber        string  `json:"pooling_number"`
+	Province             string  `json:"province"`
+	Regency              string  `json:"regency"`
+	JobID                string  `json:"job_id"`
+	JobName              string  `json:"job_name"`
+	MotorTypeID          string  `json:"motor_type_id"`
+	MotorTypeName        string  `json:"motor_type_name"`
+	TotalOrders          int64   `json:"total_orders"`
+	OrderInPercent       float64 `json:"order_in_percent"` // backward-compatible alias (now equals growth percent)
+	OrderInGrowthPercent float64 `json:"order_in_growth_percent"`
+	OrderInCurrentTotal  int64   `json:"order_in_current_total"`
+	OrderInPreviousTotal int64   `json:"order_in_previous_total"`
+	ReferenceMonth       string  `json:"reference_month"`
+	ReferencePrevMonth   string  `json:"reference_prev_month"`
+	CreditCapability     float64 `json:"credit_capability"`
+	Quadrant             int     `json:"quadrant"`
 }
 
 type CreditWorksheetJob struct {
@@ -3700,39 +3770,110 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 }
 
 // QuadrantFlowSummary computes quadrant points with fixed thresholds:
-// - Order In percentage threshold: 20%
+// - Order In growth threshold (vs previous month): 0%
 // - Credit Capability threshold: 35%
 func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
-	const orderThresholdPct = 20.0
+	const orderGrowthThresholdPct = 0.0
 	const creditThresholdPct = 35.0
 
 	type orderAggregate struct {
 		Province string `gorm:"column:province"`
 		Regency  string `gorm:"column:regency"`
+		Year     int    `gorm:"column:year"`
+		Month    int    `gorm:"column:month"`
 		Total    int64  `gorm:"column:total"`
 	}
 
 	var orderRows []orderAggregate
 	if err := s.db.
-		Table("orders").
+		Table("orders o").
 		Select(`
-			COALESCE(NULLIF(TRIM(province), ''), '') AS province,
-			COALESCE(NULLIF(TRIM(regency), ''), '') AS regency,
+			COALESCE(NULLIF(TRIM(o.province), ''), '') AS province,
+			COALESCE(NULLIF(TRIM(o.regency), ''), '') AS regency,
+			EXTRACT(YEAR FROM o.pooling_at)::int AS year,
+			EXTRACT(MONTH FROM o.pooling_at)::int AS month,
 			COUNT(*) AS total
 		`).
-		Where("deleted_at IS NULL").
-		Where("NULLIF(TRIM(regency), '') IS NOT NULL").
-		Group("province, regency").
+		Where("o.deleted_at IS NULL").
+		Where("o.pooling_at IS NOT NULL").
+		Where("NULLIF(TRIM(o.regency), '') IS NOT NULL").
+		Group(`
+			COALESCE(NULLIF(TRIM(o.province), ''), ''),
+			COALESCE(NULLIF(TRIM(o.regency), ''), ''),
+			EXTRACT(YEAR FROM o.pooling_at),
+			EXTRACT(MONTH FROM o.pooling_at)
+		`).
 		Scan(&orderRows).Error; err != nil {
 		return nil, err
 	}
 
-	totalOrders := int64(0)
+	latestMonthKey := 0
+	latestYear := 0
+	latestMonth := 0
 	for _, row := range orderRows {
-		totalOrders += row.Total
+		if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
+			continue
+		}
+		monthKey := row.Year*100 + row.Month
+		if monthKey > latestMonthKey {
+			latestMonthKey = monthKey
+			latestYear = row.Year
+			latestMonth = row.Month
+		}
 	}
-	if totalOrders <= 0 {
+	if latestMonthKey == 0 {
 		return []QuadrantFlowSummary{}, nil
+	}
+
+	latestMonthTime := time.Date(latestYear, time.Month(latestMonth), 1, 0, 0, 0, 0, time.UTC)
+	previousMonthTime := latestMonthTime.AddDate(0, -1, 0)
+	previousYear := previousMonthTime.Year()
+	previousMonth := int(previousMonthTime.Month())
+	referenceMonth := fmt.Sprintf("%04d-%02d", latestYear, latestMonth)
+	referencePrevMonth := fmt.Sprintf("%04d-%02d", previousYear, previousMonth)
+
+	type areaOrderAggregate struct {
+		Province      string
+		Regency       string
+		CurrentTotal  int64
+		PreviousTotal int64
+	}
+
+	normalize := func(value string) string {
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+	makeKey := func(province, regency string) string {
+		return normalize(province) + "|" + normalize(regency)
+	}
+
+	ordersByArea := map[string]*areaOrderAggregate{}
+	for _, row := range orderRows {
+		if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
+			continue
+		}
+		isCurrentMonth := row.Year == latestYear && row.Month == latestMonth
+		isPreviousMonth := row.Year == previousYear && row.Month == previousMonth
+		if !isCurrentMonth && !isPreviousMonth {
+			continue
+		}
+		key := makeKey(row.Province, row.Regency)
+		if key == "|" {
+			continue
+		}
+		item, exists := ordersByArea[key]
+		if !exists {
+			item = &areaOrderAggregate{
+				Province: row.Province,
+				Regency:  row.Regency,
+			}
+			ordersByArea[key] = item
+		}
+		if isCurrentMonth {
+			item.CurrentTotal += row.Total
+		}
+		if isPreviousMonth {
+			item.PreviousTotal += row.Total
+		}
 	}
 
 	worksheetRaw, err := s.CreditCapabilityWorksheet("", "")
@@ -3745,12 +3886,6 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		return nil, fmt.Errorf("invalid worksheet area format")
 	}
 
-	normalize := func(value string) string {
-		return strings.ToLower(strings.TrimSpace(value))
-	}
-	makeKey := func(province, regency string) string {
-		return normalize(province) + "|" + normalize(regency)
-	}
 	appendUnique := func(values []string, candidate string) []string {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
@@ -3794,54 +3929,59 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		}
 	}
 
-	results := make([]QuadrantFlowSummary, 0, len(orderRows))
-	for _, row := range orderRows {
-		if strings.TrimSpace(row.Regency) == "" {
+	results := make([]QuadrantFlowSummary, 0, len(ordersByArea))
+	for _, areaOrders := range ordersByArea {
+		if strings.TrimSpace(areaOrders.Regency) == "" {
 			continue
 		}
 
-		orderPct := (float64(row.Total) / float64(totalOrders)) * 100
+		orderGrowthPct := pctChange(float64(areaOrders.CurrentTotal), float64(areaOrders.PreviousTotal))
 		capabilityPct := 0.0
-		if value, exists := capabilityByArea[makeKey(row.Province, row.Regency)]; exists {
+		if value, exists := capabilityByArea[makeKey(areaOrders.Province, areaOrders.Regency)]; exists {
 			capabilityPct = value
-		} else if value, exists := capabilityByArea[makeKey("", row.Regency)]; exists {
+		} else if value, exists := capabilityByArea[makeKey("", areaOrders.Regency)]; exists {
 			capabilityPct = value
 		}
 
-		quadrant := 4
+		quadrant := 2
 		switch {
-		// Q3: order in > 20% and credit capability >= 35%
-		case orderPct > orderThresholdPct && capabilityPct >= creditThresholdPct:
+		// Q3: growth >= 0% and credit capability >= 35%
+		case orderGrowthPct >= orderGrowthThresholdPct && capabilityPct >= creditThresholdPct:
 			quadrant = 3
-		// Q1: order in >= 20% and credit capability <= 35%
-		case orderPct >= orderThresholdPct && capabilityPct <= creditThresholdPct:
+		// Q1: growth >= 0% and credit capability < 35%
+		case orderGrowthPct >= orderGrowthThresholdPct && capabilityPct < creditThresholdPct:
 			quadrant = 1
-		// Q4: order in < 20% and credit capability > 35%
-		case orderPct < orderThresholdPct && capabilityPct > creditThresholdPct:
+		// Q4: growth < 0% and credit capability >= 35%
+		case orderGrowthPct < orderGrowthThresholdPct && capabilityPct >= creditThresholdPct:
 			quadrant = 4
-		// Q2: order in <= 20% and credit capability <= 35%
-		case orderPct <= orderThresholdPct && capabilityPct <= creditThresholdPct:
+		// Q2: growth < 0% and credit capability < 35%
+		case orderGrowthPct < orderGrowthThresholdPct && capabilityPct < creditThresholdPct:
 			quadrant = 2
-		// Tie-breakers for boundary values not fully covered by strict rules.
-		case orderPct >= orderThresholdPct:
-			quadrant = 3
 		default:
-			quadrant = 4
+			quadrant = 2
 		}
 
 		results = append(results, QuadrantFlowSummary{
-			Province:         row.Province,
-			Regency:          row.Regency,
-			TotalOrders:      row.Total,
-			OrderInPercent:   orderPct,
-			CreditCapability: capabilityPct,
-			Quadrant:         quadrant,
+			Province:             areaOrders.Province,
+			Regency:              areaOrders.Regency,
+			TotalOrders:          areaOrders.CurrentTotal,
+			OrderInPercent:       orderGrowthPct,
+			OrderInGrowthPercent: orderGrowthPct,
+			OrderInCurrentTotal:  areaOrders.CurrentTotal,
+			OrderInPreviousTotal: areaOrders.PreviousTotal,
+			ReferenceMonth:       referenceMonth,
+			ReferencePrevMonth:   referencePrevMonth,
+			CreditCapability:     capabilityPct,
+			Quadrant:             quadrant,
 		})
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		if results[i].OrderInPercent != results[j].OrderInPercent {
-			return results[i].OrderInPercent > results[j].OrderInPercent
+		if results[i].OrderInGrowthPercent != results[j].OrderInGrowthPercent {
+			return results[i].OrderInGrowthPercent > results[j].OrderInGrowthPercent
+		}
+		if results[i].CreditCapability != results[j].CreditCapability {
+			return results[i].CreditCapability > results[j].CreditCapability
 		}
 		if !strings.EqualFold(results[i].Province, results[j].Province) {
 			return strings.ToLower(results[i].Province) < strings.ToLower(results[j].Province)
@@ -3886,6 +4026,18 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		Name        string
 		Installment float64
 	}
+	type worksheetOrderRangeRow struct {
+		Installment   float64 `gorm:"column:installment"`
+		DPPct         float64 `gorm:"column:dp_pct"`
+		FinanceStatus string  `gorm:"column:finance_status"`
+		Province      string  `gorm:"column:province"`
+		Regency       string  `gorm:"column:regency"`
+	}
+	type rangeCounter struct {
+		Total   int64
+		Approve int64
+		Reject  int64
+	}
 
 	provinceFilter := strings.TrimSpace(provinceCode)
 	regencyFilter := strings.TrimSpace(regencyCode)
@@ -3921,6 +4073,35 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	}
 	motorAreaKey := func(motorID, regCode, regName string) string {
 		return strings.ToLower(strings.TrimSpace(motorID)) + "|" + areaPart(regCode, regName)
+	}
+	matchesOrderArea := func(province, regency string) bool {
+		if !matchFilterValue(provinceFilter, province, province) {
+			return false
+		}
+		if !matchFilterValue(regencyFilter, regency, regency) {
+			return false
+		}
+		return true
+	}
+	resolveDPRangeLabel := func(dp float64) string {
+		switch {
+		case dp < 10:
+			return "<10%"
+		case dp < 12.5:
+			return "10% - 12.5%"
+		case dp < 15:
+			return "12.5% - 15%"
+		case dp < 20:
+			return "15% - 20%"
+		case dp < 25:
+			return "20% - 25%"
+		case dp < 30:
+			return "25% - 30%"
+		case dp < 40:
+			return "30% - 40%"
+		default:
+			return ">=40%"
+		}
 	}
 
 	areasByKey := make(map[string]*worksheetAreaAggregate)
@@ -4027,6 +4208,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	// 2) Load installment values from motor + installment master.
 	motorInstallmentByArea := map[string]motorInstallmentValue{}
 	motorInstallmentByID := map[string]motorInstallmentValue{}
+	productInstallments := make([]float64, 0)
 	var motorRows []worksheetMotorRow
 	if err := s.db.
 		Table("motor_types").
@@ -4062,6 +4244,9 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		}
 		if !matchesArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName) {
 			continue
+		}
+		if row.Installment > 0 {
+			productInstallments = append(productInstallments, row.Installment)
 		}
 
 		area := ensureArea(row.ProvinceCode, row.ProvinceName, row.RegencyCode, row.RegencyName)
@@ -4248,10 +4433,163 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		return strings.ToLower(strings.TrimSpace(motorsMaster[i].MotorTypeName)) < strings.ToLower(strings.TrimSpace(motorsMaster[j].MotorTypeName))
 	})
 
+	const installmentBucketSize int64 = 250000
+	dpLabels := []string{
+		"<10%",
+		"10% - 12.5%",
+		"12.5% - 15%",
+		"15% - 20%",
+		"20% - 25%",
+		"25% - 30%",
+		"30% - 40%",
+		">=40%",
+	}
+	installmentCounterByBucket := map[int64]*rangeCounter{}
+	dpCounterByLabel := map[string]*rangeCounter{}
+	for _, label := range dpLabels {
+		dpCounterByLabel[label] = &rangeCounter{}
+	}
+	productBucketCounter := map[int64]int64{}
+	for _, amount := range productInstallments {
+		value := amount
+		if value < 0 {
+			value = 0
+		}
+		bucket := int64(value / float64(installmentBucketSize))
+		productBucketCounter[bucket]++
+	}
+
+	var orderRangeRows []worksheetOrderRangeRow
+	hasOrderInstallment := s.db.Migrator().HasColumn(&Order{}, "installment")
+	hasOrderInstallmentAmount := s.db.Migrator().HasColumn(&Order{}, "installment_amount")
+	installmentExpr := "COALESCE(inst.amount, 0)"
+	switch {
+	case hasOrderInstallment && hasOrderInstallmentAmount:
+		installmentExpr = "COALESCE(o.installment, o.installment_amount, inst.amount, 0)"
+	case hasOrderInstallment:
+		installmentExpr = "COALESCE(o.installment, inst.amount, 0)"
+	case hasOrderInstallmentAmount:
+		installmentExpr = "COALESCE(o.installment_amount, inst.amount, 0)"
+	}
+	orderRangeSelect := fmt.Sprintf(`
+		%s AS installment,
+		COALESCE(o.dp_pct, 0) AS dp_pct,
+		COALESCE(NULLIF(latest_attempt.finance_status, ''), LOWER(COALESCE(o.result_status, ''))) AS finance_status,
+		COALESCE(o.province, '') AS province,
+		COALESCE(o.regency, '') AS regency
+	`, installmentExpr)
+	if err := s.db.
+		Table("orders o").
+		Select(orderRangeSelect).
+		Joins(`
+			LEFT JOIN (
+				SELECT DISTINCT ON (a.order_id)
+					a.order_id,
+					LOWER(COALESCE(a.status, '')) AS finance_status
+				FROM order_finance_attempts a
+				ORDER BY a.order_id, a.attempt_no DESC, a.created_at DESC, a.id DESC
+			) latest_attempt ON latest_attempt.order_id = o.id
+		`).
+		Joins("LEFT JOIN installments inst ON inst.motor_type_id = o.motor_type_id AND inst.deleted_at IS NULL").
+		Where("o.deleted_at IS NULL").
+		Scan(&orderRangeRows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range orderRangeRows {
+		if !matchesOrderArea(row.Province, row.Regency) {
+			continue
+		}
+
+		installmentValue := row.Installment
+		if installmentValue < 0 {
+			installmentValue = 0
+		}
+		installmentBucket := int64(installmentValue / float64(installmentBucketSize))
+		if _, exists := installmentCounterByBucket[installmentBucket]; !exists {
+			installmentCounterByBucket[installmentBucket] = &rangeCounter{}
+		}
+		installmentCounterByBucket[installmentBucket].Total++
+
+		dpLabel := resolveDPRangeLabel(row.DPPct)
+		dpCounterByLabel[dpLabel].Total++
+
+		status := strings.ToLower(strings.TrimSpace(row.FinanceStatus))
+		if status == "approve" {
+			installmentCounterByBucket[installmentBucket].Approve++
+			dpCounterByLabel[dpLabel].Approve++
+		}
+		if status == "reject" {
+			installmentCounterByBucket[installmentBucket].Reject++
+			dpCounterByLabel[dpLabel].Reject++
+		}
+	}
+
+	buildApprovalRate := func(counter *rangeCounter) float64 {
+		if counter == nil || counter.Total <= 0 {
+			return 0
+		}
+		return (float64(counter.Approve) / float64(counter.Total)) * 100
+	}
+
+	bucketKeys := make([]int64, 0, len(installmentCounterByBucket)+len(productBucketCounter))
+	bucketKeySeen := map[int64]struct{}{}
+	for key := range installmentCounterByBucket {
+		if _, exists := bucketKeySeen[key]; exists {
+			continue
+		}
+		bucketKeySeen[key] = struct{}{}
+		bucketKeys = append(bucketKeys, key)
+	}
+	for key := range productBucketCounter {
+		if _, exists := bucketKeySeen[key]; exists {
+			continue
+		}
+		bucketKeySeen[key] = struct{}{}
+		bucketKeys = append(bucketKeys, key)
+	}
+	sort.Slice(bucketKeys, func(i, j int) bool { return bucketKeys[i] < bucketKeys[j] })
+
+	installmentRangeSeries := make([]map[string]interface{}, 0, len(bucketKeys))
+	for _, bucket := range bucketKeys {
+		counter := installmentCounterByBucket[bucket]
+		if counter == nil {
+			counter = &rangeCounter{}
+		}
+		rangeStart := bucket * installmentBucketSize
+		rangeEnd := rangeStart + installmentBucketSize
+		productCount := productBucketCounter[bucket]
+		installmentRangeSeries = append(installmentRangeSeries, map[string]interface{}{
+			"label":             fmt.Sprintf("IDR %d - < IDR %d", rangeStart, rangeEnd),
+			"range_start":       rangeStart,
+			"range_end":         rangeEnd,
+			"total":             counter.Total,
+			"approve":           counter.Approve,
+			"reject":            counter.Reject,
+			"approval_rate":     buildApprovalRate(counter),
+			"is_product_range":  productCount > 0,
+			"product_range_hit": productCount,
+		})
+	}
+
+	dpRangeSeries := make([]map[string]interface{}, 0, len(dpLabels))
+	for _, label := range dpLabels {
+		counter := dpCounterByLabel[label]
+		dpRangeSeries = append(dpRangeSeries, map[string]interface{}{
+			"label":         label,
+			"total":         counter.Total,
+			"approve":       counter.Approve,
+			"reject":        counter.Reject,
+			"approval_rate": buildApprovalRate(counter),
+		})
+	}
+
 	return map[string]interface{}{
 		"areas":              areasOut,
 		"jobs_master":        jobsMaster,
 		"motor_types_master": motorsMaster,
+		"installment_range":  installmentRangeSeries,
+		"dp_range":           dpRangeSeries,
 		"thresholds": map[string]float64{
 			"green_max_rate":  0.35,
 			"yellow_min_rate": 0.35,
