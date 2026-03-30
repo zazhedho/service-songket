@@ -17,6 +17,8 @@ import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 import { formatRupiah } from '../utils/currency'
 
+const FIXED_ORDER_PROVINCE = 'NUSA TENGGARA BARAT'
+
 const defaultForm = {
   pooling_number: '',
   pooling_at: dayjs().toISOString(),
@@ -25,13 +27,14 @@ const defaultForm = {
   finance_company_id: '',
   consumer_name: '',
   consumer_phone: '',
-  province: '',
+  province: FIXED_ORDER_PROVINCE,
   regency: '',
   district: '',
   village: '',
   address: '',
   job_id: '',
   motor_type_id: '',
+  installment: 0,
   dp_gross: 0,
   dp_paid: 0,
   tenor: 12,
@@ -253,13 +256,14 @@ export default function OrdersPage() {
       finance_company_id: firstAttempt?.finance_company_id || '',
       consumer_name: order.consumer_name || '',
       consumer_phone: order.consumer_phone || '',
-      province: order.province || '',
+      province: FIXED_ORDER_PROVINCE,
       regency: order.regency || '',
       district: order.district || '',
       village: order.village || '',
       address: order.address || '',
       job_id: order.job_id || '',
       motor_type_id: order.motor_type_id || '',
+      installment: order.installment || 0,
       dp_gross: order.dp_gross || 0,
       dp_paid: order.dp_paid || 0,
       tenor: order.tenor || 12,
@@ -550,6 +554,7 @@ export default function OrdersPage() {
                         { label: 'Tipe Motor', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
                         { label: 'Brand/Model', value: [detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-' },
                         { label: 'OTR', value: formatRupiah(selectedOrder.otr || 0) },
+                        { label: 'Angsuran', value: formatRupiah(selectedOrder.installment || 0) },
                         { label: 'DP Gross', value: formatRupiah(selectedOrder.dp_gross || 0) },
                         { label: 'DP Setor', value: formatRupiah(selectedOrder.dp_paid || 0) },
                         { label: '%DP', value: `${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%` },
@@ -679,17 +684,7 @@ export default function OrdersPage() {
 
               <div>
                 <label>Provinsi</label>
-                <select
-                  value={form.province}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, province: e.target.value, regency: '', district: '' }))
-                  }
-                >
-                  <option value="">Pilih</option>
-                  {provinces.map((province: any) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
+                <input value={FIXED_ORDER_PROVINCE} readOnly />
               </div>
 
               <div>
@@ -781,6 +776,16 @@ export default function OrdersPage() {
               <div>
                 <label>Tenor</label>
                 <input type="number" min={1} max={60} value={form.tenor} onChange={(e) => set('tenor', Number(e.target.value))} />
+              </div>
+
+              <div>
+                <label>Angsuran</label>
+                <input
+                  type="text"
+                  value={formatRupiah(form.installment)}
+                  onChange={(e) => set('installment', parseNumber(e.target.value))}
+                  inputMode="numeric"
+                />
               </div>
 
               <div>

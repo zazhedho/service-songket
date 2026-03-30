@@ -161,6 +161,13 @@ func validateMotorTypeArea(motor MotorType, provinceCode, regencyCode string) er
 	return nil
 }
 
+const fixedOrderProvince = "NUSA TENGGARA BARAT"
+
+func normalizeOrderProvince(_ string) string {
+	// Province for order-in is fixed by business rule.
+	return fixedOrderProvince
+}
+
 // CreateOrder creates order + finance attempts.
 func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role string) (Order, error) {
 	poolingAt, err := parseTimeRequired(req.PoolingAt)
@@ -198,6 +205,9 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	if err := validateMotorTypeArea(motor, dealer.Province, dealer.Regency); err != nil {
 		return Order{}, err
 	}
+	if req.Installment < 0 {
+		return Order{}, fmt.Errorf("installment must be greater than or equal to 0")
+	}
 
 	otr := motor.OTR
 	dpPct := 0.0
@@ -213,13 +223,14 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		DealerID:      dealerID,
 		ConsumerName:  req.ConsumerName,
 		ConsumerPhone: req.ConsumerPhone,
-		Province:      req.Province,
+		Province:      normalizeOrderProvince(req.Province),
 		Regency:       req.Regency,
 		District:      req.District,
 		Village:       req.Village,
 		Address:       req.Address,
 		JobID:         req.JobID,
 		MotorTypeID:   req.MotorTypeID,
+		Installment:   req.Installment,
 		OTR:           otr,
 		DPGross:       req.DPGross,
 		DPPaid:        req.DPPaid,
@@ -364,9 +375,7 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.ConsumerPhone != nil {
 		order.ConsumerPhone = *req.ConsumerPhone
 	}
-	if req.Province != nil {
-		order.Province = *req.Province
-	}
+	order.Province = normalizeOrderProvince(utils.ValueOrDefault(req.Province, ""))
 	if dealerID != nil {
 		order.DealerID = *dealerID
 	}
@@ -393,6 +402,12 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 		}
 		order.OTR = motor.OTR
 		selectedMotor = &motor
+	}
+	if req.Installment != nil {
+		if *req.Installment < 0 {
+			return Order{}, fmt.Errorf("installment must be greater than or equal to 0")
+		}
+		order.Installment = *req.Installment
 	}
 	if req.DPGross != nil {
 		order.DPGross = *req.DPGross
@@ -595,6 +610,7 @@ func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, clon
 		Address:       source.Address,
 		JobID:         source.JobID,
 		MotorTypeID:   source.MotorTypeID,
+		Installment:   source.Installment,
 		OTR:           source.OTR,
 		DPGross:       source.DPGross,
 		DPPaid:        source.DPPaid,
@@ -849,6 +865,52 @@ func workingDaysInMonth(year, month int, holidays map[string]struct{}) int {
 		workingDays++
 	}
 	return workingDays
+}
+
+func workingSecondsWithinDailyWindow(start, end time.Time, windowStartHour, windowEndHour int) float64 {
+	if !end.After(start) {
+		return 0
+	}
+	if windowEndHour <= windowStartHour {
+		return 0
+	}
+
+	loc := start.Location()
+	if loc == nil {
+		loc = end.Location()
+	}
+	if loc == nil {
+		loc = time.Local
+	}
+
+	startAt := start.In(loc)
+	endAt := end.In(loc)
+	dayCursor := time.Date(startAt.Year(), startAt.Month(), startAt.Day(), 0, 0, 0, 0, loc)
+	lastDay := time.Date(endAt.Year(), endAt.Month(), endAt.Day(), 0, 0, 0, 0, loc)
+
+	totalSeconds := 0.0
+	for !dayCursor.After(lastDay) {
+		windowStart := time.Date(dayCursor.Year(), dayCursor.Month(), dayCursor.Day(), windowStartHour, 0, 0, 0, loc)
+		windowEnd := time.Date(dayCursor.Year(), dayCursor.Month(), dayCursor.Day(), windowEndHour, 0, 0, 0, loc)
+
+		overlapStart := windowStart
+		if startAt.After(overlapStart) {
+			overlapStart = startAt
+		}
+
+		overlapEnd := windowEnd
+		if endAt.Before(overlapEnd) {
+			overlapEnd = endAt
+		}
+
+		if overlapEnd.After(overlapStart) {
+			totalSeconds += overlapEnd.Sub(overlapStart).Seconds()
+		}
+
+		dayCursor = dayCursor.AddDate(0, 0, 1)
+	}
+
+	return totalSeconds
 }
 
 func parseYearMonthKey(key string) (year int, month int, ok bool) {
@@ -1141,8 +1203,11 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		}
 		if row.ResultAt != nil {
 			if row.ResultAt.After(row.PoolingAt) {
-				leadTotalSeconds += row.ResultAt.Sub(row.PoolingAt).Seconds()
-				leadCount++
+				leadSeconds := workingSecondsWithinDailyWindow(row.PoolingAt, *row.ResultAt, 8, 19)
+				if leadSeconds > 0 {
+					leadTotalSeconds += leadSeconds
+					leadCount++
+				}
 			}
 		}
 

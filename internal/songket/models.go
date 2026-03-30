@@ -124,6 +124,7 @@ type Order struct {
 	Job           *Job                  `gorm:"foreignKey:JobID" json:"job,omitempty"`
 	MotorTypeID   string                `gorm:"column:motor_type_id;type:uuid" json:"motor_type_id"`
 	MotorType     *MotorType            `gorm:"foreignKey:MotorTypeID" json:"motor_type,omitempty"`
+	Installment   float64               `gorm:"column:installment" json:"installment"`
 	OTR           float64               `gorm:"column:otr" json:"otr"`
 	DPGross       float64               `gorm:"column:dp_gross" json:"dp_gross"`
 	DPPaid        float64               `gorm:"column:dp_paid" json:"dp_paid"`
