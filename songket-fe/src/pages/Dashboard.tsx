@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import { fetchDashboardSummary, fetchLookups, listDashboardNewsItems, listDashboardPrices } from '../api'
+import { fetchDashboardSummary, fetchKabupaten, fetchLookups, fetchProvinces, listDashboardNewsItems, listDashboardPrices } from '../api'
 import { formatRupiah } from '../utils/currency'
 
 type DashboardAnalysis = 'yearly' | 'monthly' | 'daily' | 'custom'
 
 type DashboardFilters = {
   area: string
+  result_status: string
   analysis: DashboardAnalysis
   month: string
   year: string
@@ -47,6 +48,8 @@ type OrderDecisionSnapshotItem = {
   order_in: number
   approve: number
   reject: number
+  avg_daily_order_in: number
+  avg_daily_sales: number
   approve_rate_percent: number
   reject_rate_percent: number
 }
@@ -128,6 +131,7 @@ const currentYearStr = String(dayjs().year())
 
 const defaultFilters: DashboardFilters = {
   area: '',
+  result_status: '',
   analysis: 'custom',
   month: currentMonthStr,
   year: currentYearStr,
@@ -170,6 +174,7 @@ export default function DashboardPage() {
   const [filtersInput, setFiltersInput] = useState<DashboardFilters>(defaultFilters)
   const [filtersApplied, setFiltersApplied] = useState<DashboardFilters>(defaultFilters)
   const [lookups, setLookups] = useState<any>({})
+  const [areaCodeNameMap, setAreaCodeNameMap] = useState<Record<string, string>>({})
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary)
   const [latestNews, setLatestNews] = useState<DashboardNewsItem[]>([])
   const [latestPrices, setLatestPrices] = useState<DashboardPriceItem[]>([])
@@ -227,8 +232,91 @@ export default function DashboardPage() {
   }, [latestNews.length])
 
   useEffect(() => {
+    let mounted = true
+
+    const resolveAreaCodeNames = async () => {
+      const dealers = Array.isArray(lookups?.dealers) ? lookups.dealers : []
+      const lookupRegencies = Array.isArray(lookups?.regencies) ? lookups.regencies : []
+      const provinceCodes = Array.from(
+        new Set(
+          dealers
+            .map((dealer: any) => String(dealer?.province || '').trim())
+            .filter(Boolean),
+        ),
+      )
+
+      const nextMap: Record<string, string> = {}
+      if (provinceCodes.length > 0) {
+        await Promise.all(
+          provinceCodes.map(async (provinceCode) => {
+            try {
+              const res = await fetchKabupaten(provinceCode)
+              const rows = Array.isArray(res?.data?.data)
+                ? res.data.data
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : []
+              rows.forEach((row: any) => {
+                const code = String(row?.code || row?.id || '').trim().toLowerCase()
+                const name = String(row?.name || '').trim()
+                if (!code || !name) return
+                if (!nextMap[code]) nextMap[code] = name
+              })
+            } catch {
+              // continue for other provinces
+            }
+          }),
+        )
+      }
+
+      const unresolvedCodes = lookupRegencies
+        .map((item: any) => String(item || '').trim().toLowerCase())
+        .filter((item: string) => /^\d+$/.test(item) && !nextMap[item])
+
+      if (unresolvedCodes.length > 0) {
+        try {
+          const provRes = await fetchProvinces()
+          const provinces = Array.isArray(provRes?.data?.data)
+            ? provRes.data.data
+            : Array.isArray(provRes?.data)
+              ? provRes.data
+              : []
+          for (const province of provinces) {
+            const provinceCode = String(province?.code || province?.id || '').trim()
+            if (!provinceCode) continue
+            const kabRes = await fetchKabupaten(provinceCode)
+            const kabRows = Array.isArray(kabRes?.data?.data)
+              ? kabRes.data.data
+              : Array.isArray(kabRes?.data)
+                ? kabRes.data
+                : []
+            kabRows.forEach((row: any) => {
+              const code = String(row?.code || row?.id || '').trim().toLowerCase()
+              const name = String(row?.name || '').trim()
+              if (!code || !name) return
+              if (!nextMap[code]) nextMap[code] = name
+            })
+            const allResolved = unresolvedCodes.every((code: string) => Boolean(nextMap[code]))
+            if (allResolved) break
+          }
+        } catch {
+          // keep partial mapping if fallback fails
+        }
+      }
+
+      if (mounted) setAreaCodeNameMap(nextMap)
+    }
+
+    void resolveAreaCodeNames()
+    return () => {
+      mounted = false
+    }
+  }, [lookups?.dealers, lookups?.regencies])
+
+  useEffect(() => {
     const params: Record<string, unknown> = {}
     if (filtersApplied.area) params.area = filtersApplied.area
+    if (filtersApplied.result_status) params.result_status = filtersApplied.result_status
     if (filtersApplied.dealer_id) params.dealer_id = filtersApplied.dealer_id
     if (filtersApplied.finance_company_id) params.finance_company_id = filtersApplied.finance_company_id
     params.analysis = filtersApplied.analysis
@@ -259,25 +347,31 @@ export default function DashboardPage() {
   }, [filtersApplied])
 
   const areaOptions = useMemo(() => {
+    const regencies = Array.isArray(lookups?.regencies) ? lookups.regencies : []
     const dealers = Array.isArray(lookups?.dealers) ? lookups.dealers : []
-    const map = new Map<string, string>()
-    dealers.forEach((dealer: any) => {
-      const regency = String(dealer?.regency || '').trim()
-      const district = String(dealer?.district || '').trim()
-      if (district) {
-        const key = district.toLowerCase()
-        if (!map.has(key)) map.set(key, `${regency || '-'} / ${district}`)
-      }
-      if (regency) {
-        const key = regency.toLowerCase()
-        if (!map.has(key)) map.set(key, regency)
+    const rawAreas = [
+      ...regencies.map((item: any) => String(item || '').trim()),
+      ...dealers.map((dealer: any) => String(dealer?.regency || '').trim()),
+    ].filter(Boolean)
+
+    const mappedByLabel = new Map<string, { value: string; label: string; priority: number }>()
+    rawAreas.forEach((rawArea) => {
+      const value = rawArea.toLowerCase()
+      const mappedName = areaCodeNameMap[value]
+      const label = mappedName || rawArea
+      const labelKey = label.toLowerCase()
+      if (labelKey === 'all area') return
+      const priority = mappedName ? 2 : 1
+      const current = mappedByLabel.get(labelKey)
+      if (!current || priority > current.priority) {
+        mappedByLabel.set(labelKey, { value, label, priority })
       }
     })
 
-    return Array.from(map.entries())
-      .map(([key, label]) => ({ value: key, label }))
+    return Array.from(mappedByLabel.values())
+      .map((item) => ({ value: item.value, label: item.label }))
       .sort((a, b) => a.label.localeCompare(b.label))
-  }, [lookups?.dealers])
+  }, [areaCodeNameMap, lookups?.dealers, lookups?.regencies])
 
   const dealerOptions = useMemo(() => {
     const dealers = Array.isArray(lookups?.dealers) ? lookups.dealers : []
@@ -438,6 +532,19 @@ export default function DashboardPage() {
                     {option.label}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Status</label>
+              <select
+                value={filtersInput.result_status}
+                onChange={(e) => setFiltersInput((prev) => ({ ...prev, result_status: e.target.value }))}
+              >
+                <option value="">All Status</option>
+                <option value="approve">Approve</option>
+                <option value="reject">Reject</option>
+                <option value="pending">Pending</option>
               </select>
             </div>
 
@@ -632,6 +739,7 @@ export default function DashboardPage() {
                   <th>Order In</th>
                   <th>Approve</th>
                   <th>Reject</th>
+                  <th>Avg Daily Sales</th>
                   <th>Approve Rate</th>
                   <th>Reject Rate</th>
                 </tr>
@@ -639,15 +747,15 @@ export default function DashboardPage() {
               <tbody>
                 {summary.order_decision_snapshot.length === 0 && (
                   <tr>
-                    <td colSpan={6}>No summary data.</td>
+                    <td colSpan={7}>No summary data.</td>
                   </tr>
                 )}
                 {summary.order_decision_snapshot.map((row, idx) => {
                   const isGrowth = row.row_type === 'growth'
-                  const periodLabel = isGrowth ? 'Growth' : idx === 0 ? 'YTD-1' : idx === 1 ? 'YTD' : row.label || '-'
+                  const periodLabel = isGrowth ? 'Growth' : idx === 0 ? 'YTD-1' : idx === 1 ? 'YTD' : `Period ${idx + 1}`
                   return (
                     <tr key={`decision-row-${row.label}-${idx}`}>
-                      <td data-label="Periode" style={{ fontWeight: 700 }} title={row.label || '-'}>
+                      <td data-label="Periode" style={{ fontWeight: 700 }}>
                         {periodLabel}
                       </td>
                       <td data-label="Order In" style={{ color: isGrowth ? colorBySign(row.order_in) : undefined }}>
@@ -658,6 +766,9 @@ export default function DashboardPage() {
                       </td>
                       <td data-label="Reject" style={{ color: isGrowth ? colorBySign(row.reject) : undefined }}>
                         {isGrowth ? formatGrowthPercent(row.reject) : formatInteger(row.reject)}
+                      </td>
+                      <td data-label="Avg Daily Sales" style={{ color: isGrowth ? colorBySign(row.avg_daily_sales) : undefined }}>
+                        {isGrowth ? formatGrowthPercent(row.avg_daily_sales) : formatFixed(row.avg_daily_sales)}
                       </td>
                       <td data-label="Approve Rate" style={{ color: isGrowth ? colorBySign(row.approve_rate_percent) : undefined }}>
                         {isGrowth ? formatGrowthPercent(row.approve_rate_percent) : formatPercent(row.approve_rate_percent)}
@@ -918,6 +1029,8 @@ function normalizeSummary(raw: any): DashboardSummary {
       order_in: toNumber(item?.order_in),
       approve: toNumber(item?.approve),
       reject: toNumber(item?.reject),
+      avg_daily_order_in: toNumber(item?.avg_daily_order_in),
+      avg_daily_sales: toNumber(item?.avg_daily_sales),
       approve_rate_percent: toNumber(item?.approve_rate_percent),
       reject_rate_percent: toNumber(item?.reject_rate_percent),
     })),
@@ -968,6 +1081,10 @@ function formatInteger(value: number) {
 
 function formatPercent(value: number) {
   return `${Number(value || 0).toFixed(2)}%`
+}
+
+function formatFixed(value: number) {
+  return Number(value || 0).toFixed(2)
 }
 
 function formatGrowthPercent(value: number) {

@@ -755,6 +755,9 @@ func applyDashboardScopeFilters(query *gorm.DB, req DashboardSummaryQuery, role,
 			area,
 		)
 	}
+	if resultStatus := strings.ToLower(strings.TrimSpace(req.ResultStatus)); resultStatus != "" {
+		query = query.Where("LOWER(COALESCE(o.result_status, '')) = ?", resultStatus)
+	}
 
 	return query
 }
@@ -1635,6 +1638,22 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	currentRejectRate := computeRate(currentPeriodTotals.Reject, currentPeriodTotals.OrderIn)
 	previousApproveRate := computeRate(previousPeriodTotals.Approve, previousPeriodTotals.OrderIn)
 	previousRejectRate := computeRate(previousPeriodTotals.Reject, previousPeriodTotals.OrderIn)
+	periodDays := func(from, to time.Time) float64 {
+		if to.Before(from) {
+			return 1
+		}
+		days := int(to.Sub(from).Hours()/24) + 1
+		if days <= 0 {
+			return 1
+		}
+		return float64(days)
+	}
+	currentPeriodDays := periodDays(periodWindow.CurrentFrom, periodWindow.CurrentTo)
+	previousPeriodDays := periodDays(periodWindow.PreviousFrom, periodWindow.PreviousTo)
+	currentAvgDailyOrderIn := float64(currentPeriodTotals.OrderIn) / currentPeriodDays
+	previousAvgDailyOrderIn := float64(previousPeriodTotals.OrderIn) / previousPeriodDays
+	currentAvgDailySales := float64(currentPeriodTotals.Approve) / currentPeriodDays
+	previousAvgDailySales := float64(previousPeriodTotals.Approve) / previousPeriodDays
 
 	orderDecisionSnapshot := []map[string]interface{}{
 		{
@@ -1643,6 +1662,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"order_in":             previousPeriodTotals.OrderIn,
 			"approve":              previousPeriodTotals.Approve,
 			"reject":               previousPeriodTotals.Reject,
+			"avg_daily_order_in":   previousAvgDailyOrderIn,
+			"avg_daily_sales":      previousAvgDailySales,
 			"approve_rate_percent": previousApproveRate * 100,
 			"reject_rate_percent":  previousRejectRate * 100,
 		},
@@ -1652,6 +1673,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"order_in":             currentPeriodTotals.OrderIn,
 			"approve":              currentPeriodTotals.Approve,
 			"reject":               currentPeriodTotals.Reject,
+			"avg_daily_order_in":   currentAvgDailyOrderIn,
+			"avg_daily_sales":      currentAvgDailySales,
 			"approve_rate_percent": currentApproveRate * 100,
 			"reject_rate_percent":  currentRejectRate * 100,
 		},
@@ -1661,6 +1684,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"order_in":             pctChange(float64(currentPeriodTotals.OrderIn), float64(previousPeriodTotals.OrderIn)),
 			"approve":              pctChange(float64(currentPeriodTotals.Approve), float64(previousPeriodTotals.Approve)),
 			"reject":               pctChange(float64(currentPeriodTotals.Reject), float64(previousPeriodTotals.Reject)),
+			"avg_daily_order_in":   pctChange(currentAvgDailyOrderIn, previousAvgDailyOrderIn),
+			"avg_daily_sales":      pctChange(currentAvgDailySales, previousAvgDailySales),
 			"approve_rate_percent": pctChange(currentApproveRate*100, previousApproveRate*100),
 			"reject_rate_percent":  pctChange(currentRejectRate*100, previousRejectRate*100),
 		},
