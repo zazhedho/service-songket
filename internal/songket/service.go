@@ -250,7 +250,12 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 			return fmt.Errorf("pooling number already has maximum 2 orders")
 		}
 
-		if err := tx.Create(&order).Error; err != nil {
+		createOrderQuery := tx
+		// Backward compatibility: some environments may not yet have orders.installment.
+		if !tx.Migrator().HasColumn(&Order{}, "installment") {
+			createOrderQuery = createOrderQuery.Omit("Installment")
+		}
+		if err := createOrderQuery.Create(&order).Error; err != nil {
 			return err
 		}
 
@@ -461,7 +466,12 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 			return fmt.Errorf("pooling number already has maximum 2 orders")
 		}
 
-		if err := tx.Save(&order).Error; err != nil {
+		saveOrderQuery := tx
+		// Backward compatibility: some environments may not yet have orders.installment.
+		if !tx.Migrator().HasColumn(&Order{}, "installment") {
+			saveOrderQuery = saveOrderQuery.Omit("Installment")
+		}
+		if err := saveOrderQuery.Save(&order).Error; err != nil {
 			return err
 		}
 		// Update attempts
@@ -620,7 +630,12 @@ func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, clon
 		ResultNotes:   strings.TrimSpace(cloneNotes),
 		CreatedBy:     source.CreatedBy,
 	}
-	if err := tx.Omit("Attempts").Create(&duplicateOrder).Error; err != nil {
+	createDuplicateQuery := tx.Omit("Attempts")
+	// Backward compatibility: some environments may not yet have orders.installment.
+	if !tx.Migrator().HasColumn(&Order{}, "installment") {
+		createDuplicateQuery = createDuplicateQuery.Omit("Installment")
+	}
+	if err := createDuplicateQuery.Create(&duplicateOrder).Error; err != nil {
 		return err
 	}
 
