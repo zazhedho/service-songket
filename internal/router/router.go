@@ -180,7 +180,7 @@ func (r *Routes) PermissionRoutes() {
 
 // MasterRoutes serves master data (wilayah) from Sipedas.
 func (r *Routes) MasterRoutes() {
-	svc := master.NewWilayahService()
+	svc := master.NewWilayahService(r.DB)
 	h := master.NewHandler(svc)
 
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)

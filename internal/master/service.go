@@ -5,20 +5,28 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/go-resty/resty/v2"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"starter-kit/utils"
 )
 
 const (
 	defaultSipedasBaseURL = "https://sipedas.pertanian.go.id/api/wilayah"
+	wilayahLevelProvince  = "province"
+	wilayahLevelRegency   = "regency"
+	wilayahLevelDistrict  = "district"
 )
 
 var (
@@ -32,32 +40,101 @@ type WilayahItem struct {
 	Name string `json:"name"`
 }
 
-// WilayahService fetches wilayah master data from Sipedas.
-type WilayahService struct {
-	client *resty.Client
+type cachedWilayahItems struct {
+	Items    []WilayahItem
+	CachedAt time.Time
 }
 
-func NewWilayahService() *WilayahService {
+type sipedasHTTPStatusError struct {
+	StatusCode int
+}
+
+func (e sipedasHTTPStatusError) Error() string {
+	return fmt.Sprintf("sipedas returned %d", e.StatusCode)
+}
+
+// WilayahService fetches wilayah master data from Sipedas.
+type WilayahService struct {
+	client        *resty.Client
+	db            *gorm.DB
+	mu            sync.RWMutex
+	provinceCache map[string]cachedWilayahItems
+	schemaOnce    sync.Once
+	schemaErr     error
+}
+
+func NewWilayahService(db *gorm.DB) *WilayahService {
 	baseURL := strings.TrimRight(utils.GetEnv("SIPEDAS_BASE_URL", defaultSipedasBaseURL).(string), "/")
 
-	timeoutSec := utils.GetEnv("SIPEDAS_TIMEOUT_SECONDS", 10).(int)
+	timeoutSec := utils.GetEnv("SIPEDAS_TIMEOUT_SECONDS", 60).(int)
 	if timeoutSec <= 0 {
-		timeoutSec = 10
+		timeoutSec = 60
+	}
+	retryCount := utils.GetEnv("SIPEDAS_RETRY_COUNT", 2).(int)
+	if retryCount < 0 {
+		retryCount = 0
 	}
 
 	client := resty.New().
 		SetBaseURL(baseURL).
-		SetTimeout(time.Duration(timeoutSec) * time.Second)
+		SetTimeout(time.Duration(timeoutSec) * time.Second).
+		SetRetryCount(retryCount).
+		SetRetryWaitTime(350 * time.Millisecond).
+		SetRetryMaxWaitTime(2 * time.Second).
+		AddRetryCondition(func(resp *resty.Response, err error) bool {
+			if err != nil {
+				return true
+			}
+			if resp == nil {
+				return false
+			}
+			status := resp.StatusCode()
+			return status == http.StatusTooManyRequests ||
+				status == http.StatusRequestTimeout ||
+				status == http.StatusBadGateway ||
+				status == http.StatusServiceUnavailable ||
+				status == http.StatusGatewayTimeout ||
+				status >= 500
+		})
 
-	return &WilayahService{
-		client: client,
+	svc := &WilayahService{
+		client:        client,
+		db:            db,
+		provinceCache: map[string]cachedWilayahItems{},
 	}
+	// Create master wilayah tables at startup (automigrate scope is limited to master tables only).
+	svc.ensureSchema()
+	return svc
 }
 
 // GetProvinsi returns province list for a given year (defaults to current year).
 func (s *WilayahService) GetProvinsi(ctx context.Context, year string) ([]WilayahItem, error) {
 	y := normalizeYear(year)
-	return s.fetchWilayah(ctx, "/list_pro", map[string]string{"thn": y})
+	if cached, err := s.getWilayahCache(wilayahLevelProvince, y, "", ""); err == nil && len(cached) > 0 {
+		s.setProvinceCache(y, cached)
+		return cached, nil
+	}
+
+	items, err := s.fetchWilayah(ctx, "/list_pro", map[string]string{"thn": y})
+	if err == nil {
+		s.upsertWilayahCache(wilayahLevelProvince, y, "", "", items, "third_party")
+		s.setProvinceCache(y, items)
+		return items, nil
+	}
+
+	// Prefer stale cache over failing fast when upstream is unstable.
+	if cached, ok := s.getProvinceCache(y); ok {
+		return cached, nil
+	}
+	if cached, ok := s.getProvinceCache("*"); ok {
+		return cached, nil
+	}
+
+	// Graceful degradation for upstream instability to avoid frequent 502 on master lookup.
+	if isWilayahSoftFail(err) {
+		return []WilayahItem{}, nil
+	}
+	return nil, err
 }
 
 // GetKabupaten returns regencies/cities for the given province code.
@@ -68,12 +145,31 @@ func (s *WilayahService) GetKabupaten(ctx context.Context, year, provCode string
 
 	y := normalizeYear(year)
 	pro := strings.TrimSpace(provCode)
+	resolvedPro := pro
+	if !isNumericCode(resolvedPro) {
+		if code, resolveErr := s.resolveProvinceCode(ctx, y, resolvedPro); resolveErr == nil && code != "" {
+			resolvedPro = code
+		}
+	}
+	if cached, err := s.getWilayahCache(wilayahLevelRegency, y, resolvedPro, ""); err == nil && len(cached) > 0 {
+		return cached, nil
+	}
+
+	fetchPro := resolvedPro
+	if strings.TrimSpace(fetchPro) == "" {
+		fetchPro = pro
+	}
 
 	items, err := s.fetchWilayah(ctx, "/list_kab", map[string]string{
 		"thn": y,
-		"pro": pro,
+		"pro": fetchPro,
 	})
 	if err == nil {
+		cachePro := resolvedPro
+		if strings.TrimSpace(cachePro) == "" {
+			cachePro = fetchPro
+		}
+		s.upsertWilayahCache(wilayahLevelRegency, y, cachePro, "", items, "third_party")
 		return items, nil
 	}
 
@@ -81,11 +177,19 @@ func (s *WilayahService) GetKabupaten(ctx context.Context, year, provCode string
 	if !isNumericCode(pro) {
 		resolved, resolveErr := s.resolveProvinceCode(ctx, y, pro)
 		if resolveErr == nil && resolved != "" && resolved != pro {
-			return s.fetchWilayah(ctx, "/list_kab", map[string]string{
+			retryItems, retryErr := s.fetchWilayah(ctx, "/list_kab", map[string]string{
 				"thn": y,
 				"pro": resolved,
 			})
+			if retryErr == nil {
+				s.upsertWilayahCache(wilayahLevelRegency, y, resolved, "", retryItems, "third_party")
+				return retryItems, nil
+			}
+			err = retryErr
 		}
+	}
+	if isWilayahSoftFail(err) {
+		return []WilayahItem{}, nil
 	}
 	return nil, err
 }
@@ -99,27 +203,60 @@ func (s *WilayahService) GetKecamatan(ctx context.Context, year, provCode, kabCo
 	y := normalizeYear(year)
 	pro := strings.TrimSpace(provCode)
 	kab := strings.TrimSpace(kabCode)
+	resolvedPro := pro
+	if !isNumericCode(resolvedPro) {
+		if code, resolveErr := s.resolveProvinceCode(ctx, y, resolvedPro); resolveErr == nil && code != "" {
+			resolvedPro = code
+		}
+	}
+	resolvedKab := kab
+	if resolvedPro != "" && !isNumericCode(resolvedKab) {
+		if code, resolveErr := s.resolveKabupatenCode(ctx, y, resolvedPro, resolvedKab); resolveErr == nil && code != "" {
+			resolvedKab = code
+		}
+	}
+	if cached, err := s.getWilayahCache(wilayahLevelDistrict, y, resolvedPro, resolvedKab); err == nil && len(cached) > 0 {
+		return cached, nil
+	}
+
+	fetchPro := resolvedPro
+	if strings.TrimSpace(fetchPro) == "" {
+		fetchPro = pro
+	}
+	fetchKab := resolvedKab
+	if strings.TrimSpace(fetchKab) == "" {
+		fetchKab = kab
+	}
 
 	// First attempt: as-is (fast path for code-based calls).
 	items, err := s.fetchWilayah(ctx, "/list_kec", map[string]string{
 		"thn": y,
-		"pro": pro,
-		"kab": kab,
+		"pro": fetchPro,
+		"kab": fetchKab,
 	})
 	if err == nil {
+		cachePro := resolvedPro
+		if strings.TrimSpace(cachePro) == "" {
+			cachePro = fetchPro
+		}
+		cacheKab := resolvedKab
+		if strings.TrimSpace(cacheKab) == "" {
+			cacheKab = fetchKab
+		}
+		s.upsertWilayahCache(wilayahLevelDistrict, y, cachePro, cacheKab, items, "third_party")
 		return items, nil
 	}
 
 	// Fallback for legacy name-based params (e.g. "NTB", "Kota Mataram").
-	resolvedPro := pro
-	if !isNumericCode(pro) || errors.Is(err, errParseSipedasResponse) || errors.Is(err, errEmptySipedasResponse) {
+	resolvedPro = pro
+	if !isNumericCode(pro) || isWilayahSoftFail(err) {
 		if code, resolveErr := s.resolveProvinceCode(ctx, y, pro); resolveErr == nil && code != "" {
 			resolvedPro = code
 		}
 	}
 
-	resolvedKab := kab
-	if resolvedPro != "" && (!isNumericCode(kab) || errors.Is(err, errParseSipedasResponse) || errors.Is(err, errEmptySipedasResponse)) {
+	resolvedKab = kab
+	if resolvedPro != "" && (!isNumericCode(kab) || isWilayahSoftFail(err)) {
 		if code, resolveErr := s.resolveKabupatenCode(ctx, y, resolvedPro, kab); resolveErr == nil && code != "" {
 			resolvedKab = code
 		}
@@ -129,6 +266,9 @@ func (s *WilayahService) GetKecamatan(ctx context.Context, year, provCode, kabCo
 		return []WilayahItem{}, nil
 	}
 	if resolvedPro == pro && resolvedKab == kab {
+		if isWilayahSoftFail(err) {
+			return []WilayahItem{}, nil
+		}
 		return nil, err
 	}
 
@@ -138,11 +278,12 @@ func (s *WilayahService) GetKecamatan(ctx context.Context, year, provCode, kabCo
 		"kab": resolvedKab,
 	})
 	if retryErr == nil {
+		s.upsertWilayahCache(wilayahLevelDistrict, y, resolvedPro, resolvedKab, items, "third_party")
 		return items, nil
 	}
 
-	// For unresolved external payload edge-cases, return empty list instead of 502.
-	if errors.Is(retryErr, errParseSipedasResponse) || errors.Is(retryErr, errEmptySipedasResponse) {
+	// For upstream instability / unresolved payload edge-cases, return empty list instead of 502.
+	if isWilayahSoftFail(retryErr) {
 		return []WilayahItem{}, nil
 	}
 	return nil, retryErr
@@ -173,9 +314,362 @@ func (s *WilayahService) fetchWilayah(ctx context.Context, endpoint string, quer
 		return nil, err
 	}
 	if resp.IsError() {
-		return nil, fmt.Errorf("sipedas returned %d", resp.StatusCode())
+		return nil, sipedasHTTPStatusError{StatusCode: resp.StatusCode()}
 	}
 	return parseWilayah(resp.Body())
+}
+
+func (s *WilayahService) getProvinceCache(year string) ([]WilayahItem, bool) {
+	key := strings.TrimSpace(year)
+	if key == "" {
+		return nil, false
+	}
+
+	s.mu.RLock()
+	entry, ok := s.provinceCache[key]
+	s.mu.RUnlock()
+	if !ok || len(entry.Items) == 0 {
+		return nil, false
+	}
+
+	items := make([]WilayahItem, len(entry.Items))
+	copy(items, entry.Items)
+	return items, true
+}
+
+func (s *WilayahService) setProvinceCache(year string, items []WilayahItem) {
+	key := strings.TrimSpace(year)
+	if key == "" || len(items) == 0 {
+		return
+	}
+
+	copied := make([]WilayahItem, len(items))
+	copy(copied, items)
+	entry := cachedWilayahItems{
+		Items:    copied,
+		CachedAt: time.Now(),
+	}
+
+	s.mu.Lock()
+	s.provinceCache[key] = entry
+	// Fallback bucket for latest known good list regardless of year.
+	s.provinceCache["*"] = entry
+	s.mu.Unlock()
+}
+
+func (s *WilayahService) ensureSchema() {
+	if s.db == nil {
+		return
+	}
+	s.schemaOnce.Do(func() {
+		s.schemaErr = s.db.AutoMigrate(
+			&MasterProvince{},
+			&MasterRegency{},
+			&MasterDistrict{},
+		)
+	})
+}
+
+func (s *WilayahService) getWilayahCache(level, year, provinceCode, regencyCode string) ([]WilayahItem, error) {
+	if s.db == nil {
+		return nil, nil
+	}
+	s.ensureSchema()
+	if s.schemaErr != nil {
+		return nil, nil
+	}
+	_ = year
+
+	cleanLevel := strings.TrimSpace(level)
+	if cleanLevel == "" {
+		return nil, nil
+	}
+	cleanProvince := strings.TrimSpace(provinceCode)
+	cleanRegency := strings.TrimSpace(regencyCode)
+
+	items := make([]WilayahItem, 0)
+	switch cleanLevel {
+	case wilayahLevelProvince:
+		var rows []MasterProvince
+		if err := s.db.
+			Model(&MasterProvince{}).
+			Order("code ASC").
+			Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		items = make([]WilayahItem, 0, len(rows))
+		for _, row := range rows {
+			code := strings.TrimSpace(row.Code)
+			name := strings.TrimSpace(row.Name)
+			if code == "" || name == "" {
+				continue
+			}
+			items = append(items, WilayahItem{Code: code, Name: name})
+		}
+	case wilayahLevelRegency:
+		var rows []MasterRegency
+		query := s.db.Model(&MasterRegency{})
+		if cleanProvince != "" {
+			query = query.Where("province_code = ?", cleanProvince)
+		}
+		if err := query.Order("code ASC").Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		items = make([]WilayahItem, 0, len(rows))
+		for _, row := range rows {
+			code := strings.TrimSpace(row.Code)
+			name := strings.TrimSpace(row.Name)
+			if code == "" || name == "" {
+				continue
+			}
+			items = append(items, WilayahItem{Code: code, Name: name})
+		}
+	case wilayahLevelDistrict:
+		var rows []MasterDistrict
+		query := s.db.Model(&MasterDistrict{})
+		if cleanProvince != "" {
+			query = query.Where("province_code = ?", cleanProvince)
+		}
+		if cleanRegency != "" {
+			query = query.Where("regency_code = ?", cleanRegency)
+		}
+		if err := query.Order("code ASC").Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		items = make([]WilayahItem, 0, len(rows))
+		for _, row := range rows {
+			code := strings.TrimSpace(row.Code)
+			name := strings.TrimSpace(row.Name)
+			if code == "" || name == "" {
+				continue
+			}
+			items = append(items, WilayahItem{Code: code, Name: name})
+		}
+	default:
+		return []WilayahItem{}, nil
+	}
+	return items, nil
+}
+
+func (s *WilayahService) upsertWilayahCache(level, year, provinceCode, regencyCode string, items []WilayahItem, source string) {
+	if s.db == nil || len(items) == 0 {
+		return
+	}
+	s.ensureSchema()
+	if s.schemaErr != nil {
+		return
+	}
+	_ = year
+
+	cleanLevel := strings.TrimSpace(level)
+	if cleanLevel == "" {
+		return
+	}
+	cleanProvince := strings.TrimSpace(provinceCode)
+	cleanRegency := strings.TrimSpace(regencyCode)
+	cleanSource := strings.TrimSpace(source)
+	if cleanSource == "" {
+		cleanSource = "third_party"
+	}
+
+	switch cleanLevel {
+	case wilayahLevelProvince:
+		rows := make([]MasterProvince, 0, len(items))
+		for _, item := range items {
+			code := strings.TrimSpace(item.Code)
+			name := strings.TrimSpace(item.Name)
+			if code == "" || name == "" {
+				continue
+			}
+			rows = append(rows, MasterProvince{
+				Code:   code,
+				Name:   name,
+				Source: cleanSource,
+			})
+		}
+		if len(rows) == 0 {
+			return
+		}
+		_ = s.db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "code"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"name":       gorm.Expr("EXCLUDED.name"),
+				"source":     gorm.Expr("EXCLUDED.source"),
+				"deleted_at": nil,
+				"updated_at": gorm.Expr("NOW()"),
+			}),
+		}).Create(&rows).Error
+	case wilayahLevelRegency:
+		rows := make([]MasterRegency, 0, len(items))
+		for _, item := range items {
+			code := strings.TrimSpace(item.Code)
+			name := strings.TrimSpace(item.Name)
+			if code == "" || name == "" {
+				continue
+			}
+			rows = append(rows, MasterRegency{
+				ProvinceCode: cleanProvince,
+				Code:         code,
+				Name:         name,
+				Source:       cleanSource,
+			})
+		}
+		if len(rows) == 0 {
+			return
+		}
+		_ = s.db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "province_code"},
+				{Name: "code"},
+			},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"province_code": gorm.Expr("EXCLUDED.province_code"),
+				"name":          gorm.Expr("EXCLUDED.name"),
+				"source":        gorm.Expr("EXCLUDED.source"),
+				"deleted_at":    nil,
+				"updated_at":    gorm.Expr("NOW()"),
+			}),
+		}).Create(&rows).Error
+	case wilayahLevelDistrict:
+		rows := make([]MasterDistrict, 0, len(items))
+		for _, item := range items {
+			code := strings.TrimSpace(item.Code)
+			name := strings.TrimSpace(item.Name)
+			if code == "" || name == "" {
+				continue
+			}
+			rows = append(rows, MasterDistrict{
+				ProvinceCode: cleanProvince,
+				RegencyCode:  cleanRegency,
+				Code:         code,
+				Name:         name,
+				Source:       cleanSource,
+			})
+		}
+		if len(rows) == 0 {
+			return
+		}
+		_ = s.db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "province_code"},
+				{Name: "regency_code"},
+				{Name: "code"},
+			},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"province_code": gorm.Expr("EXCLUDED.province_code"),
+				"regency_code":  gorm.Expr("EXCLUDED.regency_code"),
+				"name":          gorm.Expr("EXCLUDED.name"),
+				"source":        gorm.Expr("EXCLUDED.source"),
+				"deleted_at":    nil,
+				"updated_at":    gorm.Expr("NOW()"),
+			}),
+		}).Create(&rows).Error
+	}
+}
+
+func isWilayahSoftFail(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, errParseSipedasResponse) || errors.Is(err, errEmptySipedasResponse) {
+		return true
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	var statusErr sipedasHTTPStatusError
+	if errors.As(err, &statusErr) {
+		return true
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "tls handshake timeout") ||
+		strings.Contains(msg, "context deadline exceeded") {
+		return true
+	}
+	return false
+}
+
+var knownProvinceCodes = map[string]string{
+	"aceh":                      "11",
+	"sumatera utara":            "12",
+	"sumut":                     "12",
+	"sumatera barat":            "13",
+	"sumbar":                    "13",
+	"riau":                      "14",
+	"jambi":                     "15",
+	"sumatera selatan":          "16",
+	"sumsel":                    "16",
+	"bengkulu":                  "17",
+	"lampung":                   "18",
+	"kepulauan bangka belitung": "19",
+	"bangka belitung":           "19",
+	"babel":                     "19",
+	"kepulauan riau":            "21",
+	"kepri":                     "21",
+	"dki jakarta":               "31",
+	"jakarta":                   "31",
+	"jawa barat":                "32",
+	"jabar":                     "32",
+	"jawa tengah":               "33",
+	"jateng":                    "33",
+	"di yogyakarta":             "34",
+	"yogyakarta":                "34",
+	"diy":                       "34",
+	"jawa timur":                "35",
+	"jatim":                     "35",
+	"banten":                    "36",
+	"bali":                      "51",
+	"nusa tenggara barat":       "52",
+	"ntb":                       "52",
+	"nusa tenggara timur":       "53",
+	"ntt":                       "53",
+	"kalimantan barat":          "61",
+	"kalbar":                    "61",
+	"kalimantan tengah":         "62",
+	"kalteng":                   "62",
+	"kalimantan selatan":        "63",
+	"kalsel":                    "63",
+	"kalimantan timur":          "64",
+	"kaltim":                    "64",
+	"kalimantan utara":          "65",
+	"kalut":                     "65",
+	"sulawesi utara":            "71",
+	"sulut":                     "71",
+	"sulawesi tengah":           "72",
+	"sulteng":                   "72",
+	"sulawesi selatan":          "73",
+	"sulsel":                    "73",
+	"sulawesi tenggara":         "74",
+	"sultra":                    "74",
+	"gorontalo":                 "75",
+	"sulawesi barat":            "76",
+	"sulbar":                    "76",
+	"maluku":                    "81",
+	"maluku utara":              "82",
+	"malut":                     "82",
+	"papua barat":               "91",
+	"papua barat daya":          "92",
+	"papua":                     "94",
+	"papua selatan":             "95",
+	"papua tengah":              "96",
+	"papua pegunungan":          "97",
+}
+
+func provinceCodeFromKnownName(value string) string {
+	normalized := normalizeWilayahName(value)
+	if normalized == "" {
+		return ""
+	}
+	if code, ok := knownProvinceCodes[normalized]; ok {
+		return code
+	}
+	return ""
 }
 
 func (s *WilayahService) resolveProvinceCode(ctx context.Context, year, province string) (string, error) {
@@ -187,10 +681,33 @@ func (s *WilayahService) resolveProvinceCode(ctx context.Context, year, province
 		return needle, nil
 	}
 
-	items, err := s.fetchWilayah(ctx, "/list_pro", map[string]string{"thn": normalizeYear(year)})
+	if code := provinceCodeFromKnownName(needle); code != "" {
+		return code, nil
+	}
+	normalizedYear := normalizeYear(year)
+	if cached, err := s.getWilayahCache(wilayahLevelProvince, normalizedYear, "", ""); err == nil && len(cached) > 0 {
+		if code := findWilayahCode(cached, needle); code != "" {
+			s.setProvinceCache(normalizedYear, cached)
+			return code, nil
+		}
+	}
+	if cached, ok := s.getProvinceCache(normalizedYear); ok {
+		if code := findWilayahCode(cached, needle); code != "" {
+			return code, nil
+		}
+	}
+	if cached, ok := s.getProvinceCache("*"); ok {
+		if code := findWilayahCode(cached, needle); code != "" {
+			return code, nil
+		}
+	}
+
+	items, err := s.fetchWilayah(ctx, "/list_pro", map[string]string{"thn": normalizedYear})
 	if err != nil {
 		return "", err
 	}
+	s.upsertWilayahCache(wilayahLevelProvince, normalizedYear, "", "", items, "third_party")
+	s.setProvinceCache(normalizedYear, items)
 	return findWilayahCode(items, needle), nil
 }
 
@@ -202,17 +719,30 @@ func (s *WilayahService) resolveKabupatenCode(ctx context.Context, year, provCod
 	if isNumericCode(needle) {
 		return needle, nil
 	}
-	if strings.TrimSpace(provCode) == "" {
+	resolvedProv := strings.TrimSpace(provCode)
+	if resolvedProv == "" {
 		return "", nil
+	}
+	if !isNumericCode(resolvedProv) {
+		if code, err := s.resolveProvinceCode(ctx, year, resolvedProv); err == nil && code != "" {
+			resolvedProv = code
+		}
+	}
+	normalizedYear := normalizeYear(year)
+	if cached, err := s.getWilayahCache(wilayahLevelRegency, normalizedYear, resolvedProv, ""); err == nil && len(cached) > 0 {
+		if code := findWilayahCode(cached, needle); code != "" {
+			return code, nil
+		}
 	}
 
 	items, err := s.fetchWilayah(ctx, "/list_kab", map[string]string{
-		"thn": normalizeYear(year),
-		"pro": strings.TrimSpace(provCode),
+		"thn": normalizedYear,
+		"pro": strings.TrimSpace(resolvedProv),
 	})
 	if err != nil {
 		return "", err
 	}
+	s.upsertWilayahCache(wilayahLevelRegency, normalizedYear, strings.TrimSpace(resolvedProv), "", items, "third_party")
 	return findWilayahCode(items, needle), nil
 }
 

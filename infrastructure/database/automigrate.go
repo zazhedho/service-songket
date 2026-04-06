@@ -14,6 +14,7 @@ import (
 	domainpermission "starter-kit/internal/domain/permission"
 	domainrole "starter-kit/internal/domain/role"
 	domainuser "starter-kit/internal/domain/user"
+	"starter-kit/internal/master"
 	"starter-kit/internal/songket"
 	"starter-kit/pkg/logger"
 	"starter-kit/utils"
@@ -43,6 +44,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&domainmenu.MenuItem{},
 		&domainrole.RolePermission{},
 		&domainrole.RoleMenu{},
+		&master.MasterProvince{},
+		&master.MasterRegency{},
+		&master.MasterDistrict{},
 
 		// SONGKET domain
 		&songket.Dealer{},

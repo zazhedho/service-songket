@@ -969,6 +969,8 @@ export default function FinancePage() {
   }
 
   useEffect(() => {
+    let mounted = true
+
     if (isDealerCreate) {
       setDealerForm(initialDealerForm)
       setDealerKabupaten([])
@@ -977,7 +979,7 @@ export default function FinancePage() {
     }
 
     if (isDealerEdit && selectedDealer) {
-      const next: DealerForm = {
+      const raw: DealerForm = {
         name: selectedDealer.name || '',
         province: selectedDealer.province || '',
         regency: selectedDealer.regency || '',
@@ -989,28 +991,62 @@ export default function FinancePage() {
         lng: String(selectedDealer.lng ?? selectedDealer.longitude ?? ''),
       }
 
-      setDealerForm(next)
+      const prepareEditDealerForm = async () => {
+        let provinceOptions = provinces
+        if (!provinceOptions.length) {
+          try {
+            const provRes = await fetchProvinces()
+            provinceOptions = provRes.data.data || provRes.data || []
+            if (mounted) setProvinces(provinceOptions)
+          } catch {
+            provinceOptions = []
+          }
+        }
 
-      if (next.province) {
-        fetchKabupaten(next.province)
-          .then((kab) => {
-            const kabData = kab.data.data || kab.data || []
-            setDealerKabupaten(kabData)
-            if (next.regency) {
-              fetchKecamatan(next.province, next.regency)
-                .then((kec) => setDealerKecamatan(kec.data.data || kec.data || []))
-                .catch(() => setDealerKecamatan([]))
-            }
-          })
-          .catch(() => {
-            setDealerKabupaten([])
-            setDealerKecamatan([])
-          })
+        let provinceCode = findOptionCodeByValue(provinceOptions, raw.province)
+        let kabData: Option[] = []
+
+        if (!provinceCode && raw.regency) {
+          const inferred = await inferProvinceFromMasterByRegency(provinceOptions, [raw.regency, raw.address])
+          if (inferred?.provinceCode) {
+            provinceCode = inferred.provinceCode
+            kabData = inferred.kabupatenList || []
+          }
+        }
+
+        if (provinceCode && kabData.length === 0) {
+          kabData = await fetchKabupatenByProvinceCode(provinceCode)
+        }
+
+        const regencyCode = findOptionCodeByValue(kabData, raw.regency)
+        let kecData: Option[] = []
+        if (provinceCode && regencyCode) {
+          kecData = await fetchKecamatanByProvinceRegencyCode(provinceCode, regencyCode)
+        }
+        const districtCode = findOptionCodeByValue(kecData, raw.district)
+
+        if (!mounted) return
+        setDealerKabupaten(kabData)
+        setDealerKecamatan(kecData)
+        setDealerForm({
+          ...raw,
+          province: provinceCode || raw.province,
+          regency: regencyCode || raw.regency,
+          district: districtCode || raw.district,
+        })
       }
+
+      void prepareEditDealerForm()
     }
-  }, [isDealerCreate, isDealerEdit, selectedDealer])
+
+    return () => {
+      mounted = false
+    }
+  }, [isDealerCreate, isDealerEdit, provinces, selectedDealer])
 
   useEffect(() => {
+    let mounted = true
+
     if (isCompanyCreate) {
       setFinanceForm(initialFinanceForm)
       setFinanceKabupaten([])
@@ -1019,7 +1055,7 @@ export default function FinancePage() {
     }
 
     if (isCompanyEdit && selectedCompany) {
-      const next: FinanceForm = {
+      const raw: FinanceForm = {
         name: selectedCompany.name || '',
         province: selectedCompany.province || '',
         regency: selectedCompany.regency || '',
@@ -1029,26 +1065,58 @@ export default function FinancePage() {
         address: selectedCompany.address || '',
       }
 
-      setFinanceForm(next)
+      const prepareEditCompanyForm = async () => {
+        let provinceOptions = provinces
+        if (!provinceOptions.length) {
+          try {
+            const provRes = await fetchProvinces()
+            provinceOptions = provRes.data.data || provRes.data || []
+            if (mounted) setProvinces(provinceOptions)
+          } catch {
+            provinceOptions = []
+          }
+        }
 
-      if (next.province) {
-        fetchKabupaten(next.province)
-          .then((kab) => {
-            const kabData = kab.data.data || kab.data || []
-            setFinanceKabupaten(kabData)
-            if (next.regency) {
-              fetchKecamatan(next.province, next.regency)
-                .then((kec) => setFinanceKecamatan(kec.data.data || kec.data || []))
-                .catch(() => setFinanceKecamatan([]))
-            }
-          })
-          .catch(() => {
-            setFinanceKabupaten([])
-            setFinanceKecamatan([])
-          })
+        let provinceCode = findOptionCodeByValue(provinceOptions, raw.province)
+        let kabData: Option[] = []
+
+        if (!provinceCode && raw.regency) {
+          const inferred = await inferProvinceFromMasterByRegency(provinceOptions, [raw.regency, raw.address])
+          if (inferred?.provinceCode) {
+            provinceCode = inferred.provinceCode
+            kabData = inferred.kabupatenList || []
+          }
+        }
+
+        if (provinceCode && kabData.length === 0) {
+          kabData = await fetchKabupatenByProvinceCode(provinceCode)
+        }
+
+        const regencyCode = findOptionCodeByValue(kabData, raw.regency)
+        let kecData: Option[] = []
+        if (provinceCode && regencyCode) {
+          kecData = await fetchKecamatanByProvinceRegencyCode(provinceCode, regencyCode)
+        }
+        const districtCode = findOptionCodeByValue(kecData, raw.district)
+
+        if (!mounted) return
+        setFinanceKabupaten(kabData)
+        setFinanceKecamatan(kecData)
+        setFinanceForm({
+          ...raw,
+          province: provinceCode || raw.province,
+          regency: regencyCode || raw.regency,
+          district: districtCode || raw.district,
+        })
       }
+
+      void prepareEditCompanyForm()
     }
-  }, [isCompanyCreate, isCompanyEdit, selectedCompany])
+
+    return () => {
+      mounted = false
+    }
+  }, [isCompanyCreate, isCompanyEdit, provinces, selectedCompany])
 
   const submitDealer = async (e: FormEvent) => {
     e.preventDefault()
@@ -1064,9 +1132,9 @@ export default function FinancePage() {
 
     const payload = {
       name: dealerForm.name.trim(),
-      province: dealerForm.province.trim(),
-      regency: dealerForm.regency.trim(),
-      district: dealerForm.district.trim(),
+      province: resolveOptionNameValue(provinces, dealerForm.province),
+      regency: resolveOptionNameValue(dealerKabupaten, dealerForm.regency),
+      district: resolveOptionNameValue(dealerKecamatan, dealerForm.district),
       village: dealerForm.village.trim(),
       phone: dealerForm.phone.trim(),
       address: dealerForm.address.trim(),
@@ -1093,9 +1161,9 @@ export default function FinancePage() {
 
     const payload = {
       name: financeForm.name.trim(),
-      province: financeForm.province.trim(),
-      regency: financeForm.regency.trim(),
-      district: financeForm.district.trim(),
+      province: resolveOptionNameValue(provinces, financeForm.province),
+      regency: resolveOptionNameValue(financeKabupaten, financeForm.regency),
+      district: resolveOptionNameValue(financeKecamatan, financeForm.district),
       village: financeForm.village.trim(),
       phone: financeForm.phone.trim(),
       address: financeForm.address.trim(),
@@ -1703,7 +1771,7 @@ export default function FinancePage() {
                     >
                       <Popup>
                         <strong>{dealer.name}</strong>
-                        <div>{dealer.regency}</div>
+                        <div>{dealerLocationNameMap[String(dealer.id)]?.regency || dealer.regency || '-'}</div>
                         <div>{dealer.phone || '-'}</div>
                       </Popup>
                     </Marker>
@@ -1955,14 +2023,33 @@ function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
   )
 }
 
-function lookupOptionName(list: Option[] | undefined, code?: string) {
-  if (!code) return '-'
-  const rawCode = String(code).trim()
-  const normalized = rawCode.toLowerCase()
+function resolveOptionNameValue(list: Option[] | undefined, value?: string) {
+  const rawValue = String(value || '').trim()
+  if (!rawValue) return ''
+  const normalized = rawValue.toLowerCase()
   const found =
     list?.find((item) => String(item?.code || '').trim().toLowerCase() === normalized) ||
     list?.find((item) => String(item?.name || '').trim().toLowerCase() === normalized)
-  return found?.name || rawCode
+  return found?.name || rawValue
+}
+
+function findOptionCodeByValue(list: Option[] | undefined, value?: string) {
+  const rawValue = String(value || '').trim()
+  if (!rawValue) return ''
+  const normalized = rawValue.toLowerCase()
+  const foundByCode = list?.find((item) => String(item?.code || '').trim().toLowerCase() === normalized)
+  if (foundByCode?.code) return String(foundByCode.code)
+
+  const normalizedName = normalizeLocationName(rawValue)
+  const foundByName = list?.find((item) => normalizeLocationName(item?.name) === normalizedName)
+  if (foundByName?.code) return String(foundByName.code)
+
+  return ''
+}
+
+function lookupOptionName(list: Option[] | undefined, code?: string) {
+  const resolved = resolveOptionNameValue(list, code)
+  return resolved || '-'
 }
 
 function formatDealerLocationSummary(dealer: any, names?: DealerLocationNames) {

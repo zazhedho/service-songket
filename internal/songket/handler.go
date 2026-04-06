@@ -110,11 +110,23 @@ func (h *Handler) DashboardSummary(ctx *gin.Context) {
 		Area:             strings.TrimSpace(ctx.Query("area")),
 		DealerID:         strings.TrimSpace(ctx.Query("dealer_id")),
 		FinanceCompanyID: strings.TrimSpace(ctx.Query("finance_company_id")),
+		ResultStatus:     strings.ToLower(strings.TrimSpace(ctx.Query("result_status"))),
 		Analysis:         strings.ToLower(strings.TrimSpace(ctx.Query("analysis"))),
 		Date:             strings.TrimSpace(ctx.Query("date")),
 		From:             strings.TrimSpace(ctx.Query("from")),
 		To:               strings.TrimSpace(ctx.Query("to")),
 		Holidays:         strings.TrimSpace(ctx.Query("holidays")),
+	}
+
+	if req.ResultStatus != "" {
+		switch req.ResultStatus {
+		case "approve", "reject", "pending":
+		default:
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "result_status must be one of: approve, reject, pending"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
 	}
 
 	if req.Analysis != "" {

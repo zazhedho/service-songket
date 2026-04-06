@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"starter-kit/internal/master"
 	"starter-kit/pkg/filter"
 	"starter-kit/utils"
 
@@ -71,6 +72,11 @@ type scrapeURLDiagnostic struct {
 	DebugAPIFallbackUsed *bool
 	DebugAPIRowsCount    *int
 	DebugAPIError        string
+}
+
+type dashboardAreaOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 type newsScrapeTarget struct {
@@ -250,7 +256,12 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 			return fmt.Errorf("pooling number already has maximum 2 orders")
 		}
 
-		if err := tx.Create(&order).Error; err != nil {
+		createOrderQuery := tx
+		// Backward compatibility: some environments may not yet have orders.installment.
+		if !tx.Migrator().HasColumn(&Order{}, "installment") {
+			createOrderQuery = createOrderQuery.Omit("Installment")
+		}
+		if err := createOrderQuery.Create(&order).Error; err != nil {
 			return err
 		}
 
@@ -461,7 +472,12 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 			return fmt.Errorf("pooling number already has maximum 2 orders")
 		}
 
-		if err := tx.Save(&order).Error; err != nil {
+		saveOrderQuery := tx
+		// Backward compatibility: some environments may not yet have orders.installment.
+		if !tx.Migrator().HasColumn(&Order{}, "installment") {
+			saveOrderQuery = saveOrderQuery.Omit("Installment")
+		}
+		if err := saveOrderQuery.Save(&order).Error; err != nil {
 			return err
 		}
 		// Update attempts
@@ -620,7 +636,12 @@ func (s *Service) duplicateOrderRow(tx *gorm.DB, source Order, cloneStatus, clon
 		ResultNotes:   strings.TrimSpace(cloneNotes),
 		CreatedBy:     source.CreatedBy,
 	}
-	if err := tx.Omit("Attempts").Create(&duplicateOrder).Error; err != nil {
+	createDuplicateQuery := tx.Omit("Attempts")
+	// Backward compatibility: some environments may not yet have orders.installment.
+	if !tx.Migrator().HasColumn(&Order{}, "installment") {
+		createDuplicateQuery = createDuplicateQuery.Omit("Installment")
+	}
+	if err := createDuplicateQuery.Create(&duplicateOrder).Error; err != nil {
 		return err
 	}
 
@@ -754,6 +775,9 @@ func applyDashboardScopeFilters(query *gorm.DB, req DashboardSummaryQuery, role,
 			area,
 			area,
 		)
+	}
+	if resultStatus := strings.ToLower(strings.TrimSpace(req.ResultStatus)); resultStatus != "" {
+		query = query.Where("LOWER(COALESCE(o.result_status, '')) = ?", resultStatus)
 	}
 
 	return query
@@ -1635,6 +1659,22 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	currentRejectRate := computeRate(currentPeriodTotals.Reject, currentPeriodTotals.OrderIn)
 	previousApproveRate := computeRate(previousPeriodTotals.Approve, previousPeriodTotals.OrderIn)
 	previousRejectRate := computeRate(previousPeriodTotals.Reject, previousPeriodTotals.OrderIn)
+	periodDays := func(from, to time.Time) float64 {
+		if to.Before(from) {
+			return 1
+		}
+		days := int(to.Sub(from).Hours()/24) + 1
+		if days <= 0 {
+			return 1
+		}
+		return float64(days)
+	}
+	currentPeriodDays := periodDays(periodWindow.CurrentFrom, periodWindow.CurrentTo)
+	previousPeriodDays := periodDays(periodWindow.PreviousFrom, periodWindow.PreviousTo)
+	currentAvgDailyOrderIn := float64(currentPeriodTotals.OrderIn) / currentPeriodDays
+	previousAvgDailyOrderIn := float64(previousPeriodTotals.OrderIn) / previousPeriodDays
+	currentAvgDailySales := float64(currentPeriodTotals.Approve) / currentPeriodDays
+	previousAvgDailySales := float64(previousPeriodTotals.Approve) / previousPeriodDays
 
 	orderDecisionSnapshot := []map[string]interface{}{
 		{
@@ -1643,6 +1683,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"order_in":             previousPeriodTotals.OrderIn,
 			"approve":              previousPeriodTotals.Approve,
 			"reject":               previousPeriodTotals.Reject,
+			"avg_daily_order_in":   previousAvgDailyOrderIn,
+			"avg_daily_sales":      previousAvgDailySales,
 			"approve_rate_percent": previousApproveRate * 100,
 			"reject_rate_percent":  previousRejectRate * 100,
 		},
@@ -1652,6 +1694,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"order_in":             currentPeriodTotals.OrderIn,
 			"approve":              currentPeriodTotals.Approve,
 			"reject":               currentPeriodTotals.Reject,
+			"avg_daily_order_in":   currentAvgDailyOrderIn,
+			"avg_daily_sales":      currentAvgDailySales,
 			"approve_rate_percent": currentApproveRate * 100,
 			"reject_rate_percent":  currentRejectRate * 100,
 		},
@@ -1661,6 +1705,8 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 			"order_in":             pctChange(float64(currentPeriodTotals.OrderIn), float64(previousPeriodTotals.OrderIn)),
 			"approve":              pctChange(float64(currentPeriodTotals.Approve), float64(previousPeriodTotals.Approve)),
 			"reject":               pctChange(float64(currentPeriodTotals.Reject), float64(previousPeriodTotals.Reject)),
+			"avg_daily_order_in":   pctChange(currentAvgDailyOrderIn, previousAvgDailyOrderIn),
+			"avg_daily_sales":      pctChange(currentAvgDailySales, previousAvgDailySales),
 			"approve_rate_percent": pctChange(currentApproveRate*100, previousApproveRate*100),
 			"reject_rate_percent":  pctChange(currentRejectRate*100, previousRejectRate*100),
 		},
@@ -6480,6 +6526,102 @@ func decodeAreaNetIncome(raw datatypes.JSON) []NetIncomeAreaItem {
 	return []NetIncomeAreaItem{}
 }
 
+func isNumericAreaCode(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	for _, ch := range trimmed {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Service) buildDashboardAreaOptions(dealers []Dealer) []dashboardAreaOption {
+	if len(dealers) == 0 {
+		return []dashboardAreaOption{}
+	}
+
+	provinceSet := map[string]struct{}{}
+	for _, dealer := range dealers {
+		province := strings.TrimSpace(dealer.Province)
+		if province == "" {
+			continue
+		}
+		provinceSet[province] = struct{}{}
+	}
+
+	kabupatenCodeToName := map[string]string{}
+	if len(provinceSet) > 0 {
+		wilayahSvc := master.NewWilayahService(s.db)
+		ctx := context.Background()
+		for province := range provinceSet {
+			items, err := wilayahSvc.GetKabupaten(ctx, "", province)
+			if err != nil {
+				continue
+			}
+			for _, item := range items {
+				code := strings.ToLower(strings.TrimSpace(item.Code))
+				name := strings.TrimSpace(item.Name)
+				if code == "" || name == "" {
+					continue
+				}
+				if _, exists := kabupatenCodeToName[code]; !exists {
+					kabupatenCodeToName[code] = name
+				}
+			}
+		}
+	}
+
+	optionByValue := map[string]dashboardAreaOption{}
+	for _, dealer := range dealers {
+		rawRegency := strings.TrimSpace(dealer.Regency)
+		if rawRegency == "" {
+			continue
+		}
+
+		value := strings.ToLower(rawRegency)
+		if value == "" {
+			continue
+		}
+
+		label := rawRegency
+		if isNumericAreaCode(rawRegency) {
+			mapped := strings.TrimSpace(kabupatenCodeToName[value])
+			if mapped == "" {
+				// Skip unresolved numeric codes so dashboard area never shows raw ID/code.
+				continue
+			}
+			label = mapped
+		}
+		if strings.EqualFold(label, "all area") {
+			continue
+		}
+
+		if _, exists := optionByValue[value]; exists {
+			continue
+		}
+		optionByValue[value] = dashboardAreaOption{
+			Value: value,
+			Label: label,
+		}
+	}
+
+	options := make([]dashboardAreaOption, 0, len(optionByValue))
+	for _, item := range optionByValue {
+		options = append(options, item)
+	}
+	sort.Slice(options, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(options[i].Label))
+		right := strings.ToLower(strings.TrimSpace(options[j].Label))
+		return left < right
+	})
+
+	return options
+}
+
 // Lookups for dropdowns
 func (s *Service) Lookups() (map[string]interface{}, error) {
 	var fcs []FinanceCompany
@@ -6516,16 +6658,13 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// distinct regency from dealers
-	regencyMap := map[string]struct{}{}
-	for _, d := range dealers {
-		if d.Regency != "" {
-			regencyMap[d.Regency] = struct{}{}
+	dashboardAreas := s.buildDashboardAreaOptions(dealers)
+	regencies := make([]string, 0, len(dashboardAreas))
+	for _, area := range dashboardAreas {
+		if strings.TrimSpace(area.Label) == "" {
+			continue
 		}
-	}
-	regencies := make([]string, 0, len(regencyMap))
-	for k := range regencyMap {
-		regencies = append(regencies, k)
+		regencies = append(regencies, area.Label)
 	}
 	years := make([]int, 0, len(yearRows))
 	for _, row := range yearRows {
@@ -6544,6 +6683,7 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 		"jobs":              jobs,
 		"dealers":           dealers,
 		"regencies":         regencies,
+		"dashboard_areas":   dashboardAreas,
 		"dashboard_years":   years,
 	}, nil
 }
