@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"starter-kit/internal/master"
 	"starter-kit/pkg/filter"
 	"starter-kit/utils"
 
@@ -71,6 +72,11 @@ type scrapeURLDiagnostic struct {
 	DebugAPIFallbackUsed *bool
 	DebugAPIRowsCount    *int
 	DebugAPIError        string
+}
+
+type dashboardAreaOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 type newsScrapeTarget struct {
@@ -6520,6 +6526,102 @@ func decodeAreaNetIncome(raw datatypes.JSON) []NetIncomeAreaItem {
 	return []NetIncomeAreaItem{}
 }
 
+func isNumericAreaCode(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	for _, ch := range trimmed {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Service) buildDashboardAreaOptions(dealers []Dealer) []dashboardAreaOption {
+	if len(dealers) == 0 {
+		return []dashboardAreaOption{}
+	}
+
+	provinceSet := map[string]struct{}{}
+	for _, dealer := range dealers {
+		province := strings.TrimSpace(dealer.Province)
+		if province == "" {
+			continue
+		}
+		provinceSet[province] = struct{}{}
+	}
+
+	kabupatenCodeToName := map[string]string{}
+	if len(provinceSet) > 0 {
+		wilayahSvc := master.NewWilayahService(s.db)
+		ctx := context.Background()
+		for province := range provinceSet {
+			items, err := wilayahSvc.GetKabupaten(ctx, "", province)
+			if err != nil {
+				continue
+			}
+			for _, item := range items {
+				code := strings.ToLower(strings.TrimSpace(item.Code))
+				name := strings.TrimSpace(item.Name)
+				if code == "" || name == "" {
+					continue
+				}
+				if _, exists := kabupatenCodeToName[code]; !exists {
+					kabupatenCodeToName[code] = name
+				}
+			}
+		}
+	}
+
+	optionByValue := map[string]dashboardAreaOption{}
+	for _, dealer := range dealers {
+		rawRegency := strings.TrimSpace(dealer.Regency)
+		if rawRegency == "" {
+			continue
+		}
+
+		value := strings.ToLower(rawRegency)
+		if value == "" {
+			continue
+		}
+
+		label := rawRegency
+		if isNumericAreaCode(rawRegency) {
+			mapped := strings.TrimSpace(kabupatenCodeToName[value])
+			if mapped == "" {
+				// Skip unresolved numeric codes so dashboard area never shows raw ID/code.
+				continue
+			}
+			label = mapped
+		}
+		if strings.EqualFold(label, "all area") {
+			continue
+		}
+
+		if _, exists := optionByValue[value]; exists {
+			continue
+		}
+		optionByValue[value] = dashboardAreaOption{
+			Value: value,
+			Label: label,
+		}
+	}
+
+	options := make([]dashboardAreaOption, 0, len(optionByValue))
+	for _, item := range optionByValue {
+		options = append(options, item)
+	}
+	sort.Slice(options, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(options[i].Label))
+		right := strings.ToLower(strings.TrimSpace(options[j].Label))
+		return left < right
+	})
+
+	return options
+}
+
 // Lookups for dropdowns
 func (s *Service) Lookups() (map[string]interface{}, error) {
 	var fcs []FinanceCompany
@@ -6556,16 +6658,13 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// distinct regency from dealers
-	regencyMap := map[string]struct{}{}
-	for _, d := range dealers {
-		if d.Regency != "" {
-			regencyMap[d.Regency] = struct{}{}
+	dashboardAreas := s.buildDashboardAreaOptions(dealers)
+	regencies := make([]string, 0, len(dashboardAreas))
+	for _, area := range dashboardAreas {
+		if strings.TrimSpace(area.Label) == "" {
+			continue
 		}
-	}
-	regencies := make([]string, 0, len(regencyMap))
-	for k := range regencyMap {
-		regencies = append(regencies, k)
+		regencies = append(regencies, area.Label)
 	}
 	years := make([]int, 0, len(yearRows))
 	for _, row := range yearRows {
@@ -6584,6 +6683,7 @@ func (s *Service) Lookups() (map[string]interface{}, error) {
 		"jobs":              jobs,
 		"dealers":           dealers,
 		"regencies":         regencies,
+		"dashboard_areas":   dashboardAreas,
 		"dashboard_years":   years,
 	}, nil
 }

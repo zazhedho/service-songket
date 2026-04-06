@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import { fetchDashboardSummary, fetchKabupaten, fetchLookups, fetchProvinces, listDashboardNewsItems, listDashboardPrices } from '../api'
+import { fetchDashboardSummary, fetchLookups, listDashboardNewsItems, listDashboardPrices } from '../api'
 import { formatRupiah } from '../utils/currency'
 
 type DashboardAnalysis = 'yearly' | 'monthly' | 'daily' | 'custom'
@@ -174,7 +174,6 @@ export default function DashboardPage() {
   const [filtersInput, setFiltersInput] = useState<DashboardFilters>(defaultFilters)
   const [filtersApplied, setFiltersApplied] = useState<DashboardFilters>(defaultFilters)
   const [lookups, setLookups] = useState<any>({})
-  const [areaCodeNameMap, setAreaCodeNameMap] = useState<Record<string, string>>({})
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary)
   const [latestNews, setLatestNews] = useState<DashboardNewsItem[]>([])
   const [latestPrices, setLatestPrices] = useState<DashboardPriceItem[]>([])
@@ -232,88 +231,6 @@ export default function DashboardPage() {
   }, [latestNews.length])
 
   useEffect(() => {
-    let mounted = true
-
-    const resolveAreaCodeNames = async () => {
-      const dealers = Array.isArray(lookups?.dealers) ? lookups.dealers : []
-      const lookupRegencies = Array.isArray(lookups?.regencies) ? lookups.regencies : []
-      const provinceCodes = Array.from(
-        new Set(
-          dealers
-            .map((dealer: any) => String(dealer?.province || '').trim())
-            .filter(Boolean),
-        ),
-      )
-
-      const nextMap: Record<string, string> = {}
-      if (provinceCodes.length > 0) {
-        await Promise.all(
-          provinceCodes.map(async (provinceCode) => {
-            try {
-              const res = await fetchKabupaten(provinceCode)
-              const rows = Array.isArray(res?.data?.data)
-                ? res.data.data
-                : Array.isArray(res?.data)
-                  ? res.data
-                  : []
-              rows.forEach((row: any) => {
-                const code = String(row?.code || row?.id || '').trim().toLowerCase()
-                const name = String(row?.name || '').trim()
-                if (!code || !name) return
-                if (!nextMap[code]) nextMap[code] = name
-              })
-            } catch {
-              // continue for other provinces
-            }
-          }),
-        )
-      }
-
-      const unresolvedCodes = lookupRegencies
-        .map((item: any) => String(item || '').trim().toLowerCase())
-        .filter((item: string) => /^\d+$/.test(item) && !nextMap[item])
-
-      if (unresolvedCodes.length > 0) {
-        try {
-          const provRes = await fetchProvinces()
-          const provinces = Array.isArray(provRes?.data?.data)
-            ? provRes.data.data
-            : Array.isArray(provRes?.data)
-              ? provRes.data
-              : []
-          for (const province of provinces) {
-            const provinceCode = String(province?.code || province?.id || '').trim()
-            if (!provinceCode) continue
-            const kabRes = await fetchKabupaten(provinceCode)
-            const kabRows = Array.isArray(kabRes?.data?.data)
-              ? kabRes.data.data
-              : Array.isArray(kabRes?.data)
-                ? kabRes.data
-                : []
-            kabRows.forEach((row: any) => {
-              const code = String(row?.code || row?.id || '').trim().toLowerCase()
-              const name = String(row?.name || '').trim()
-              if (!code || !name) return
-              if (!nextMap[code]) nextMap[code] = name
-            })
-            const allResolved = unresolvedCodes.every((code: string) => Boolean(nextMap[code]))
-            if (allResolved) break
-          }
-        } catch {
-          // keep partial mapping if fallback fails
-        }
-      }
-
-      if (mounted) setAreaCodeNameMap(nextMap)
-    }
-
-    void resolveAreaCodeNames()
-    return () => {
-      mounted = false
-    }
-  }, [lookups?.dealers, lookups?.regencies])
-
-  useEffect(() => {
     const params: Record<string, unknown> = {}
     if (filtersApplied.area) params.area = filtersApplied.area
     if (filtersApplied.result_status) params.result_status = filtersApplied.result_status
@@ -347,6 +264,19 @@ export default function DashboardPage() {
   }, [filtersApplied])
 
   const areaOptions = useMemo(() => {
+    const dashboardAreas = Array.isArray(lookups?.dashboard_areas) ? lookups.dashboard_areas : []
+    if (dashboardAreas.length > 0) {
+      const optionByValue = new Map<string, { value: string; label: string }>()
+      dashboardAreas.forEach((item: any) => {
+        const value = String(item?.value || '').trim().toLowerCase()
+        const label = String(item?.label || '').trim()
+        if (!value || !label) return
+        if (label.toLowerCase() === 'all area') return
+        if (!optionByValue.has(value)) optionByValue.set(value, { value, label })
+      })
+      return Array.from(optionByValue.values()).sort((a, b) => a.label.localeCompare(b.label))
+    }
+
     const regencies = Array.isArray(lookups?.regencies) ? lookups.regencies : []
     const dealers = Array.isArray(lookups?.dealers) ? lookups.dealers : []
     const rawAreas = [
@@ -354,24 +284,19 @@ export default function DashboardPage() {
       ...dealers.map((dealer: any) => String(dealer?.regency || '').trim()),
     ].filter(Boolean)
 
-    const mappedByLabel = new Map<string, { value: string; label: string; priority: number }>()
+    const mappedByLabel = new Map<string, { value: string; label: string }>()
     rawAreas.forEach((rawArea) => {
       const value = rawArea.toLowerCase()
-      const mappedName = areaCodeNameMap[value]
-      const label = mappedName || rawArea
+      const label = rawArea
       const labelKey = label.toLowerCase()
       if (labelKey === 'all area') return
-      const priority = mappedName ? 2 : 1
-      const current = mappedByLabel.get(labelKey)
-      if (!current || priority > current.priority) {
-        mappedByLabel.set(labelKey, { value, label, priority })
-      }
+      if (/^\d+$/.test(label)) return
+      if (!mappedByLabel.has(labelKey)) mappedByLabel.set(labelKey, { value, label })
     })
 
     return Array.from(mappedByLabel.values())
-      .map((item) => ({ value: item.value, label: item.label }))
       .sort((a, b) => a.label.localeCompare(b.label))
-  }, [areaCodeNameMap, lookups?.dealers, lookups?.regencies])
+  }, [lookups?.dashboard_areas, lookups?.dealers, lookups?.regencies])
 
   const dealerOptions = useMemo(() => {
     const dealers = Array.isArray(lookups?.dealers) ? lookups.dealers : []
