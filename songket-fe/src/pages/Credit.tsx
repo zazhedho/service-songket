@@ -36,8 +36,17 @@ type WorksheetJobMaster = {
 type WorksheetPayload = {
   areas: WorksheetArea[]
   jobs_master: WorksheetJobMaster[]
+  motor_types_master: WorksheetMotorMaster[]
   installment_range: InstallmentRangeItem[]
   dp_range: RangeSummaryItem[]
+}
+
+type WorksheetMotorMaster = {
+  motor_type_id: string
+  motor_type_name: string
+  installment: number
+  regency_code?: string
+  regency_name?: string
 }
 
 type RangeSummaryItem = {
@@ -63,6 +72,8 @@ type JobOption = {
 type AreaOption = {
   area_key: string
   area_name: string
+  province_code?: string
+  regency_code?: string
 }
 
 type MotorOption = {
@@ -91,6 +102,7 @@ type MatrixDisplayRow = {
 const EMPTY_WORKSHEET: WorksheetPayload = {
   areas: [],
   jobs_master: [],
+  motor_types_master: [],
   installment_range: [],
   dp_range: [],
 }
@@ -100,6 +112,7 @@ function normalizeWorksheet(raw: unknown): WorksheetPayload {
   return {
     areas: Array.isArray(data.areas) ? data.areas : [],
     jobs_master: Array.isArray(data.jobs_master) ? data.jobs_master : [],
+    motor_types_master: Array.isArray(data.motor_types_master) ? (data.motor_types_master as WorksheetMotorMaster[]) : [],
     installment_range: Array.isArray(data.installment_range) ? (data.installment_range as InstallmentRangeItem[]) : [],
     dp_range: Array.isArray(data.dp_range) ? (data.dp_range as RangeSummaryItem[]) : [],
   }
@@ -119,10 +132,6 @@ function paginate<T>(items: T[], page: number, limit: number) {
   }
 }
 
-function normalizeNeedle(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
 function rateCellStyle(rate: number) {
   const value = Number(rate || 0)
   if (value > 0.4) {
@@ -138,7 +147,9 @@ export default function CreditPage() {
   const [worksheet, setWorksheet] = useState<WorksheetPayload>(EMPTY_WORKSHEET)
   const [selectedJobId, setSelectedJobId] = useState('')
   const [selectedAreaKey, setSelectedAreaKey] = useState('')
-  const [motorSearch, setMotorSearch] = useState('')
+  const [selectedMotorTypeId, setSelectedMotorTypeId] = useState('')
+  const [timeFrom, setTimeFrom] = useState('')
+  const [timeTo, setTimeTo] = useState('')
 
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
@@ -148,13 +159,24 @@ export default function CreditPage() {
 
   useEffect(() => {
     if (!canList) return
-    fetchCreditWorksheet()
+
+    const selectedArea = (worksheet.areas || []).find((item) => item.area_key === selectedAreaKey)
+    const params: Record<string, unknown> = {}
+    if (selectedArea?.province_code) params.province = selectedArea.province_code
+    if (selectedArea?.regency_code) params.regency = selectedArea.regency_code
+    if (selectedJobId) params.job_id = selectedJobId
+    if (selectedMotorTypeId) params.motor_type_id = selectedMotorTypeId
+    if (timeFrom) params.from = timeFrom
+    if (timeTo) params.to = timeTo
+
+    fetchCreditWorksheet(params)
       .then((res) => setWorksheet(normalizeWorksheet(res.data?.data || res.data)))
       .catch(() => setWorksheet(EMPTY_WORKSHEET))
-  }, [canList])
+  }, [canList, selectedAreaKey, selectedJobId, selectedMotorTypeId, timeFrom, timeTo])
 
   const areas = useMemo(() => worksheet.areas || [], [worksheet])
   const jobsMaster = useMemo(() => worksheet.jobs_master || [], [worksheet])
+  const motorsMaster = useMemo(() => worksheet.motor_types_master || [], [worksheet])
   const installmentRanges = useMemo(() => worksheet.installment_range || [], [worksheet])
   const dpRanges = useMemo(() => worksheet.dp_range || [], [worksheet])
 
@@ -188,10 +210,39 @@ export default function CreditPage() {
       map.set(area.area_key, {
         area_key: area.area_key,
         area_name: area.regency_name || area.regency_code || '-',
+        province_code: area.province_code,
+        regency_code: area.regency_code,
       })
     }
     return Array.from(map.values()).sort((a, b) => a.area_name.localeCompare(b.area_name))
   }, [areas])
+
+  const motorOptions = useMemo(() => {
+    const map = new Map<string, MotorOption>()
+    for (const row of motorsMaster) {
+      const id = String(row?.motor_type_id || '').trim()
+      if (!id || map.has(id)) continue
+      map.set(id, {
+        motor_type_id: id,
+        motor_type_name: String(row?.motor_type_name || id).trim(),
+      })
+    }
+    if (map.size === 0) {
+      for (const area of areas) {
+        for (const matrixRow of area.matrix || []) {
+          for (const cell of matrixRow.cells || []) {
+            const id = String(cell?.motor_type_id || '').trim()
+            if (!id || map.has(id)) continue
+            map.set(id, {
+              motor_type_id: id,
+              motor_type_name: String(cell?.motor_type_name || id).trim(),
+            })
+          }
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.motor_type_name.localeCompare(b.motor_type_name))
+  }, [motorsMaster, areas])
 
   useEffect(() => {
     if (!selectedJobId) return
@@ -208,8 +259,15 @@ export default function CreditPage() {
   }, [areaOptions, selectedAreaKey])
 
   useEffect(() => {
+    if (!selectedMotorTypeId) return
+    if (!motorOptions.some((opt) => opt.motor_type_id === selectedMotorTypeId)) {
+      setSelectedMotorTypeId('')
+    }
+  }, [motorOptions, selectedMotorTypeId])
+
+  useEffect(() => {
     setPage(1)
-  }, [selectedJobId, selectedAreaKey, motorSearch])
+  }, [selectedJobId, selectedAreaKey, selectedMotorTypeId, timeFrom, timeTo])
 
   const filteredRows = useMemo(() => {
     const out: AreaJobRow[] = []
@@ -251,10 +309,9 @@ export default function CreditPage() {
       }
     }
     const all = Array.from(map.values()).sort((a, b) => a.motor_type_name.localeCompare(b.motor_type_name))
-    const needle = normalizeNeedle(motorSearch)
-    if (!needle) return all
-    return all.filter((item) => normalizeNeedle(item.motor_type_name).includes(needle))
-  }, [filteredRows, motorSearch])
+    if (!selectedMotorTypeId) return all
+    return all.filter((item) => item.motor_type_id === selectedMotorTypeId)
+  }, [filteredRows, selectedMotorTypeId])
 
   const displayRows = useMemo(() => {
     const motors = motorColumns.length > 0 ? motorColumns : [{ motor_type_id: '', motor_type_name: '-' }]
@@ -325,9 +382,9 @@ export default function CreditPage() {
                 }}
               >
                 <div>
-                  <label htmlFor="credit-job-select">Select Pekerjaan</label>
+                  <label htmlFor="credit-job-select">Job</label>
                   <select id="credit-job-select" value={selectedJobId} onChange={(e) => setSelectedJobId(e.target.value)}>
-                    <option value="">Semua Pekerjaan</option>
+                    <option value="">All Jobs</option>
                     {jobOptions.map((job) => (
                       <option key={job.job_id} value={job.job_id}>
                         {job.job_name}
@@ -337,9 +394,9 @@ export default function CreditPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="credit-area-select">Pilih Area</label>
+                  <label htmlFor="credit-area-select">Area</label>
                   <select id="credit-area-select" value={selectedAreaKey} onChange={(e) => setSelectedAreaKey(e.target.value)}>
-                    <option value="">Semua Area</option>
+                    <option value="">All Areas</option>
                     {areaOptions.map((area) => (
                       <option key={area.area_key} value={area.area_key}>
                         {area.area_name}
@@ -349,13 +406,25 @@ export default function CreditPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="credit-motor-search">Search by Tipe Motor</label>
-                  <input
-                    id="credit-motor-search"
-                    value={motorSearch}
-                    onChange={(e) => setMotorSearch(e.target.value)}
-                    placeholder="Ketik nama tipe motor"
-                  />
+                  <label htmlFor="credit-motor-select">Motor Type</label>
+                  <select id="credit-motor-select" value={selectedMotorTypeId} onChange={(e) => setSelectedMotorTypeId(e.target.value)}>
+                    <option value="">All Motor Types</option>
+                    {motorOptions.map((motor) => (
+                      <option key={motor.motor_type_id} value={motor.motor_type_id}>
+                        {motor.motor_type_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="credit-time-from">Time From</label>
+                  <input id="credit-time-from" type="date" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} />
+                </div>
+
+                <div>
+                  <label htmlFor="credit-time-to">Time To</label>
+                  <input id="credit-time-to" type="date" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} />
                 </div>
               </div>
 

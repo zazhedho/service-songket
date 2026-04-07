@@ -3825,6 +3825,8 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 	type orderAggregate struct {
 		Province string `gorm:"column:province"`
 		Regency  string `gorm:"column:regency"`
+		JobID    string `gorm:"column:job_id"`
+		JobName  string `gorm:"column:job_name"`
 		Year     int    `gorm:"column:year"`
 		Month    int    `gorm:"column:month"`
 		Total    int64  `gorm:"column:total"`
@@ -3836,16 +3838,22 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		Select(`
 			COALESCE(NULLIF(TRIM(o.province), ''), '') AS province,
 			COALESCE(NULLIF(TRIM(o.regency), ''), '') AS regency,
+			COALESCE(o.job_id, '') AS job_id,
+			COALESCE(NULLIF(TRIM(j.name), ''), '') AS job_name,
 			EXTRACT(YEAR FROM o.pooling_at)::int AS year,
 			EXTRACT(MONTH FROM o.pooling_at)::int AS month,
 			COUNT(*) AS total
 		`).
+		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("o.pooling_at IS NOT NULL").
+		Where("NULLIF(TRIM(COALESCE(o.job_id::text, '')), '') IS NOT NULL").
 		Where("NULLIF(TRIM(o.regency), '') IS NOT NULL").
 		Group(`
 			COALESCE(NULLIF(TRIM(o.province), ''), ''),
 			COALESCE(NULLIF(TRIM(o.regency), ''), ''),
+			COALESCE(o.job_id, ''),
+			COALESCE(NULLIF(TRIM(j.name), ''), ''),
 			EXTRACT(YEAR FROM o.pooling_at),
 			EXTRACT(MONTH FROM o.pooling_at)
 		`).
@@ -3878,9 +3886,11 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 	referenceMonth := fmt.Sprintf("%04d-%02d", latestYear, latestMonth)
 	referencePrevMonth := fmt.Sprintf("%04d-%02d", previousYear, previousMonth)
 
-	type areaOrderAggregate struct {
+	type areaJobOrderAggregate struct {
 		Province      string
 		Regency       string
+		JobID         string
+		JobName       string
 		CurrentTotal  int64
 		PreviousTotal int64
 	}
@@ -3888,13 +3898,17 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 	normalize := func(value string) string {
 		return strings.ToLower(strings.TrimSpace(value))
 	}
-	makeKey := func(province, regency string) string {
-		return normalize(province) + "|" + normalize(regency)
+	makeAreaJobKey := func(province, regency, jobID string) string {
+		return normalize(province) + "|" + normalize(regency) + "|" + normalize(jobID)
 	}
 
-	ordersByArea := map[string]*areaOrderAggregate{}
+	ordersByAreaJob := map[string]*areaJobOrderAggregate{}
 	for _, row := range orderRows {
 		if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
+			continue
+		}
+		jobID := strings.TrimSpace(row.JobID)
+		if jobID == "" {
 			continue
 		}
 		isCurrentMonth := row.Year == latestYear && row.Month == latestMonth
@@ -3902,17 +3916,23 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		if !isCurrentMonth && !isPreviousMonth {
 			continue
 		}
-		key := makeKey(row.Province, row.Regency)
-		if key == "|" {
+		key := makeAreaJobKey(row.Province, row.Regency, jobID)
+		if key == "||" {
 			continue
 		}
-		item, exists := ordersByArea[key]
+		item, exists := ordersByAreaJob[key]
 		if !exists {
-			item = &areaOrderAggregate{
+			jobName := strings.TrimSpace(row.JobName)
+			if jobName == "" {
+				jobName = jobID
+			}
+			item = &areaJobOrderAggregate{
 				Province: row.Province,
 				Regency:  row.Regency,
+				JobID:    jobID,
+				JobName:  jobName,
 			}
-			ordersByArea[key] = item
+			ordersByAreaJob[key] = item
 		}
 		if isCurrentMonth {
 			item.CurrentTotal += row.Total
@@ -3922,7 +3942,7 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		}
 	}
 
-	worksheetRaw, err := s.CreditCapabilityWorksheet("", "")
+	worksheetRaw, err := s.CreditCapabilityWorksheet("", "", "", "", "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -3944,22 +3964,11 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		}
 		return append(values, candidate)
 	}
-	capabilityByArea := map[string]float64{}
+	makeCapabilityKey := func(province, regency, jobID string) string {
+		return normalize(province) + "|" + normalize(regency) + "|" + normalize(jobID)
+	}
+	capabilityByAreaJob := map[string]float64{}
 	for _, area := range areas {
-		sumRate := 0.0
-		countRate := 0
-		for _, row := range area.Matrix {
-			for _, cell := range row.Cells {
-				sumRate += cell.CapabilityRate
-				countRate++
-			}
-		}
-		if countRate == 0 {
-			continue
-		}
-
-		// Keep the same base unit as worksheet capability_rate so quadrant summary stays in sync.
-		capabilityPct := sumRate / float64(countRate)
 		provinceCandidates := []string{}
 		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceCode)
 		provinceCandidates = appendUnique(provinceCandidates, area.ProvinceName)
@@ -3967,25 +3976,43 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		regencyCandidates = appendUnique(regencyCandidates, area.RegencyCode)
 		regencyCandidates = appendUnique(regencyCandidates, area.RegencyName)
 
-		for _, reg := range regencyCandidates {
-			capabilityByArea[makeKey("", reg)] = capabilityPct
-			for _, prov := range provinceCandidates {
-				capabilityByArea[makeKey(prov, reg)] = capabilityPct
+		for _, row := range area.Matrix {
+			jobID := strings.TrimSpace(row.JobID)
+			if jobID == "" {
+				continue
+			}
+			sumRate := 0.0
+			countRate := 0
+			for _, cell := range row.Cells {
+				sumRate += cell.CapabilityRate
+				countRate++
+			}
+			if countRate == 0 {
+				continue
+			}
+			// Worksheet stores capability as ratio (0..1); quadrant uses percentage (0..100).
+			capabilityPct := (sumRate / float64(countRate)) * 100
+
+			for _, reg := range regencyCandidates {
+				capabilityByAreaJob[makeCapabilityKey("", reg, jobID)] = capabilityPct
+				for _, prov := range provinceCandidates {
+					capabilityByAreaJob[makeCapabilityKey(prov, reg, jobID)] = capabilityPct
+				}
 			}
 		}
 	}
 
-	results := make([]QuadrantFlowSummary, 0, len(ordersByArea))
-	for _, areaOrders := range ordersByArea {
+	results := make([]QuadrantFlowSummary, 0, len(ordersByAreaJob))
+	for _, areaOrders := range ordersByAreaJob {
 		if strings.TrimSpace(areaOrders.Regency) == "" {
 			continue
 		}
 
 		orderGrowthPct := pctChange(float64(areaOrders.CurrentTotal), float64(areaOrders.PreviousTotal))
 		capabilityPct := 0.0
-		if value, exists := capabilityByArea[makeKey(areaOrders.Province, areaOrders.Regency)]; exists {
+		if value, exists := capabilityByAreaJob[makeCapabilityKey(areaOrders.Province, areaOrders.Regency, areaOrders.JobID)]; exists {
 			capabilityPct = value
-		} else if value, exists := capabilityByArea[makeKey("", areaOrders.Regency)]; exists {
+		} else if value, exists := capabilityByAreaJob[makeCapabilityKey("", areaOrders.Regency, areaOrders.JobID)]; exists {
 			capabilityPct = value
 		}
 
@@ -4008,6 +4035,8 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		}
 
 		results = append(results, QuadrantFlowSummary{
+			JobID:                areaOrders.JobID,
+			JobName:              areaOrders.JobName,
 			Province:             areaOrders.Province,
 			Regency:              areaOrders.Regency,
 			TotalOrders:          areaOrders.CurrentTotal,
@@ -4029,6 +4058,9 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		if results[i].CreditCapability != results[j].CreditCapability {
 			return results[i].CreditCapability > results[j].CreditCapability
 		}
+		if !strings.EqualFold(results[i].JobName, results[j].JobName) {
+			return strings.ToLower(results[i].JobName) < strings.ToLower(results[j].JobName)
+		}
 		if !strings.EqualFold(results[i].Province, results[j].Province) {
 			return strings.ToLower(results[i].Province) < strings.ToLower(results[j].Province)
 		}
@@ -4039,7 +4071,7 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 }
 
 // CreditCapabilityWorksheet builds worksheet-style capability matrix based on net income and installment masters.
-func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (map[string]interface{}, error) {
+func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode, jobID, motorTypeID, fromDate, toDate string) (map[string]interface{}, error) {
 	type worksheetJobIncomeRow struct {
 		JobID         string         `gorm:"column:job_id"`
 		JobName       string         `gorm:"column:job_name"`
@@ -4087,6 +4119,29 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 
 	provinceFilter := strings.TrimSpace(provinceCode)
 	regencyFilter := strings.TrimSpace(regencyCode)
+	jobFilter := strings.TrimSpace(jobID)
+	motorFilter := strings.TrimSpace(motorTypeID)
+	fromFilter := strings.TrimSpace(fromDate)
+	toFilter := strings.TrimSpace(toDate)
+	var fromTime time.Time
+	var toTime time.Time
+	if fromFilter != "" {
+		parsed, err := time.Parse("2006-01-02", fromFilter)
+		if err != nil {
+			return nil, fmt.Errorf("invalid from date format, expected YYYY-MM-DD")
+		}
+		fromTime = parsed
+	}
+	if toFilter != "" {
+		parsed, err := time.Parse("2006-01-02", toFilter)
+		if err != nil {
+			return nil, fmt.Errorf("invalid to date format, expected YYYY-MM-DD")
+		}
+		toTime = parsed
+	}
+	if !fromTime.IsZero() && !toTime.IsZero() && toTime.Before(fromTime) {
+		return nil, fmt.Errorf("invalid time range: to date must be greater than or equal to from date")
+	}
 	matchFilterValue := func(filterValue, codeValue, nameValue string) bool {
 		filter := strings.ToLower(strings.TrimSpace(filterValue))
 		if filter == "" {
@@ -4192,7 +4247,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	jobIncomeByArea := map[string]jobIncomeValue{}
 	jobIncomeByJob := map[string]jobIncomeValue{}
 	var jobRows []worksheetJobIncomeRow
-	if err := s.db.
+	jobQuery := s.db.
 		Table("job_net_incomes").
 		Select(`
 			job_net_incomes.job_id,
@@ -4201,8 +4256,11 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 			job_net_incomes.area_net_income
 		`).
 		Joins("JOIN jobs ON jobs.id = job_net_incomes.job_id AND jobs.deleted_at IS NULL").
-		Where("job_net_incomes.deleted_at IS NULL").
-		Scan(&jobRows).Error; err != nil {
+		Where("job_net_incomes.deleted_at IS NULL")
+	if jobFilter != "" {
+		jobQuery = jobQuery.Where("job_net_incomes.job_id = ?", jobFilter)
+	}
+	if err := jobQuery.Scan(&jobRows).Error; err != nil {
 		return nil, err
 	}
 
@@ -4256,7 +4314,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 	motorInstallmentByID := map[string]motorInstallmentValue{}
 	productInstallments := make([]float64, 0)
 	var motorRows []worksheetMotorRow
-	if err := s.db.
+	motorQuery := s.db.
 		Table("motor_types").
 		Select(`
 			motor_types.id AS motor_type_id,
@@ -4268,8 +4326,11 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 			motor_types.regency_name
 		`).
 		Joins("LEFT JOIN installments ON installments.motor_type_id = motor_types.id AND installments.deleted_at IS NULL").
-		Where("motor_types.deleted_at IS NULL").
-		Scan(&motorRows).Error; err != nil {
+		Where("motor_types.deleted_at IS NULL")
+	if motorFilter != "" {
+		motorQuery = motorQuery.Where("motor_types.id = ?", motorFilter)
+	}
+	if err := motorQuery.Scan(&motorRows).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range motorRows {
@@ -4524,7 +4585,7 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		COALESCE(o.province, '') AS province,
 		COALESCE(o.regency, '') AS regency
 	`, installmentExpr)
-	if err := s.db.
+	orderRangeQuery := s.db.
 		Table("orders o").
 		Select(orderRangeSelect).
 		Joins(`
@@ -4537,8 +4598,20 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 			) latest_attempt ON latest_attempt.order_id = o.id
 		`).
 		Joins("LEFT JOIN installments inst ON inst.motor_type_id = o.motor_type_id AND inst.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
-		Scan(&orderRangeRows).Error; err != nil {
+		Where("o.deleted_at IS NULL")
+	if jobFilter != "" {
+		orderRangeQuery = orderRangeQuery.Where("o.job_id = ?", jobFilter)
+	}
+	if motorFilter != "" {
+		orderRangeQuery = orderRangeQuery.Where("o.motor_type_id = ?", motorFilter)
+	}
+	if !fromTime.IsZero() {
+		orderRangeQuery = orderRangeQuery.Where("o.pooling_at >= ?", fromTime)
+	}
+	if !toTime.IsZero() {
+		orderRangeQuery = orderRangeQuery.Where("o.pooling_at < ?", toTime.AddDate(0, 0, 1))
+	}
+	if err := orderRangeQuery.Scan(&orderRangeRows).Error; err != nil {
 		return nil, err
 	}
 
@@ -4646,6 +4719,14 @@ func (s *Service) CreditCapabilityWorksheet(provinceCode, regencyCode string) (m
 		"formula": map[string]string{
 			"credit_capability":  "installment / net_income",
 			"program_suggestion": "if installment <= net_income*35% then 0 else min(installment - net_income*35%, 250000)",
+		},
+		"applied_filters": map[string]string{
+			"province":      provinceFilter,
+			"regency":       regencyFilter,
+			"job_id":        jobFilter,
+			"motor_type_id": motorFilter,
+			"from":          fromFilter,
+			"to":            toFilter,
 		},
 	}, nil
 }

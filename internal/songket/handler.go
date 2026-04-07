@@ -1347,12 +1347,22 @@ func (h *Handler) CreditWorksheet(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	province := strings.TrimSpace(ctx.Query("province"))
 	regency := strings.TrimSpace(ctx.Query("regency"))
+	jobID := strings.TrimSpace(ctx.Query("job_id"))
+	motorTypeID := strings.TrimSpace(ctx.Query("motor_type_id"))
+	from := strings.TrimSpace(ctx.Query("from"))
+	to := strings.TrimSpace(ctx.Query("to"))
 
-	data, err := h.svc.CreditCapabilityWorksheet(province, regency)
+	data, err := h.svc.CreditCapabilityWorksheet(province, regency, jobID, motorTypeID, from, to)
 	if err != nil {
-		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+		status := http.StatusInternalServerError
+		if strings.Contains(strings.ToLower(err.Error()), "invalid from date format") ||
+			strings.Contains(strings.ToLower(err.Error()), "invalid to date format") ||
+			strings.Contains(strings.ToLower(err.Error()), "invalid time range") {
+			status = http.StatusBadRequest
+		}
+		res := response.Response(status, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
-		ctx.JSON(http.StatusInternalServerError, res)
+		ctx.JSON(status, res)
 		return
 	}
 	res := response.Response(http.StatusOK, "success", logId, data)

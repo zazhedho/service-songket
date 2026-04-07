@@ -3,6 +3,8 @@ import { fetchKabupaten, fetchProvinces, fetchQuadrantSummary } from '../api'
 import Pagination from '../components/Pagination'
 
 type QuadrantItem = {
+  job_id?: string
+  job_name?: string
   province: string
   regency: string
   total_orders: number
@@ -14,6 +16,21 @@ type QuadrantItem = {
   reference_prev_month?: string
   credit_capability: number
   quadrant: number
+}
+
+type QuadrantJobPoint = {
+  id: string
+  job_id: string
+  job_name: string
+  total_orders: number
+  order_in_growth_percent: number
+  order_in_current_total: number
+  order_in_previous_total: number
+  credit_capability: number
+  quadrant: number
+  area_count: number
+  reference_month?: string
+  reference_prev_month?: string
 }
 
 type OptionItem = { value: string; label: string }
@@ -29,7 +46,7 @@ function clampPercent(value: number) {
   return number
 }
 
-function getOrderInGrowth(item: QuadrantItem) {
+function getOrderInGrowth(item: { order_in_growth_percent?: number; order_in_percent?: number }) {
   const raw = Number(item.order_in_growth_percent ?? item.order_in_percent ?? 0)
   return Number.isFinite(raw) ? raw : 0
 }
@@ -77,7 +94,16 @@ function quadrantColor(value: number) {
   }
 }
 
-function buildAnalysisText(item: QuadrantItem) {
+function buildAnalysisText(item: {
+  order_in_growth_percent?: number
+  order_in_percent?: number
+  total_orders?: number
+  order_in_current_total?: number
+  order_in_previous_total?: number
+  reference_month?: string
+  reference_prev_month?: string
+  credit_capability?: number
+}) {
   const growth = getOrderInGrowth(item)
   const growthText = `${growth >= 0 ? '+' : ''}${growth.toFixed(2)}%`
   const currentTotal = Number(item.order_in_current_total ?? item.total_orders ?? 0)
@@ -86,6 +112,14 @@ function buildAnalysisText(item: QuadrantItem) {
   const referencePrevMonth = String(item.reference_prev_month || '-')
 
   return `Order In ${currentTotal.toLocaleString('id-ID')} unit (${referenceMonth}) vs ${previousTotal.toLocaleString('id-ID')} unit (${referencePrevMonth}), growth ${growthText}, credit capability ${Number(item.credit_capability || 0).toFixed(2)}%.`
+}
+
+function pctChange(current: number, previous: number) {
+  if (previous === 0) {
+    if (current === 0) return 0
+    return 100
+  }
+  return ((current - previous) / previous) * 100
 }
 
 export default function QuadrantsPage() {
@@ -268,15 +302,100 @@ export default function QuadrantsPage() {
     }
   }, [filter.regency, regencyOptions])
 
-  const filtered = useMemo(() => {
+  const filteredAreaRows = useMemo(() => {
     const needle = filter.search.trim().toLowerCase()
     return items.filter((item) => {
       if (filter.province && item.province !== filter.province) return false
       if (filter.regency && item.regency !== filter.regency) return false
-      if (needle && !`${displayProvince(item.province)} ${displayRegency(item.province, item.regency)}`.toLowerCase().includes(needle)) return false
+      if (needle) {
+        const haystack = `${displayProvince(item.province)} ${displayRegency(item.province, item.regency)} ${String(item.job_name || '').trim()}`.toLowerCase()
+        if (!haystack.includes(needle)) return false
+      }
       return true
     })
   }, [items, filter, provinceNameMap, provinceCodeMap, regencyNameMap])
+
+  const filtered = useMemo<QuadrantJobPoint[]>(() => {
+    const map = new Map<string, {
+      job_id: string
+      job_name: string
+      current_total: number
+      previous_total: number
+      capability_weighted_sum: number
+      weight_total: number
+      area_keys: Set<string>
+      reference_month?: string
+      reference_prev_month?: string
+    }>()
+
+    for (const row of filteredAreaRows) {
+      const jobID = String(row.job_id || '').trim()
+      const jobName = String(row.job_name || row.job_id || '').trim()
+      if (!jobID && !jobName) continue
+
+      const key = (jobID || jobName).toLowerCase()
+      const currentTotal = Number(row.order_in_current_total ?? row.total_orders ?? 0)
+      const previousTotal = Number(row.order_in_previous_total ?? 0)
+      const capability = Number(row.credit_capability || 0)
+      const weight = Math.max(currentTotal + previousTotal, 1)
+      const areaKey = `${String(row.province || '').trim().toLowerCase()}|${String(row.regency || '').trim().toLowerCase()}`
+
+      if (!map.has(key)) {
+        map.set(key, {
+          job_id: jobID,
+          job_name: jobName || jobID,
+          current_total: 0,
+          previous_total: 0,
+          capability_weighted_sum: 0,
+          weight_total: 0,
+          area_keys: new Set<string>(),
+          reference_month: row.reference_month,
+          reference_prev_month: row.reference_prev_month,
+        })
+      }
+      const entry = map.get(key)!
+      entry.current_total += currentTotal
+      entry.previous_total += previousTotal
+      entry.capability_weighted_sum += capability * weight
+      entry.weight_total += weight
+      if (areaKey !== '|') entry.area_keys.add(areaKey)
+      if (!entry.reference_month && row.reference_month) entry.reference_month = row.reference_month
+      if (!entry.reference_prev_month && row.reference_prev_month) entry.reference_prev_month = row.reference_prev_month
+    }
+
+    const result: QuadrantJobPoint[] = []
+    map.forEach((entry, key) => {
+      const capability = entry.weight_total > 0 ? entry.capability_weighted_sum / entry.weight_total : 0
+      const growth = pctChange(entry.current_total, entry.previous_total)
+      let quadrant = 2
+      if (growth >= 0 && capability >= 35) quadrant = 3
+      else if (growth >= 0 && capability < 35) quadrant = 1
+      else if (growth < 0 && capability >= 35) quadrant = 4
+      else quadrant = 2
+
+      result.push({
+        id: key,
+        job_id: entry.job_id,
+        job_name: entry.job_name || entry.job_id || '-',
+        total_orders: entry.current_total,
+        order_in_growth_percent: growth,
+        order_in_current_total: entry.current_total,
+        order_in_previous_total: entry.previous_total,
+        credit_capability: capability,
+        quadrant,
+        area_count: entry.area_keys.size,
+        reference_month: entry.reference_month,
+        reference_prev_month: entry.reference_prev_month,
+      })
+    })
+
+    result.sort((a, b) => {
+      if (a.order_in_growth_percent !== b.order_in_growth_percent) return b.order_in_growth_percent - a.order_in_growth_percent
+      if (a.credit_capability !== b.credit_capability) return b.credit_capability - a.credit_capability
+      return a.job_name.localeCompare(b.job_name)
+    })
+    return result
+  }, [filteredAreaRows])
 
   useEffect(() => {
     setPage(1)
@@ -332,9 +451,9 @@ export default function QuadrantsPage() {
     const xSplit = crisp(toX(splitXPercent))
     const ySplit = crisp(toY(splitYGrowthPercent))
 
-    const points = filtered.map((item, idx) => {
+    const points = filtered.map((item) => {
       const xRaw = clampPercent(item.credit_capability)
-      const yRaw = getOrderInGrowth(item)
+      const yRaw = Number(item.order_in_growth_percent || 0)
 
       let x = toX(xRaw)
       let y = toY(yRaw)
@@ -350,11 +469,12 @@ export default function QuadrantsPage() {
       }
 
       return {
-        id: `${item.province || ''}-${item.regency || ''}-${idx}`,
-        areaLabel: displayRegency(item.province, item.regency),
-        provinceLabel: displayProvince(item.province),
-        regencyLabel: displayRegency(item.province, item.regency),
+        id: item.id,
+        jobID: item.job_id,
+        jobName: item.job_name || item.job_id || '-',
         totalOrders: Number(item.order_in_current_total ?? item.total_orders ?? 0),
+        previousOrders: Number(item.order_in_previous_total ?? 0),
+        areaCount: Number(item.area_count || 0),
         x,
         y,
         quadrant: item.quadrant,
@@ -394,7 +514,7 @@ export default function QuadrantsPage() {
     const offsetX = 12
     const offsetY = -12
     const width = isMobile ? 240 : 290
-    const height = 70
+    const height = 88
     const x = Math.min(Math.max(activePoint.x + offsetX, chart.left + 4), chart.right - width - 4)
     const y = Math.min(Math.max(activePoint.y + offsetY, chart.top + 4), chart.bottom - height - 4)
     return { x, y, width, height }
@@ -423,7 +543,7 @@ export default function QuadrantsPage() {
         <div className="card">
           <h3>Quadrant Flow</h3>
           <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            Area-based points. Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
+            Job-based points (aggregated by selected area filter). Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
           </div>
 
           <div
@@ -466,11 +586,11 @@ export default function QuadrantsPage() {
             </div>
 
             <div>
-              <label>Search Area</label>
+              <label>Search Job/Area</label>
               <input
                 value={filter.search}
                 onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))}
-                placeholder="Search province / regency"
+                placeholder="Search job / province / regency"
               />
             </div>
           </div>
@@ -633,13 +753,16 @@ export default function QuadrantsPage() {
                 <g pointerEvents="none">
                   <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={6} fill="#0f172a" opacity={0.94} />
                   <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={isMobile ? 11 : 12} fill="#fff" fontWeight={700}>
-                    {`${activePoint.provinceLabel} - ${activePoint.regencyLabel}`}
+                    {`${activePoint.jobName}`}
                   </text>
                   <text x={tooltip.x + 10} y={tooltip.y + 40} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
                     {`Total Order In: ${Number(activePoint.totalOrders || 0).toLocaleString('id-ID')}`}
                   </text>
                   <text x={tooltip.x + 10} y={tooltip.y + 56} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
                     {`Order In Growth: ${activePoint.orderInGrowthPercent >= 0 ? '+' : ''}${activePoint.orderInGrowthPercent.toFixed(2)}%`}
+                  </text>
+                  <text x={tooltip.x + 10} y={tooltip.y + 72} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
+                    {`Coverage Area: ${Number(activePoint.areaCount || 0)}`}
                   </text>
                 </g>
               )}
@@ -648,12 +771,12 @@ export default function QuadrantsPage() {
         </div>
 
         <div className="card">
-          <h3>Area Points</h3>
+          <h3>Job Points</h3>
           <table className="table" style={{ marginTop: 10 }}>
             <thead>
               <tr>
-                <th>Province</th>
-                <th>Regency/City</th>
+                <th>Job</th>
+                <th>Coverage Area</th>
                 <th>Total Order In</th>
                 <th>Order In Growth %</th>
                 <th>Credit Capability %</th>
@@ -663,9 +786,9 @@ export default function QuadrantsPage() {
             </thead>
             <tbody>
               {paged.map((row, idx) => (
-                <tr key={`${row.province}-${row.regency}-${idx}`}>
-                  <td>{displayProvince(row.province)}</td>
-                  <td>{displayRegency(row.province, row.regency)}</td>
+                <tr key={`${row.job_id || row.job_name}-${idx}`}>
+                  <td>{row.job_name || '-'}</td>
+                  <td>{Number(row.area_count || 0)}</td>
                   <td>{Number(row.order_in_current_total ?? row.total_orders ?? 0).toLocaleString('id-ID')}</td>
                   <td>{`${getOrderInGrowth(row) >= 0 ? '+' : ''}${getOrderInGrowth(row).toFixed(2)}%`}</td>
                   <td>{row.credit_capability.toFixed(2)}%</td>
