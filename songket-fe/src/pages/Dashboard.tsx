@@ -170,6 +170,52 @@ const emptySummary: DashboardSummary = {
   dp_range: [],
 }
 
+function buildAnchorDateByAnalysis(
+  analysis: DashboardAnalysis,
+  yearRaw: string,
+  monthRaw: string,
+  currentDateRaw: string,
+) {
+  const base = dayjs(currentDateRaw || todayStr)
+  const baseDay = base.date()
+  const safeYear = Number(yearRaw) > 0 ? Number(yearRaw) : base.year()
+  const safeMonth = Number(monthRaw) >= 1 && Number(monthRaw) <= 12 ? Number(monthRaw) : base.month() + 1
+
+  if (analysis === 'monthly') {
+    let next = dayjs(`${safeYear}-${String(safeMonth).padStart(2, '0')}-01`)
+    const nextDay = Math.min(baseDay, next.daysInMonth())
+    next = next.date(nextDay)
+    return next.format('YYYY-MM-DD')
+  }
+
+  if (analysis === 'yearly') {
+    let next = dayjs(`${safeYear}-${String(base.month() + 1).padStart(2, '0')}-01`)
+    const nextDay = Math.min(baseDay, next.daysInMonth())
+    next = next.date(nextDay)
+    return next.format('YYYY-MM-DD')
+  }
+
+  return base.format('YYYY-MM-DD')
+}
+
+function resolveGrowthNoteLabel(analysisRaw: string) {
+  const analysis = String(analysisRaw || '').toLowerCase()
+  if (analysis === 'daily') return 'D vs D-1'
+  if (analysis === 'monthly') return 'M vs M-1'
+  if (analysis === 'yearly') return 'YTD vs YTD-1'
+  return 'C vs C-1'
+}
+
+function resolveSnapshotPeriodLabel(analysisRaw: string, rowType: OrderDecisionSnapshotItem['row_type'], index: number) {
+  if (rowType === 'growth') return 'Growth'
+  const analysis = String(analysisRaw || '').toLowerCase()
+  const previousLabel = analysis === 'daily' ? 'D-1' : analysis === 'monthly' ? 'M-1' : analysis === 'yearly' ? 'YTD-1' : 'C-1'
+  const currentLabel = analysis === 'daily' ? 'D' : analysis === 'monthly' ? 'M' : analysis === 'yearly' ? 'YTD' : 'C'
+  if (index === 0) return previousLabel
+  if (index === 1) return currentLabel
+  return `Period ${index + 1}`
+}
+
 export default function DashboardPage() {
   const [filtersInput, setFiltersInput] = useState<DashboardFilters>(defaultFilters)
   const [filtersApplied, setFiltersApplied] = useState<DashboardFilters>(defaultFilters)
@@ -239,9 +285,11 @@ export default function DashboardPage() {
     params.analysis = filtersApplied.analysis
     if (filtersApplied.analysis === 'yearly') {
       if (filtersApplied.year) params.year = Number(filtersApplied.year)
+      if (filtersApplied.date) params.date = filtersApplied.date
     } else if (filtersApplied.analysis === 'monthly') {
       if (filtersApplied.year) params.year = Number(filtersApplied.year)
       if (filtersApplied.month) params.month = Number(filtersApplied.month)
+      if (filtersApplied.date) params.date = filtersApplied.date
     } else if (filtersApplied.analysis === 'daily') {
       if (filtersApplied.date) params.date = filtersApplied.date
     } else if (filtersApplied.analysis === 'custom') {
@@ -360,6 +408,11 @@ export default function DashboardPage() {
       summary.daily_finance_reject,
       summary.daily_retail_sales,
     ],
+  )
+
+  const growthNote = useMemo(
+    () => resolveGrowthNoteLabel(summary.analysis_applied || filtersApplied.analysis),
+    [summary.analysis_applied, filtersApplied.analysis],
   )
 
   const activeNewsItem = latestNews[activeNewsIndex] || null
@@ -485,7 +538,12 @@ export default function DashboardPage() {
                     analysis: nextAnalysis,
                     year: prev.year || String(now.year()),
                     month: prev.month || String(now.month() + 1),
-                    date: prev.date || now.format('YYYY-MM-DD'),
+                    date: buildAnchorDateByAnalysis(
+                      nextAnalysis,
+                      prev.year || String(now.year()),
+                      prev.month || String(now.month() + 1),
+                      prev.date || now.format('YYYY-MM-DD'),
+                    ),
                     from: prev.from || now.format('YYYY-MM-DD'),
                     to: prev.to || now.format('YYYY-MM-DD'),
                   }))
@@ -501,7 +559,19 @@ export default function DashboardPage() {
             {(filtersInput.analysis === 'yearly' || filtersInput.analysis === 'monthly') && (
               <div>
                 <label>Tahun</label>
-                <select value={filtersInput.year} onChange={(e) => setFiltersInput((prev) => ({ ...prev, year: e.target.value }))}>
+                <select
+                  value={filtersInput.year}
+                  onChange={(e) =>
+                    setFiltersInput((prev) => {
+                      const nextYear = e.target.value
+                      return {
+                        ...prev,
+                        year: nextYear,
+                        date: buildAnchorDateByAnalysis(prev.analysis, nextYear, prev.month, prev.date),
+                      }
+                    })
+                  }
+                >
                   {yearOptions.map((year) => (
                     <option key={year} value={year}>
                       {year}
@@ -514,13 +584,41 @@ export default function DashboardPage() {
             {filtersInput.analysis === 'monthly' && (
               <div>
                 <label>Bulan</label>
-                <select value={filtersInput.month} onChange={(e) => setFiltersInput((prev) => ({ ...prev, month: e.target.value }))}>
+                <select
+                  value={filtersInput.month}
+                  onChange={(e) =>
+                    setFiltersInput((prev) => {
+                      const nextMonth = e.target.value
+                      return {
+                        ...prev,
+                        month: nextMonth,
+                        date: buildAnchorDateByAnalysis(prev.analysis, prev.year, nextMonth, prev.date),
+                      }
+                    })
+                  }
+                >
                   {Array.from({ length: 12 }, (_, idx) => (
                     <option key={idx + 1} value={String(idx + 1)}>
                       {String(idx + 1).padStart(2, '0')}
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {(filtersInput.analysis === 'yearly' || filtersInput.analysis === 'monthly') && (
+              <div>
+                <label>Reference Date</label>
+                <input
+                  type="date"
+                  value={filtersInput.date}
+                  onChange={(e) =>
+                    setFiltersInput((prev) => ({
+                      ...prev,
+                      date: buildAnchorDateByAnalysis(prev.analysis, prev.year, prev.month, e.target.value),
+                    }))
+                  }
+                />
               </div>
             )}
 
@@ -599,11 +697,7 @@ export default function DashboardPage() {
           <KpiCard
             label="Growth"
             value={`${summary.growth_percent >= 0 ? '+' : ''}${summary.growth_percent.toFixed(2)}%`}
-            note={
-              summary.growth_month && summary.growth_prev_month
-                ? `${summary.growth_month} vs ${summary.growth_prev_month}`
-                : 'Avg daily M vs M-1'
-            }
+            note={growthNote}
             valueColor={summary.growth_percent >= 0 ? '#166534' : '#b91c1c'}
           />
         </div>
@@ -677,7 +771,7 @@ export default function DashboardPage() {
                 )}
                 {summary.order_decision_snapshot.map((row, idx) => {
                   const isGrowth = row.row_type === 'growth'
-                  const periodLabel = isGrowth ? 'Growth' : idx === 0 ? 'YTD-1' : idx === 1 ? 'YTD' : `Period ${idx + 1}`
+                  const periodLabel = resolveSnapshotPeriodLabel(summary.analysis_applied || filtersApplied.analysis, row.row_type, idx)
                   return (
                     <tr key={`decision-row-${row.label}-${idx}`}>
                       <td data-label="Periode" style={{ fontWeight: 700 }}>

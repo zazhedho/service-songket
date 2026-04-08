@@ -1005,11 +1005,26 @@ func formatDashboardDateRangeLabel(from, to time.Time) string {
 	return fmt.Sprintf("%s s/d %s", fromLabel, toLabel)
 }
 
+func clampDashboardDay(year int, month time.Month, day int) int {
+	if day < 1 {
+		day = 1
+	}
+	lastDay := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	if day > lastDay {
+		return lastDay
+	}
+	return day
+}
+
 func resolveDashboardPeriodWindow(req DashboardSummaryQuery, fallback time.Time) dashboardPeriodWindow {
 	if fallback.IsZero() {
 		fallback = time.Now()
 	}
 	referenceDate := time.Date(fallback.Year(), fallback.Month(), fallback.Day(), 0, 0, 0, 0, time.UTC)
+	anchorDate := referenceDate
+	if parsedDate, ok := parseDashboardDate(req.Date); ok {
+		anchorDate = parsedDate
+	}
 	analysis := normalizeDashboardAnalysis(req)
 	window := dashboardPeriodWindow{Analysis: analysis}
 
@@ -1019,12 +1034,15 @@ func resolveDashboardPeriodWindow(req DashboardSummaryQuery, fallback time.Time)
 		if targetYear <= 0 {
 			targetYear = referenceDate.Year()
 		}
+		currentToDay := clampDashboardDay(targetYear, anchorDate.Month(), anchorDate.Day())
+		prevYear := targetYear - 1
+		previousToDay := clampDashboardDay(prevYear, anchorDate.Month(), anchorDate.Day())
 		window.CurrentFrom = time.Date(targetYear, 1, 1, 0, 0, 0, 0, time.UTC)
-		window.CurrentTo = time.Date(targetYear, 12, 31, 0, 0, 0, 0, time.UTC)
-		window.PreviousFrom = time.Date(targetYear-1, 1, 1, 0, 0, 0, 0, time.UTC)
-		window.PreviousTo = time.Date(targetYear-1, 12, 31, 0, 0, 0, 0, time.UTC)
-		window.CurrentLabel = fmt.Sprintf("%04d", targetYear)
-		window.PreviousLabel = fmt.Sprintf("%04d", targetYear-1)
+		window.CurrentTo = time.Date(targetYear, anchorDate.Month(), currentToDay, 0, 0, 0, 0, time.UTC)
+		window.PreviousFrom = time.Date(prevYear, 1, 1, 0, 0, 0, 0, time.UTC)
+		window.PreviousTo = time.Date(prevYear, anchorDate.Month(), previousToDay, 0, 0, 0, 0, time.UTC)
+		window.CurrentLabel = "YTD"
+		window.PreviousLabel = "YTD-1"
 	case "monthly":
 		targetYear := req.Year
 		if targetYear <= 0 {
@@ -1034,12 +1052,15 @@ func resolveDashboardPeriodWindow(req DashboardSummaryQuery, fallback time.Time)
 		if targetMonth < 1 || targetMonth > 12 {
 			targetMonth = int(referenceDate.Month())
 		}
+		currentToDay := clampDashboardDay(targetYear, time.Month(targetMonth), anchorDate.Day())
+		prevYear, prevMonth := previousYearMonth(targetYear, targetMonth)
+		previousToDay := clampDashboardDay(prevYear, time.Month(prevMonth), anchorDate.Day())
 		window.CurrentFrom = time.Date(targetYear, time.Month(targetMonth), 1, 0, 0, 0, 0, time.UTC)
-		window.CurrentTo = window.CurrentFrom.AddDate(0, 1, -1)
-		window.PreviousTo = window.CurrentFrom.AddDate(0, 0, -1)
-		window.PreviousFrom = time.Date(window.PreviousTo.Year(), window.PreviousTo.Month(), 1, 0, 0, 0, 0, time.UTC)
-		window.CurrentLabel = window.CurrentFrom.Format("2006-01")
-		window.PreviousLabel = window.PreviousFrom.Format("2006-01")
+		window.CurrentTo = time.Date(targetYear, time.Month(targetMonth), currentToDay, 0, 0, 0, 0, time.UTC)
+		window.PreviousFrom = time.Date(prevYear, time.Month(prevMonth), 1, 0, 0, 0, 0, time.UTC)
+		window.PreviousTo = time.Date(prevYear, time.Month(prevMonth), previousToDay, 0, 0, 0, 0, time.UTC)
+		window.CurrentLabel = "M"
+		window.PreviousLabel = "M-1"
 	case "custom":
 		currentFrom, okFrom := parseDashboardDate(req.From)
 		currentTo, okTo := parseDashboardDate(req.To)
@@ -1555,96 +1576,6 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		})
 	}
 
-	growthQuery := s.buildDashboardSummaryBaseQuery(req, role, userID)
-	var growthRows []dashboardMonthCount
-	if err := growthQuery.
-		Select(`
-			EXTRACT(YEAR FROM o.pooling_at)::int AS year,
-			EXTRACT(MONTH FROM o.pooling_at)::int AS month,
-			COUNT(*) AS total
-		`).
-		Group("EXTRACT(YEAR FROM o.pooling_at), EXTRACT(MONTH FROM o.pooling_at)").
-		Scan(&growthRows).Error; err != nil {
-		return nil, err
-	}
-	growthMap := map[string]int64{}
-	for _, row := range growthRows {
-		if row.Year <= 0 || row.Month < 1 || row.Month > 12 {
-			continue
-		}
-		key := fmt.Sprintf("%04d-%02d", row.Year, row.Month)
-		growthMap[key] = row.Total
-	}
-
-	targetYear := 0
-	targetMonth := 0
-	if req.Year > 0 && req.Month >= 1 && req.Month <= 12 {
-		targetYear = req.Year
-		targetMonth = req.Month
-	}
-	if targetYear == 0 {
-		if dateRaw := strings.TrimSpace(req.Date); dateRaw != "" {
-			if parsed, err := time.Parse("2006-01-02", dateRaw); err == nil {
-				targetYear = parsed.Year()
-				targetMonth = int(parsed.Month())
-			}
-		}
-	}
-	if targetYear == 0 {
-		if toRaw := strings.TrimSpace(req.To); toRaw != "" {
-			if parsed, err := time.Parse("2006-01-02", toRaw); err == nil {
-				targetYear = parsed.Year()
-				targetMonth = int(parsed.Month())
-			}
-		}
-	}
-	if targetYear == 0 && len(monthlyKeys) > 0 {
-		if year, month, ok := parseYearMonthKey(monthlyKeys[len(monthlyKeys)-1]); ok {
-			targetYear = year
-			targetMonth = month
-		}
-	}
-	if targetYear == 0 && len(growthRows) > 0 {
-		latest := growthRows[0]
-		for _, row := range growthRows {
-			if row.Year > latest.Year || (row.Year == latest.Year && row.Month > latest.Month) {
-				latest = row
-			}
-		}
-		targetYear = latest.Year
-		targetMonth = latest.Month
-	}
-
-	growth := 0.0
-	avgOrderDailyM := 0.0
-	avgOrderDailyPrev := 0.0
-	avgRetailSalesDailyM := 0.0
-	growthMonthKey := ""
-	prevGrowthMonthKey := ""
-	if targetYear > 0 && targetMonth >= 1 && targetMonth <= 12 {
-		prevYear, prevMonth := previousYearMonth(targetYear, targetMonth)
-		growthMonthKey = fmt.Sprintf("%04d-%02d", targetYear, targetMonth)
-		prevGrowthMonthKey = fmt.Sprintf("%04d-%02d", prevYear, prevMonth)
-
-		currentWorkingDays := workingDaysInMonth(targetYear, targetMonth, holidaySet)
-		if currentWorkingDays <= 0 {
-			currentWorkingDays = 1
-		}
-		prevWorkingDays := workingDaysInMonth(prevYear, prevMonth, holidaySet)
-		if prevWorkingDays <= 0 {
-			prevWorkingDays = 1
-		}
-
-		currentTotal := growthMap[growthMonthKey]
-		prevTotal := growthMap[prevGrowthMonthKey]
-		avgOrderDailyM = float64(currentTotal) / float64(currentWorkingDays)
-		avgOrderDailyPrev = float64(prevTotal) / float64(prevWorkingDays)
-		avgRetailSalesDailyM = float64(monthlyRetailCounter[growthMonthKey]) / float64(currentWorkingDays)
-		if avgOrderDailyPrev > 0 {
-			growth = (avgOrderDailyM / avgOrderDailyPrev) - 1
-		}
-	}
-
 	periodWindow := resolveDashboardPeriodWindow(req, time.Now())
 	currentPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.CurrentFrom, periodWindow.CurrentTo)
 	if err != nil {
@@ -1675,6 +1606,9 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	previousAvgDailyOrderIn := float64(previousPeriodTotals.OrderIn) / previousPeriodDays
 	currentAvgDailySales := float64(currentPeriodTotals.Approve) / currentPeriodDays
 	previousAvgDailySales := float64(previousPeriodTotals.Approve) / previousPeriodDays
+	orderInGrowthPct := pctChange(float64(currentPeriodTotals.OrderIn), float64(previousPeriodTotals.OrderIn))
+	avgDailyOrderInGrowthPct := pctChange(currentAvgDailyOrderIn, previousAvgDailyOrderIn)
+	avgDailySalesGrowthPct := pctChange(currentAvgDailySales, previousAvgDailySales)
 
 	orderDecisionSnapshot := []map[string]interface{}{
 		{
@@ -1702,11 +1636,11 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		{
 			"label":                "Growth",
 			"row_type":             "growth",
-			"order_in":             pctChange(float64(currentPeriodTotals.OrderIn), float64(previousPeriodTotals.OrderIn)),
+			"order_in":             orderInGrowthPct,
 			"approve":              pctChange(float64(currentPeriodTotals.Approve), float64(previousPeriodTotals.Approve)),
 			"reject":               pctChange(float64(currentPeriodTotals.Reject), float64(previousPeriodTotals.Reject)),
-			"avg_daily_order_in":   pctChange(currentAvgDailyOrderIn, previousAvgDailyOrderIn),
-			"avg_daily_sales":      pctChange(currentAvgDailySales, previousAvgDailySales),
+			"avg_daily_order_in":   avgDailyOrderInGrowthPct,
+			"avg_daily_sales":      avgDailySalesGrowthPct,
 			"approve_rate_percent": pctChange(currentApproveRate*100, previousApproveRate*100),
 			"reject_rate_percent":  pctChange(currentRejectRate*100, previousRejectRate*100),
 		},
@@ -1718,13 +1652,13 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		"approval_rate":                     approvalRate,
 		"lead_time_avg_seconds":             leadAvgSeconds,
 		"lead_time_avg_hours":               leadAvgSeconds / 3600,
-		"growth":                            growth,
-		"growth_percent":                    growth * 100,
-		"growth_month":                      growthMonthKey,
-		"growth_prev_month":                 prevGrowthMonthKey,
-		"avg_order_in_daily_m":              avgOrderDailyM,
-		"avg_order_in_daily_prev_m":         avgOrderDailyPrev,
-		"avg_retail_sales_daily_m":          avgRetailSalesDailyM,
+		"growth":                            orderInGrowthPct / 100,
+		"growth_percent":                    orderInGrowthPct,
+		"growth_month":                      periodWindow.CurrentLabel,
+		"growth_prev_month":                 periodWindow.PreviousLabel,
+		"avg_order_in_daily_m":              currentAvgDailyOrderIn,
+		"avg_order_in_daily_prev_m":         previousAvgDailyOrderIn,
+		"avg_retail_sales_daily_m":          currentAvgDailySales,
 		"daily_order_in":                    dailySeries,
 		"daily_retail_sales":                dailyRetailSeries,
 		"daily_finance_reject":              dailyFinanceRejectSeries,
@@ -3818,7 +3752,7 @@ func (s *Service) CreditCapabilitySummary(orderThreshold int64) ([]CreditSummary
 // QuadrantFlowSummary computes quadrant points with fixed thresholds:
 // - Order In growth threshold (vs previous month): 0%
 // - Credit Capability threshold: 35%
-func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
+func (s *Service) QuadrantSummaryFlow(selectedYear, selectedMonth int) ([]QuadrantFlowSummary, error) {
 	const orderGrowthThresholdPct = 0.0
 	const creditThresholdPct = 35.0
 
@@ -3838,7 +3772,7 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		Select(`
 			COALESCE(NULLIF(TRIM(o.province), ''), '') AS province,
 			COALESCE(NULLIF(TRIM(o.regency), ''), '') AS regency,
-			COALESCE(o.job_id, '') AS job_id,
+			COALESCE(o.job_id::text, '') AS job_id,
 			COALESCE(NULLIF(TRIM(j.name), ''), '') AS job_name,
 			EXTRACT(YEAR FROM o.pooling_at)::int AS year,
 			EXTRACT(MONTH FROM o.pooling_at)::int AS month,
@@ -3847,12 +3781,11 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("o.pooling_at IS NOT NULL").
-		Where("NULLIF(TRIM(COALESCE(o.job_id::text, '')), '') IS NOT NULL").
 		Where("NULLIF(TRIM(o.regency), '') IS NOT NULL").
 		Group(`
 			COALESCE(NULLIF(TRIM(o.province), ''), ''),
 			COALESCE(NULLIF(TRIM(o.regency), ''), ''),
-			COALESCE(o.job_id, ''),
+			COALESCE(o.job_id::text, ''),
 			COALESCE(NULLIF(TRIM(j.name), ''), ''),
 			EXTRACT(YEAR FROM o.pooling_at),
 			EXTRACT(MONTH FROM o.pooling_at)
@@ -3864,15 +3797,33 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 	latestMonthKey := 0
 	latestYear := 0
 	latestMonth := 0
-	for _, row := range orderRows {
-		if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
-			continue
+	if selectedYear > 0 && selectedMonth >= 1 && selectedMonth <= 12 {
+		latestYear = selectedYear
+		latestMonth = selectedMonth
+		latestMonthKey = selectedYear*100 + selectedMonth
+	} else if selectedYear > 0 {
+		for _, row := range orderRows {
+			if row.Year != selectedYear || row.Month <= 0 || row.Month > 12 {
+				continue
+			}
+			monthKey := row.Year*100 + row.Month
+			if monthKey > latestMonthKey {
+				latestMonthKey = monthKey
+				latestYear = row.Year
+				latestMonth = row.Month
+			}
 		}
-		monthKey := row.Year*100 + row.Month
-		if monthKey > latestMonthKey {
-			latestMonthKey = monthKey
-			latestYear = row.Year
-			latestMonth = row.Month
+	} else {
+		for _, row := range orderRows {
+			if row.Year <= 0 || row.Month <= 0 || row.Month > 12 {
+				continue
+			}
+			monthKey := row.Year*100 + row.Month
+			if monthKey > latestMonthKey {
+				latestMonthKey = monthKey
+				latestYear = row.Year
+				latestMonth = row.Month
+			}
 		}
 	}
 	if latestMonthKey == 0 {
@@ -3898,8 +3849,8 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 	normalize := func(value string) string {
 		return strings.ToLower(strings.TrimSpace(value))
 	}
-	makeAreaJobKey := func(province, regency, jobID string) string {
-		return normalize(province) + "|" + normalize(regency) + "|" + normalize(jobID)
+	makeAreaJobKey := func(province, regency, jobToken string) string {
+		return normalize(province) + "|" + normalize(regency) + "|" + normalize(jobToken)
 	}
 
 	ordersByAreaJob := map[string]*areaJobOrderAggregate{}
@@ -3908,24 +3859,25 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 			continue
 		}
 		jobID := strings.TrimSpace(row.JobID)
-		if jobID == "" {
-			continue
+		jobName := strings.TrimSpace(row.JobName)
+		if jobName == "" {
+			jobName = "-"
+		}
+		jobToken := jobID
+		if jobToken == "" {
+			jobToken = "__name__:" + normalize(jobName)
 		}
 		isCurrentMonth := row.Year == latestYear && row.Month == latestMonth
 		isPreviousMonth := row.Year == previousYear && row.Month == previousMonth
 		if !isCurrentMonth && !isPreviousMonth {
 			continue
 		}
-		key := makeAreaJobKey(row.Province, row.Regency, jobID)
+		key := makeAreaJobKey(row.Province, row.Regency, jobToken)
 		if key == "||" {
 			continue
 		}
 		item, exists := ordersByAreaJob[key]
 		if !exists {
-			jobName := strings.TrimSpace(row.JobName)
-			if jobName == "" {
-				jobName = jobID
-			}
 			item = &areaJobOrderAggregate{
 				Province: row.Province,
 				Regency:  row.Regency,
@@ -4010,10 +3962,12 @@ func (s *Service) QuadrantSummaryFlow() ([]QuadrantFlowSummary, error) {
 
 		orderGrowthPct := pctChange(float64(areaOrders.CurrentTotal), float64(areaOrders.PreviousTotal))
 		capabilityPct := 0.0
-		if value, exists := capabilityByAreaJob[makeCapabilityKey(areaOrders.Province, areaOrders.Regency, areaOrders.JobID)]; exists {
-			capabilityPct = value
-		} else if value, exists := capabilityByAreaJob[makeCapabilityKey("", areaOrders.Regency, areaOrders.JobID)]; exists {
-			capabilityPct = value
+		if strings.TrimSpace(areaOrders.JobID) != "" {
+			if value, exists := capabilityByAreaJob[makeCapabilityKey(areaOrders.Province, areaOrders.Regency, areaOrders.JobID)]; exists {
+				capabilityPct = value
+			} else if value, exists := capabilityByAreaJob[makeCapabilityKey("", areaOrders.Regency, areaOrders.JobID)]; exists {
+				capabilityPct = value
+			}
 		}
 
 		quadrant := 2

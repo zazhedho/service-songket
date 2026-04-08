@@ -81,14 +81,6 @@ type MotorOption = {
   motor_type_name: string
 }
 
-type AreaJobRow = {
-  area_key: string
-  area_name: string
-  job_id: string
-  job_name: string
-  cells_by_motor: Record<string, WorksheetCell>
-}
-
 type MatrixDisplayRow = {
   area_key: string
   area_name: string
@@ -270,7 +262,7 @@ export default function CreditPage() {
   }, [selectedJobId, selectedAreaKey, selectedMotorTypeId, timeFrom, timeTo])
 
   const filteredRows = useMemo(() => {
-    const out: AreaJobRow[] = []
+    const out: MatrixDisplayRow[] = []
     for (const area of areas) {
       if (selectedAreaKey && area.area_key !== selectedAreaKey) continue
 
@@ -279,62 +271,33 @@ export default function CreditPage() {
         const jobID = String(matrixRow?.job_id || '').trim()
         if (selectedJobId && jobID !== selectedJobId) continue
 
-        const cellsByMotor: Record<string, WorksheetCell> = {}
         for (const cell of matrixRow.cells || []) {
-          if (!cell?.motor_type_id) continue
-          cellsByMotor[cell.motor_type_id] = cell
+          const motorID = String(cell?.motor_type_id || '').trim()
+          if (!motorID) continue
+          if (selectedMotorTypeId && motorID !== selectedMotorTypeId) continue
+
+          out.push({
+            area_key: area.area_key,
+            area_name: areaName,
+            job_id: jobID,
+            job_name: matrixRow?.job_name || jobID || '-',
+            motor_type_id: motorID,
+            motor_type_name: String(cell?.motor_type_name || motorID).trim(),
+            cell,
+          })
         }
-
-        out.push({
-          area_key: area.area_key,
-          area_name: areaName,
-          job_id: jobID,
-          job_name: matrixRow?.job_name || jobID || '-',
-          cells_by_motor: cellsByMotor,
-        })
       }
     }
+
+    out.sort((a, b) => {
+      if (a.area_name !== b.area_name) return a.area_name.localeCompare(b.area_name)
+      if (a.job_name !== b.job_name) return a.job_name.localeCompare(b.job_name)
+      return a.motor_type_name.localeCompare(b.motor_type_name)
+    })
     return out
-  }, [areas, selectedAreaKey, selectedJobId])
+  }, [areas, selectedAreaKey, selectedJobId, selectedMotorTypeId])
 
-  const motorColumns = useMemo(() => {
-    const map = new Map<string, MotorOption>()
-    for (const area of filteredRows) {
-      for (const cell of Object.values(area.cells_by_motor)) {
-        if (!cell?.motor_type_id || map.has(cell.motor_type_id)) continue
-        map.set(cell.motor_type_id, {
-          motor_type_id: cell.motor_type_id,
-          motor_type_name: cell.motor_type_name || cell.motor_type_id,
-        })
-      }
-    }
-    const all = Array.from(map.values()).sort((a, b) => a.motor_type_name.localeCompare(b.motor_type_name))
-    if (!selectedMotorTypeId) return all
-    return all.filter((item) => item.motor_type_id === selectedMotorTypeId)
-  }, [filteredRows, selectedMotorTypeId])
-
-  const displayRows = useMemo(() => {
-    const motors = motorColumns.length > 0 ? motorColumns : [{ motor_type_id: '', motor_type_name: '-' }]
-    const rows: MatrixDisplayRow[] = []
-
-    for (const row of filteredRows) {
-      for (const motor of motors) {
-        rows.push({
-          area_key: row.area_key,
-          area_name: row.area_name,
-          job_id: row.job_id,
-          job_name: row.job_name,
-          motor_type_id: motor.motor_type_id,
-          motor_type_name: motor.motor_type_name,
-          cell: motor.motor_type_id ? row.cells_by_motor[motor.motor_type_id] : undefined,
-        })
-      }
-    }
-
-    return rows
-  }, [filteredRows, motorColumns])
-
-  const matrixPagination = useMemo(() => paginate(displayRows, page, limit), [displayRows, page, limit])
+  const matrixPagination = useMemo(() => paginate(filteredRows, page, limit), [filteredRows, page, limit])
   useEffect(() => setPage(matrixPagination.safePage), [matrixPagination.safePage])
 
   const formatNumber = (value: number) =>

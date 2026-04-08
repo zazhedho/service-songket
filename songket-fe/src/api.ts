@@ -120,7 +120,7 @@ export const upsertCredit = (body: Record<string, unknown>) => api.post('/api/so
 
 export const recomputeQuadrant = (body: Record<string, unknown>) => api.post('/api/songket/quadrants/recompute', body)
 export const fetchQuadrants = (params?: Record<string, unknown>) => api.get('/api/songket/quadrants', { params })
-export const fetchQuadrantSummary = () => api.get('/api/songket/quadrants/summary')
+export const fetchQuadrantSummary = (params?: Record<string, unknown>) => api.get('/api/songket/quadrants/summary', { params })
 
 export const getMe = () => api.get('/api/user')
 export const updateMe = (body: Record<string, unknown>) => api.put('/api/user', body)
