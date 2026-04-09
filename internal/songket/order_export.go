@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"starter-kit/internal/master"
 	"starter-kit/utils"
 
 	"github.com/oviekshgya/shago-lib/excel"
@@ -191,7 +192,7 @@ func (s *Service) runOrderExport(jobID string, req OrderExportRequest, role, use
 		job.TotalRows = len(orders)
 	})
 
-	columns, rows := mapOrdersToExportRows(orders)
+	columns, rows := s.mapOrdersToExportRows(orders)
 	if err := os.MkdirAll(orderExportStorageDir, 0o755); err != nil {
 		mutateOrderExportJob(jobID, func(job *OrderExportJob) {
 			job.Status = orderExportStatusFailed
@@ -323,7 +324,7 @@ func (s *Service) listOrdersForExport(req OrderExportRequest, role, userID strin
 	return orders, nil
 }
 
-func mapOrdersToExportRows(orders []Order) ([]string, []map[string]any) {
+func (s *Service) mapOrdersToExportRows(orders []Order) ([]string, []map[string]any) {
 	columns := []string{
 		"No",
 		"Pooling Number",
@@ -359,9 +360,14 @@ func mapOrdersToExportRows(orders []Order) ([]string, []map[string]any) {
 	}
 
 	rows := make([]map[string]any, 0, len(orders))
+	locationResolver := newExportLocationResolver(s.db)
 	for idx, order := range orders {
 		attempt1, _ := findAttempt(order.Attempts, 1)
 		attempt2, _ := findAttempt(order.Attempts, 2)
+
+		provinceName := locationResolver.resolveProvinceName(order.Province)
+		regencyName := locationResolver.resolveRegencyName(order.Province, order.Regency)
+		districtName := locationResolver.resolveDistrictName(order.Province, order.Regency, order.District)
 
 		row := map[string]any{
 			"No":             idx + 1,
@@ -371,9 +377,9 @@ func mapOrdersToExportRows(orders []Order) ([]string, []map[string]any) {
 			"Dealer Name":    strings.TrimSpace(getOrderDealerName(order)),
 			"Consumer Name":  strings.TrimSpace(order.ConsumerName),
 			"Consumer Phone": strings.TrimSpace(order.ConsumerPhone),
-			"Province":       strings.TrimSpace(order.Province),
-			"Regency":        strings.TrimSpace(order.Regency),
-			"District":       strings.TrimSpace(order.District),
+			"Province":       strings.TrimSpace(provinceName),
+			"Regency":        strings.TrimSpace(regencyName),
+			"District":       strings.TrimSpace(districtName),
 			"Village":        strings.TrimSpace(order.Village),
 			"Address":        strings.TrimSpace(order.Address),
 			"Job Name":       strings.TrimSpace(getOrderJobName(order)),
@@ -406,6 +412,245 @@ func mapOrdersToExportRows(orders []Order) ([]string, []map[string]any) {
 	}
 
 	return columns, rows
+}
+
+type exportLocationResolver struct {
+	db *gorm.DB
+
+	provinceNameCache map[string]string
+	provinceCodes     map[string][]string
+	regencyNameCache  map[string]string
+	regencyCodes      map[string][]string
+	districtNameCache map[string]string
+}
+
+func newExportLocationResolver(db *gorm.DB) *exportLocationResolver {
+	return &exportLocationResolver{
+		db:                db,
+		provinceNameCache: map[string]string{},
+		provinceCodes:     map[string][]string{},
+		regencyNameCache:  map[string]string{},
+		regencyCodes:      map[string][]string{},
+		districtNameCache: map[string]string{},
+	}
+}
+
+func normalizeAreaToken(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func dedupeTokens(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, raw := range values {
+		clean := strings.TrimSpace(raw)
+		if clean == "" {
+			continue
+		}
+		key := normalizeAreaToken(clean)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, clean)
+	}
+	return out
+}
+
+func (r *exportLocationResolver) resolveProvinceCodes(provinceRaw string) []string {
+	base := strings.TrimSpace(provinceRaw)
+	cacheKey := normalizeAreaToken(base)
+	if cacheKey == "" {
+		return nil
+	}
+	if cached, ok := r.provinceCodes[cacheKey]; ok {
+		return cached
+	}
+
+	var rows []master.MasterProvince
+	if err := r.db.
+		Model(&master.MasterProvince{}).
+		Select("code", "name").
+		Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).
+		Find(&rows).Error; err != nil {
+		result := dedupeTokens([]string{base})
+		r.provinceCodes[cacheKey] = result
+		return result
+	}
+
+	result := make([]string, 0, len(rows)+1)
+	for _, row := range rows {
+		if code := strings.TrimSpace(row.Code); code != "" {
+			result = append(result, code)
+		}
+	}
+	if len(result) == 0 {
+		result = append(result, base)
+	}
+	result = dedupeTokens(result)
+	r.provinceCodes[cacheKey] = result
+	return result
+}
+
+func (r *exportLocationResolver) resolveProvinceName(provinceRaw string) string {
+	base := strings.TrimSpace(provinceRaw)
+	cacheKey := normalizeAreaToken(base)
+	if cacheKey == "" {
+		return ""
+	}
+	if cached, ok := r.provinceNameCache[cacheKey]; ok {
+		return cached
+	}
+
+	var row master.MasterProvince
+	if err := r.db.
+		Model(&master.MasterProvince{}).
+		Select("name").
+		Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).
+		First(&row).Error; err == nil {
+		name := strings.TrimSpace(row.Name)
+		if name != "" {
+			r.provinceNameCache[cacheKey] = name
+			return name
+		}
+	}
+
+	r.provinceNameCache[cacheKey] = base
+	return base
+}
+
+func (r *exportLocationResolver) resolveRegencyCodes(provinceRaw, regencyRaw string) []string {
+	provinceKey := normalizeAreaToken(provinceRaw)
+	regencyKey := normalizeAreaToken(regencyRaw)
+	cacheKey := provinceKey + "|" + regencyKey
+	if regencyKey == "" {
+		return nil
+	}
+	if cached, ok := r.regencyCodes[cacheKey]; ok {
+		return cached
+	}
+
+	provinceCodes := r.resolveProvinceCodes(provinceRaw)
+	result := []string{}
+	for _, provinceCode := range provinceCodes {
+		var rows []master.MasterRegency
+		if err := r.db.
+			Model(&master.MasterRegency{}).
+			Select("code").
+			Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).
+			Find(&rows).Error; err != nil {
+			continue
+		}
+		for _, row := range rows {
+			if code := strings.TrimSpace(row.Code); code != "" {
+				result = append(result, code)
+			}
+		}
+	}
+
+	if len(result) == 0 {
+		result = append(result, strings.TrimSpace(regencyRaw))
+	}
+	result = dedupeTokens(result)
+	r.regencyCodes[cacheKey] = result
+	return result
+}
+
+func (r *exportLocationResolver) resolveRegencyName(provinceRaw, regencyRaw string) string {
+	base := strings.TrimSpace(regencyRaw)
+	regencyKey := normalizeAreaToken(base)
+	if regencyKey == "" {
+		return ""
+	}
+	cacheKey := normalizeAreaToken(provinceRaw) + "|" + regencyKey
+	if cached, ok := r.regencyNameCache[cacheKey]; ok {
+		return cached
+	}
+
+	provinceCodes := r.resolveProvinceCodes(provinceRaw)
+	for _, provinceCode := range provinceCodes {
+		var row master.MasterRegency
+		if err := r.db.
+			Model(&master.MasterRegency{}).
+			Select("name").
+			Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).
+			First(&row).Error; err == nil {
+			name := strings.TrimSpace(row.Name)
+			if name != "" {
+				r.regencyNameCache[cacheKey] = name
+				return name
+			}
+		}
+	}
+
+	var fallback master.MasterRegency
+	if err := r.db.
+		Model(&master.MasterRegency{}).
+		Select("name").
+		Where("LOWER(code) = ? OR LOWER(name) = ?", regencyKey, regencyKey).
+		First(&fallback).Error; err == nil {
+		name := strings.TrimSpace(fallback.Name)
+		if name != "" {
+			r.regencyNameCache[cacheKey] = name
+			return name
+		}
+	}
+
+	r.regencyNameCache[cacheKey] = base
+	return base
+}
+
+func (r *exportLocationResolver) resolveDistrictName(provinceRaw, regencyRaw, districtRaw string) string {
+	base := strings.TrimSpace(districtRaw)
+	districtKey := normalizeAreaToken(base)
+	if districtKey == "" {
+		return ""
+	}
+	cacheKey := normalizeAreaToken(provinceRaw) + "|" + normalizeAreaToken(regencyRaw) + "|" + districtKey
+	if cached, ok := r.districtNameCache[cacheKey]; ok {
+		return cached
+	}
+
+	provinceCodes := r.resolveProvinceCodes(provinceRaw)
+	regencyCodes := r.resolveRegencyCodes(provinceRaw, regencyRaw)
+	for _, provinceCode := range provinceCodes {
+		for _, regencyCode := range regencyCodes {
+			var row master.MasterDistrict
+			if err := r.db.
+				Model(&master.MasterDistrict{}).
+				Select("name").
+				Where(
+					"province_code = ? AND regency_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)",
+					strings.TrimSpace(provinceCode),
+					strings.TrimSpace(regencyCode),
+					districtKey,
+					districtKey,
+				).
+				First(&row).Error; err == nil {
+				name := strings.TrimSpace(row.Name)
+				if name != "" {
+					r.districtNameCache[cacheKey] = name
+					return name
+				}
+			}
+		}
+	}
+
+	var fallback master.MasterDistrict
+	if err := r.db.
+		Model(&master.MasterDistrict{}).
+		Select("name").
+		Where("LOWER(code) = ? OR LOWER(name) = ?", districtKey, districtKey).
+		First(&fallback).Error; err == nil {
+		name := strings.TrimSpace(fallback.Name)
+		if name != "" {
+			r.districtNameCache[cacheKey] = name
+			return name
+		}
+	}
+
+	r.districtNameCache[cacheKey] = base
+	return base
 }
 
 func getOrderDealerName(order Order) string {
