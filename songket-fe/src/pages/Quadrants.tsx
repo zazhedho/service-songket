@@ -123,10 +123,15 @@ function pctChange(current: number, previous: number) {
 }
 
 export default function QuadrantsPage() {
+  const currentYear = new Date().getFullYear()
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 767 : false))
   const [items, setItems] = useState<QuadrantItem[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [activePointId, setActivePointId] = useState<string>('')
   const [filter, setFilter] = useState({ province: '', regency: '', search: '' })
+  const [selectedYear, setSelectedYear] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
@@ -136,11 +141,31 @@ export default function QuadrantsPage() {
   const [regencyNameMap, setRegencyNameMap] = useState<Record<string, string>>({})
   const fetchedKabupatenRef = useRef<Set<string>>(new Set())
 
+  const yearOptions = useMemo(() => {
+    const years: string[] = []
+    for (let year = currentYear + 1; year >= 2015; year -= 1) {
+      years.push(String(year))
+    }
+    return years
+  }, [currentYear])
+
   useEffect(() => {
-    fetchQuadrantSummary()
-      .then((res) => setItems(res.data.data || res.data || []))
-      .catch(() => setItems([]))
-  }, [])
+    const params: Record<string, unknown> = {}
+    if (selectedYear) params.year = Number(selectedYear)
+    if (selectedMonth) params.month = Number(selectedMonth)
+
+    setIsLoading(true)
+    setLoadError('')
+    fetchQuadrantSummary(params)
+      .then((res) => {
+        setItems(res.data.data || res.data || [])
+      })
+      .catch((err: any) => {
+        setItems([])
+        setLoadError(err?.response?.data?.error || err?.message || 'Failed to load quadrant data.')
+      })
+      .finally(() => setIsLoading(false))
+  }, [selectedYear, selectedMonth])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 767)
@@ -593,9 +618,67 @@ export default function QuadrantsPage() {
                 placeholder="Search job / province / regency"
               />
             </div>
+
+            <div>
+              <label>Year</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => {
+                  const nextYear = e.target.value
+                  setSelectedYear(nextYear)
+                  if (!nextYear) {
+                    setSelectedMonth('')
+                  }
+                }}
+              >
+                <option value="">Latest</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Month</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => {
+                  const nextMonth = e.target.value
+                  setSelectedMonth(nextMonth)
+                  if (nextMonth && !selectedYear) {
+                    setSelectedYear(String(currentYear))
+                  }
+                }}
+              >
+                <option value="">Latest</option>
+                {Array.from({ length: 12 }, (_, idx) => (
+                  <option key={`m-${idx + 1}`} value={String(idx + 1)}>
+                    {String(idx + 1).padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
+          {loadError && (
+            <div style={{ marginTop: 8, color: '#b91c1c', fontSize: 12 }}>
+              {loadError}
+            </div>
+          )}
+
           <div style={{ marginTop: 14 }}>
+            {isLoading && (
+              <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                Loading quadrant points...
+              </div>
+            )}
+            {!isLoading && filtered.length === 0 && (
+              <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+                No quadrant points for selected period/filter.
+              </div>
+            )}
             <svg
               viewBox={`0 0 ${chart.width} ${chart.height}`}
               width="100%"
@@ -679,7 +762,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#111827"
               >
-                order in growth
+                Order In Growth
               </text>
               <text
                 x={chart.right - 6}
@@ -689,7 +772,7 @@ export default function QuadrantsPage() {
                 fontWeight={700}
                 fill="#111827"
               >
-                credit capability
+                Credit Capability
               </text>
 
               <text

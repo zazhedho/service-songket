@@ -1372,7 +1372,36 @@ func (h *Handler) CreditWorksheet(ctx *gin.Context) {
 // GET /api/songket/quadrants/summary (order-in growth% vs credit capability)
 func (h *Handler) QuadrantSummary(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := h.svc.QuadrantSummaryFlow()
+	year := 0
+	month := 0
+	if yearRaw := strings.TrimSpace(ctx.Query("year")); yearRaw != "" {
+		parsed, err := strconv.Atoi(yearRaw)
+		if err != nil || parsed <= 0 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "year must be a valid positive number"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		year = parsed
+	}
+	if monthRaw := strings.TrimSpace(ctx.Query("month")); monthRaw != "" {
+		parsed, err := strconv.Atoi(monthRaw)
+		if err != nil || parsed < 1 || parsed > 12 {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "month must be between 1 and 12"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+		month = parsed
+	}
+	if month > 0 && year <= 0 {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "year is required when month is provided"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	data, err := h.svc.QuadrantSummaryFlow(year, month)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
