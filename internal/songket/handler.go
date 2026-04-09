@@ -323,7 +323,7 @@ func (h *Handler) Dealers(ctx *gin.Context) {
 		return
 	}
 
-	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"province", "regency", "district"})
 
 	data, total, err := h.svc.ListDealers(params)
 	if err != nil {
@@ -347,7 +347,7 @@ func (h *Handler) FinanceCompanies(ctx *gin.Context) {
 		return
 	}
 
-	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"province", "regency", "district"})
 
 	data, total, err := h.svc.ListFinanceCompanies(params)
 	if err != nil {
