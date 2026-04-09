@@ -721,6 +721,32 @@ func (s *Service) ListOrders(params filter.BaseParams, role, userId string) ([]O
 	if v, ok := params.Filters["status"]; ok {
 		query = query.Where("result_status = ?", v)
 	}
+	if v, ok := params.Filters["from_date"]; ok {
+		fromDate := strings.TrimSpace(fmt.Sprint(v))
+		if fromDate != "" {
+			query = query.Where(
+				`(
+					DATE(orders.created_at) >= ?
+					OR DATE(orders.pooling_at) >= ?
+				)`,
+				fromDate,
+				fromDate,
+			)
+		}
+	}
+	if v, ok := params.Filters["to_date"]; ok {
+		toDate := strings.TrimSpace(fmt.Sprint(v))
+		if toDate != "" {
+			query = query.Where(
+				`(
+					DATE(orders.created_at) <= ?
+					OR DATE(orders.pooling_at) <= ?
+				)`,
+				toDate,
+				toDate,
+			)
+		}
+	}
 
 	if params.Search != "" {
 		search := "%" + strings.ToLower(params.Search) + "%"
@@ -2707,13 +2733,14 @@ func (s *Service) ListDealers(params filter.BaseParams) ([]Dealer, int64, error)
 	query := s.db.Model(&Dealer{})
 
 	if v, ok := params.Filters["province"]; ok {
-		query = query.Where("province = ?", v)
+		aliases := s.resolveProvinceAliases(v)
+		query = applyStringAliasesFilter(query, "province", aliases)
 	}
 	if v, ok := params.Filters["regency"]; ok {
-		query = query.Where("regency = ?", v)
+		query = applyStringAliasesFilter(query, "regency", []string{strings.TrimSpace(fmt.Sprint(v))})
 	}
 	if v, ok := params.Filters["district"]; ok {
-		query = query.Where("district = ?", v)
+		query = applyStringAliasesFilter(query, "district", []string{strings.TrimSpace(fmt.Sprint(v))})
 	}
 
 	if params.Search != "" {
@@ -2743,13 +2770,14 @@ func (s *Service) ListFinanceCompanies(params filter.BaseParams) ([]FinanceCompa
 	query := s.db.Model(&FinanceCompany{})
 
 	if v, ok := params.Filters["province"]; ok {
-		query = query.Where("province = ?", v)
+		aliases := s.resolveProvinceAliases(v)
+		query = applyStringAliasesFilter(query, "province", aliases)
 	}
 	if v, ok := params.Filters["regency"]; ok {
-		query = query.Where("regency = ?", v)
+		query = applyStringAliasesFilter(query, "regency", []string{strings.TrimSpace(fmt.Sprint(v))})
 	}
 	if v, ok := params.Filters["district"]; ok {
-		query = query.Where("district = ?", v)
+		query = applyStringAliasesFilter(query, "district", []string{strings.TrimSpace(fmt.Sprint(v))})
 	}
 
 	if params.Search != "" {
@@ -2772,6 +2800,60 @@ func (s *Service) ListFinanceCompanies(params filter.BaseParams) ([]FinanceCompa
 	}
 
 	return companies, total, nil
+}
+
+func applyStringAliasesFilter(query *gorm.DB, column string, aliases []string) *gorm.DB {
+	cleaned := make([]string, 0, len(aliases))
+	seen := map[string]struct{}{}
+	for _, alias := range aliases {
+		normalized := strings.ToLower(strings.TrimSpace(alias))
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		cleaned = append(cleaned, normalized)
+	}
+
+	if len(cleaned) == 0 {
+		return query
+	}
+
+	if len(cleaned) == 1 {
+		return query.Where(fmt.Sprintf("LOWER(TRIM(%s)) = ?", column), cleaned[0])
+	}
+
+	return query.Where(fmt.Sprintf("LOWER(TRIM(%s)) IN ?", column), cleaned)
+}
+
+func (s *Service) resolveProvinceAliases(raw interface{}) []string {
+	base := strings.TrimSpace(fmt.Sprint(raw))
+	if base == "" {
+		return nil
+	}
+
+	aliases := []string{base}
+	var provinces []master.MasterProvince
+	if err := s.db.
+		Model(&master.MasterProvince{}).
+		Select("code", "name").
+		Where("LOWER(code) = LOWER(?) OR LOWER(name) = LOWER(?)", base, base).
+		Find(&provinces).Error; err != nil {
+		return aliases
+	}
+
+	for _, province := range provinces {
+		if code := strings.TrimSpace(province.Code); code != "" {
+			aliases = append(aliases, code)
+		}
+		if name := strings.TrimSpace(province.Name); name != "" {
+			aliases = append(aliases, name)
+		}
+	}
+
+	return aliases
 }
 
 func (s *Service) CreateDealer(req DealerRequest) (Dealer, error) {

@@ -43,3 +43,7 @@ temp/
 
 .gocache/
 .gocache-*
+
+# Generated export files
+storage/order-exports/*
+!storage/order-exports/.gitkeep

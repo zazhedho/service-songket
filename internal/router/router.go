@@ -265,6 +265,9 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/dashboard/summary", h.DashboardSummary)
 	g.POST("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "create"), h.CreateOrder)
 	g.GET("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.ListOrders)
+	g.POST("/orders/export", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.StartOrderExport)
+	g.GET("/orders/export/:id/status", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.GetOrderExportStatus)
+	g.GET("/orders/export/:id/download", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.DownloadOrderExport)
 	g.PUT("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "update"), h.UpdateOrder)
 	g.DELETE("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "delete"), h.DeleteOrder)
 

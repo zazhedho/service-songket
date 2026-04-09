@@ -4,11 +4,14 @@ import dayjs from 'dayjs'
 import {
   createOrder,
   deleteOrder,
+  downloadOrderExport,
   fetchKabupaten,
   fetchKecamatan,
   fetchLookups,
   fetchOrders,
   fetchProvinces,
+  getOrderExportStatus,
+  startOrderExport,
   updateOrder,
 } from '../api'
 import ActionMenu from '../components/ActionMenu'
@@ -87,20 +90,40 @@ export default function OrdersPage() {
   const [detailKecamatan, setDetailKecamatan] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [filters, setFilters] = useState({ search: '', status: '' })
+  const [filters, setFilters] = useState({ search: '', status: '', export_from: '', export_to: '' })
+  const [exportJob, setExportJob] = useState<{
+    id: string
+    status: string
+    progress: number
+    message: string
+    file_name?: string
+    error?: string
+  } | null>(null)
+  const [exportDownloading, setExportDownloading] = useState(false)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
   const fetchedKabupatenRef = useRef<Set<string>>(new Set())
   const fetchedKecamatanRef = useRef<Set<string>>(new Set())
+  const exportPollRef = useRef<number | null>(null)
+  const exportDownloadLockRef = useRef(false)
 
   const stateOrder = (location.state as any)?.order || null
   const stateBackTo = (location.state as any)?.back_to
   const backTo = typeof stateBackTo === 'string' && stateBackTo.trim() ? stateBackTo : '/orders'
 
   const loadList = async (params?: Record<string, unknown>) => {
-    const request = params || { page, limit }
+    const requestRaw = params || { page, limit }
+    const request: Record<string, unknown> = { ...requestRaw }
+    const statusFilter = String(request.status || '').trim()
+    if (statusFilter) {
+      const existingFilters = request.filters && typeof request.filters === 'object'
+        ? (request.filters as Record<string, unknown>)
+        : {}
+      request.filters = { ...existingFilters, status: statusFilter }
+    }
+    delete request.status
     const res = await fetchOrders(request)
     setList(res.data.data || res.data || [])
     setTotalPages(res.data.total_pages || 1)
@@ -129,13 +152,20 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (isList && showTable) {
-      loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined }).catch(() => {
+      loadList({
+        page,
+        limit,
+        search: filters.search || undefined,
+        status: filters.status || undefined,
+        from_date: filters.export_from || undefined,
+        to_date: filters.export_to || undefined,
+      }).catch(() => {
         setList([])
         setTotalPages(1)
         setTotalData(0)
       })
     }
-  }, [filters, isList, limit, page, showTable])
+  }, [filters.search, filters.status, filters.export_from, filters.export_to, isList, limit, page, showTable])
 
   useEffect(() => {
     if (!list.length) return
@@ -218,7 +248,183 @@ export default function OrdersPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [filters.search, filters.status])
+  }, [filters.search, filters.status, filters.export_from, filters.export_to])
+
+  useEffect(() => {
+    return () => {
+      if (exportPollRef.current) {
+        window.clearInterval(exportPollRef.current)
+        exportPollRef.current = null
+      }
+    }
+  }, [])
+
+  const stopExportPolling = () => {
+    if (exportPollRef.current) {
+      window.clearInterval(exportPollRef.current)
+      exportPollRef.current = null
+    }
+  }
+
+  const resolveDownloadFileName = (rawHeader?: string, fallback?: string) => {
+    const value = String(rawHeader || '').trim()
+    if (!value) return fallback || 'order-in-export.xlsx'
+    const utfMatch = value.match(/filename\*=UTF-8''([^;]+)/i)
+    if (utfMatch?.[1]) {
+      const decoded = decodeURIComponent(utfMatch[1]).trim()
+      if (decoded) return decoded
+    }
+    const basicMatch = value.match(/filename="?([^"]+)"?/i)
+    if (basicMatch?.[1]) return basicMatch[1].trim()
+    return fallback || 'order-in-export.xlsx'
+  }
+
+  const triggerOrderExportDownload = async (jobID: string, fallbackFileName?: string) => {
+    if (exportDownloadLockRef.current) return
+    exportDownloadLockRef.current = true
+    setExportDownloading(true)
+    try {
+      const res = await downloadOrderExport(jobID)
+      const contentType = String(res.headers?.['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      const fileName = resolveDownloadFileName(res.headers?.['content-disposition'], fallbackFileName)
+      const blob = new Blob([res.data], { type: contentType })
+      const objectURL = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectURL
+      anchor.download = fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(objectURL)
+
+      setExportJob((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          status: 'downloaded',
+          progress: 100,
+          message: 'Export completed. File downloaded.',
+          file_name: fileName,
+          error: '',
+        }
+      })
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || 'Failed to download export file'
+      setExportJob((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          status: 'failed',
+          progress: 100,
+          message,
+          error: message,
+        }
+      })
+    } finally {
+      stopExportPolling()
+      exportDownloadLockRef.current = false
+      setExportDownloading(false)
+    }
+  }
+
+  const pollOrderExportStatus = (jobID: string) => {
+    stopExportPolling()
+    exportPollRef.current = window.setInterval(() => {
+      void getOrderExportStatus(jobID)
+        .then((res) => {
+          const payload = res?.data?.data || res?.data || null
+          if (!payload) return
+          const normalized = {
+            id: String(payload.id || jobID),
+            status: String(payload.status || ''),
+            progress: Number(payload.progress || 0),
+            message: String(payload.message || ''),
+            file_name: String(payload.file_name || ''),
+            error: String(payload.error || ''),
+          }
+          setExportJob(normalized)
+
+          if (normalized.status === 'completed') {
+            void triggerOrderExportDownload(normalized.id, normalized.file_name || 'order-in-export.xlsx')
+          } else if (normalized.status === 'failed' || normalized.status === 'downloaded') {
+            stopExportPolling()
+          }
+        })
+        .catch((err: any) => {
+          const message = err?.response?.data?.error || err?.message || 'Failed to fetch export status'
+          setExportJob((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              status: 'failed',
+              progress: 100,
+              message,
+              error: message,
+            }
+          })
+          stopExportPolling()
+        })
+    }, 1500)
+  }
+
+  const requestOrderExport = async () => {
+    const fromDate = String(filters.export_from || '').trim()
+    const toDate = String(filters.export_to || '').trim()
+    if (!fromDate || !toDate) {
+      window.alert('Please select export date range first.')
+      return
+    }
+    if (dayjs(fromDate).isAfter(dayjs(toDate), 'day')) {
+      window.alert('Export from date cannot be after to date.')
+      return
+    }
+
+    stopExportPolling()
+    exportDownloadLockRef.current = false
+    setExportDownloading(false)
+    setExportJob({
+      id: '',
+      status: 'queued',
+      progress: 0,
+      message: 'Queueing export job...',
+      file_name: '',
+      error: '',
+    })
+
+    try {
+      const res = await startOrderExport({
+        from_date: fromDate,
+        to_date: toDate,
+        search: filters.search || '',
+        status: filters.status || '',
+      })
+      const payload = res?.data?.data || res?.data || null
+      const jobID = String(payload?.id || '').trim()
+      if (!jobID) {
+        throw new Error('Invalid export job response')
+      }
+
+      setExportJob({
+        id: jobID,
+        status: String(payload?.status || 'queued'),
+        progress: Number(payload?.progress || 0),
+        message: String(payload?.message || 'Export queued'),
+        file_name: String(payload?.file_name || ''),
+        error: String(payload?.error || ''),
+      })
+      pollOrderExportStatus(jobID)
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || 'Failed to create export job'
+      setExportJob({
+        id: '',
+        status: 'failed',
+        progress: 100,
+        message,
+        file_name: '',
+        error: message,
+      })
+    }
+  }
 
   const selectedOrder = useMemo(() => {
     if (!selectedId) return null
@@ -380,7 +586,14 @@ export default function OrdersPage() {
       if (isEdit && selectedId) await updateOrder(selectedId, payload)
       else await createOrder(payload)
       if (showTable) {
-        await loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined }).catch(() => undefined)
+        await loadList({
+          page,
+          limit,
+          search: filters.search || undefined,
+          status: filters.status || undefined,
+          from_date: filters.export_from || undefined,
+          to_date: filters.export_to || undefined,
+        }).catch(() => undefined)
       }
       setForm(defaultForm)
       navigate('/orders')
@@ -407,7 +620,14 @@ export default function OrdersPage() {
     setLoading(true)
     try {
       await deleteOrder(id)
-      await loadList({ page, limit, search: filters.search || undefined, status: filters.status || undefined })
+      await loadList({
+        page,
+        limit,
+        search: filters.search || undefined,
+        status: filters.status || undefined,
+        from_date: filters.export_from || undefined,
+        to_date: filters.export_to || undefined,
+      })
     } catch (err: any) {
       const message = err?.response?.data?.error || err?.message || 'Gagal menghapus order'
       window.alert(message)
@@ -422,6 +642,8 @@ export default function OrdersPage() {
   const set = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }))
 
   const parseNumber = (value: string) => Number(value.replace(/[^0-9]/g, '')) || 0
+  const exportJobTone = exportJob?.status === 'failed' ? 'error' : exportJob?.status === 'downloaded' ? 'success' : 'info'
+  const exportJobRunning = exportJob?.status === 'queued' || exportJob?.status === 'running' || exportDownloading
   const detailAttempts = useMemo(() => {
     if (!selectedOrder) return []
 
@@ -876,10 +1098,10 @@ export default function OrdersPage() {
 
       <div className="page">
         <div className="card">
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, alignItems: 'end' }}>
             <div>
               <label>Search</label>
-              <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} />
+              <input placeholder={'Search ..'} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} />
             </div>
             <div>
               <label>Status</label>
@@ -889,6 +1111,33 @@ export default function OrdersPage() {
                 <option value="pending">Pending</option>
                 <option value="reject">Reject</option>
               </select>
+            </div>
+            <div>
+              <label>Export From</label>
+              <input
+                type="date"
+                value={filters.export_from}
+                onChange={(e) => setFilters((prev) => ({ ...prev, export_from: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label>Export To</label>
+              <input
+                type="date"
+                value={filters.export_to}
+                onChange={(e) => setFilters((prev) => ({ ...prev, export_to: e.target.value }))}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'end' }}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => void requestOrderExport()}
+                disabled={exportJobRunning}
+                style={{ width: '100%' }}
+              >
+                {exportJobRunning ? 'Exporting...' : 'Export to Excel'}
+              </button>
             </div>
           </div>
         </div>
@@ -975,6 +1224,34 @@ export default function OrdersPage() {
           )}
         </div>
       </div>
+
+      {exportJob && (
+        <div className="toast-stack">
+          <div className={`toast-card ${exportJobTone}`} role="status" aria-live="polite" style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div className="toast-message">{exportJob.message || 'Export in progress'}</div>
+              {(exportJob.status === 'failed' || exportJob.status === 'downloaded') && (
+                <button className="toast-close" onClick={() => setExportJob(null)} aria-label="Close export toast">x</button>
+              )}
+            </div>
+            <div style={{ height: 8, borderRadius: 999, background: 'rgba(15, 23, 42, 0.12)', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${Math.max(0, Math.min(100, Number(exportJob.progress || 0)))}%`,
+                  height: '100%',
+                  borderRadius: 999,
+                  background: exportJob.status === 'failed' ? '#ef4444' : '#2563eb',
+                  transition: 'width 220ms ease',
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 12, color: '#334155' }}>
+              {Math.max(0, Math.min(100, Number(exportJob.progress || 0)))}%
+              {exportJob.error ? ` · ${exportJob.error}` : ''}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
