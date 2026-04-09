@@ -169,6 +169,15 @@ type DateRange struct {
 	To   time.Time
 }
 
+type OrderExportRequest struct {
+	FromDate         string `json:"from_date" binding:"required"` // YYYY-MM-DD
+	ToDate           string `json:"to_date" binding:"required"`   // YYYY-MM-DD
+	Search           string `json:"search"`
+	Status           string `json:"status"` // approve|reject|pending
+	DealerID         string `json:"dealer_id"`
+	FinanceCompanyID string `json:"finance_company_id"`
+}
+
 type DashboardSummaryQuery struct {
 	Area             string `form:"area"`
 	DealerID         string `form:"dealer_id"`

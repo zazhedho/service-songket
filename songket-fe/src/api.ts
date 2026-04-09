@@ -23,6 +23,10 @@ export const login = (email: string, password: string) =>
 export const register = (body: Record<string, unknown>) => api.post('/api/user/register', body)
 
 export const fetchOrders = (params: Record<string, unknown>) => api.get('/api/songket/orders', { params })
+export const startOrderExport = (body: Record<string, unknown>) => api.post('/api/songket/orders/export', body)
+export const getOrderExportStatus = (id: string) => api.get(`/api/songket/orders/export/${id}/status`)
+export const downloadOrderExport = (id: string) =>
+  api.get(`/api/songket/orders/export/${id}/download`, { responseType: 'blob' })
 export const listDashboardOrders = (params?: Record<string, unknown>) => api.get('/api/songket/dashboard/orders', { params })
 export const fetchDashboardSummary = (params?: Record<string, unknown>) => api.get('/api/songket/dashboard/summary', { params })
 export const createOrder = (body: Record<string, unknown>) => api.post('/api/songket/orders', body)

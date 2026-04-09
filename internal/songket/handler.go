@@ -2,6 +2,7 @@ package songket
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -58,7 +59,63 @@ func (h *Handler) CreateOrder(ctx *gin.Context) {
 func (h *Handler) ListOrders(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	params, _ := filter.GetBaseParams(ctx, "created_at", "desc", 20)
-	params.Filters = filter.WhitelistFilter(params.Filters, []string{"dealer_id", "finance_company_id", "status"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"dealer_id", "finance_company_id", "status", "from_date", "to_date"})
+
+	fromDate := strings.TrimSpace(ctx.Query("from_date"))
+	toDate := strings.TrimSpace(ctx.Query("to_date"))
+	if fromDate == "" {
+		if v, ok := params.Filters["from_date"]; ok && v != nil {
+			fromDate = strings.TrimSpace(fmt.Sprint(v))
+		}
+	}
+	if toDate == "" {
+		if v, ok := params.Filters["to_date"]; ok && v != nil {
+			toDate = strings.TrimSpace(fmt.Sprint(v))
+		}
+	}
+	if strings.EqualFold(fromDate, "<nil>") {
+		fromDate = ""
+	}
+	if strings.EqualFold(toDate, "<nil>") {
+		toDate = ""
+	}
+
+	if fromDate != "" {
+		if _, err := time.Parse("2006-01-02", fromDate); err != nil {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "from_date must use YYYY-MM-DD format"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	}
+	if toDate != "" {
+		if _, err := time.Parse("2006-01-02", toDate); err != nil {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "to_date must use YYYY-MM-DD format"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	}
+	if fromDate != "" && toDate != "" {
+		fromParsed, _ := time.Parse("2006-01-02", fromDate)
+		toParsed, _ := time.Parse("2006-01-02", toDate)
+		if fromParsed.After(toParsed) {
+			res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+			res.Error = "from_date cannot be after to_date"
+			ctx.JSON(http.StatusBadRequest, res)
+			return
+		}
+	}
+	if fromDate != "" {
+		params.Filters["from_date"] = fromDate
+	} else {
+		delete(params.Filters, "from_date")
+	}
+	if toDate != "" {
+		params.Filters["to_date"] = toDate
+	} else {
+		delete(params.Filters, "to_date")
+	}
 
 	auth := utils.GetAuthData(ctx)
 	userId := utils.InterfaceString(auth["user_id"])
@@ -312,6 +369,119 @@ func (h *Handler) DeleteOrder(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+// POST /api/songket/orders/export
+func (h *Handler) StartOrderExport(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+
+	var req OrderExportRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = utils.ValidateError(err, nil, "json")
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	role := utils.InterfaceString(auth["role"])
+
+	job, err := h.svc.StartOrderExport(req, role, userID)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "order export queued", logId, job)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/orders/export/:id/status
+func (h *Handler) GetOrderExportStatus(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	jobID := strings.TrimSpace(ctx.Param("id"))
+	if jobID == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	role := utils.InterfaceString(auth["role"])
+
+	job, err := h.svc.GetOrderExportJob(jobID, role, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrOrderExportNotFound):
+			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusNotFound, res)
+		case errors.Is(err, ErrOrderExportForbidden):
+			res := response.Response(http.StatusForbidden, messages.MsgFail, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusForbidden, res)
+		default:
+			res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusInternalServerError, res)
+		}
+		return
+	}
+
+	res := response.Response(http.StatusOK, "success", logId, job)
+	ctx.JSON(http.StatusOK, res)
+}
+
+// GET /api/songket/orders/export/:id/download
+func (h *Handler) DownloadOrderExport(ctx *gin.Context) {
+	logId := utils.GenerateLogId(ctx)
+	jobID := strings.TrimSpace(ctx.Param("id"))
+	if jobID == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	auth := utils.GetAuthData(ctx)
+	userID := utils.InterfaceString(auth["user_id"])
+	role := utils.InterfaceString(auth["role"])
+
+	file, err := h.svc.DownloadOrderExportFile(jobID, role, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrOrderExportNotFound):
+			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusNotFound, res)
+		case errors.Is(err, ErrOrderExportForbidden):
+			res := response.Response(http.StatusForbidden, messages.MsgFail, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusForbidden, res)
+		case errors.Is(err, ErrOrderExportNotReady), errors.Is(err, ErrOrderExportFileGone):
+			res := response.Response(http.StatusConflict, messages.MsgFail, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusConflict, res)
+		default:
+			res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
+			res.Error = err.Error()
+			ctx.JSON(http.StatusInternalServerError, res)
+		}
+		return
+	}
+
+	safeFileName := strings.ReplaceAll(strings.TrimSpace(file.FileName), "\"", "")
+	if safeFileName == "" {
+		safeFileName = "order-in-export.xlsx"
+	}
+	ctx.Header("Content-Type", file.ContentType)
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", safeFileName))
+	ctx.Data(http.StatusOK, file.ContentType, file.Content)
+}
+
 // GET /api/songket/finance/dealers
 func (h *Handler) Dealers(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
@@ -323,7 +493,7 @@ func (h *Handler) Dealers(ctx *gin.Context) {
 		return
 	}
 
-	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"province", "regency", "district"})
 
 	data, total, err := h.svc.ListDealers(params)
 	if err != nil {
@@ -347,7 +517,7 @@ func (h *Handler) FinanceCompanies(ctx *gin.Context) {
 		return
 	}
 
-	params.Filters = filter.WhitelistFilter(params.Filters, []string{"province", "regency", "district"})
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"province", "regency", "district"})
 
 	data, total, err := h.svc.ListFinanceCompanies(params)
 	if err != nil {
