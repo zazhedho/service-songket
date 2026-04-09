@@ -132,7 +132,7 @@ const currentYearStr = String(dayjs().year())
 const defaultFilters: DashboardFilters = {
   area: '',
   result_status: '',
-  analysis: 'custom',
+  analysis: 'daily',
   month: currentMonthStr,
   year: currentYearStr,
   date: todayStr,
@@ -200,17 +200,16 @@ function buildAnchorDateByAnalysis(
 
 function resolveGrowthNoteLabel(analysisRaw: string) {
   const analysis = String(analysisRaw || '').toLowerCase()
-  if (analysis === 'daily') return 'D vs D-1'
   if (analysis === 'monthly') return 'M vs M-1'
   if (analysis === 'yearly') return 'YTD vs YTD-1'
-  return 'C vs C-1'
+  return 'D vs D-1'
 }
 
 function resolveSnapshotPeriodLabel(analysisRaw: string, rowType: OrderDecisionSnapshotItem['row_type'], index: number) {
   if (rowType === 'growth') return 'Growth'
   const analysis = String(analysisRaw || '').toLowerCase()
-  const previousLabel = analysis === 'daily' ? 'D-1' : analysis === 'monthly' ? 'M-1' : analysis === 'yearly' ? 'YTD-1' : 'C-1'
-  const currentLabel = analysis === 'daily' ? 'D' : analysis === 'monthly' ? 'M' : analysis === 'yearly' ? 'YTD' : 'C'
+  const previousLabel = analysis === 'monthly' ? 'M-1' : analysis === 'yearly' ? 'YTD-1' : 'D-1'
+  const currentLabel = analysis === 'monthly' ? 'M' : analysis === 'yearly' ? 'YTD' : 'D'
   if (index === 0) return previousLabel
   if (index === 1) return currentLabel
   return `Period ${index + 1}`
