@@ -1205,16 +1205,18 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	approvedOrders := int64(0)
 	leadTotalSeconds := 0.0
 	leadCount := int64(0)
+	periodWindow := resolveDashboardPeriodWindow(req, time.Now())
 
 	chartReq := req
-	chartReq.Analysis = ""
+	chartReq.Analysis = "custom"
 	chartReq.Month = 0
 	chartReq.Year = 0
 	chartReq.Date = ""
-	chartReq.From = ""
-	chartReq.To = ""
+	chartReq.From = periodWindow.CurrentFrom.Format("2006-01-02")
+	chartReq.To = periodWindow.CurrentTo.Format("2006-01-02")
 
 	chartBaseQuery := s.buildDashboardSummaryBaseQuery(chartReq, role, userID)
+	chartBaseQuery = applyDashboardPeriodFilters(chartBaseQuery, chartReq)
 	var chartRows []dashboardSummaryRow
 	if err := chartBaseQuery.Order("o.pooling_at ASC").Scan(&chartRows).Error; err != nil {
 		return nil, err
@@ -1605,7 +1607,6 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		})
 	}
 
-	periodWindow := resolveDashboardPeriodWindow(req, time.Now())
 	currentPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.CurrentFrom, periodWindow.CurrentTo)
 	if err != nil {
 		return nil, err

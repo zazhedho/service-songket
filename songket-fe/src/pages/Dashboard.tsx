@@ -215,6 +215,58 @@ function resolveSnapshotPeriodLabel(analysisRaw: string, rowType: OrderDecisionS
   return `Period ${index + 1}`
 }
 
+function resolveDailyChartRange(filters: DashboardFilters, analysisRaw: string) {
+  const analysis = String(analysisRaw || filters.analysis || '').toLowerCase()
+  const now = dayjs()
+  const fallbackDate = now.format('YYYY-MM-DD')
+  const safeYear = Number(filters.year) > 0 ? Number(filters.year) : now.year()
+  const safeMonth = Number(filters.month) >= 1 && Number(filters.month) <= 12 ? Number(filters.month) : now.month() + 1
+
+  if (analysis === 'custom') {
+    const from = dayjs(filters.from || '')
+    const to = dayjs(filters.to || '')
+    if (from.isValid() && to.isValid()) {
+      if (from.isAfter(to, 'day')) {
+        return { from: to.format('YYYY-MM-DD'), to: from.format('YYYY-MM-DD') }
+      }
+      return { from: from.format('YYYY-MM-DD'), to: to.format('YYYY-MM-DD') }
+    }
+    return { from: '', to: '' }
+  }
+
+  if (analysis === 'daily') {
+    const anchor = dayjs(filters.date || fallbackDate)
+    if (!anchor.isValid()) return { from: '', to: '' }
+    const date = anchor.format('YYYY-MM-DD')
+    return { from: date, to: date }
+  }
+
+  if (analysis === 'yearly') {
+    const rawAnchor = dayjs(filters.date || fallbackDate)
+    const anchorMonth = rawAnchor.isValid() ? rawAnchor.month() + 1 : now.month() + 1
+    const anchorDay = rawAnchor.isValid() ? rawAnchor.date() : now.date()
+    let anchor = dayjs(`${safeYear}-${String(anchorMonth).padStart(2, '0')}-01`)
+    anchor = anchor.date(Math.min(anchorDay, anchor.daysInMonth()))
+    return {
+      from: dayjs(`${safeYear}-01-01`).format('YYYY-MM-DD'),
+      to: anchor.format('YYYY-MM-DD'),
+    }
+  }
+
+  if (analysis === 'monthly') {
+    let anchor = dayjs(buildAnchorDateByAnalysis('monthly', String(safeYear), String(safeMonth), filters.date || fallbackDate))
+    if (!anchor.isValid()) {
+      anchor = dayjs(`${safeYear}-${String(safeMonth).padStart(2, '0')}-01`)
+    }
+    return {
+      from: dayjs(`${safeYear}-${String(safeMonth).padStart(2, '0')}-01`).format('YYYY-MM-DD'),
+      to: anchor.format('YYYY-MM-DD'),
+    }
+  }
+
+  return { from: '', to: '' }
+}
+
 export default function DashboardPage() {
   const [filtersInput, setFiltersInput] = useState<DashboardFilters>(defaultFilters)
   const [filtersApplied, setFiltersApplied] = useState<DashboardFilters>(defaultFilters)
@@ -383,14 +435,19 @@ export default function DashboardPage() {
     return years
   }, [lookups?.dashboard_years])
 
+  const dailyChartRange = useMemo(
+    () => resolveDailyChartRange(filtersApplied, summary.analysis_applied),
+    [filtersApplied, summary.analysis_applied],
+  )
+
   const dailyDistributionTrend = useMemo(
     () =>
       buildDailyTrendSeries({
         rows: summary.daily_order_in,
-        from: '',
-        to: '',
+        from: dailyChartRange.from,
+        to: dailyChartRange.to,
       }),
-    [summary.daily_order_in],
+    [dailyChartRange.from, dailyChartRange.to, summary.daily_order_in],
   )
 
   const dailyFinanceDecisionTrend = useMemo(
@@ -399,10 +456,12 @@ export default function DashboardPage() {
         approveRows: summary.daily_retail_sales,
         rejectRows: summary.daily_finance_reject,
         companyRows: summary.daily_finance_decision_by_company,
-        from: '',
-        to: '',
+        from: dailyChartRange.from,
+        to: dailyChartRange.to,
       }),
     [
+      dailyChartRange.from,
+      dailyChartRange.to,
       summary.daily_finance_decision_by_company,
       summary.daily_finance_reject,
       summary.daily_retail_sales,
