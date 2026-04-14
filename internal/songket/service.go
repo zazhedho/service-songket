@@ -167,13 +167,6 @@ func validateMotorTypeArea(motor MotorType, provinceCode, regencyCode string) er
 	return nil
 }
 
-const fixedOrderProvince = "NUSA TENGGARA BARAT"
-
-func normalizeOrderProvince(_ string) string {
-	// Province for order-in is fixed by business rule.
-	return fixedOrderProvince
-}
-
 // CreateOrder creates order + finance attempts.
 func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role string) (Order, error) {
 	poolingAt, err := parseTimeRequired(req.PoolingAt)
@@ -214,6 +207,10 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	if req.Installment < 0 {
 		return Order{}, fmt.Errorf("installment must be greater than or equal to 0")
 	}
+	province := strings.TrimSpace(req.Province)
+	if province == "" {
+		return Order{}, fmt.Errorf("province is required")
+	}
 
 	otr := motor.OTR
 	dpPct := 0.0
@@ -229,7 +226,7 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		DealerID:      dealerID,
 		ConsumerName:  req.ConsumerName,
 		ConsumerPhone: req.ConsumerPhone,
-		Province:      normalizeOrderProvince(req.Province),
+		Province:      province,
 		Regency:       req.Regency,
 		District:      req.District,
 		Village:       req.Village,
@@ -386,7 +383,13 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.ConsumerPhone != nil {
 		order.ConsumerPhone = *req.ConsumerPhone
 	}
-	order.Province = normalizeOrderProvince(utils.ValueOrDefault(req.Province, ""))
+	if req.Province != nil {
+		province := strings.TrimSpace(*req.Province)
+		if province == "" {
+			return Order{}, fmt.Errorf("province cannot be empty")
+		}
+		order.Province = province
+	}
 	if dealerID != nil {
 		order.DealerID = *dealerID
 	}
