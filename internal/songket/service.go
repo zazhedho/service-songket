@@ -167,13 +167,6 @@ func validateMotorTypeArea(motor MotorType, provinceCode, regencyCode string) er
 	return nil
 }
 
-const fixedOrderProvince = "NUSA TENGGARA BARAT"
-
-func normalizeOrderProvince(_ string) string {
-	// Province for order-in is fixed by business rule.
-	return fixedOrderProvince
-}
-
 // CreateOrder creates order + finance attempts.
 func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role string) (Order, error) {
 	poolingAt, err := parseTimeRequired(req.PoolingAt)
@@ -214,6 +207,10 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 	if req.Installment < 0 {
 		return Order{}, fmt.Errorf("installment must be greater than or equal to 0")
 	}
+	province := strings.TrimSpace(req.Province)
+	if province == "" {
+		return Order{}, fmt.Errorf("province is required")
+	}
 
 	otr := motor.OTR
 	dpPct := 0.0
@@ -229,7 +226,7 @@ func (s *Service) CreateOrder(req CreateOrderRequest, createdBy string, role str
 		DealerID:      dealerID,
 		ConsumerName:  req.ConsumerName,
 		ConsumerPhone: req.ConsumerPhone,
-		Province:      normalizeOrderProvince(req.Province),
+		Province:      province,
 		Regency:       req.Regency,
 		District:      req.District,
 		Village:       req.Village,
@@ -386,7 +383,13 @@ func (s *Service) UpdateOrder(id string, req UpdateOrderRequest, role, userId st
 	if req.ConsumerPhone != nil {
 		order.ConsumerPhone = *req.ConsumerPhone
 	}
-	order.Province = normalizeOrderProvince(utils.ValueOrDefault(req.Province, ""))
+	if req.Province != nil {
+		province := strings.TrimSpace(*req.Province)
+		if province == "" {
+			return Order{}, fmt.Errorf("province cannot be empty")
+		}
+		order.Province = province
+	}
 	if dealerID != nil {
 		order.DealerID = *dealerID
 	}
@@ -1202,16 +1205,18 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 	approvedOrders := int64(0)
 	leadTotalSeconds := 0.0
 	leadCount := int64(0)
+	periodWindow := resolveDashboardPeriodWindow(req, time.Now())
 
 	chartReq := req
-	chartReq.Analysis = ""
+	chartReq.Analysis = "custom"
 	chartReq.Month = 0
 	chartReq.Year = 0
 	chartReq.Date = ""
-	chartReq.From = ""
-	chartReq.To = ""
+	chartReq.From = periodWindow.CurrentFrom.Format("2006-01-02")
+	chartReq.To = periodWindow.CurrentTo.Format("2006-01-02")
 
 	chartBaseQuery := s.buildDashboardSummaryBaseQuery(chartReq, role, userID)
+	chartBaseQuery = applyDashboardPeriodFilters(chartBaseQuery, chartReq)
 	var chartRows []dashboardSummaryRow
 	if err := chartBaseQuery.Order("o.pooling_at ASC").Scan(&chartRows).Error; err != nil {
 		return nil, err
@@ -1602,7 +1607,6 @@ func (s *Service) DashboardSummary(req DashboardSummaryQuery, role, userID strin
 		})
 	}
 
-	periodWindow := resolveDashboardPeriodWindow(req, time.Now())
 	currentPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.CurrentFrom, periodWindow.CurrentTo)
 	if err != nil {
 		return nil, err

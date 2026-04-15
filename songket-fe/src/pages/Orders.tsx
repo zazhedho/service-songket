@@ -20,8 +20,6 @@ import Pagination from '../components/Pagination'
 import { useAuth } from '../store'
 import { formatRupiah } from '../utils/currency'
 
-const FIXED_ORDER_PROVINCE = 'NUSA TENGGARA BARAT'
-
 const defaultForm = {
   pooling_number: '',
   pooling_at: dayjs().toISOString(),
@@ -30,7 +28,7 @@ const defaultForm = {
   finance_company_id: '',
   consumer_name: '',
   consumer_phone: '',
-  province: FIXED_ORDER_PROVINCE,
+  province: '',
   regency: '',
   district: '',
   village: '',
@@ -462,7 +460,7 @@ export default function OrdersPage() {
       finance_company_id: firstAttempt?.finance_company_id || '',
       consumer_name: order.consumer_name || '',
       consumer_phone: order.consumer_phone || '',
-      province: FIXED_ORDER_PROVINCE,
+      province: order.province || '',
       regency: order.regency || '',
       district: order.district || '',
       village: order.village || '',
@@ -528,6 +526,13 @@ export default function OrdersPage() {
       setKecamatan([])
     }
   }, [form.province])
+
+  useEffect(() => {
+    if (!provinces.length || !form.province) return
+    const resolvedProvince = resolveOptionCode(provinces, form.province)
+    if (!resolvedProvince || resolvedProvince === form.province) return
+    setForm((prev) => ({ ...prev, province: resolvedProvince }))
+  }, [form.province, provinces])
 
   useEffect(() => {
     if (form.province && form.regency) {
@@ -906,7 +911,19 @@ export default function OrdersPage() {
 
               <div>
                 <label>Provinsi</label>
-                <input value={FIXED_ORDER_PROVINCE} readOnly />
+                <select
+                  value={form.province}
+                  onChange={(e) => setForm((prev) => ({ ...prev, province: e.target.value, regency: '', district: '' }))}
+                  required
+                >
+                  <option value="">Pilih</option>
+                  {provinces.map((prov: any) => (
+                    <option key={prov.code} value={prov.code}>{prov.name}</option>
+                  ))}
+                  {form.province && !resolveOptionCode(provinces, form.province) && (
+                    <option value={form.province}>{lookupOptionName(provinces, form.province)}</option>
+                  )}
+                </select>
               </div>
 
               <div>
@@ -1278,6 +1295,16 @@ function lookupOptionName(list: any[] | undefined, code?: string) {
     list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
     list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
   return found?.name || rawCode
+}
+
+function resolveOptionCode(list: any[] | undefined, value?: string) {
+  const rawValue = String(value || '').trim()
+  if (!rawValue) return ''
+  const normalized = rawValue.toLowerCase()
+  const found =
+    list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
+    list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
+  return String(found?.code || found?.id || '').trim()
 }
 
 function formatDate(value?: string) {
