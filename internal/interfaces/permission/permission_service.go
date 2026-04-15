@@ -1,9 +1,9 @@
 package interfacepermission
 
 import (
-	domainpermission "starter-kit/internal/domain/permission"
-	"starter-kit/internal/dto"
-	"starter-kit/pkg/filter"
+	domainpermission "service-songket/internal/domain/permission"
+	"service-songket/internal/dto"
+	"service-songket/pkg/filter"
 )
 
 type ServicePermissionInterface interface {

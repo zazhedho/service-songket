@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"starter-kit/internal/master"
-	"starter-kit/utils"
+	"service-songket/internal/master"
+	"service-songket/utils"
 
 	"github.com/oviekshgya/shago-lib/excel"
 	"gorm.io/gorm"

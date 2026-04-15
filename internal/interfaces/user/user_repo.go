@@ -1,8 +1,8 @@
 package interfaceuser
 
 import (
-	domainuser "starter-kit/internal/domain/user"
-	"starter-kit/pkg/filter"
+	domainuser "service-songket/internal/domain/user"
+	"service-songket/pkg/filter"
 )
 
 type RepoUserInterface interface {

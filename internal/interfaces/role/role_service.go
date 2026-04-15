@@ -1,9 +1,9 @@
 package interfacerole
 
 import (
-	domainrole "starter-kit/internal/domain/role"
-	"starter-kit/internal/dto"
-	"starter-kit/pkg/filter"
+	domainrole "service-songket/internal/domain/role"
+	"service-songket/internal/dto"
+	"service-songket/pkg/filter"
 )
 
 type ServiceRoleInterface interface {

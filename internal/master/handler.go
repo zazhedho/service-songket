@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"starter-kit/pkg/logger"
-	"starter-kit/pkg/messages"
-	"starter-kit/pkg/response"
-	"starter-kit/utils"
+	"service-songket/pkg/logger"
+	"service-songket/pkg/messages"
+	"service-songket/pkg/response"
+	"service-songket/utils"
 )
 
 type Handler struct {

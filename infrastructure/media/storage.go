@@ -2,9 +2,9 @@ package media
 
 import (
 	"fmt"
-	"starter-kit/pkg/logger"
-	"starter-kit/pkg/storage"
-	"starter-kit/utils"
+	"service-songket/pkg/logger"
+	"service-songket/pkg/storage"
+	"service-songket/utils"
 	"strconv"
 	"strings"
 )

@@ -3,8 +3,8 @@ package interfacesession
 import (
 	"context"
 
-	domainsession "starter-kit/internal/domain/session"
-	domainuser "starter-kit/internal/domain/user"
+	domainsession "service-songket/internal/domain/session"
+	domainuser "service-songket/internal/domain/user"
 
 	"github.com/gin-gonic/gin"
 )

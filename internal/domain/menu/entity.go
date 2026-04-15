@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"starter-kit/utils"
+	"service-songket/utils"
 )
 
 func (MenuItem) TableName() string {

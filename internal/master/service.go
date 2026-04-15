@@ -19,7 +19,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"starter-kit/utils"
+	"service-songket/utils"
 )
 
 const (

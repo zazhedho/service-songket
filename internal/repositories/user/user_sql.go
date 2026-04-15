@@ -2,9 +2,9 @@ package repositoryuser
 
 import (
 	"fmt"
-	domainuser "starter-kit/internal/domain/user"
-	interfaceuser "starter-kit/internal/interfaces/user"
-	"starter-kit/pkg/filter"
+	domainuser "service-songket/internal/domain/user"
+	interfaceuser "service-songket/internal/interfaces/user"
+	"service-songket/pkg/filter"
 	"strings"
 
 	"gorm.io/gorm"

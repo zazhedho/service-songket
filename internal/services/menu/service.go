@@ -3,11 +3,11 @@ package servicemenu
 import (
 	"errors"
 	"fmt"
-	domainmenu "starter-kit/internal/domain/menu"
-	"starter-kit/internal/dto"
-	interfacemenu "starter-kit/internal/interfaces/menu"
-	"starter-kit/pkg/filter"
-	"starter-kit/utils"
+	domainmenu "service-songket/internal/domain/menu"
+	"service-songket/internal/dto"
+	interfacemenu "service-songket/internal/interfaces/menu"
+	"service-songket/pkg/filter"
+	"service-songket/utils"
 	"strings"
 	"time"
 

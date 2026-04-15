@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	interfacesession "starter-kit/internal/interfaces/session"
-	"starter-kit/pkg/logger"
-	"starter-kit/pkg/messages"
-	"starter-kit/pkg/response"
-	"starter-kit/utils"
+	interfacesession "service-songket/internal/interfaces/session"
+	"service-songket/pkg/logger"
+	"service-songket/pkg/messages"
+	"service-songket/pkg/response"
+	"service-songket/utils"
 
 	"github.com/gin-gonic/gin"
 )

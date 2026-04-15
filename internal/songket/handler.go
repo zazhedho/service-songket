@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"starter-kit/pkg/filter"
-	"starter-kit/pkg/logger"
-	"starter-kit/pkg/messages"
-	"starter-kit/pkg/response"
-	"starter-kit/utils"
+	"service-songket/pkg/filter"
+	"service-songket/pkg/logger"
+	"service-songket/pkg/messages"
+	"service-songket/pkg/response"
+	"service-songket/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

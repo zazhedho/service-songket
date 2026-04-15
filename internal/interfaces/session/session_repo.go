@@ -2,7 +2,7 @@ package interfacesession
 
 import (
 	"context"
-	domainsession "starter-kit/internal/domain/session"
+	domainsession "service-songket/internal/domain/session"
 	"time"
 )
 

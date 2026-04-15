@@ -1,9 +1,9 @@
 package interfacemenu
 
 import (
-	domainmenu "starter-kit/internal/domain/menu"
-	"starter-kit/internal/dto"
-	"starter-kit/pkg/filter"
+	domainmenu "service-songket/internal/domain/menu"
+	"service-songket/internal/dto"
+	"service-songket/pkg/filter"
 )
 
 type ServiceMenuInterface interface {

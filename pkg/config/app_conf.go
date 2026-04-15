@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"starter-kit/pkg/logger"
-	"starter-kit/utils"
+	"service-songket/pkg/logger"
+	"service-songket/utils"
 	"strings"
 	"time"
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"starter-kit/pkg/logger"
-	"starter-kit/utils"
+	"service-songket/pkg/logger"
+	"service-songket/utils"
 	"time"
 
 	"github.com/redis/go-redis/v9"

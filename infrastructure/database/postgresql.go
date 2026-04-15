@@ -3,8 +3,8 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"starter-kit/pkg/logger"
-	"starter-kit/utils"
+	"service-songket/pkg/logger"
+	"service-songket/utils"
 	"time"
 
 	"gorm.io/driver/postgres"

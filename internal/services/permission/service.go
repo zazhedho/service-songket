@@ -3,11 +3,11 @@ package servicepermission
 import (
 	"errors"
 	"fmt"
-	domainpermission "starter-kit/internal/domain/permission"
-	"starter-kit/internal/dto"
-	interfacepermission "starter-kit/internal/interfaces/permission"
-	"starter-kit/pkg/filter"
-	"starter-kit/utils"
+	domainpermission "service-songket/internal/domain/permission"
+	"service-songket/internal/dto"
+	interfacepermission "service-songket/internal/interfaces/permission"
+	"service-songket/pkg/filter"
+	"service-songket/utils"
 	"strings"
 	"time"
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"starter-kit/pkg/logger"
-	"starter-kit/utils"
+	"service-songket/pkg/logger"
+	"service-songket/utils"
 
 	"gorm.io/gorm"
 )

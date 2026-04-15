@@ -1,7 +1,7 @@
 package provinsi
 
 import (
-	"starter-kit/utils"
+	"service-songket/utils"
 	"time"
 
 	"gorm.io/gorm"

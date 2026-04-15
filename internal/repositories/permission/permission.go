@@ -3,9 +3,9 @@ package repositorypermission
 import (
 	"fmt"
 	"log"
-	domainpermission "starter-kit/internal/domain/permission"
-	interfacepermission "starter-kit/internal/interfaces/permission"
-	"starter-kit/pkg/filter"
+	domainpermission "service-songket/internal/domain/permission"
+	interfacepermission "service-songket/internal/interfaces/permission"
+	"service-songket/pkg/filter"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

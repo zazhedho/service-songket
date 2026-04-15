@@ -2,10 +2,10 @@ package repositoryrole
 
 import (
 	"fmt"
-	domainrole "starter-kit/internal/domain/role"
-	interfacerole "starter-kit/internal/interfaces/role"
-	"starter-kit/pkg/filter"
-	"starter-kit/utils"
+	domainrole "service-songket/internal/domain/role"
+	interfacerole "service-songket/internal/interfaces/role"
+	"service-songket/pkg/filter"
+	"service-songket/utils"
 
 	"gorm.io/gorm"
 )

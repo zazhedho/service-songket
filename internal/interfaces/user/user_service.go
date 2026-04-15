@@ -1,9 +1,9 @@
 package interfaceuser
 
 import (
-	domainuser "starter-kit/internal/domain/user"
-	"starter-kit/internal/dto"
-	"starter-kit/pkg/filter"
+	domainuser "service-songket/internal/domain/user"
+	"service-songket/internal/dto"
+	"service-songket/pkg/filter"
 )
 
 type ServiceUserInterface interface {

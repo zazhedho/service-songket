@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"starter-kit/internal/master"
-	"starter-kit/pkg/filter"
-	"starter-kit/utils"
+	"service-songket/internal/master"
+	"service-songket/pkg/filter"
+	"service-songket/utils"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"

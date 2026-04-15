@@ -1,8 +1,8 @@
 package interfacepermission
 
 import (
-	domainpermission "starter-kit/internal/domain/permission"
-	"starter-kit/pkg/filter"
+	domainpermission "service-songket/internal/domain/permission"
+	"service-songket/pkg/filter"
 )
 
 type RepoPermissionInterface interface {
