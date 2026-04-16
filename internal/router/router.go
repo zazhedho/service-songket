@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"service-songket/infrastructure/database"
+	handlercredit "service-songket/internal/handlers/http/credit"
 	handlerdealer "service-songket/internal/handlers/http/dealer"
 	handlerfinancecompany "service-songket/internal/handlers/http/financecompany"
 	handlerinstallment "service-songket/internal/handlers/http/installment"
@@ -17,11 +18,13 @@ import (
 	handlernetincome "service-songket/internal/handlers/http/netincome"
 	handlerorder "service-songket/internal/handlers/http/order"
 	permissionHandler "service-songket/internal/handlers/http/permission"
+	handlerquadrant "service-songket/internal/handlers/http/quadrant"
 	roleHandler "service-songket/internal/handlers/http/role"
 	sessionHandler "service-songket/internal/handlers/http/session"
 	userHandler "service-songket/internal/handlers/http/user"
 	"service-songket/internal/master"
 	authRepo "service-songket/internal/repositories/auth"
+	repositorycredit "service-songket/internal/repositories/credit"
 	repositorydealer "service-songket/internal/repositories/dealer"
 	repositoryfinancecompany "service-songket/internal/repositories/financecompany"
 	repositoryinstallment "service-songket/internal/repositories/installment"
@@ -31,9 +34,11 @@ import (
 	repositorynetincome "service-songket/internal/repositories/netincome"
 	repositoryorder "service-songket/internal/repositories/order"
 	permissionRepo "service-songket/internal/repositories/permission"
+	repositoryquadrant "service-songket/internal/repositories/quadrant"
 	roleRepo "service-songket/internal/repositories/role"
 	sessionRepo "service-songket/internal/repositories/session"
 	userRepo "service-songket/internal/repositories/user"
+	servicecredit "service-songket/internal/services/credit"
 	servicedealer "service-songket/internal/services/dealer"
 	servicefinancecompany "service-songket/internal/services/financecompany"
 	serviceinstallment "service-songket/internal/services/installment"
@@ -43,6 +48,7 @@ import (
 	servicenetincome "service-songket/internal/services/netincome"
 	serviceorder "service-songket/internal/services/order"
 	permissionSvc "service-songket/internal/services/permission"
+	servicequadrant "service-songket/internal/services/quadrant"
 	roleSvc "service-songket/internal/services/role"
 	sessionSvc "service-songket/internal/services/session"
 	userSvc "service-songket/internal/services/user"
@@ -277,6 +283,8 @@ func (r *Routes) SongketRoutes() {
 	jobRepo := repositoryjob.NewJobRepo(r.DB)
 	netIncomeRepo := repositorynetincome.NewNetIncomeRepo(r.DB)
 	orderRepo := repositoryorder.NewOrderRepo(r.DB)
+	creditRepo := repositorycredit.NewCreditRepo(r.DB)
+	quadrantRepo := repositoryquadrant.NewQuadrantRepo(r.DB)
 	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, motorRepo, r.DB))
 	dealerHandler := handlerdealer.NewDealerHandler(servicedealer.NewDealerService(dealerRepo))
 	financeCompanyHandler := handlerfinancecompany.NewFinanceCompanyHandler(servicefinancecompany.NewFinanceCompanyService(financeCompanyRepo))
@@ -284,6 +292,9 @@ func (r *Routes) SongketRoutes() {
 	installmentHandler := handlerinstallment.NewInstallmentHandler(serviceinstallment.NewInstallmentService(installmentRepo, motorRepo))
 	jobHandler := handlerjob.NewJobHandler(servicejob.NewJobService(jobRepo))
 	netIncomeHandler := handlernetincome.NewNetIncomeHandler(servicenetincome.NewNetIncomeService(netIncomeRepo, jobRepo))
+	creditService := servicecredit.NewCreditService(creditRepo, jobRepo)
+	creditHandler := handlercredit.NewCreditHandler(creditService)
+	quadrantHandler := handlerquadrant.NewQuadrantHandler(servicequadrant.NewQuadrantService(quadrantRepo, creditService))
 
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
@@ -359,13 +370,13 @@ func (r *Routes) SongketRoutes() {
 	g.DELETE("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "delete"), netIncomeHandler.Delete)
 
 	// Credit capability & quadrants
-	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), legacyHandler.UpsertCredit)
-	g.GET("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), legacyHandler.ListCredit)
-	g.GET("/credit/worksheet", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), legacyHandler.CreditWorksheet)
-	g.GET("/credit/summary", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), legacyHandler.CreditSummary)
-	g.POST("/quadrants/recompute", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "recompute"), legacyHandler.RecomputeQuadrants)
-	g.GET("/quadrants", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), legacyHandler.ListQuadrants)
-	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), legacyHandler.QuadrantSummary)
+	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), creditHandler.Upsert)
+	g.GET("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), creditHandler.GetAll)
+	g.GET("/credit/worksheet", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), creditHandler.Worksheet)
+	g.GET("/credit/summary", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), creditHandler.Summary)
+	g.POST("/quadrants/recompute", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "recompute"), quadrantHandler.Recompute)
+	g.GET("/quadrants", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.GetAll)
+	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.Summary)
 
 	// News
 	g.GET("/dashboard/news-items", legacyHandler.DashboardNewsItems)
