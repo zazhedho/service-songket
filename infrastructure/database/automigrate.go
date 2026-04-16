@@ -4,7 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	domaincommodity "service-songket/internal/domain/commodity"
+	domaincredit "service-songket/internal/domain/credit"
+	domaindealer "service-songket/internal/domain/dealer"
+	domainfinancecompany "service-songket/internal/domain/financecompany"
+	domaininstallment "service-songket/internal/domain/installment"
+	domainjob "service-songket/internal/domain/job"
 	"service-songket/internal/domain/master/provinsi"
+	domainmastersetting "service-songket/internal/domain/mastersetting"
+	domainmotor "service-songket/internal/domain/motor"
+	domainnetincome "service-songket/internal/domain/netincome"
+	domainnews "service-songket/internal/domain/news"
+	domainorder "service-songket/internal/domain/order"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,10 +23,11 @@ import (
 	domainauth "service-songket/internal/domain/auth"
 	domainmenu "service-songket/internal/domain/menu"
 	domainpermission "service-songket/internal/domain/permission"
+	domainquadrant "service-songket/internal/domain/quadrant"
 	domainrole "service-songket/internal/domain/role"
+	domainscrapesource "service-songket/internal/domain/scrapesource"
 	domainuser "service-songket/internal/domain/user"
 	"service-songket/internal/master"
-	"service-songket/internal/songket"
 	"service-songket/pkg/logger"
 	"service-songket/utils"
 
@@ -49,25 +61,25 @@ func AutoMigrate(db *gorm.DB) error {
 		&master.MasterDistrict{},
 
 		// SONGKET domain
-		&songket.Dealer{},
-		&songket.FinanceCompany{},
-		&songket.MotorType{},
-		&songket.Installment{},
-		&songket.Job{},
-		&songket.JobNetIncome{},
-		&songket.Order{},
-		&songket.OrderFinanceAttempt{},
-		&songket.CreditCapability{},
-		&songket.QuadrantResult{},
-		&songket.Commodity{},
-		&songket.CommodityPrice{},
-		&songket.NewsSource{},
-		&songket.NewsItem{},
-		&songket.MasterSetting{},
-		&songket.MasterSettingHistory{},
-		&songket.ScrapeSource{},
-		&songket.ScrapeJob{},
-		&songket.ScrapeResult{},
+		&domaindealer.Dealer{},
+		&domainfinancecompany.FinanceCompany{},
+		&domainmotor.MotorType{},
+		&domaininstallment.Installment{},
+		&domainjob.Job{},
+		&domainnetincome.NetIncome{},
+		&domainorder.Order{},
+		&domainorder.OrderFinanceAttempt{},
+		&domaincredit.CreditCapability{},
+		&domainquadrant.QuadrantResult{},
+		&domaincommodity.Commodity{},
+		&domaincommodity.CommodityPrice{},
+		&domainnews.NewsSource{},
+		&domainnews.NewsItem{},
+		&domainmastersetting.MasterSetting{},
+		&domainmastersetting.MasterSettingHistory{},
+		&domainscrapesource.ScrapeSource{},
+		&domaincommodity.ScrapeJob{},
+		&domaincommodity.ScrapeResult{},
 		//&provinsi.Provinsi{},
 	}
 
@@ -121,13 +133,13 @@ func seedDefaults(db *gorm.DB) error {
 	}
 
 	// Finance companies placeholder
-	fcs := []songket.FinanceCompany{
+	fcs := []domainfinancecompany.FinanceCompany{
 		{Id: utils.CreateUUID(), Name: "FIF"},
 		{Id: utils.CreateUUID(), Name: "Adira"},
 		{Id: utils.CreateUUID(), Name: "BCA Finance"},
 	}
 	for _, fc := range fcs {
-		var existing songket.FinanceCompany
+		var existing domainfinancecompany.FinanceCompany
 		err := db.Unscoped().Where("name = ?", fc.Name).First(&existing).Error
 		if err == nil {
 			existing.DeletedAt = gorm.DeletedAt{}
@@ -148,13 +160,13 @@ func seedDefaults(db *gorm.DB) error {
 	}
 
 	// Jobs
-	jobs := []songket.Job{
+	jobs := []domainjob.Job{
 		{Id: utils.CreateUUID(), Name: "PNS"},
 		{Id: utils.CreateUUID(), Name: "Petani"},
 		{Id: utils.CreateUUID(), Name: "Wiraswasta"},
 	}
 	for _, j := range jobs {
-		var existing songket.Job
+		var existing domainjob.Job
 		err := db.Unscoped().Where("name = ?", j.Name).First(&existing).Error
 		if err == nil {
 			existing.DeletedAt = gorm.DeletedAt{}
@@ -175,13 +187,13 @@ func seedDefaults(db *gorm.DB) error {
 	}
 
 	// Commodities baseline
-	comms := []songket.Commodity{
+	comms := []domaincommodity.Commodity{
 		{Id: utils.CreateUUID(), Name: "Beras", Unit: "kg"},
 		{Id: utils.CreateUUID(), Name: "Cabai", Unit: "kg"},
 		{Id: utils.CreateUUID(), Name: "Bawang Merah", Unit: "kg"},
 	}
 	for _, c := range comms {
-		var existing songket.Commodity
+		var existing domaincommodity.Commodity
 		err := db.Unscoped().Where("name = ?", c.Name).First(&existing).Error
 		if err == nil {
 			existing.Unit = c.Unit
@@ -203,7 +215,7 @@ func seedDefaults(db *gorm.DB) error {
 	}
 
 	// Motor types baseline (area-aware)
-	motors := []songket.MotorType{
+	motors := []domainmotor.MotorType{
 		{
 			Id:           utils.CreateUUID(),
 			Name:         "Scoopy",
@@ -243,7 +255,7 @@ func seedDefaults(db *gorm.DB) error {
 	}
 	seededMotorIDs := make([]string, 0, len(motors))
 	for _, m := range motors {
-		var existing songket.MotorType
+		var existing domainmotor.MotorType
 		err := db.Unscoped().
 			Where("LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?", m.Name, m.Brand, m.Model, m.VariantType, m.ProvinceCode, m.RegencyCode).
 			First(&existing).Error
@@ -278,7 +290,7 @@ func seedDefaults(db *gorm.DB) error {
 		if idx >= len(seedInstallmentAmount) {
 			break
 		}
-		var existing songket.Installment
+		var existing domaininstallment.Installment
 		err := db.Unscoped().Where("motor_type_id = ?", motorID).First(&existing).Error
 		if err == nil {
 			existing.Amount = seedInstallmentAmount[idx]
@@ -291,7 +303,7 @@ func seedDefaults(db *gorm.DB) error {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		inst := songket.Installment{
+		inst := domaininstallment.Installment{
 			Id:          utils.CreateUUID(),
 			MotorTypeID: motorID,
 			Amount:      seedInstallmentAmount[idx],
@@ -302,13 +314,13 @@ func seedDefaults(db *gorm.DB) error {
 	}
 
 	// Dealers sample with coordinates (NTB area)
-	dealers := []songket.Dealer{
+	dealers := []domaindealer.Dealer{
 		{Id: utils.CreateUUID(), Name: "Dealer Mataram", Regency: "Kota Mataram", Province: "NTB", Latitude: -8.5833, Longitude: 116.1167, Address: "Jl. Pejanggik"},
 		{Id: utils.CreateUUID(), Name: "Dealer Lombok Barat", Regency: "Lombok Barat", Province: "NTB", Latitude: -8.652, Longitude: 116.105, Address: "Jl. Raya Gerung"},
 		{Id: utils.CreateUUID(), Name: "Dealer Bima", Regency: "Bima", Province: "NTB", Latitude: -8.460, Longitude: 118.726, Address: "Jl. Soekarno Hatta"},
 	}
 	for _, d := range dealers {
-		var existing songket.Dealer
+		var existing domaindealer.Dealer
 		err := db.Unscoped().Where("name = ?", d.Name).First(&existing).Error
 		if err == nil {
 			existing.Regency = d.Regency
@@ -341,17 +353,17 @@ func seedDefaults(db *gorm.DB) error {
 }
 
 func seedMasterSettings(db *gorm.DB) error {
-	defaultSettings := []songket.MasterSetting{
+	defaultSettings := []domainmastersetting.MasterSetting{
 		{
 			Id:              utils.CreateUUID(),
-			Key:             songket.MasterSettingKeyNewsScrapeCron,
+			Key:             domainmastersetting.MasterSettingKeyNewsScrapeCron,
 			IsActive:        true,
 			IntervalMinutes: 5,
 			Description:     "Auto scrape portal berita",
 		},
 		{
 			Id:              utils.CreateUUID(),
-			Key:             songket.MasterSettingKeyPriceScrapeCron,
+			Key:             domainmastersetting.MasterSettingKeyPriceScrapeCron,
 			IsActive:        true,
 			IntervalMinutes: 24 * 60,
 			Description:     "Auto scrape harga pangan",
@@ -359,7 +371,7 @@ func seedMasterSettings(db *gorm.DB) error {
 	}
 
 	for _, defaultSetting := range defaultSettings {
-		var existing songket.MasterSetting
+		var existing domainmastersetting.MasterSetting
 		err := db.Unscoped().Where("key = ?", defaultSetting.Key).First(&existing).Error
 		if err == nil {
 			existing.DeletedAt = gorm.DeletedAt{}

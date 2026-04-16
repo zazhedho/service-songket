@@ -20,4 +20,5 @@ type ServiceCommodityInterface interface {
 	ListScrapeJobs(params filter.BaseParams) ([]domaincommodity.ScrapeJob, int64, error)
 	ListScrapeResults(jobID string, params filter.BaseParams) ([]domaincommodity.ScrapeResult, int64, error)
 	CommitScrapeResults(jobID string, resultIDs []string) ([]domaincommodity.CommodityPrice, error)
+	AutoImport(ctx context.Context) (int, error)
 }

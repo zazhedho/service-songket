@@ -11,9 +11,11 @@ import (
 	handlercommodity "service-songket/internal/handlers/http/commodity"
 	handlercredit "service-songket/internal/handlers/http/credit"
 	handlerdealer "service-songket/internal/handlers/http/dealer"
+	handlerfinance "service-songket/internal/handlers/http/finance"
 	handlerfinancecompany "service-songket/internal/handlers/http/financecompany"
 	handlerinstallment "service-songket/internal/handlers/http/installment"
 	handlerjob "service-songket/internal/handlers/http/job"
+	handlerlookup "service-songket/internal/handlers/http/lookup"
 	handlermastersetting "service-songket/internal/handlers/http/mastersetting"
 	menuHandler "service-songket/internal/handlers/http/menu"
 	handlermotor "service-songket/internal/handlers/http/motor"
@@ -23,6 +25,7 @@ import (
 	permissionHandler "service-songket/internal/handlers/http/permission"
 	handlerquadrant "service-songket/internal/handlers/http/quadrant"
 	roleHandler "service-songket/internal/handlers/http/role"
+	handlerscrapesource "service-songket/internal/handlers/http/scrapesource"
 	sessionHandler "service-songket/internal/handlers/http/session"
 	userHandler "service-songket/internal/handlers/http/user"
 	"service-songket/internal/master"
@@ -33,6 +36,7 @@ import (
 	repositoryfinancecompany "service-songket/internal/repositories/financecompany"
 	repositoryinstallment "service-songket/internal/repositories/installment"
 	repositoryjob "service-songket/internal/repositories/job"
+	repositorylookup "service-songket/internal/repositories/lookup"
 	repositorymastersetting "service-songket/internal/repositories/mastersetting"
 	menuRepo "service-songket/internal/repositories/menu"
 	repositorymotor "service-songket/internal/repositories/motor"
@@ -42,14 +46,17 @@ import (
 	permissionRepo "service-songket/internal/repositories/permission"
 	repositoryquadrant "service-songket/internal/repositories/quadrant"
 	roleRepo "service-songket/internal/repositories/role"
+	repositoryscrapesource "service-songket/internal/repositories/scrapesource"
 	sessionRepo "service-songket/internal/repositories/session"
 	userRepo "service-songket/internal/repositories/user"
 	servicecommodity "service-songket/internal/services/commodity"
 	servicecredit "service-songket/internal/services/credit"
 	servicedealer "service-songket/internal/services/dealer"
+	servicefinance "service-songket/internal/services/finance"
 	servicefinancecompany "service-songket/internal/services/financecompany"
 	serviceinstallment "service-songket/internal/services/installment"
 	servicejob "service-songket/internal/services/job"
+	servicelookup "service-songket/internal/services/lookup"
 	servicemastersetting "service-songket/internal/services/mastersetting"
 	menuSvc "service-songket/internal/services/menu"
 	servicemotor "service-songket/internal/services/motor"
@@ -59,9 +66,9 @@ import (
 	permissionSvc "service-songket/internal/services/permission"
 	servicequadrant "service-songket/internal/services/quadrant"
 	roleSvc "service-songket/internal/services/role"
+	servicescrapesource "service-songket/internal/services/scrapesource"
 	sessionSvc "service-songket/internal/services/session"
 	userSvc "service-songket/internal/services/user"
-	"service-songket/internal/songket"
 	"service-songket/middlewares"
 	"service-songket/pkg/logger"
 	"service-songket/pkg/security"
@@ -283,8 +290,6 @@ func (r *Routes) SessionRoutes() {
 
 // SongketRoutes registers business endpoints for SONGKET.
 func (r *Routes) SongketRoutes() {
-	legacyService := songket.NewService(r.DB)
-	legacyHandler := songket.NewHandler(legacyService)
 	dealerRepo := repositorydealer.NewDealerRepo(r.DB)
 	financeCompanyRepo := repositoryfinancecompany.NewFinanceCompanyRepo(r.DB)
 	motorRepo := repositorymotor.NewMotorRepo(r.DB)
@@ -297,12 +302,16 @@ func (r *Routes) SongketRoutes() {
 	masterSettingRepo := repositorymastersetting.NewMasterSettingRepo(r.DB)
 	creditRepo := repositorycredit.NewCreditRepo(r.DB)
 	quadrantRepo := repositoryquadrant.NewQuadrantRepo(r.DB)
+	lookupRepo := repositorylookup.NewLookupRepo(r.DB)
+	scrapeSourceRepo := repositoryscrapesource.NewScrapeSourceRepo(r.DB)
 	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, motorRepo, r.DB))
 	dealerHandler := handlerdealer.NewDealerHandler(servicedealer.NewDealerService(dealerRepo))
 	financeCompanyHandler := handlerfinancecompany.NewFinanceCompanyHandler(servicefinancecompany.NewFinanceCompanyService(financeCompanyRepo))
+	financeHandler := handlerfinance.NewFinanceHandler(servicefinance.NewFinanceService(r.DB))
 	motorHandler := handlermotor.NewMotorHandler(servicemotor.NewMotorService(motorRepo))
 	installmentHandler := handlerinstallment.NewInstallmentHandler(serviceinstallment.NewInstallmentService(installmentRepo, motorRepo))
 	jobHandler := handlerjob.NewJobHandler(servicejob.NewJobService(jobRepo))
+	lookupHandler := handlerlookup.NewLookupHandler(servicelookup.NewLookupService(lookupRepo, r.DB))
 	netIncomeHandler := handlernetincome.NewNetIncomeHandler(servicenetincome.NewNetIncomeService(netIncomeRepo, jobRepo))
 	newsHandler := handlernews.NewNewsHandler(servicenews.NewNewsService(newsRepo))
 	commodityHandler := handlercommodity.NewCommodityHandler(servicecommodity.NewCommodityService(commodityRepo))
@@ -310,6 +319,7 @@ func (r *Routes) SongketRoutes() {
 	creditService := servicecredit.NewCreditService(creditRepo, jobRepo)
 	creditHandler := handlercredit.NewCreditHandler(creditService)
 	quadrantHandler := handlerquadrant.NewQuadrantHandler(servicequadrant.NewQuadrantService(quadrantRepo, creditService))
+	scrapeSourceHandler := handlerscrapesource.NewScrapeSourceHandler(servicescrapesource.NewScrapeSourceService(scrapeSourceRepo))
 
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
@@ -361,9 +371,9 @@ func (r *Routes) SongketRoutes() {
 	// Finance performance
 	g.GET("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.GetAll)
 	g.GET("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.GetAll)
-	g.GET("/finance/report/migrations", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), legacyHandler.FinanceMigrationReport)
-	g.GET("/finance/report/migrations/:id/order-ins", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), legacyHandler.FinanceMigrationOrderInDetail)
-	g.GET("/finance/dealers/:id/metrics", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "view_metrics"), legacyHandler.DealerMetrics)
+	g.GET("/finance/report/migrations", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), financeHandler.FinanceMigrationReport)
+	g.GET("/finance/report/migrations/:id/order-ins", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), financeHandler.FinanceMigrationOrderInDetail)
+	g.GET("/finance/dealers/:id/metrics", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "view_metrics"), financeHandler.DealerMetrics)
 	g.POST("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Create)
 	g.PUT("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Update)
 	g.DELETE("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Delete)
@@ -416,11 +426,11 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ListScrapeJobs)
 	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ListScrapeResults)
 	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), commodityHandler.CommitScrapeResults)
-	g.GET("/lookups", menuAccess("/orders", "/business", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), legacyHandler.Lookups)
-	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), legacyHandler.ListScrapeSources)
-	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), legacyHandler.CreateScrapeSource)
-	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), legacyHandler.UpdateScrapeSource)
-	g.DELETE("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "delete"), legacyHandler.DeleteScrapeSource)
+	g.GET("/lookups", menuAccess("/orders", "/business", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), lookupHandler.GetAll)
+	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), scrapeSourceHandler.GetAll)
+	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), scrapeSourceHandler.Create)
+	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), scrapeSourceHandler.Update)
+	g.DELETE("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "delete"), scrapeSourceHandler.Delete)
 
 	logger.WriteLog(logger.LogLevelInfo, "Songket routes registered")
 }

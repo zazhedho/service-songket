@@ -10,8 +10,14 @@ import (
 	"net"
 	"os"
 	"service-songket/infrastructure/database"
+	repositorycommodity "service-songket/internal/repositories/commodity"
+	repositorymastersetting "service-songket/internal/repositories/mastersetting"
+	repositorynews "service-songket/internal/repositories/news"
 	"service-songket/internal/router"
-	"service-songket/internal/songket"
+	"service-songket/internal/scheduler"
+	servicecommodity "service-songket/internal/services/commodity"
+	servicemastersetting "service-songket/internal/services/mastersetting"
+	servicenews "service-songket/internal/services/news"
 	"service-songket/pkg/config"
 	"service-songket/pkg/logger"
 	"service-songket/utils"
@@ -91,10 +97,13 @@ func main() {
 	//	FailOnError(err, "Failed to automigrate")
 	//}
 
-	songketService := songket.NewService(routes.DB)
-	newsCronScheduler := songket.NewNewsScrapeCronScheduler(songketService)
+	masterSettingService := servicemastersetting.NewMasterSettingService(repositorymastersetting.NewMasterSettingRepo(routes.DB))
+	newsService := servicenews.NewNewsService(repositorynews.NewNewsRepo(routes.DB))
+	commodityService := servicecommodity.NewCommodityService(repositorycommodity.NewCommodityRepo(routes.DB))
+
+	newsCronScheduler := scheduler.NewNewsScrapeCronScheduler(masterSettingService, newsService)
 	newsCronScheduler.Start(context.Background())
-	priceCronScheduler := songket.NewPriceScrapeCronScheduler(songketService)
+	priceCronScheduler := scheduler.NewPriceScrapeCronScheduler(masterSettingService, commodityService)
 	priceCronScheduler.Start(context.Background())
 
 	routes.UserRoutes()

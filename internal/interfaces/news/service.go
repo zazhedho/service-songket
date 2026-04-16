@@ -16,4 +16,5 @@ type ServiceNewsInterface interface {
 	DeleteItem(id string) error
 	Scrape(ctx context.Context, urls []string) ([]domainnews.NewsScrapedArticle, error)
 	Import(items []domainnews.NewsScrapedArticle) ([]domainnews.NewsItem, error)
+	AutoImport(ctx context.Context) (int, int, error)
 }

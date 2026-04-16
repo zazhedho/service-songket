@@ -224,6 +224,14 @@ func (s *Service) CommitScrapeResults(jobID string, resultIDs []string) ([]domai
 	return s.repo.CommitScrapeResults(rows)
 }
 
+func (s *Service) AutoImport(ctx context.Context) (int, error) {
+	rows, err := s.Scrape(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	return len(rows), nil
+}
+
 func (s *Service) runScrapeJob(jobID string, urls []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

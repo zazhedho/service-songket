@@ -231,6 +231,32 @@ func (s *Service) Import(items []domainnews.NewsScrapedArticle) ([]domainnews.Ne
 	}
 }
 
+func (s *Service) AutoImport(ctx context.Context) (int, int, error) {
+	rows, err := s.Scrape(ctx, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(rows) == 0 {
+		return 0, 0, nil
+	}
+
+	saved, err := s.Import(rows)
+	if err != nil {
+		if errors.Is(err, errNewsAlreadyAdded) {
+			return 0, len(rows), nil
+		}
+		return 0, 0, err
+	}
+
+	imported := len(saved)
+	skipped := 0
+	if len(rows) > imported {
+		skipped = len(rows) - imported
+	}
+
+	return imported, skipped, nil
+}
+
 func (s *Service) scrapeFromURLs(ctx context.Context, urls []string) ([]domainnews.NewsScrapedArticle, error) {
 	if len(urls) == 0 {
 		urls = s.defaultScrapeURLs()
