@@ -8,46 +8,46 @@ type DateRange struct {
 }
 
 type FinanceMigrationReportItem struct {
-	OrderID           string     `json:"order_id"`
-	PoolingNumber     string     `json:"pooling_number"`
-	PoolingAt         time.Time  `json:"pooling_at"`
-	ResultAt          *time.Time `json:"result_at"`
-	DealerOrderTotal  int        `json:"dealer_order_total"`
-	TransitionTotal   int        `json:"transition_total_data"`
-	DealerName        string     `json:"dealer_name"`
-	DealerProvince    string     `json:"dealer_province"`
-	DealerRegency     string     `json:"dealer_regency"`
-	DealerDistrict    string     `json:"dealer_district"`
-	DealerVillage     string     `json:"dealer_village"`
-	DealerAddress     string     `json:"dealer_address"`
-	ConsumerName      string     `json:"consumer_name"`
-	ConsumerPhone     string     `json:"consumer_phone"`
-	Province          string     `json:"province"`
-	Regency           string     `json:"regency"`
-	District          string     `json:"district"`
-	Village           string     `json:"village"`
-	Address           string     `json:"address"`
-	JobName           string     `json:"job_name"`
-	NetIncome         float64    `json:"net_income"`
-	MotorTypeName     string     `json:"motor_type_name"`
-	InstallmentAmount float64    `json:"installment_amount"`
-	OTR               float64    `json:"otr"`
-	DPGross           float64    `json:"dp_gross"`
-	DPPaid            float64    `json:"dp_paid"`
-	DPPct             float64    `json:"dp_pct"`
-	Tenor             int        `json:"tenor"`
-	OrderResultStatus string     `json:"order_result_status"`
-	OrderResultNotes  string     `json:"order_result_notes"`
-	Finance1Name      string     `json:"finance_1_name"`
-	Finance1Status    string     `json:"finance_1_status"`
-	Finance1Notes     string     `json:"finance_1_notes"`
-	Finance2Name      string     `json:"finance_2_name"`
-	Finance2Status    string     `json:"finance_2_status"`
-	Finance2Notes     string     `json:"finance_2_notes"`
-	TotalApproveFc2   int        `json:"total_approve_finance_2"`
-	TotalRejectFc2    int        `json:"total_reject_finance_2"`
-	OrderCreatedAt    time.Time  `json:"order_created_at"`
-	OrderUpdatedAt    time.Time  `json:"order_updated_at"`
-	Finance1Decision  time.Time  `json:"finance_1_decision_at"`
-	Finance2Decision  time.Time  `json:"finance_2_decision_at"`
+	OrderID           string     `gorm:"column:order_id" json:"order_id"`
+	PoolingNumber     string     `gorm:"column:pooling_number" json:"pooling_number"`
+	PoolingAt         time.Time  `gorm:"column:pooling_at" json:"pooling_at"`
+	ResultAt          *time.Time `gorm:"column:result_at" json:"result_at"`
+	DealerOrderTotal  int        `gorm:"column:dealer_order_total" json:"dealer_order_total"`
+	TransitionTotal   int        `gorm:"column:transition_total_data" json:"transition_total_data"`
+	DealerName        string     `gorm:"column:dealer_name" json:"dealer_name"`
+	DealerProvince    string     `gorm:"column:dealer_province" json:"dealer_province"`
+	DealerRegency     string     `gorm:"column:dealer_regency" json:"dealer_regency"`
+	DealerDistrict    string     `gorm:"column:dealer_district" json:"dealer_district"`
+	DealerVillage     string     `gorm:"column:dealer_village" json:"dealer_village"`
+	DealerAddress     string     `gorm:"column:dealer_address" json:"dealer_address"`
+	ConsumerName      string     `gorm:"column:consumer_name" json:"consumer_name"`
+	ConsumerPhone     string     `gorm:"column:consumer_phone" json:"consumer_phone"`
+	Province          string     `gorm:"column:province" json:"province"`
+	Regency           string     `gorm:"column:regency" json:"regency"`
+	District          string     `gorm:"column:district" json:"district"`
+	Village           string     `gorm:"column:village" json:"village"`
+	Address           string     `gorm:"column:address" json:"address"`
+	JobName           string     `gorm:"column:job_name" json:"job_name"`
+	NetIncome         float64    `gorm:"column:net_income" json:"net_income"`
+	MotorTypeName     string     `gorm:"column:motor_type_name" json:"motor_type_name"`
+	InstallmentAmount float64    `gorm:"column:installment_amount" json:"installment_amount"`
+	OTR               float64    `gorm:"column:otr" json:"otr"`
+	DPGross           float64    `gorm:"column:dp_gross" json:"dp_gross"`
+	DPPaid            float64    `gorm:"column:dp_paid" json:"dp_paid"`
+	DPPct             float64    `gorm:"column:dp_pct" json:"dp_pct"`
+	Tenor             int        `gorm:"column:tenor" json:"tenor"`
+	OrderResultStatus string     `gorm:"column:order_result_status" json:"order_result_status"`
+	OrderResultNotes  string     `gorm:"column:order_result_notes" json:"order_result_notes"`
+	Finance1Name      string     `gorm:"column:finance_1_name" json:"finance_1_name"`
+	Finance1Status    string     `gorm:"column:finance_1_status" json:"finance_1_status"`
+	Finance1Notes     string     `gorm:"column:finance_1_notes" json:"finance_1_notes"`
+	Finance2Name      string     `gorm:"column:finance_2_name" json:"finance_2_name"`
+	Finance2Status    string     `gorm:"column:finance_2_status" json:"finance_2_status"`
+	Finance2Notes     string     `gorm:"column:finance_2_notes" json:"finance_2_notes"`
+	TotalApproveFc2   int        `gorm:"column:total_approve_finance_2" json:"total_approve_finance_2"`
+	TotalRejectFc2    int        `gorm:"column:total_reject_finance_2" json:"total_reject_finance_2"`
+	OrderCreatedAt    time.Time  `gorm:"column:order_created_at" json:"order_created_at"`
+	OrderUpdatedAt    time.Time  `gorm:"column:order_updated_at" json:"order_updated_at"`
+	Finance1Decision  time.Time  `gorm:"column:finance_1_decision_at" json:"finance_1_decision_at"`
+	Finance2Decision  time.Time  `gorm:"column:finance_2_decision_at" json:"finance_2_decision_at"`
 }
