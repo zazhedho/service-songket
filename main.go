@@ -111,7 +111,19 @@ func main() {
 	routes.PermissionRoutes()
 	routes.MenuRoutes()
 	routes.LocationRoutes()
-	routes.SongketRoutes()
+	routes.OrderRoutes()
+	routes.MotorRoutes()
+	routes.InstallmentRoutes()
+	routes.MasterSettingRoutes()
+	routes.FinanceRoutes()
+	routes.JobRoutes()
+	routes.NetIncomeRoutes()
+	routes.CreditRoutes()
+	routes.QuadrantRoutes()
+	routes.NewsRoutes()
+	routes.CommodityRoutes()
+	routes.LookupRoutes()
+	routes.ScrapeSourceRoutes()
 
 	// Register session routes if Redis is available
 	if redisClient != nil {
