@@ -8,19 +8,40 @@ import (
 	"gorm.io/gorm"
 
 	"service-songket/infrastructure/database"
+	handlerdealer "service-songket/internal/handlers/http/dealer"
+	handlerfinancecompany "service-songket/internal/handlers/http/financecompany"
+	handlerinstallment "service-songket/internal/handlers/http/installment"
+	handlerjob "service-songket/internal/handlers/http/job"
 	menuHandler "service-songket/internal/handlers/http/menu"
+	handlermotor "service-songket/internal/handlers/http/motor"
+	handlernetincome "service-songket/internal/handlers/http/netincome"
+	handlerorder "service-songket/internal/handlers/http/order"
 	permissionHandler "service-songket/internal/handlers/http/permission"
 	roleHandler "service-songket/internal/handlers/http/role"
 	sessionHandler "service-songket/internal/handlers/http/session"
 	userHandler "service-songket/internal/handlers/http/user"
 	"service-songket/internal/master"
 	authRepo "service-songket/internal/repositories/auth"
+	repositorydealer "service-songket/internal/repositories/dealer"
+	repositoryfinancecompany "service-songket/internal/repositories/financecompany"
+	repositoryinstallment "service-songket/internal/repositories/installment"
+	repositoryjob "service-songket/internal/repositories/job"
 	menuRepo "service-songket/internal/repositories/menu"
+	repositorymotor "service-songket/internal/repositories/motor"
+	repositorynetincome "service-songket/internal/repositories/netincome"
+	repositoryorder "service-songket/internal/repositories/order"
 	permissionRepo "service-songket/internal/repositories/permission"
 	roleRepo "service-songket/internal/repositories/role"
 	sessionRepo "service-songket/internal/repositories/session"
 	userRepo "service-songket/internal/repositories/user"
+	servicedealer "service-songket/internal/services/dealer"
+	servicefinancecompany "service-songket/internal/services/financecompany"
+	serviceinstallment "service-songket/internal/services/installment"
+	servicejob "service-songket/internal/services/job"
 	menuSvc "service-songket/internal/services/menu"
+	servicemotor "service-songket/internal/services/motor"
+	servicenetincome "service-songket/internal/services/netincome"
+	serviceorder "service-songket/internal/services/order"
 	permissionSvc "service-songket/internal/services/permission"
 	roleSvc "service-songket/internal/services/role"
 	sessionSvc "service-songket/internal/services/session"
@@ -247,8 +268,22 @@ func (r *Routes) SessionRoutes() {
 
 // SongketRoutes registers business endpoints for SONGKET.
 func (r *Routes) SongketRoutes() {
-	svc := songket.NewService(r.DB)
-	h := songket.NewHandler(svc)
+	legacyService := songket.NewService(r.DB)
+	legacyHandler := songket.NewHandler(legacyService)
+	dealerRepo := repositorydealer.NewDealerRepo(r.DB)
+	financeCompanyRepo := repositoryfinancecompany.NewFinanceCompanyRepo(r.DB)
+	motorRepo := repositorymotor.NewMotorRepo(r.DB)
+	installmentRepo := repositoryinstallment.NewInstallmentRepo(r.DB)
+	jobRepo := repositoryjob.NewJobRepo(r.DB)
+	netIncomeRepo := repositorynetincome.NewNetIncomeRepo(r.DB)
+	orderRepo := repositoryorder.NewOrderRepo(r.DB)
+	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, motorRepo, r.DB))
+	dealerHandler := handlerdealer.NewDealerHandler(servicedealer.NewDealerService(dealerRepo))
+	financeCompanyHandler := handlerfinancecompany.NewFinanceCompanyHandler(servicefinancecompany.NewFinanceCompanyService(financeCompanyRepo))
+	motorHandler := handlermotor.NewMotorHandler(servicemotor.NewMotorService(motorRepo))
+	installmentHandler := handlerinstallment.NewInstallmentHandler(serviceinstallment.NewInstallmentService(installmentRepo, motorRepo))
+	jobHandler := handlerjob.NewJobHandler(servicejob.NewJobService(jobRepo))
+	netIncomeHandler := handlernetincome.NewNetIncomeHandler(servicenetincome.NewNetIncomeService(netIncomeRepo, jobRepo))
 
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
@@ -261,105 +296,105 @@ func (r *Routes) SongketRoutes() {
 	g := r.App.Group("/api/songket").Use(mdw.AuthMiddleware())
 
 	// Orders
-	g.GET("/dashboard/orders", h.DashboardOrders)
-	g.GET("/dashboard/summary", h.DashboardSummary)
-	g.POST("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "create"), h.CreateOrder)
-	g.GET("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.ListOrders)
-	g.POST("/orders/export", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.StartOrderExport)
-	g.GET("/orders/export/:id/status", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.GetOrderExportStatus)
-	g.GET("/orders/export/:id/download", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), h.DownloadOrderExport)
-	g.PUT("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "update"), h.UpdateOrder)
-	g.DELETE("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "delete"), h.DeleteOrder)
+	g.GET("/dashboard/orders", orderHandler.DashboardOrders)
+	g.GET("/dashboard/summary", orderHandler.DashboardSummary)
+	g.POST("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "create"), orderHandler.Create)
+	g.GET("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.GetAll)
+	g.POST("/orders/export", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.StartExport)
+	g.GET("/orders/export/:id/status", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.GetExportStatus)
+	g.GET("/orders/export/:id/download", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.DownloadExport)
+	g.PUT("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "update"), orderHandler.Update)
+	g.DELETE("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "delete"), orderHandler.Delete)
 
 	// Motor types
-	g.GET("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "list"), h.ListMotorTypes)
-	g.GET("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "view"), h.GetMotorTypeByID)
-	g.POST("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "create"), h.CreateMotorType)
-	g.PUT("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "update"), h.UpdateMotorType)
-	g.DELETE("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "delete"), h.DeleteMotorType)
+	g.GET("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "list"), motorHandler.GetAll)
+	g.GET("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "view"), motorHandler.GetByID)
+	g.POST("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "create"), motorHandler.Create)
+	g.PUT("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "update"), motorHandler.Update)
+	g.DELETE("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "delete"), motorHandler.Delete)
 
 	// Installments
-	g.GET("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "list"), h.ListInstallments)
-	g.GET("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "view"), h.GetInstallmentByID)
-	g.POST("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "create"), h.CreateInstallment)
-	g.PUT("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "update"), h.UpdateInstallment)
-	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), h.DeleteInstallment)
+	g.GET("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "list"), installmentHandler.GetAll)
+	g.GET("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "view"), installmentHandler.GetByID)
+	g.POST("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "create"), installmentHandler.Create)
+	g.PUT("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "update"), installmentHandler.Update)
+	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), installmentHandler.Delete)
 
 	// Master settings (superadmin only)
-	g.POST("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.CreateNewsScrapeCronSetting)
-	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSetting)
-	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetNewsScrapeCronSettingHistory)
-	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdateNewsScrapeCronSetting)
-	g.DELETE("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.DeleteNewsScrapeCronSetting)
-	g.POST("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.CreatePriceScrapeCronSetting)
-	g.GET("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetPriceScrapeCronSetting)
-	g.GET("/master-settings/prices-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetPriceScrapeCronSettingHistory)
-	g.PUT("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.UpdatePriceScrapeCronSetting)
-	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.DeletePriceScrapeCronSetting)
+	g.POST("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.CreateNewsScrapeCronSetting)
+	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetNewsScrapeCronSetting)
+	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetNewsScrapeCronSettingHistory)
+	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.UpdateNewsScrapeCronSetting)
+	g.DELETE("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.DeleteNewsScrapeCronSetting)
+	g.POST("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.CreatePriceScrapeCronSetting)
+	g.GET("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetPriceScrapeCronSetting)
+	g.GET("/master-settings/prices-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetPriceScrapeCronSettingHistory)
+	g.PUT("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.UpdatePriceScrapeCronSetting)
+	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.DeletePriceScrapeCronSetting)
 
 	// Finance performance
-	g.GET("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.Dealers)
-	g.GET("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceCompanies)
-	g.GET("/finance/report/migrations", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceMigrationReport)
-	g.GET("/finance/report/migrations/:id/order-ins", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), h.FinanceMigrationOrderInDetail)
-	g.GET("/finance/dealers/:id/metrics", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "view_metrics"), h.DealerMetrics)
-	g.POST("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateDealer)
-	g.PUT("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateDealer)
-	g.DELETE("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteDealer)
-	g.POST("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.CreateFinanceCompany)
-	g.PUT("/finance/companies/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.UpdateFinanceCompany)
-	g.DELETE("/finance/companies/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), h.DeleteFinanceCompany)
+	g.GET("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.GetAll)
+	g.GET("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.GetAll)
+	g.GET("/finance/report/migrations", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), legacyHandler.FinanceMigrationReport)
+	g.GET("/finance/report/migrations/:id/order-ins", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), legacyHandler.FinanceMigrationOrderInDetail)
+	g.GET("/finance/dealers/:id/metrics", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "view_metrics"), legacyHandler.DealerMetrics)
+	g.POST("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Create)
+	g.PUT("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Update)
+	g.DELETE("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Delete)
+	g.POST("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.Create)
+	g.PUT("/finance/companies/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.Update)
+	g.DELETE("/finance/companies/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.Delete)
 
 	// Jobs + Net Income
-	g.GET("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "list"), h.ListJobs)
-	g.GET("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "view"), h.GetJobByID)
-	g.POST("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "create"), h.CreateJob)
-	g.PUT("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "update"), h.UpdateJob)
-	g.DELETE("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "delete"), h.DeleteJob)
+	g.GET("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "list"), jobHandler.GetAll)
+	g.GET("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "view"), jobHandler.GetByID)
+	g.POST("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "create"), jobHandler.Create)
+	g.PUT("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "update"), jobHandler.Update)
+	g.DELETE("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "delete"), jobHandler.Delete)
 
-	g.GET("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "list"), h.ListNetIncomes)
-	g.GET("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "view"), h.GetNetIncomeByID)
-	g.POST("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "create"), h.CreateNetIncome)
-	g.PUT("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "update"), h.UpdateNetIncome)
-	g.DELETE("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "delete"), h.DeleteNetIncome)
+	g.GET("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "list"), netIncomeHandler.GetAll)
+	g.GET("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "view"), netIncomeHandler.GetByID)
+	g.POST("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "create"), netIncomeHandler.Create)
+	g.PUT("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "update"), netIncomeHandler.Update)
+	g.DELETE("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "delete"), netIncomeHandler.Delete)
 
 	// Credit capability & quadrants
-	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), h.UpsertCredit)
-	g.GET("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), h.ListCredit)
-	g.GET("/credit/worksheet", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), h.CreditWorksheet)
-	g.GET("/credit/summary", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), h.CreditSummary)
-	g.POST("/quadrants/recompute", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "recompute"), h.RecomputeQuadrants)
-	g.GET("/quadrants", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), h.ListQuadrants)
-	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), h.QuadrantSummary)
+	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), legacyHandler.UpsertCredit)
+	g.GET("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), legacyHandler.ListCredit)
+	g.GET("/credit/worksheet", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), legacyHandler.CreditWorksheet)
+	g.GET("/credit/summary", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), legacyHandler.CreditSummary)
+	g.POST("/quadrants/recompute", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "recompute"), legacyHandler.RecomputeQuadrants)
+	g.GET("/quadrants", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), legacyHandler.ListQuadrants)
+	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), legacyHandler.QuadrantSummary)
 
 	// News
-	g.GET("/dashboard/news-items", h.DashboardNewsItems)
-	g.POST("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), h.UpsertNewsSource)
-	g.GET("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), h.ListNewsSources)
-	g.POST("/news/scrape", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), h.ScrapeNews)
-	g.POST("/news/import", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), h.ImportNews)
-	g.GET("/news/latest", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), h.LatestNews)
-	g.GET("/news/items", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), h.ListNewsItems)
-	g.DELETE("/news/items/:id", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), h.DeleteNewsItem)
+	g.GET("/dashboard/news-items", legacyHandler.DashboardNewsItems)
+	g.POST("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), legacyHandler.UpsertNewsSource)
+	g.GET("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), legacyHandler.ListNewsSources)
+	g.POST("/news/scrape", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), legacyHandler.ScrapeNews)
+	g.POST("/news/import", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), legacyHandler.ImportNews)
+	g.GET("/news/latest", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), legacyHandler.LatestNews)
+	g.GET("/news/items", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), legacyHandler.ListNewsItems)
+	g.DELETE("/news/items/:id", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), legacyHandler.DeleteNewsItem)
 
 	// Commodity prices
-	g.GET("/dashboard/prices", h.DashboardPrices)
-	g.POST("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "upsert"), h.UpsertCommodity)
-	g.POST("/commodities/price", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), h.AddPrice)
-	g.GET("/commodities/prices/latest", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), h.LatestPrices)
-	g.GET("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), h.ListCommodities)
-	g.GET("/commodities/prices", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), h.ListPrices)
-	g.DELETE("/commodities/prices/:id", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.DeletePrice)
-	g.POST("/commodities/prices/scrape", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ScrapePrices)
-	g.POST("/commodities/prices/scrape-jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.CreateScrapeJob)
-	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeJobs)
-	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), h.ListScrapeResults)
-	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), h.CommitScrapeResults)
-	g.GET("/lookups", menuAccess("/orders", "/business", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), h.Lookups)
-	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), h.ListScrapeSources)
-	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), h.CreateScrapeSource)
-	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), h.UpdateScrapeSource)
-	g.DELETE("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "delete"), h.DeleteScrapeSource)
+	g.GET("/dashboard/prices", legacyHandler.DashboardPrices)
+	g.POST("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "upsert"), legacyHandler.UpsertCommodity)
+	g.POST("/commodities/price", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), legacyHandler.AddPrice)
+	g.GET("/commodities/prices/latest", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), legacyHandler.LatestPrices)
+	g.GET("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), legacyHandler.ListCommodities)
+	g.GET("/commodities/prices", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), legacyHandler.ListPrices)
+	g.DELETE("/commodities/prices/:id", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.DeletePrice)
+	g.POST("/commodities/prices/scrape", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.ScrapePrices)
+	g.POST("/commodities/prices/scrape-jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.CreateScrapeJob)
+	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.ListScrapeJobs)
+	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.ListScrapeResults)
+	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), legacyHandler.CommitScrapeResults)
+	g.GET("/lookups", menuAccess("/orders", "/business", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), legacyHandler.Lookups)
+	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), legacyHandler.ListScrapeSources)
+	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), legacyHandler.CreateScrapeSource)
+	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), legacyHandler.UpdateScrapeSource)
+	g.DELETE("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "delete"), legacyHandler.DeleteScrapeSource)
 
 	logger.WriteLog(logger.LogLevelInfo, "Songket routes registered")
 }
