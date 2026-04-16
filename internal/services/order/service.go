@@ -13,7 +13,6 @@ import (
 	interfacemotor "service-songket/internal/interfaces/motor"
 	interfaceorder "service-songket/internal/interfaces/order"
 	sharedsvc "service-songket/internal/services/shared"
-	legacysongket "service-songket/internal/songket"
 	"service-songket/pkg/filter"
 	"service-songket/utils"
 
@@ -24,7 +23,7 @@ type Service struct {
 	repo       interfaceorder.RepoOrderInterface
 	dealerRepo interfacedealer.RepoDealerInterface
 	motorRepo  interfacemotor.RepoMotorInterface
-	legacy     *legacysongket.Service
+	db         *gorm.DB
 }
 
 func NewOrderService(
@@ -37,7 +36,7 @@ func NewOrderService(
 		repo:       orderRepo,
 		dealerRepo: dealerRepo,
 		motorRepo:  motorRepo,
-		legacy:     legacysongket.NewService(db),
+		db:         db,
 	}
 }
 
@@ -183,10 +182,6 @@ func (s *Service) List(params filter.BaseParams, role, userID string) ([]domaino
 		createdBy = userID
 	}
 	return s.repo.GetAll(params, createdBy)
-}
-
-func (s *Service) DashboardSummary(req dto.DashboardSummaryQuery, role, userID string) (map[string]interface{}, error) {
-	return s.legacy.DashboardSummary(req, role, userID)
 }
 
 func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID string) (domainorder.Order, error) {
@@ -478,18 +473,6 @@ func (s *Service) Delete(id string, role, userID string) error {
 	}
 
 	return s.repo.Delete(id)
-}
-
-func (s *Service) StartExport(req dto.OrderExportRequest, role, userID string) (domainorder.OrderExportJob, error) {
-	return s.legacy.StartOrderExport(req, role, userID)
-}
-
-func (s *Service) GetExportJob(jobID, role, userID string) (domainorder.OrderExportJob, error) {
-	return s.legacy.GetOrderExportJob(jobID, role, userID)
-}
-
-func (s *Service) DownloadExport(jobID, role, userID string) (domainorder.OrderExportDownload, error) {
-	return s.legacy.DownloadOrderExportFile(jobID, role, userID)
 }
 
 func (s *Service) duplicateOrderRow(tx interfaceorder.RepoOrderTxInterface, source domainorder.Order, cloneStatus, cloneNotes, financeCompanyID string) error {
