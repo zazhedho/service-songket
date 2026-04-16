@@ -8,14 +8,17 @@ import (
 	"gorm.io/gorm"
 
 	"service-songket/infrastructure/database"
+	handlercommodity "service-songket/internal/handlers/http/commodity"
 	handlercredit "service-songket/internal/handlers/http/credit"
 	handlerdealer "service-songket/internal/handlers/http/dealer"
 	handlerfinancecompany "service-songket/internal/handlers/http/financecompany"
 	handlerinstallment "service-songket/internal/handlers/http/installment"
 	handlerjob "service-songket/internal/handlers/http/job"
+	handlermastersetting "service-songket/internal/handlers/http/mastersetting"
 	menuHandler "service-songket/internal/handlers/http/menu"
 	handlermotor "service-songket/internal/handlers/http/motor"
 	handlernetincome "service-songket/internal/handlers/http/netincome"
+	handlernews "service-songket/internal/handlers/http/news"
 	handlerorder "service-songket/internal/handlers/http/order"
 	permissionHandler "service-songket/internal/handlers/http/permission"
 	handlerquadrant "service-songket/internal/handlers/http/quadrant"
@@ -24,28 +27,34 @@ import (
 	userHandler "service-songket/internal/handlers/http/user"
 	"service-songket/internal/master"
 	authRepo "service-songket/internal/repositories/auth"
+	repositorycommodity "service-songket/internal/repositories/commodity"
 	repositorycredit "service-songket/internal/repositories/credit"
 	repositorydealer "service-songket/internal/repositories/dealer"
 	repositoryfinancecompany "service-songket/internal/repositories/financecompany"
 	repositoryinstallment "service-songket/internal/repositories/installment"
 	repositoryjob "service-songket/internal/repositories/job"
+	repositorymastersetting "service-songket/internal/repositories/mastersetting"
 	menuRepo "service-songket/internal/repositories/menu"
 	repositorymotor "service-songket/internal/repositories/motor"
 	repositorynetincome "service-songket/internal/repositories/netincome"
+	repositorynews "service-songket/internal/repositories/news"
 	repositoryorder "service-songket/internal/repositories/order"
 	permissionRepo "service-songket/internal/repositories/permission"
 	repositoryquadrant "service-songket/internal/repositories/quadrant"
 	roleRepo "service-songket/internal/repositories/role"
 	sessionRepo "service-songket/internal/repositories/session"
 	userRepo "service-songket/internal/repositories/user"
+	servicecommodity "service-songket/internal/services/commodity"
 	servicecredit "service-songket/internal/services/credit"
 	servicedealer "service-songket/internal/services/dealer"
 	servicefinancecompany "service-songket/internal/services/financecompany"
 	serviceinstallment "service-songket/internal/services/installment"
 	servicejob "service-songket/internal/services/job"
+	servicemastersetting "service-songket/internal/services/mastersetting"
 	menuSvc "service-songket/internal/services/menu"
 	servicemotor "service-songket/internal/services/motor"
 	servicenetincome "service-songket/internal/services/netincome"
+	servicenews "service-songket/internal/services/news"
 	serviceorder "service-songket/internal/services/order"
 	permissionSvc "service-songket/internal/services/permission"
 	servicequadrant "service-songket/internal/services/quadrant"
@@ -283,6 +292,9 @@ func (r *Routes) SongketRoutes() {
 	jobRepo := repositoryjob.NewJobRepo(r.DB)
 	netIncomeRepo := repositorynetincome.NewNetIncomeRepo(r.DB)
 	orderRepo := repositoryorder.NewOrderRepo(r.DB)
+	newsRepo := repositorynews.NewNewsRepo(r.DB)
+	commodityRepo := repositorycommodity.NewCommodityRepo(r.DB)
+	masterSettingRepo := repositorymastersetting.NewMasterSettingRepo(r.DB)
 	creditRepo := repositorycredit.NewCreditRepo(r.DB)
 	quadrantRepo := repositoryquadrant.NewQuadrantRepo(r.DB)
 	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, motorRepo, r.DB))
@@ -292,6 +304,9 @@ func (r *Routes) SongketRoutes() {
 	installmentHandler := handlerinstallment.NewInstallmentHandler(serviceinstallment.NewInstallmentService(installmentRepo, motorRepo))
 	jobHandler := handlerjob.NewJobHandler(servicejob.NewJobService(jobRepo))
 	netIncomeHandler := handlernetincome.NewNetIncomeHandler(servicenetincome.NewNetIncomeService(netIncomeRepo, jobRepo))
+	newsHandler := handlernews.NewNewsHandler(servicenews.NewNewsService(newsRepo))
+	commodityHandler := handlercommodity.NewCommodityHandler(servicecommodity.NewCommodityService(commodityRepo))
+	masterSettingHandler := handlermastersetting.NewMasterSettingHandler(servicemastersetting.NewMasterSettingService(masterSettingRepo))
 	creditService := servicecredit.NewCreditService(creditRepo, jobRepo)
 	creditHandler := handlercredit.NewCreditHandler(creditService)
 	quadrantHandler := handlerquadrant.NewQuadrantHandler(servicequadrant.NewQuadrantService(quadrantRepo, creditService))
@@ -332,16 +347,16 @@ func (r *Routes) SongketRoutes() {
 	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), installmentHandler.Delete)
 
 	// Master settings (superadmin only)
-	g.POST("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.CreateNewsScrapeCronSetting)
-	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetNewsScrapeCronSetting)
-	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetNewsScrapeCronSettingHistory)
-	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.UpdateNewsScrapeCronSetting)
-	g.DELETE("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.DeleteNewsScrapeCronSetting)
-	g.POST("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.CreatePriceScrapeCronSetting)
-	g.GET("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetPriceScrapeCronSetting)
-	g.GET("/master-settings/prices-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.GetPriceScrapeCronSettingHistory)
-	g.PUT("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.UpdatePriceScrapeCronSetting)
-	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), legacyHandler.DeletePriceScrapeCronSetting)
+	g.POST("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.CreateNewsScrapeCronSetting)
+	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetNewsScrapeCronSetting)
+	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetNewsScrapeCronSettingHistory)
+	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.UpdateNewsScrapeCronSetting)
+	g.DELETE("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.DeleteNewsScrapeCronSetting)
+	g.POST("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.CreatePriceScrapeCronSetting)
+	g.GET("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetPriceScrapeCronSetting)
+	g.GET("/master-settings/prices-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetPriceScrapeCronSettingHistory)
+	g.PUT("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.UpdatePriceScrapeCronSetting)
+	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.DeletePriceScrapeCronSetting)
 
 	// Finance performance
 	g.GET("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.GetAll)
@@ -379,28 +394,28 @@ func (r *Routes) SongketRoutes() {
 	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.Summary)
 
 	// News
-	g.GET("/dashboard/news-items", legacyHandler.DashboardNewsItems)
-	g.POST("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), legacyHandler.UpsertNewsSource)
-	g.GET("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), legacyHandler.ListNewsSources)
-	g.POST("/news/scrape", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), legacyHandler.ScrapeNews)
-	g.POST("/news/import", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), legacyHandler.ImportNews)
-	g.GET("/news/latest", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), legacyHandler.LatestNews)
-	g.GET("/news/items", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), legacyHandler.ListNewsItems)
-	g.DELETE("/news/items/:id", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), legacyHandler.DeleteNewsItem)
+	g.GET("/dashboard/news-items", newsHandler.DashboardItems)
+	g.POST("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), newsHandler.UpsertSource)
+	g.GET("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), newsHandler.ListSources)
+	g.POST("/news/scrape", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), newsHandler.Scrape)
+	g.POST("/news/import", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), newsHandler.Import)
+	g.GET("/news/latest", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), newsHandler.Latest)
+	g.GET("/news/items", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), newsHandler.ListItems)
+	g.DELETE("/news/items/:id", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), newsHandler.DeleteItem)
 
 	// Commodity prices
-	g.GET("/dashboard/prices", legacyHandler.DashboardPrices)
-	g.POST("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "upsert"), legacyHandler.UpsertCommodity)
-	g.POST("/commodities/price", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), legacyHandler.AddPrice)
-	g.GET("/commodities/prices/latest", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), legacyHandler.LatestPrices)
-	g.GET("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), legacyHandler.ListCommodities)
-	g.GET("/commodities/prices", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), legacyHandler.ListPrices)
-	g.DELETE("/commodities/prices/:id", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.DeletePrice)
-	g.POST("/commodities/prices/scrape", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.ScrapePrices)
-	g.POST("/commodities/prices/scrape-jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.CreateScrapeJob)
-	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.ListScrapeJobs)
-	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), legacyHandler.ListScrapeResults)
-	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), legacyHandler.CommitScrapeResults)
+	g.GET("/dashboard/prices", commodityHandler.DashboardPrices)
+	g.POST("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "upsert"), commodityHandler.Upsert)
+	g.POST("/commodities/price", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), commodityHandler.AddPrice)
+	g.GET("/commodities/prices/latest", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), commodityHandler.LatestPrices)
+	g.GET("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), commodityHandler.ListCommodities)
+	g.GET("/commodities/prices", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), commodityHandler.ListPrices)
+	g.DELETE("/commodities/prices/:id", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.DeletePrice)
+	g.POST("/commodities/prices/scrape", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ScrapePrices)
+	g.POST("/commodities/prices/scrape-jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.CreateScrapeJob)
+	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ListScrapeJobs)
+	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ListScrapeResults)
+	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), commodityHandler.CommitScrapeResults)
 	g.GET("/lookups", menuAccess("/orders", "/business", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), legacyHandler.Lookups)
 	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), legacyHandler.ListScrapeSources)
 	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), legacyHandler.CreateScrapeSource)
