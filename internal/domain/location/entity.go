@@ -1,4 +1,4 @@
-package master
+package domainlocation
 
 import (
 	"time"
@@ -6,7 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// MasterProvince stores province master data cached from third-party.
+type LocationItem struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
 type MasterProvince struct {
 	ID        string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey"`
 	Code      string         `gorm:"column:code;type:varchar(16);not null;uniqueIndex"`
@@ -19,7 +23,6 @@ type MasterProvince struct {
 
 func (MasterProvince) TableName() string { return "master_provinces" }
 
-// MasterRegency stores kabupaten/kota data cached from third-party.
 type MasterRegency struct {
 	ID           string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey"`
 	ProvinceCode string         `gorm:"column:province_code;type:varchar(16);not null;index;uniqueIndex:idx_master_regencies_scope,priority:1"`
@@ -33,7 +36,6 @@ type MasterRegency struct {
 
 func (MasterRegency) TableName() string { return "master_regencies" }
 
-// MasterDistrict stores kecamatan data cached from third-party.
 type MasterDistrict struct {
 	ID           string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey"`
 	ProvinceCode string         `gorm:"column:province_code;type:varchar(16);not null;index;uniqueIndex:idx_master_districts_scope,priority:1"`

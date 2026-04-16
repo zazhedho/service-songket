@@ -8,7 +8,8 @@ import (
 	domaindealer "service-songket/internal/domain/dealer"
 	domainlookup "service-songket/internal/domain/lookup"
 	interfacelookup "service-songket/internal/interfaces/lookup"
-	"service-songket/internal/master"
+	repositorylocation "service-songket/internal/repositories/location"
+	servicelocation "service-songket/internal/services/location"
 
 	"gorm.io/gorm"
 )
@@ -85,10 +86,10 @@ func (s *Service) buildDashboardAreaOptions(dealers []domaindealer.Dealer) []dom
 
 	kabupatenCodeToName := map[string]string{}
 	if len(provinceSet) > 0 {
-		wilayahSvc := master.NewWilayahService(s.db)
+		locationSvc := servicelocation.NewLocationService(repositorylocation.NewLocationRepo(s.db))
 		ctx := context.Background()
 		for province := range provinceSet {
-			items, err := wilayahSvc.GetKabupaten(ctx, "", province)
+			items, err := locationSvc.GetCity(ctx, "", province)
 			if err != nil {
 				continue
 			}

@@ -8,11 +8,11 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	domainlocation "service-songket/internal/domain/location"
 	domainmotor "service-songket/internal/domain/motor"
 	domainnetincome "service-songket/internal/domain/netincome"
 
 	"service-songket/internal/dto"
-	"service-songket/internal/master"
 )
 
 func NormalizeRequiredUUID(raw, fieldName string) (string, error) {
@@ -84,9 +84,9 @@ func ResolveProvinceAliases(db *gorm.DB, raw interface{}) []string {
 	}
 
 	aliases := []string{base}
-	var provinces []master.MasterProvince
+	var provinces []domainlocation.MasterProvince
 	if err := db.
-		Model(&master.MasterProvince{}).
+		Model(&domainlocation.MasterProvince{}).
 		Select("code", "name").
 		Where("LOWER(code) = LOWER(?) OR LOWER(name) = LOWER(?)", base, base).
 		Find(&provinces).Error; err != nil {

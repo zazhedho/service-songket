@@ -15,6 +15,7 @@ import (
 	handlerfinancecompany "service-songket/internal/handlers/http/financecompany"
 	handlerinstallment "service-songket/internal/handlers/http/installment"
 	handlerjob "service-songket/internal/handlers/http/job"
+	handlerlocation "service-songket/internal/handlers/http/location"
 	handlerlookup "service-songket/internal/handlers/http/lookup"
 	handlermastersetting "service-songket/internal/handlers/http/mastersetting"
 	menuHandler "service-songket/internal/handlers/http/menu"
@@ -28,7 +29,6 @@ import (
 	handlerscrapesource "service-songket/internal/handlers/http/scrapesource"
 	sessionHandler "service-songket/internal/handlers/http/session"
 	userHandler "service-songket/internal/handlers/http/user"
-	"service-songket/internal/master"
 	authRepo "service-songket/internal/repositories/auth"
 	repositorycommodity "service-songket/internal/repositories/commodity"
 	repositorycredit "service-songket/internal/repositories/credit"
@@ -36,6 +36,7 @@ import (
 	repositoryfinancecompany "service-songket/internal/repositories/financecompany"
 	repositoryinstallment "service-songket/internal/repositories/installment"
 	repositoryjob "service-songket/internal/repositories/job"
+	repositorylocation "service-songket/internal/repositories/location"
 	repositorylookup "service-songket/internal/repositories/lookup"
 	repositorymastersetting "service-songket/internal/repositories/mastersetting"
 	menuRepo "service-songket/internal/repositories/menu"
@@ -56,6 +57,7 @@ import (
 	servicefinancecompany "service-songket/internal/services/financecompany"
 	serviceinstallment "service-songket/internal/services/installment"
 	servicejob "service-songket/internal/services/job"
+	servicelocation "service-songket/internal/services/location"
 	servicelookup "service-songket/internal/services/lookup"
 	servicemastersetting "service-songket/internal/services/mastersetting"
 	menuSvc "service-songket/internal/services/menu"
@@ -221,20 +223,31 @@ func (r *Routes) PermissionRoutes() {
 	}
 }
 
-// MasterRoutes serves master data (wilayah) from Sipedas.
-func (r *Routes) MasterRoutes() {
-	svc := master.NewWilayahService(r.DB)
-	h := master.NewHandler(svc)
+// LocationRoutes serves location data from Sipedas-backed cache.
+func (r *Routes) LocationRoutes() {
+	repo := repositorylocation.NewLocationRepo(r.DB)
+	svc := servicelocation.NewLocationService(repo)
+	h := handlerlocation.NewLocationHandler(svc)
 
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
 	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
 
-	g := r.App.Group("/api/master").Use(mdw.AuthMiddleware())
+	location := r.App.Group("/api/location").Use(mdw.AuthMiddleware())
 	{
-		g.GET("/provinsi", h.GetProvinsi)
-		g.GET("/kabupaten", h.GetKabupaten)
-		g.GET("/kecamatan", h.GetKecamatan)
+		location.GET("/province", h.GetProvince)
+		location.GET("/city", h.GetCity)
+		location.GET("/district", h.GetDistrict)
+	}
+
+	legacy := r.App.Group("/api/master").Use(mdw.AuthMiddleware())
+	{
+		legacy.GET("/province", h.GetProvince)
+		legacy.GET("/city", h.GetCity)
+		legacy.GET("/district", h.GetDistrict)
+		legacy.GET("/provinsi", h.GetProvince)
+		legacy.GET("/kabupaten", h.GetCity)
+		legacy.GET("/kecamatan", h.GetDistrict)
 	}
 }
 

@@ -12,9 +12,9 @@ import (
 	"github.com/oviekshgya/shago-lib/excel"
 	"gorm.io/gorm"
 
+	domainlocation "service-songket/internal/domain/location"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
-	"service-songket/internal/master"
 	"service-songket/utils"
 )
 
@@ -501,8 +501,8 @@ func (r *exportLocationResolver) resolveProvinceCodes(provinceRaw string) []stri
 		return cached
 	}
 
-	var rows []master.MasterProvince
-	if err := r.db.Model(&master.MasterProvince{}).Select("code", "name").Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).Find(&rows).Error; err != nil {
+	var rows []domainlocation.MasterProvince
+	if err := r.db.Model(&domainlocation.MasterProvince{}).Select("code", "name").Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).Find(&rows).Error; err != nil {
 		result := dedupeTokens([]string{base})
 		r.provinceCodes[cacheKey] = result
 		return result
@@ -531,8 +531,8 @@ func (r *exportLocationResolver) resolveProvinceName(provinceRaw string) string 
 		return cached
 	}
 
-	var row master.MasterProvince
-	if err := r.db.Model(&master.MasterProvince{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).First(&row).Error; err == nil {
+	var row domainlocation.MasterProvince
+	if err := r.db.Model(&domainlocation.MasterProvince{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).First(&row).Error; err == nil {
 		name := strings.TrimSpace(row.Name)
 		if name != "" {
 			r.provinceNameCache[cacheKey] = name
@@ -557,8 +557,8 @@ func (r *exportLocationResolver) resolveRegencyCodes(provinceRaw, regencyRaw str
 	provinceCodes := r.resolveProvinceCodes(provinceRaw)
 	result := []string{}
 	for _, provinceCode := range provinceCodes {
-		var rows []master.MasterRegency
-		if err := r.db.Model(&master.MasterRegency{}).Select("code").Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).Find(&rows).Error; err != nil {
+		var rows []domainlocation.MasterRegency
+		if err := r.db.Model(&domainlocation.MasterRegency{}).Select("code").Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).Find(&rows).Error; err != nil {
 			continue
 		}
 		for _, row := range rows {
@@ -588,8 +588,8 @@ func (r *exportLocationResolver) resolveRegencyName(provinceRaw, regencyRaw stri
 
 	provinceCodes := r.resolveProvinceCodes(provinceRaw)
 	for _, provinceCode := range provinceCodes {
-		var row master.MasterRegency
-		if err := r.db.Model(&master.MasterRegency{}).Select("name").Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).First(&row).Error; err == nil {
+		var row domainlocation.MasterRegency
+		if err := r.db.Model(&domainlocation.MasterRegency{}).Select("name").Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).First(&row).Error; err == nil {
 			name := strings.TrimSpace(row.Name)
 			if name != "" {
 				r.regencyNameCache[cacheKey] = name
@@ -597,8 +597,8 @@ func (r *exportLocationResolver) resolveRegencyName(provinceRaw, regencyRaw stri
 			}
 		}
 	}
-	var fallback master.MasterRegency
-	if err := r.db.Model(&master.MasterRegency{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", regencyKey, regencyKey).First(&fallback).Error; err == nil {
+	var fallback domainlocation.MasterRegency
+	if err := r.db.Model(&domainlocation.MasterRegency{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", regencyKey, regencyKey).First(&fallback).Error; err == nil {
 		name := strings.TrimSpace(fallback.Name)
 		if name != "" {
 			r.regencyNameCache[cacheKey] = name
@@ -624,8 +624,8 @@ func (r *exportLocationResolver) resolveDistrictName(provinceRaw, regencyRaw, di
 	regencyCodes := r.resolveRegencyCodes(provinceRaw, regencyRaw)
 	for _, provinceCode := range provinceCodes {
 		for _, regencyCode := range regencyCodes {
-			var row master.MasterDistrict
-			if err := r.db.Model(&master.MasterDistrict{}).Select("name").Where("province_code = ? AND regency_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), strings.TrimSpace(regencyCode), districtKey, districtKey).First(&row).Error; err == nil {
+			var row domainlocation.MasterDistrict
+			if err := r.db.Model(&domainlocation.MasterDistrict{}).Select("name").Where("province_code = ? AND regency_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), strings.TrimSpace(regencyCode), districtKey, districtKey).First(&row).Error; err == nil {
 				name := strings.TrimSpace(row.Name)
 				if name != "" {
 					r.districtNameCache[cacheKey] = name
@@ -634,8 +634,8 @@ func (r *exportLocationResolver) resolveDistrictName(provinceRaw, regencyRaw, di
 			}
 		}
 	}
-	var fallback master.MasterDistrict
-	if err := r.db.Model(&master.MasterDistrict{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", districtKey, districtKey).First(&fallback).Error; err == nil {
+	var fallback domainlocation.MasterDistrict
+	if err := r.db.Model(&domainlocation.MasterDistrict{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", districtKey, districtKey).First(&fallback).Error; err == nil {
 		name := strings.TrimSpace(fallback.Name)
 		if name != "" {
 			r.districtNameCache[cacheKey] = name

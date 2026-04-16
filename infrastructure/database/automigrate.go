@@ -10,6 +10,7 @@ import (
 	domainfinancecompany "service-songket/internal/domain/financecompany"
 	domaininstallment "service-songket/internal/domain/installment"
 	domainjob "service-songket/internal/domain/job"
+	domainlocation "service-songket/internal/domain/location"
 	"service-songket/internal/domain/master/provinsi"
 	domainmastersetting "service-songket/internal/domain/mastersetting"
 	domainmotor "service-songket/internal/domain/motor"
@@ -27,7 +28,6 @@ import (
 	domainrole "service-songket/internal/domain/role"
 	domainscrapesource "service-songket/internal/domain/scrapesource"
 	domainuser "service-songket/internal/domain/user"
-	"service-songket/internal/master"
 	"service-songket/pkg/logger"
 	"service-songket/utils"
 
@@ -56,9 +56,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&domainmenu.MenuItem{},
 		&domainrole.RolePermission{},
 		&domainrole.RoleMenu{},
-		&master.MasterProvince{},
-		&master.MasterRegency{},
-		&master.MasterDistrict{},
+		&domainlocation.MasterProvince{},
+		&domainlocation.MasterRegency{},
+		&domainlocation.MasterDistrict{},
 
 		// SONGKET domain
 		&domaindealer.Dealer{},
