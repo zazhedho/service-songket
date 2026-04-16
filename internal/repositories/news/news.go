@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	domainnews "service-songket/internal/domain/news"
+	domainscrapesource "service-songket/internal/domain/scrapesource"
 	interfacenews "service-songket/internal/interfaces/news"
-	legacysongket "service-songket/internal/songket"
 	"service-songket/pkg/filter"
 
 	"gorm.io/gorm"
@@ -157,7 +157,7 @@ func (r *repo) GetItemByURLCandidates(urls []string) (domainnews.NewsItem, error
 }
 
 func (r *repo) ListActiveScrapeSourceURLs(sourceType string) ([]string, error) {
-	var sources []legacysongket.ScrapeSource
+	var sources []domainscrapesource.ScrapeSource
 	if err := r.db.Where("is_active = ? AND type = ?", true, sourceType).Find(&sources).Error; err != nil {
 		return nil, err
 	}

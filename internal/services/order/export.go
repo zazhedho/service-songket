@@ -15,7 +15,6 @@ import (
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
 	"service-songket/internal/master"
-	legacysongket "service-songket/internal/songket"
 	"service-songket/utils"
 )
 
@@ -277,10 +276,10 @@ func (s *Service) listOrdersForExport(req dto.OrderExportRequest, role, userID s
 func (s *Service) GetExportJob(jobID, role, userID string) (domainorder.OrderExportJob, error) {
 	raw, exists := getOrderExportJobCopy(strings.TrimSpace(jobID))
 	if !exists {
-		return domainorder.OrderExportJob{}, legacysongket.ErrOrderExportNotFound
+		return domainorder.OrderExportJob{}, domainorder.ErrOrderExportNotFound
 	}
 	if !canAccessOrderExport(&raw, role, userID) {
-		return domainorder.OrderExportJob{}, legacysongket.ErrOrderExportForbidden
+		return domainorder.OrderExportJob{}, domainorder.ErrOrderExportForbidden
 	}
 	return raw, nil
 }
@@ -288,13 +287,13 @@ func (s *Service) GetExportJob(jobID, role, userID string) (domainorder.OrderExp
 func (s *Service) DownloadExport(jobID, role, userID string) (domainorder.OrderExportDownload, error) {
 	raw, exists := getOrderExportJobCopy(strings.TrimSpace(jobID))
 	if !exists {
-		return domainorder.OrderExportDownload{}, legacysongket.ErrOrderExportNotFound
+		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportNotFound
 	}
 	if !canAccessOrderExport(&raw, role, userID) {
-		return domainorder.OrderExportDownload{}, legacysongket.ErrOrderExportForbidden
+		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportForbidden
 	}
 	if raw.Status != orderExportStatusCompleted || strings.TrimSpace(raw.FilePath) == "" {
-		return domainorder.OrderExportDownload{}, legacysongket.ErrOrderExportNotReady
+		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportNotReady
 	}
 
 	filePath := strings.TrimSpace(raw.FilePath)
@@ -305,12 +304,12 @@ func (s *Service) DownloadExport(jobID, role, userID string) (domainorder.OrderE
 				job.Status = orderExportStatusFailed
 				job.Progress = 100
 				job.Message = "Export file is missing"
-				job.Error = legacysongket.ErrOrderExportFileGone.Error()
+				job.Error = domainorder.ErrOrderExportFileGone.Error()
 				job.FilePath = ""
 				finishedAt := time.Now()
 				job.FinishedAt = &finishedAt
 			})
-			return domainorder.OrderExportDownload{}, legacysongket.ErrOrderExportFileGone
+			return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportFileGone
 		}
 		return domainorder.OrderExportDownload{}, err
 	}

@@ -3,10 +3,11 @@ package repositorymotor
 import (
 	"strings"
 
+	domaininstallment "service-songket/internal/domain/installment"
 	domainmotor "service-songket/internal/domain/motor"
+	domainorder "service-songket/internal/domain/order"
 	interfacemotor "service-songket/internal/interfaces/motor"
 	repositorygeneric "service-songket/internal/repositories/generic"
-	legacysongket "service-songket/internal/songket"
 	"service-songket/pkg/filter"
 
 	"gorm.io/gorm"
@@ -84,12 +85,12 @@ func (r *repo) GetDuplicateForUpdate(id, name, brand, model, variantType, provin
 
 func (r *repo) CountOrdersByMotorType(id string) (int64, error) {
 	var count int64
-	err := r.DB.Model(&legacysongket.Order{}).Where("motor_type_id = ?", id).Count(&count).Error
+	err := r.DB.Model(&domainorder.Order{}).Where("motor_type_id = ?", id).Count(&count).Error
 	return count, err
 }
 
 func (r *repo) CountInstallmentsByMotorType(id string) (int64, error) {
 	var count int64
-	err := r.DB.Model(&legacysongket.Installment{}).Where("motor_type_id = ?", id).Count(&count).Error
+	err := r.DB.Model(&domaininstallment.Installment{}).Where("motor_type_id = ?", id).Count(&count).Error
 	return count, err
 }

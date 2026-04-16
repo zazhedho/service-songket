@@ -7,8 +7,8 @@ import (
 	"time"
 
 	domaincommodity "service-songket/internal/domain/commodity"
+	domainscrapesource "service-songket/internal/domain/scrapesource"
 	interfacecommodity "service-songket/internal/interfaces/commodity"
-	legacysongket "service-songket/internal/songket"
 	"service-songket/pkg/filter"
 	"service-songket/utils"
 
@@ -180,7 +180,7 @@ func (r *repo) GetScrapeResults(jobID string, resultIDs []string) ([]domaincommo
 }
 
 func (r *repo) ListActiveScrapeSourceURLs(sourceType string) ([]string, error) {
-	var sources []legacysongket.ScrapeSource
+	var sources []domainscrapesource.ScrapeSource
 	if err := r.db.Where("is_active = ? AND type = ?", true, sourceType).Find(&sources).Error; err != nil {
 		return nil, err
 	}

@@ -1,8 +1,25 @@
 package domaincredit
 
-import legacysongket "service-songket/internal/songket"
+import (
+	"time"
 
-type CreditCapability = legacysongket.CreditCapability
+	domainjob "service-songket/internal/domain/job"
+)
+
+type CreditCapability struct {
+	Id        string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Province  string         `gorm:"column:province" json:"province"`
+	Regency   string         `gorm:"column:regency;index:idx_credit_regency_job,unique" json:"regency"`
+	District  string         `gorm:"column:district" json:"district"`
+	Village   string         `gorm:"column:village" json:"village"`
+	Address   string         `gorm:"column:address" json:"address"`
+	JobID     string         `gorm:"column:job_id;type:uuid;index:idx_credit_regency_job,unique" json:"job_id"`
+	Job       *domainjob.Job `gorm:"foreignKey:JobID" json:"job,omitempty"`
+	Score     float64        `gorm:"column:score" json:"score"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+}
+
+func (CreditCapability) TableName() string { return "credit_capabilities" }
 
 type CreditSummary struct {
 	Province     string `json:"province"`

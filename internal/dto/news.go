@@ -1,5 +1,7 @@
 package dto
 
-import legacysongket "service-songket/internal/songket"
-
-type NewsSourceRequest = legacysongket.NewsSourceRequest
+type NewsSourceRequest struct {
+	Name     string `json:"name" binding:"required"`
+	URL      string `json:"url" binding:"required"`
+	Category string `json:"category"`
+}

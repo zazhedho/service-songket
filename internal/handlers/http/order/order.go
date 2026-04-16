@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
 	interfaceorder "service-songket/internal/interfaces/order"
-	legacysongket "service-songket/internal/songket"
 	"service-songket/pkg/filter"
 	"service-songket/pkg/messages"
 	"service-songket/pkg/response"
@@ -411,11 +411,11 @@ func (h *OrderHandler) GetExportStatus(ctx *gin.Context) {
 	job, err := h.Service.GetExportJob(jobID, role, userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, legacysongket.ErrOrderExportNotFound):
+		case errors.Is(err, domainorder.ErrOrderExportNotFound):
 			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logID, nil)
 			res.Error = err.Error()
 			ctx.JSON(http.StatusNotFound, res)
-		case errors.Is(err, legacysongket.ErrOrderExportForbidden):
+		case errors.Is(err, domainorder.ErrOrderExportForbidden):
 			res := response.Response(http.StatusForbidden, messages.MsgFail, logID, nil)
 			res.Error = err.Error()
 			ctx.JSON(http.StatusForbidden, res)
@@ -448,15 +448,15 @@ func (h *OrderHandler) DownloadExport(ctx *gin.Context) {
 	file, err := h.Service.DownloadExport(jobID, role, userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, legacysongket.ErrOrderExportNotFound):
+		case errors.Is(err, domainorder.ErrOrderExportNotFound):
 			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logID, nil)
 			res.Error = err.Error()
 			ctx.JSON(http.StatusNotFound, res)
-		case errors.Is(err, legacysongket.ErrOrderExportForbidden):
+		case errors.Is(err, domainorder.ErrOrderExportForbidden):
 			res := response.Response(http.StatusForbidden, messages.MsgFail, logID, nil)
 			res.Error = err.Error()
 			ctx.JSON(http.StatusForbidden, res)
-		case errors.Is(err, legacysongket.ErrOrderExportNotReady), errors.Is(err, legacysongket.ErrOrderExportFileGone):
+		case errors.Is(err, domainorder.ErrOrderExportNotReady), errors.Is(err, domainorder.ErrOrderExportFileGone):
 			res := response.Response(http.StatusConflict, messages.MsgFail, logID, nil)
 			res.Error = err.Error()
 			ctx.JSON(http.StatusConflict, res)

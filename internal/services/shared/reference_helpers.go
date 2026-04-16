@@ -8,10 +8,11 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	domainmotor "service-songket/internal/domain/motor"
+	domainnetincome "service-songket/internal/domain/netincome"
 
 	"service-songket/internal/dto"
 	"service-songket/internal/master"
-	legacysongket "service-songket/internal/songket"
 )
 
 func NormalizeRequiredUUID(raw, fieldName string) (string, error) {
@@ -104,14 +105,14 @@ func ResolveProvinceAliases(db *gorm.DB, raw interface{}) []string {
 	return aliases
 }
 
-func NormalizeAreaNetIncome(areas []dto.NetIncomeAreaRequest) []legacysongket.NetIncomeAreaItem {
+func NormalizeAreaNetIncome(areas []dto.NetIncomeAreaRequest) []domainnetincome.AreaItem {
 	if len(areas) == 0 {
-		return []legacysongket.NetIncomeAreaItem{}
+		return []domainnetincome.AreaItem{}
 	}
 
-	normalized := make([]legacysongket.NetIncomeAreaItem, 0, len(areas))
+	normalized := make([]domainnetincome.AreaItem, 0, len(areas))
 	for _, area := range areas {
-		normalized = append(normalized, legacysongket.NetIncomeAreaItem{
+		normalized = append(normalized, domainnetincome.AreaItem{
 			ProvinceCode: strings.TrimSpace(area.ProvinceCode),
 			ProvinceName: strings.TrimSpace(area.ProvinceName),
 			RegencyCode:  strings.TrimSpace(area.RegencyCode),
@@ -121,15 +122,15 @@ func NormalizeAreaNetIncome(areas []dto.NetIncomeAreaRequest) []legacysongket.Ne
 	return NormalizeAreaNetIncomeItems(normalized)
 }
 
-func NormalizeAreaNetIncomeItems(areas []legacysongket.NetIncomeAreaItem) []legacysongket.NetIncomeAreaItem {
+func NormalizeAreaNetIncomeItems(areas []domainnetincome.AreaItem) []domainnetincome.AreaItem {
 	if len(areas) == 0 {
-		return []legacysongket.NetIncomeAreaItem{}
+		return []domainnetincome.AreaItem{}
 	}
 
 	seen := make(map[string]struct{}, len(areas))
-	out := make([]legacysongket.NetIncomeAreaItem, 0, len(areas))
+	out := make([]domainnetincome.AreaItem, 0, len(areas))
 	for _, area := range areas {
-		item := legacysongket.NetIncomeAreaItem{
+		item := domainnetincome.AreaItem{
 			ProvinceCode: strings.TrimSpace(area.ProvinceCode),
 			ProvinceName: strings.TrimSpace(area.ProvinceName),
 			RegencyCode:  strings.TrimSpace(area.RegencyCode),
@@ -165,7 +166,7 @@ func NormalizeAreaNetIncomeItems(areas []legacysongket.NetIncomeAreaItem) []lega
 	return out
 }
 
-func EncodeAreaNetIncome(areas []legacysongket.NetIncomeAreaItem) datatypes.JSON {
+func EncodeAreaNetIncome(areas []domainnetincome.AreaItem) datatypes.JSON {
 	clean := NormalizeAreaNetIncomeItems(areas)
 	if len(clean) == 0 {
 		return datatypes.JSON([]byte("[]"))
@@ -178,25 +179,25 @@ func EncodeAreaNetIncome(areas []legacysongket.NetIncomeAreaItem) datatypes.JSON
 	return datatypes.JSON(b)
 }
 
-func DecodeAreaNetIncome(raw datatypes.JSON) []legacysongket.NetIncomeAreaItem {
+func DecodeAreaNetIncome(raw datatypes.JSON) []domainnetincome.AreaItem {
 	if len(raw) == 0 {
-		return []legacysongket.NetIncomeAreaItem{}
+		return []domainnetincome.AreaItem{}
 	}
 
-	var areas []legacysongket.NetIncomeAreaItem
+	var areas []domainnetincome.AreaItem
 	if err := json.Unmarshal(raw, &areas); err == nil {
 		return NormalizeAreaNetIncomeItems(areas)
 	}
 
 	var legacy []string
 	if err := json.Unmarshal(raw, &legacy); err == nil {
-		mapped := make([]legacysongket.NetIncomeAreaItem, 0, len(legacy))
+		mapped := make([]domainnetincome.AreaItem, 0, len(legacy))
 		for _, item := range legacy {
 			val := strings.TrimSpace(item)
 			if val == "" {
 				continue
 			}
-			mapped = append(mapped, legacysongket.NetIncomeAreaItem{
+			mapped = append(mapped, domainnetincome.AreaItem{
 				ProvinceCode: "",
 				ProvinceName: "",
 				RegencyCode:  val,
@@ -206,14 +207,14 @@ func DecodeAreaNetIncome(raw datatypes.JSON) []legacysongket.NetIncomeAreaItem {
 		return NormalizeAreaNetIncomeItems(mapped)
 	}
 
-	return []legacysongket.NetIncomeAreaItem{}
+	return []domainnetincome.AreaItem{}
 }
 
 func ErrRecordNotFound() error {
 	return gorm.ErrRecordNotFound
 }
 
-func ValidateMotorTypeArea(motor legacysongket.MotorType, provinceCode, regencyCode string) error {
+func ValidateMotorTypeArea(motor domainmotor.MotorType, provinceCode, regencyCode string) error {
 	motorProvince := strings.TrimSpace(motor.ProvinceCode)
 	motorRegency := strings.TrimSpace(motor.RegencyCode)
 	orderProvince := strings.TrimSpace(provinceCode)

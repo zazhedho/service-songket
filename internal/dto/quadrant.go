@@ -1,5 +1,8 @@
 package dto
 
-import legacysongket "service-songket/internal/songket"
-
-type QuadrantComputeRequest = legacysongket.QuadrantComputeRequest
+type QuadrantComputeRequest struct {
+	OrderThreshold int     `json:"order_threshold" binding:"required"`
+	ScoreThreshold float64 `json:"score_threshold" binding:"required"`
+	From           string  `json:"from"`
+	To             string  `json:"to"`
+}
