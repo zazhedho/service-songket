@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(20) UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT 'viewer',
+    role VARCHAR(50) DEFAULT 'dealer',
     role_id UUID,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,

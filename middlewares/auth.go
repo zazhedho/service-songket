@@ -22,6 +22,11 @@ type Middleware struct {
 	PermissionRepo interfacepermission.RepoPermissionInterface
 }
 
+type PermissionCheck struct {
+	Resource string
+	Action   string
+}
+
 func NewMiddleware(blacklistRepo interfaceauth.RepoAuthInterface, permissionRepo interfacepermission.RepoPermissionInterface) *Middleware {
 	return &Middleware{
 		BlacklistRepo:  blacklistRepo,
@@ -123,6 +128,10 @@ func (m *Middleware) RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 }
 
 func (m *Middleware) PermissionMiddleware(resource, action string) gin.HandlerFunc {
+	return m.PermissionMiddlewareAny(PermissionCheck{Resource: resource, Action: action})
+}
+
+func (m *Middleware) PermissionMiddlewareAny(checks ...PermissionCheck) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var (
 			logId     uuid.UUID
@@ -168,15 +177,20 @@ func (m *Middleware) PermissionMiddleware(resource, action string) gin.HandlerFu
 		}
 
 		hasPermission := false
-		for _, perm := range permissions {
-			if perm.Resource == resource && perm.Action == action {
-				hasPermission = true
+		for _, check := range checks {
+			for _, perm := range permissions {
+				if perm.Resource == check.Resource && perm.Action == check.Action {
+					hasPermission = true
+					break
+				}
+			}
+			if hasPermission {
 				break
 			}
 		}
 
 		if !hasPermission {
-			logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; User '%s' lacks permission '%s:%s'", logPrefix, userId, resource, action))
+			logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; User '%s' lacks required permissions", logPrefix, userId))
 			res := response.Response(http.StatusForbidden, messages.MsgDenied, logId, nil)
 			res.Error = response.Errors{Code: http.StatusForbidden, Message: messages.AccessDenied}
 			ctx.AbortWithStatusJSON(http.StatusForbidden, res)

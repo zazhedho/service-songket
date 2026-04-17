@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"strings"
+
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -16,4 +18,8 @@ func ValueOrDefault[T any](v *T, def T) T {
 		return def
 	}
 	return *v
+}
+
+func SanitizeEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
 }

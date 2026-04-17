@@ -77,9 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
 -- Insert system roles
 INSERT INTO roles (id, name, display_name, description, is_system) VALUES
     (gen_random_uuid(), 'superadmin', 'Super Administrator', 'Full system access with highest privileges', TRUE),
-    (gen_random_uuid(), 'admin', 'Administrator', 'Full system access', TRUE),
-    (gen_random_uuid(), 'staff', 'Staff', 'Staff access with limited permissions', TRUE),
-    (gen_random_uuid(), 'viewer', 'Viewer', 'Read-only access', TRUE)
+    (gen_random_uuid(), 'admin', 'Administrator', 'Full system access', TRUE)
 ON CONFLICT (name) DO NOTHING;
 
 -- Insert menu items
@@ -143,44 +141,6 @@ SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'admin'
-ON CONFLICT DO NOTHING;
-
--- Assign read and write permissions to staff role
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'staff'
-AND p.action IN ('list', 'view', 'create', 'update')
-AND p.resource NOT IN ('users', 'roles', 'permissions')
-ON CONFLICT DO NOTHING;
-
--- Assign view profile permission to staff
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'staff'
-AND p.name IN ('view_profile', 'update_profile', 'view_dashboard')
-ON CONFLICT DO NOTHING;
-
--- Assign only view permissions to viewer role
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'viewer'
-AND p.action IN ('list', 'view')
-AND p.resource NOT IN ('users', 'roles', 'permissions')
-ON CONFLICT DO NOTHING;
-
--- Assign view profile permission to viewer
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'viewer'
-AND p.name IN ('view_profile', 'view_dashboard')
 ON CONFLICT DO NOTHING;
 
 -- Assign all permissions to superadmin role

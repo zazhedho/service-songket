@@ -65,8 +65,9 @@ func ValidatePasswordStrength(password string) error {
 
 func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, error) {
 	phone := utils.NormalizePhoneTo62(req.Phone)
+	email := utils.SanitizeEmail(req.Email)
 
-	data, _ := s.UserRepo.GetByEmail(req.Email)
+	data, _ := s.UserRepo.GetByEmail(email)
 	if data.Id != "" {
 		return domainuser.Users{}, errors.New("email already exists")
 	}
@@ -94,9 +95,9 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 
 	data = domainuser.Users{
 		Id:        utils.CreateUUID(),
-		Name:      req.Name,
+		Name:      utils.TitleCase(req.Name),
 		Phone:     phone,
-		Email:     req.Email,
+		Email:     email,
 		Password:  string(hashedPwd),
 		Role:      roleName,
 		RoleId:    &roleId,
@@ -112,8 +113,9 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 
 func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, creatorRole string) (domainuser.Users, error) {
 	phone := utils.NormalizePhoneTo62(req.Phone)
+	email := utils.SanitizeEmail(req.Email)
 
-	data, _ := s.UserRepo.GetByEmail(req.Email)
+	data, _ := s.UserRepo.GetByEmail(email)
 	if data.Id != "" {
 		return domainuser.Users{}, errors.New("email already exists")
 	}
@@ -161,9 +163,9 @@ func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, cr
 
 	data = domainuser.Users{
 		Id:        utils.CreateUUID(),
-		Name:      req.Name,
+		Name:      utils.TitleCase(req.Name),
 		Phone:     phone,
-		Email:     req.Email,
+		Email:     email,
 		Password:  string(hashedPwd),
 		Role:      roleName,
 		RoleId:    roleId,
@@ -185,7 +187,9 @@ func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, cr
 }
 
 func (s *ServiceUser) LoginUser(req dto.Login, logId string) (string, error) {
-	data, err := s.UserRepo.GetByEmail(req.Email)
+	email := utils.SanitizeEmail(req.Email)
+
+	data, err := s.UserRepo.GetByEmail(email)
 	if err != nil {
 		return "", err
 	}
@@ -225,10 +229,10 @@ func normalizeRoleName(r string) string {
 }
 
 func defaultRegisterRoleName() string {
-	if strings.TrimSpace(utils.RoleMember) != "" {
-		return utils.RoleMember
+	if strings.TrimSpace(utils.RoleDealer) != "" {
+		return utils.RoleDealer
 	}
-	return utils.RoleViewer
+	return "dealer"
 }
 
 func hasUserPermission(permissions []domainpermission.Permission, resource, action string) bool {
@@ -245,7 +249,7 @@ func (s *ServiceUser) GetUserById(id string) (domainuser.Users, error) {
 }
 
 func (s *ServiceUser) GetUserByEmail(email string) (domainuser.Users, error) {
-	return s.UserRepo.GetByEmail(email)
+	return s.UserRepo.GetByEmail(utils.SanitizeEmail(email))
 }
 
 func (s *ServiceUser) GetUserByAuth(id string) (map[string]interface{}, error) {
@@ -325,7 +329,7 @@ func (s *ServiceUser) Update(id, currentUserID, currentUserRole string, req dto.
 	}
 
 	if req.Email != "" {
-		data.Email = req.Email
+		data.Email = utils.SanitizeEmail(req.Email)
 	}
 
 	if req.Password != "" {
@@ -403,7 +407,7 @@ func (s *ServiceUser) ChangePassword(id string, req dto.ChangePassword) (domainu
 }
 
 func (s *ServiceUser) ForgotPassword(req dto.ForgotPasswordRequest) (string, error) {
-	data, err := s.UserRepo.GetByEmail(req.Email)
+	data, err := s.UserRepo.GetByEmail(utils.SanitizeEmail(req.Email))
 	if err != nil {
 		return "", nil
 	}

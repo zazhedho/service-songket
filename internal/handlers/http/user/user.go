@@ -354,6 +354,9 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 		return
 	}
 
+	// Self-profile update must not change role.
+	req.Role = ""
+
 	data, err := h.Service.Update(userId, userId, role, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))

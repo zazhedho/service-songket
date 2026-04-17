@@ -90,4 +90,4 @@ WHERE name IN (
 );
 
 DELETE FROM roles
-WHERE name IN ('member', 'main_dealer', 'dealer');
+WHERE name IN ('main_dealer', 'dealer');

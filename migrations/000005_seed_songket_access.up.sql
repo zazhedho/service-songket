@@ -1,7 +1,6 @@
 -- Align RBAC and menu data with the current SONGKET modules.
 
 INSERT INTO roles (id, name, display_name, description, is_system) VALUES
-    (gen_random_uuid(), 'member', 'Member', 'Member self-service access', TRUE),
     (gen_random_uuid(), 'main_dealer', 'Main Dealer', 'Operational access for main dealer users', TRUE),
     (gen_random_uuid(), 'dealer', 'Dealer', 'Operational access for dealer users', TRUE)
 ON CONFLICT (name) DO UPDATE
@@ -154,19 +153,6 @@ SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.name IN ('superadmin', 'admin')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-JOIN permissions p ON p.name IN (
-    'view_dashboard',
-    'view_profile',
-    'update_profile',
-    'update_password_profile',
-    'delete_profile'
-)
-WHERE r.name = 'member'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
