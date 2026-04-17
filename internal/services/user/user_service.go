@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	domainauth "service-songket/internal/domain/auth"
+	domainpermission "service-songket/internal/domain/permission"
 	domainuser "service-songket/internal/domain/user"
 	"service-songket/internal/dto"
 	interfaceauth "service-songket/internal/interfaces/auth"
@@ -79,10 +80,7 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 		return domainuser.Users{}, err
 	}
 
-	roleName := normalizeRoleName(req.Role)
-	if roleName == "" {
-		roleName = utils.RoleMember
-	}
+	roleName := defaultRegisterRoleName()
 	roleEntity, err := s.RoleRepo.GetByName(roleName)
 	if err != nil || roleEntity.Id == "" {
 		return domainuser.Users{}, errors.New("invalid role: " + roleName)
@@ -112,7 +110,7 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 	return data, nil
 }
 
-func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorRole string) (domainuser.Users, error) {
+func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, creatorRole string) (domainuser.Users, error) {
 	phone := utils.NormalizePhoneTo62(req.Phone)
 
 	data, _ := s.UserRepo.GetByEmail(req.Email)
@@ -137,9 +135,18 @@ func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorRole strin
 	}
 
 	roleName := normalizeRoleName(req.Role)
+	if roleName == "" {
+		roleName = defaultRegisterRoleName()
+	}
 
-	// SECURITY: Validate role assignment based on creator's role
-	// Only superadmin can create superadmin users
+	permissions, err := s.PermissionRepo.GetUserPermissions(creatorUserID)
+	if err != nil {
+		return domainuser.Users{}, err
+	}
+	if roleName != defaultRegisterRoleName() && !hasUserPermission(permissions, "users", "assign_role") {
+		return domainuser.Users{}, errors.New("access denied: missing permission users:assign_role")
+	}
+
 	if roleName == utils.RoleSuperAdmin && creatorRole != utils.RoleSuperAdmin {
 		return domainuser.Users{}, errors.New("only superadmin can create superadmin users")
 	}
@@ -217,6 +224,22 @@ func normalizeRoleName(r string) string {
 	return role
 }
 
+func defaultRegisterRoleName() string {
+	if strings.TrimSpace(utils.RoleMember) != "" {
+		return utils.RoleMember
+	}
+	return utils.RoleViewer
+}
+
+func hasUserPermission(permissions []domainpermission.Permission, resource, action string) bool {
+	for _, permission := range permissions {
+		if permission.Resource == resource && permission.Action == action {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *ServiceUser) GetUserById(id string) (domainuser.Users, error) {
 	return s.UserRepo.GetByID(id)
 }
@@ -231,21 +254,7 @@ func (s *ServiceUser) GetUserByAuth(id string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	role, err := s.RoleRepo.GetByName(user.Role)
-	if err != nil {
-		return map[string]interface{}{
-			"id":          user.Id,
-			"name":        user.Name,
-			"email":       user.Email,
-			"phone":       user.Phone,
-			"role":        user.Role,
-			"permissions": []string{},
-			"created_at":  user.CreatedAt,
-			"updated_at":  user.UpdatedAt,
-		}, nil
-	}
-
-	permissionIds, err := s.RoleRepo.GetRolePermissions(role.Id)
+	permissions, err := s.PermissionRepo.GetUserPermissions(user.Id)
 	if err != nil {
 		return map[string]interface{}{
 			"id":          user.Id,
@@ -260,11 +269,8 @@ func (s *ServiceUser) GetUserByAuth(id string) (map[string]interface{}, error) {
 	}
 
 	permissionNames := []string{}
-	for _, permId := range permissionIds {
-		perm, err := s.PermissionRepo.GetByID(permId)
-		if err == nil {
-			permissionNames = append(permissionNames, perm.Name)
-		}
+	for _, permission := range permissions {
+		permissionNames = append(permissionNames, permission.Name)
 	}
 
 	return map[string]interface{}{
@@ -299,13 +305,13 @@ func (s *ServiceUser) GetAllUsers(params filter.BaseParams, currentUserRole stri
 	return users, total, nil
 }
 
-func (s *ServiceUser) Update(id, role string, req dto.UserUpdate) (domainuser.Users, error) {
+func (s *ServiceUser) Update(id, currentUserID, currentUserRole string, req dto.UserUpdate) (domainuser.Users, error) {
 	data, err := s.UserRepo.GetByID(id)
 	if err != nil {
 		return domainuser.Users{}, err
 	}
 
-	if data.Role == utils.RoleSuperAdmin && role != utils.RoleSuperAdmin {
+	if data.Role == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
 		return domainuser.Users{}, errors.New("cannot modify superadmin users")
 	}
 
@@ -334,33 +340,27 @@ func (s *ServiceUser) Update(id, role string, req dto.UserUpdate) (domainuser.Us
 		data.Password = string(hashedPwd)
 	}
 
-	if role == utils.RoleAdmin && strings.TrimSpace(req.Role) != "" {
-		newRoleName := strings.ToLower(req.Role)
+	if strings.TrimSpace(req.Role) != "" {
+		permissions, err := s.PermissionRepo.GetUserPermissions(currentUserID)
+		if err != nil {
+			return domainuser.Users{}, err
+		}
+		if !hasUserPermission(permissions, "users", "assign_role") {
+			return domainuser.Users{}, errors.New("access denied: missing permission users:assign_role")
+		}
 
-		if newRoleName == utils.RoleSuperAdmin {
+		newRoleName := normalizeRoleName(req.Role)
+		if newRoleName == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
 			return domainuser.Users{}, errors.New("cannot assign superadmin role")
 		}
 
-		data.Role = newRoleName
-
 		roleEntity, err := s.RoleRepo.GetByName(newRoleName)
-		if err == nil && roleEntity.Id != "" {
-			data.RoleId = &roleEntity.Id
-		} else {
-			data.RoleId = nil
+		if err != nil || roleEntity.Id == "" {
+			return domainuser.Users{}, errors.New("invalid role: " + newRoleName)
 		}
-	}
 
-	if role == utils.RoleSuperAdmin && strings.TrimSpace(req.Role) != "" {
-		newRoleName := strings.ToLower(req.Role)
 		data.Role = newRoleName
-
-		roleEntity, err := s.RoleRepo.GetByName(newRoleName)
-		if err == nil && roleEntity.Id != "" {
-			data.RoleId = &roleEntity.Id
-		} else {
-			data.RoleId = nil
-		}
+		data.RoleId = &roleEntity.Id
 	}
 
 	if err = s.UserRepo.Update(data); err != nil {

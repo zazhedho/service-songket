@@ -1,7 +1,6 @@
 package serviceorder
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -176,11 +175,7 @@ func (s *Service) Create(req dto.CreateOrderRequest, createdBy string, role stri
 }
 
 func (s *Service) List(params filter.BaseParams, role, userID string) ([]domainorder.Order, int64, error) {
-	createdBy := ""
-	if role == utils.RoleDealer {
-		createdBy = userID
-	}
-	return s.repo.GetAll(params, createdBy)
+	return s.repo.GetAll(params, "")
 }
 
 func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID string) (domainorder.Order, error) {
@@ -224,10 +219,6 @@ func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID str
 	}
 	previousPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
 	var selectedMotor *domainmotor.MotorType
-
-	if role == utils.RoleDealer && order.CreatedBy != userID {
-		return domainorder.Order{}, errors.New("dealer can only edit own orders")
-	}
 
 	if req.PoolingNumber != nil {
 		order.PoolingNumber = *req.PoolingNumber
@@ -459,16 +450,8 @@ func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID str
 }
 
 func (s *Service) Delete(id string, role, userID string) error {
-	order, err := s.repo.GetByID(id)
-	if err != nil {
+	if _, err := s.repo.GetByID(id); err != nil {
 		return err
-	}
-
-	if role == utils.RoleDealer && order.CreatedBy != userID {
-		return fmt.Errorf("not allowed")
-	}
-	if role != utils.RoleDealer && role != utils.RoleMainDealer && role != utils.RoleAdmin && role != utils.RoleSuperAdmin {
-		return fmt.Errorf("not allowed")
 	}
 
 	return s.repo.Delete(id)

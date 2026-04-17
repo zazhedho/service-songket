@@ -97,8 +97,9 @@ func (h *HandlerUser) AdminCreateUser(ctx *gin.Context) {
 		return
 	}
 	creatorRole := authData["role"].(string)
+	creatorUserID := utils.InterfaceString(authData["user_id"])
 
-	data, err := h.Service.AdminCreateUser(req, creatorRole)
+	data, err := h.Service.AdminCreateUser(req, creatorUserID, creatorRole)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AdminCreateUser; Error: %+v", logPrefix, err))
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "already exists") {
@@ -353,7 +354,7 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Update(userId, role, req)
+	data, err := h.Service.Update(userId, userId, role, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -377,6 +378,7 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 	var req dto.UserUpdate
 	authData := utils.GetAuthData(ctx)
+	currentUserID := utils.InterfaceString(authData["user_id"])
 	role := utils.InterfaceString(authData["role"])
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][UpdateUserById]"
@@ -403,7 +405,7 @@ func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Update(id, role, req)
+	data, err := h.Service.Update(id, currentUserID, role, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {

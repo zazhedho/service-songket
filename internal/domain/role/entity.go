@@ -31,14 +31,3 @@ type RolePermission struct {
 	PermissionId string    `json:"permission_id" gorm:"column:permission_id;type:uuid;not null;index:idx_role_permission,unique"`
 	CreatedAt    time.Time `json:"created_at,omitempty" gorm:"column:created_at;autoCreateTime"`
 }
-
-func (RoleMenu) TableName() string {
-	return "role_menus"
-}
-
-type RoleMenu struct {
-	Id         string    `json:"id" gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey"`
-	RoleId     string    `json:"role_id" gorm:"column:role_id;type:uuid;not null;index:idx_role_menu,unique"`
-	MenuItemId string    `json:"menu_item_id" gorm:"column:menu_item_id;type:uuid;not null;index:idx_role_menu,unique"`
-	CreatedAt  time.Time `json:"created_at,omitempty" gorm:"column:created_at;autoCreateTime"`
-}

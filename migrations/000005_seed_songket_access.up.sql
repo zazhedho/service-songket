@@ -42,8 +42,11 @@ WITH permission_data(name, display_name, resource, action) AS (
         ('update_net_income', 'Update Net Income', 'net_income', 'update'),
         ('delete_net_income', 'Delete Net Income', 'net_income', 'delete'),
 
-        ('list_finance_dealers', 'List Business References', 'finance', 'list_dealers'),
-        ('view_finance_metrics', 'View Dealer Metrics', 'finance', 'view_metrics'),
+        ('list_business', 'List Business References', 'business', 'list'),
+        ('create_business', 'Create Business References', 'business', 'create'),
+        ('update_business', 'Update Business References', 'business', 'update'),
+        ('delete_business', 'Delete Business References', 'business', 'delete'),
+        ('view_business_metrics', 'View Business Metrics', 'business', 'view_metrics'),
 
         ('list_credit', 'List Credit Capability', 'credit', 'list'),
         ('upsert_credit', 'Create Or Update Credit Capability', 'credit', 'upsert'),
@@ -51,14 +54,21 @@ WITH permission_data(name, display_name, resource, action) AS (
         ('list_quadrants', 'List Quadrants', 'quadrants', 'list'),
         ('recompute_quadrants', 'Recompute Quadrants', 'quadrants', 'recompute'),
 
-        ('view_news', 'View News', 'news', 'view'),
-        ('upsert_news_sources', 'Create Or Update News Sources', 'news', 'upsert_source'),
+        ('list_news', 'List News', 'news', 'list'),
+        ('upsert_news', 'Create Or Update News Sources', 'news', 'upsert'),
+        ('delete_news', 'Delete News Items', 'news', 'delete'),
         ('scrape_news', 'Scrape News', 'news', 'scrape'),
 
-        ('list_commodity_prices', 'List Commodity Prices', 'commodities', 'list_prices'),
+        ('list_commodities', 'List Commodity Prices', 'commodities', 'list'),
+        ('create_commodities', 'Create Commodity Prices', 'commodities', 'create'),
         ('upsert_commodities', 'Create Or Update Commodities', 'commodities', 'upsert'),
-        ('add_commodity_price', 'Add Commodity Price', 'commodities', 'add_price'),
-        ('scrape_commodity_prices', 'Scrape Commodity Prices', 'commodities', 'scrape_prices'),
+        ('delete_commodities', 'Delete Commodity Prices', 'commodities', 'delete'),
+        ('scrape_commodities', 'Scrape Commodity Prices', 'commodities', 'scrape'),
+
+        ('view_master_settings', 'View Master Settings', 'master_settings', 'view'),
+        ('create_master_settings', 'Create Master Settings', 'master_settings', 'create'),
+        ('update_master_settings', 'Update Master Settings', 'master_settings', 'update'),
+        ('delete_master_settings', 'Delete Master Settings', 'master_settings', 'delete'),
 
         ('list_scrape_sources', 'List Scrape Sources', 'scrape_sources', 'list'),
         ('create_scrape_sources', 'Create Scrape Sources', 'scrape_sources', 'create'),
@@ -74,8 +84,6 @@ SET display_name = EXCLUDED.display_name,
     action = EXCLUDED.action,
     deleted_at = NULL,
     updated_at = NOW();
-
-DELETE FROM role_menus;
 
 DELETE FROM menu_items
 WHERE name IN (
@@ -211,78 +219,24 @@ JOIN permissions p ON p.name IN (
     'create_net_income',
     'update_net_income',
     'delete_net_income',
-    'list_finance_dealers',
-    'view_finance_metrics',
+    'list_business',
+    'create_business',
+    'update_business',
+    'delete_business',
+    'view_business_metrics',
     'list_credit',
     'upsert_credit',
     'list_quadrants',
     'recompute_quadrants',
-    'view_news',
-    'upsert_news_sources',
+    'list_news',
+    'upsert_news',
+    'delete_news',
     'scrape_news',
-    'list_commodity_prices',
+    'list_commodities',
+    'create_commodities',
     'upsert_commodities',
-    'add_commodity_price',
-    'scrape_commodity_prices'
+    'delete_commodities',
+    'scrape_commodities'
 )
 WHERE r.name = 'main_dealer'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'superadmin'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-JOIN menu_items m ON m.name IN (
-    'dashboard',
-    'orders',
-    'business',
-    'credit',
-    'quadrants',
-    'prices',
-    'news',
-    'jobs',
-    'installments',
-    'users',
-    'roles',
-    'menus',
-    'scrape_sources'
-)
-WHERE r.name = 'admin'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-JOIN menu_items m ON m.name IN (
-    'dashboard',
-    'orders',
-    'business',
-    'credit',
-    'quadrants',
-    'prices',
-    'news',
-    'jobs',
-    'installments'
-)
-WHERE r.name = 'main_dealer'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-JOIN menu_items m ON m.name = 'orders'
-WHERE r.name = 'dealer'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-JOIN menu_items m ON m.name = 'dashboard'
-WHERE r.name IN ('staff', 'viewer', 'member')
 ON CONFLICT DO NOTHING;

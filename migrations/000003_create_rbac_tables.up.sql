@@ -50,17 +50,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     UNIQUE(role_id, permission_id)
 );
 
--- Create role_menus junction table
-CREATE TABLE IF NOT EXISTS role_menus (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role_id UUID NOT NULL,
-    menu_item_id UUID NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE,
-    UNIQUE(role_id, menu_item_id)
-);
-
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
 CREATE INDEX IF NOT EXISTS idx_permissions_resource_action ON permissions(resource, action);
@@ -68,8 +57,6 @@ CREATE INDEX IF NOT EXISTS idx_menu_items_parent_id ON menu_items(parent_id);
 CREATE INDEX IF NOT EXISTS idx_menu_items_order ON menu_items(order_index);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions(role_id);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions(permission_id);
-CREATE INDEX IF NOT EXISTS idx_role_menus_role_id ON role_menus(role_id);
-CREATE INDEX IF NOT EXISTS idx_role_menus_menu_item_id ON role_menus(menu_item_id);
 
 -- Add foreign key to users table
 DO $$
@@ -116,6 +103,9 @@ INSERT INTO permissions (id, name, display_name, resource, action) VALUES
     (gen_random_uuid(), 'update_users', 'Update Users', 'users', 'update'),
     (gen_random_uuid(), 'update_password_users', 'Update Password Users', 'users', 'update_password'),
     (gen_random_uuid(), 'delete_users', 'Delete Users', 'users', 'delete'),
+    (gen_random_uuid(), 'assign_role_users', 'Assign User Role', 'users', 'assign_role'),
+    (gen_random_uuid(), 'view_user_permissions', 'View User Permissions', 'users', 'view_permissions'),
+    (gen_random_uuid(), 'assign_user_permissions', 'Assign User Permissions', 'users', 'assign_permissions'),
 
     -- Role permissions
     (gen_random_uuid(), 'list_roles', 'List Roles', 'roles', 'list'),
@@ -123,8 +113,8 @@ INSERT INTO permissions (id, name, display_name, resource, action) VALUES
     (gen_random_uuid(), 'create_roles', 'Create Roles', 'roles', 'create'),
     (gen_random_uuid(), 'update_roles', 'Update Roles', 'roles', 'update'),
     (gen_random_uuid(), 'delete_roles', 'Delete Roles', 'roles', 'delete'),
+    (gen_random_uuid(), 'manage_system_roles', 'Manage System Roles', 'roles', 'manage_system'),
     (gen_random_uuid(), 'assign_permissions', 'Assign Permissions', 'roles', 'assign_permissions'),
-    (gen_random_uuid(), 'assign_menus', 'Assign Menus', 'roles', 'assign_menus'),
 
     -- Menu permissions
     (gen_random_uuid(), 'list_menus', 'List Menus', 'menus', 'list'),
@@ -199,38 +189,4 @@ SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'superadmin'
-ON CONFLICT DO NOTHING;
-
--- Assign all menus to superadmin role
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'superadmin'
-ON CONFLICT DO NOTHING;
-
--- Assign all menus to admin role
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'admin'
-ON CONFLICT DO NOTHING;
-
--- Assign menus to staff role (all except users, roles, menus)
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'staff'
-AND m.name NOT IN ('users', 'roles', 'menus')
-ON CONFLICT DO NOTHING;
-
--- Assign menus to viewer role (all except users, roles, menus)
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'viewer'
-AND m.name NOT IN ('users', 'roles', 'menus')
 ON CONFLICT DO NOTHING;

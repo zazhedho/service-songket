@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS role_menus;
 DROP TABLE IF EXISTS role_permissions;
 DROP TABLE IF EXISTS menu_items;
 DROP TABLE IF EXISTS permissions;

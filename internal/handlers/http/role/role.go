@@ -179,6 +179,7 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 	}
 
 	authData := utils.GetAuthData(ctx)
+	currentUserID := utils.InterfaceString(authData["user_id"])
 	currentUserRole := utils.InterfaceString(authData["role"])
 
 	if err := ctx.BindJSON(&req); err != nil {
@@ -191,7 +192,7 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	if err := h.Service.AssignPermissions(id, req, currentUserRole); err != nil {
+	if err := h.Service.AssignPermissions(id, req, currentUserID, currentUserRole); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AssignPermissions; Error: %+v", logPrefix, err))
 		statusCode := http.StatusInternalServerError
 		if strings.HasPrefix(err.Error(), "access denied") {
@@ -205,44 +206,5 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 
 	res := response.Response(http.StatusOK, "Permissions assigned successfully", logId, nil)
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Permissions assigned", logPrefix))
-	ctx.JSON(http.StatusOK, res)
-}
-
-func (h *RoleHandler) AssignMenus(ctx *gin.Context) {
-	var req dto.AssignMenus
-	logId := utils.GenerateLogId(ctx)
-	logPrefix := "[RoleHandler][AssignMenus]"
-	id, err := utils.ValidateUUID(ctx, logId)
-	if err != nil {
-		return
-	}
-
-	authData := utils.GetAuthData(ctx)
-	currentUserRole := utils.InterfaceString(authData["role"])
-
-	if err := ctx.BindJSON(&req); err != nil {
-		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = utils.ValidateError(err, reflect.TypeOf(req), "json")
-		ctx.JSON(http.StatusBadRequest, res)
-		return
-	}
-
-	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
-
-	if err := h.Service.AssignMenus(id, req, currentUserRole); err != nil {
-		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AssignMenus; Error: %+v", logPrefix, err))
-		statusCode := http.StatusInternalServerError
-		if strings.HasPrefix(err.Error(), "access denied") {
-			statusCode = http.StatusForbidden
-		}
-		res := response.Response(statusCode, err.Error(), logId, nil)
-		res.Error = err.Error()
-		ctx.JSON(statusCode, res)
-		return
-	}
-
-	res := response.Response(http.StatusOK, "Menus assigned successfully", logId, nil)
-	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Menus assigned", logPrefix))
 	ctx.JSON(http.StatusOK, res)
 }

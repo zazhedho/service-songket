@@ -6,6 +6,7 @@ import (
 	domainpermission "service-songket/internal/domain/permission"
 	interfacepermission "service-songket/internal/interfaces/permission"
 	"service-songket/pkg/filter"
+	"service-songket/utils"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -107,27 +108,6 @@ func (r *repo) GetByResource(resource string) (ret []domainpermission.Permission
 }
 
 func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permission, err error) {
-	var directCount int64
-	if err = r.DB.Table("user_permissions").Where("user_id = ?", userId).Count(&directCount).Error; err != nil {
-		return nil, err
-	}
-
-	// Per-user permissions act as full override.
-	// If user has any direct permissions, only those are used.
-	if directCount > 0 {
-		query := `
-			SELECT DISTINCT p.*
-			FROM permissions p
-			INNER JOIN user_permissions up ON up.permission_id = p.id
-			WHERE up.user_id = ? AND p.deleted_at IS NULL
-			ORDER BY resource, action
-		`
-		if err = r.DB.Raw(query, userId).Scan(&ret).Error; err != nil {
-			return nil, err
-		}
-		return ret, nil
-	}
-
 	var user struct {
 		RoleId *string
 		Role   string
@@ -136,36 +116,31 @@ func (r *repo) GetUserPermissions(userId string) (ret []domainpermission.Permiss
 		return nil, err
 	}
 
-	if user.RoleId != nil && *user.RoleId != "" {
-		query := `
-			SELECT DISTINCT p.*
-			FROM permissions p
-			INNER JOIN role_permissions rp ON p.id = rp.permission_id
-			WHERE rp.role_id = ? AND p.deleted_at IS NULL
-			ORDER BY resource, action
-		`
-		if err = r.DB.Raw(query, *user.RoleId).Scan(&ret).Error; err != nil {
+	if user.Role == utils.RoleSuperAdmin {
+		if err = r.DB.Where("deleted_at IS NULL").Order("resource, action").Find(&ret).Error; err != nil {
 			return nil, err
 		}
 		return ret, nil
 	}
 
-	if user.Role != "" {
-		query := `
-			SELECT DISTINCT p.*
-			FROM permissions p
-			INNER JOIN role_permissions rp ON p.id = rp.permission_id
-			INNER JOIN roles r ON rp.role_id = r.id
-			WHERE r.name = ? AND p.deleted_at IS NULL
-			ORDER BY resource, action
-		`
-		if err = r.DB.Raw(query, user.Role).Scan(&ret).Error; err != nil {
-			return nil, err
-		}
-		return ret, nil
+	if user.RoleId == nil || *user.RoleId == "" {
+		return r.GetUserDirectPermissions(userId)
 	}
 
-	return []domainpermission.Permission{}, nil
+	query := `
+		SELECT DISTINCT p.*
+		FROM permissions p
+		LEFT JOIN role_permissions rp ON p.id = rp.permission_id AND rp.role_id = ?
+		LEFT JOIN user_permissions up ON p.id = up.permission_id AND up.user_id = ?
+		WHERE p.deleted_at IS NULL
+		  AND (rp.id IS NOT NULL OR up.user_id IS NOT NULL)
+		ORDER BY p.resource, p.action
+	`
+	if err = r.DB.Raw(query, *user.RoleId, userId).Scan(&ret).Error; err != nil {
+		return nil, err
+	}
+
+	return ret, nil
 }
 
 // GetUserDirectPermissions returns only permissions assigned directly to the user (user_permissions table).

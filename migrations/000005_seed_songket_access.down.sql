@@ -4,8 +4,6 @@ WHERE key IN ('cron_scrape_news', 'cron_scrape_prices');
 DELETE FROM master_settings
 WHERE key IN ('cron_scrape_news', 'cron_scrape_prices');
 
-DELETE FROM role_menus;
-
 DELETE FROM menu_items
 WHERE name IN (
     'orders',
@@ -36,37 +34,6 @@ SET display_name = EXCLUDED.display_name,
     deleted_at = NULL,
     updated_at = NOW();
 
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'superadmin'
-  AND m.name IN ('dashboard', 'profile', 'users', 'roles', 'menus')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'admin'
-  AND m.name IN ('dashboard', 'profile', 'users', 'roles', 'menus')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'staff'
-  AND m.name IN ('dashboard', 'profile')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO role_menus (role_id, menu_item_id)
-SELECT r.id, m.id
-FROM roles r
-CROSS JOIN menu_items m
-WHERE r.name = 'viewer'
-  AND m.name IN ('dashboard', 'profile')
-ON CONFLICT DO NOTHING;
 
 DELETE FROM permissions
 WHERE name IN (
@@ -94,19 +61,28 @@ WHERE name IN (
     'create_net_income',
     'update_net_income',
     'delete_net_income',
-    'list_finance_dealers',
-    'view_finance_metrics',
+    'list_business',
+    'create_business',
+    'update_business',
+    'delete_business',
+    'view_business_metrics',
     'list_credit',
     'upsert_credit',
     'list_quadrants',
     'recompute_quadrants',
-    'view_news',
-    'upsert_news_sources',
+    'list_news',
+    'upsert_news',
+    'delete_news',
     'scrape_news',
-    'list_commodity_prices',
+    'list_commodities',
+    'create_commodities',
     'upsert_commodities',
-    'add_commodity_price',
-    'scrape_commodity_prices',
+    'delete_commodities',
+    'scrape_commodities',
+    'view_master_settings',
+    'create_master_settings',
+    'update_master_settings',
+    'delete_master_settings',
     'list_scrape_sources',
     'create_scrape_sources',
     'update_scrape_sources',

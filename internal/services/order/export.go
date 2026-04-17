@@ -99,9 +99,6 @@ func canAccessOrderExport(job *domainorder.OrderExportJob, role, userID string) 
 	if job == nil {
 		return false
 	}
-	if role == utils.RoleDealer && strings.TrimSpace(job.CreatedBy) != strings.TrimSpace(userID) {
-		return false
-	}
 	return true
 }
 

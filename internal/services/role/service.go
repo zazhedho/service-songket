@@ -3,11 +3,13 @@ package servicerole
 import (
 	"errors"
 	"fmt"
+	domainpermission "service-songket/internal/domain/permission"
 	domainrole "service-songket/internal/domain/role"
 	"service-songket/internal/dto"
 	interfacemenu "service-songket/internal/interfaces/menu"
 	interfacepermission "service-songket/internal/interfaces/permission"
 	interfacerole "service-songket/internal/interfaces/role"
+	serviceshared "service-songket/internal/services/shared"
 	"service-songket/pkg/filter"
 	"service-songket/utils"
 	"strings"
@@ -71,7 +73,7 @@ func (s *RoleService) GetByIDWithDetails(id string) (dto.RoleWithDetails, error)
 		return dto.RoleWithDetails{}, err
 	}
 
-	menuIds, err := s.RoleRepo.GetRoleMenus(id)
+	menuIds, err := s.deriveMenuIDsFromPermissions(permissionIds)
 	if err != nil {
 		return dto.RoleWithDetails{}, err
 	}
@@ -151,7 +153,7 @@ func (s *RoleService) Delete(id string) error {
 	return s.RoleRepo.Delete(id)
 }
 
-func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions, currentUserRole string) error {
+func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions, currentUserId, currentUserRole string) error {
 	if _, err := uuid.Parse(strings.TrimSpace(roleId)); err != nil {
 		return errors.New("invalid role ID")
 	}
@@ -167,10 +169,13 @@ func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions
 	}
 
 	if role.IsSystem {
-		if currentUserRole != utils.RoleSuperAdmin && currentUserRole != utils.RoleAdmin {
-			return errors.New("access denied: only superadmin and admin can modify system roles")
+		permissions, err := s.PermissionRepo.GetUserPermissions(currentUserId)
+		if err != nil {
+			return err
 		}
-
+		if !hasPermission(permissions, "roles", "manage_system") {
+			return errors.New("access denied: missing permission roles:manage_system")
+		}
 		if role.Name == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
 			return errors.New("access denied: cannot modify superadmin role")
 		}
@@ -183,66 +188,6 @@ func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions
 	}
 
 	return s.RoleRepo.AssignPermissions(roleId, permissionIDs)
-}
-
-func (s *RoleService) AssignMenus(roleId string, req dto.AssignMenus, currentUserRole string) error {
-	if _, err := uuid.Parse(strings.TrimSpace(roleId)); err != nil {
-		return errors.New("invalid role ID")
-	}
-
-	requestedMenuIDs, err := sanitizeUUIDList("menu_ids", req.MenuIds)
-	if err != nil {
-		return err
-	}
-
-	role, err := s.RoleRepo.GetByID(roleId)
-	if err != nil {
-		return err
-	}
-
-	if role.IsSystem {
-		if currentUserRole != utils.RoleSuperAdmin && currentUserRole != utils.RoleAdmin {
-			return errors.New("access denied: only superadmin and admin can modify system roles")
-		}
-
-		if role.Name == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
-			return errors.New("access denied: cannot modify superadmin role")
-		}
-	}
-
-	menuIDs := make([]string, 0, len(requestedMenuIDs)+1)
-	seenMenuIDs := make(map[string]struct{}, len(requestedMenuIDs)+1)
-	hasMasterSettings := false
-
-	for _, menuId := range requestedMenuIDs {
-		menu, err := s.MenuRepo.GetByID(menuId)
-		if err != nil {
-			return errors.New("invalid menu ID: " + menuId)
-		}
-		if strings.EqualFold(menu.Name, "master_settings") {
-			hasMasterSettings = true
-			if role.Name != utils.RoleSuperAdmin {
-				return errors.New("access denied: menu master_settings hanya untuk role superadmin")
-			}
-		}
-		if _, exists := seenMenuIDs[menuId]; exists {
-			continue
-		}
-		seenMenuIDs[menuId] = struct{}{}
-		menuIDs = append(menuIDs, menuId)
-	}
-
-	if role.Name == utils.RoleSuperAdmin && !hasMasterSettings {
-		menu, err := s.MenuRepo.GetByName("master_settings")
-		if err != nil {
-			return errors.New("master_settings menu not found")
-		}
-		if _, exists := seenMenuIDs[menu.Id]; !exists {
-			menuIDs = append(menuIDs, menu.Id)
-		}
-	}
-
-	return s.RoleRepo.AssignMenus(roleId, menuIDs)
 }
 
 func sanitizeUUIDList(fieldName string, values []string) ([]string, error) {
@@ -277,8 +222,35 @@ func (s *RoleService) GetRolePermissions(roleId string) ([]string, error) {
 	return s.RoleRepo.GetRolePermissions(roleId)
 }
 
-func (s *RoleService) GetRoleMenus(roleId string) ([]string, error) {
-	return s.RoleRepo.GetRoleMenus(roleId)
+func (s *RoleService) deriveMenuIDsFromPermissions(permissionIds []string) ([]string, error) {
+	resources := make([]string, 0, len(permissionIds))
+
+	for _, permissionId := range permissionIds {
+		permission, err := s.PermissionRepo.GetByID(permissionId)
+		if err != nil {
+			return nil, err
+		}
+		if permission.Resource == "" {
+			continue
+		}
+		resources = append(resources, permission.Resource)
+	}
+
+	activeMenus, err := s.MenuRepo.GetActiveMenus()
+	if err != nil {
+		return nil, err
+	}
+
+	return serviceshared.ResolveAccessibleMenuIDs(activeMenus, resources), nil
+}
+
+func hasPermission(permissions []domainpermission.Permission, resource, action string) bool {
+	for _, permission := range permissions {
+		if permission.Resource == resource && permission.Action == action {
+			return true
+		}
+	}
+	return false
 }
 
 var _ interfacerole.ServiceRoleInterface = (*RoleService)(nil)

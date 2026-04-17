@@ -6,15 +6,11 @@ import (
 
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
-	"service-songket/utils"
 
 	"gorm.io/gorm"
 )
 
 func applyDashboardScopeFilters(query *gorm.DB, req dto.DashboardSummaryQuery, role, userID, financeCompanyColumn string) *gorm.DB {
-	if role == utils.RoleDealer {
-		query = query.Where("o.created_by = ?", userID)
-	}
 	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
 		query = query.Where("o.dealer_id = ?", dealerID)
 	}

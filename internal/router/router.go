@@ -192,9 +192,8 @@ func (r *Routes) RoleRoutes() {
 		role.PUT("/:id", mdw.PermissionMiddleware("roles", "update"), h.Update)
 		role.DELETE("/:id", mdw.PermissionMiddleware("roles", "delete"), h.Delete)
 
-		// Permission and menu assignment
-		role.POST("/:id/permissions", mdw.RoleMiddleware(utils.RoleSuperAdmin), mdw.PermissionMiddleware("roles", "assign_permissions"), h.AssignPermissions)
-		role.POST("/:id/menus", mdw.RoleMiddleware(utils.RoleSuperAdmin), mdw.PermissionMiddleware("roles", "assign_menus"), h.AssignMenus)
+		// Permission assignment
+		role.POST("/:id/permissions", mdw.PermissionMiddleware("roles", "assign_permissions"), h.AssignPermissions)
 	}
 }
 
@@ -210,12 +209,11 @@ func (r *Routes) PermissionRoutes() {
 
 	// Get current user's permissions
 	r.App.GET("/api/permissions/me", mdw.AuthMiddleware(), h.GetUserPermissions)
-	// Manage user-specific permissions (superadmin only)
-	r.App.GET("/api/user/:id/permissions", mdw.AuthMiddleware(), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.GetUserPermissionsByAdmin)
-	r.App.POST("/api/user/:id/permissions", mdw.AuthMiddleware(), mdw.RoleMiddleware(utils.RoleSuperAdmin), h.SetUserPermissions)
+	r.App.GET("/api/user/:id/permissions", mdw.AuthMiddleware(), mdw.PermissionMiddleware("users", "view_permissions"), h.GetUserPermissionsByAdmin)
+	r.App.POST("/api/user/:id/permissions", mdw.AuthMiddleware(), mdw.PermissionMiddleware("users", "assign_permissions"), h.SetUserPermissions)
 
 	// CRUD endpoints
-	permission := r.App.Group("/api/permission").Use(mdw.AuthMiddleware(), mdw.RoleMiddleware(utils.RoleSuperAdmin))
+	permission := r.App.Group("/api/permission").Use(mdw.AuthMiddleware())
 	{
 		permission.POST("", mdw.PermissionMiddleware("permissions", "create"), h.Create)
 		permission.GET("/:id", mdw.PermissionMiddleware("permissions", "view"), h.GetByID)
@@ -254,10 +252,10 @@ func (r *Routes) LocationRoutes() {
 
 func (r *Routes) MenuRoutes() {
 	repo := menuRepo.NewMenuRepo(r.DB)
-	svc := menuSvc.NewMenuService(repo)
+	pRepo := permissionRepo.NewPermissionRepo(r.DB)
+	svc := menuSvc.NewMenuService(repo, pRepo)
 	h := menuHandler.NewMenuHandler(svc)
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
-	pRepo := permissionRepo.NewPermissionRepo(r.DB)
 	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
 
 	// Public endpoints for authenticated users
@@ -270,10 +268,8 @@ func (r *Routes) MenuRoutes() {
 	// CRUD endpoints
 	menu := r.App.Group("/api/menu").Use(mdw.AuthMiddleware())
 	{
-		menu.POST("", mdw.PermissionMiddleware("menus", "create"), h.Create)
 		menu.GET("/:id", mdw.PermissionMiddleware("menus", "view"), h.GetByID)
 		menu.PUT("/:id", mdw.PermissionMiddleware("menus", "update"), h.Update)
-		menu.DELETE("/:id", mdw.PermissionMiddleware("menus", "delete"), h.Delete)
 	}
 }
 
@@ -302,23 +298,10 @@ func (r *Routes) SessionRoutes() {
 	logger.WriteLog(logger.LogLevelInfo, "Session management routes registered")
 }
 
-func (r *Routes) newSongketMiddleware() *middlewares.Middleware {
+func (r *Routes) newProtectedMiddleware() *middlewares.Middleware {
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
-	mRepo := menuRepo.NewMenuRepo(r.DB)
-	return middlewares.NewMiddleware(blacklistRepo, pRepo, mRepo)
-}
-
-func (r *Routes) newSongketGroup(mdw *middlewares.Middleware) *gin.RouterGroup {
-	g := r.App.Group("/api/songket")
-	g.Use(mdw.AuthMiddleware())
-	return g
-}
-
-func (r *Routes) songketMenuAccess(mdw *middlewares.Middleware) func(...string) gin.HandlerFunc {
-	return func(paths ...string) gin.HandlerFunc {
-		return mdw.MenuAccessMiddleware(paths...)
-	}
+	return middlewares.NewMiddleware(blacklistRepo, pRepo)
 }
 
 func (r *Routes) OrderRoutes() {
@@ -328,34 +311,42 @@ func (r *Routes) OrderRoutes() {
 	motorRepo := repositorymotor.NewMotorRepo(r.DB)
 	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, locationRepo, motorRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/dashboard/orders", orderHandler.DashboardOrders)
-	g.GET("/dashboard/summary", orderHandler.DashboardSummary)
-	g.POST("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "create"), orderHandler.Create)
-	g.GET("/orders", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.GetAll)
-	g.POST("/orders/export", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.StartExport)
-	g.GET("/orders/export/:id/status", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.GetExportStatus)
-	g.GET("/orders/export/:id/download", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "list"), orderHandler.DownloadExport)
-	g.PUT("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "update"), orderHandler.Update)
-	g.DELETE("/orders/:id", menuAccess("/orders"), mdw.PermissionMiddleware("orders", "delete"), orderHandler.Delete)
+	r.App.GET("/api/orders", mdw.AuthMiddleware(), mdw.PermissionMiddleware("orders", "list"), orderHandler.GetAll)
+
+	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware())
+	{
+		dashboard.GET("/orders", orderHandler.DashboardOrders)
+		dashboard.GET("/summary", orderHandler.DashboardSummary)
+	}
+
+	order := r.App.Group("/api/order").Use(mdw.AuthMiddleware())
+	{
+		order.POST("", mdw.PermissionMiddleware("orders", "create"), orderHandler.Create)
+		order.POST("/export", mdw.PermissionMiddleware("orders", "list"), orderHandler.StartExport)
+		order.GET("/export/:id/status", mdw.PermissionMiddleware("orders", "list"), orderHandler.GetExportStatus)
+		order.GET("/export/:id/download", mdw.PermissionMiddleware("orders", "list"), orderHandler.DownloadExport)
+		order.PUT("/:id", mdw.PermissionMiddleware("orders", "update"), orderHandler.Update)
+		order.DELETE("/:id", mdw.PermissionMiddleware("orders", "delete"), orderHandler.Delete)
+	}
 }
 
 func (r *Routes) MotorRoutes() {
 	motorRepo := repositorymotor.NewMotorRepo(r.DB)
 	motorHandler := handlermotor.NewMotorHandler(servicemotor.NewMotorService(motorRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "list"), motorHandler.GetAll)
-	g.GET("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "view"), motorHandler.GetByID)
-	g.POST("/motor-types", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "create"), motorHandler.Create)
-	g.PUT("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "update"), motorHandler.Update)
-	g.DELETE("/motor-types/:id", menuAccess("/motor-types", "/installments"), mdw.PermissionMiddleware("motor_types", "delete"), motorHandler.Delete)
+	r.App.GET("/api/motor-types", mdw.AuthMiddleware(), mdw.PermissionMiddleware("motor_types", "list"), motorHandler.GetAll)
+
+	motor := r.App.Group("/api/motor-type").Use(mdw.AuthMiddleware())
+	{
+		motor.GET("/:id", mdw.PermissionMiddleware("motor_types", "view"), motorHandler.GetByID)
+		motor.POST("", mdw.PermissionMiddleware("motor_types", "create"), motorHandler.Create)
+		motor.PUT("/:id", mdw.PermissionMiddleware("motor_types", "update"), motorHandler.Update)
+		motor.DELETE("/:id", mdw.PermissionMiddleware("motor_types", "delete"), motorHandler.Delete)
+	}
 }
 
 func (r *Routes) InstallmentRoutes() {
@@ -363,35 +354,38 @@ func (r *Routes) InstallmentRoutes() {
 	motorRepo := repositorymotor.NewMotorRepo(r.DB)
 	installmentHandler := handlerinstallment.NewInstallmentHandler(serviceinstallment.NewInstallmentService(installmentRepo, motorRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "list"), installmentHandler.GetAll)
-	g.GET("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "view"), installmentHandler.GetByID)
-	g.POST("/installments", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "create"), installmentHandler.Create)
-	g.PUT("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "update"), installmentHandler.Update)
-	g.DELETE("/installments/:id", menuAccess("/installments"), mdw.PermissionMiddleware("installments", "delete"), installmentHandler.Delete)
+	r.App.GET("/api/installments", mdw.AuthMiddleware(), mdw.PermissionMiddleware("installments", "list"), installmentHandler.GetAll)
+
+	installment := r.App.Group("/api/installment").Use(mdw.AuthMiddleware())
+	{
+		installment.GET("/:id", mdw.PermissionMiddleware("installments", "view"), installmentHandler.GetByID)
+		installment.POST("", mdw.PermissionMiddleware("installments", "create"), installmentHandler.Create)
+		installment.PUT("/:id", mdw.PermissionMiddleware("installments", "update"), installmentHandler.Update)
+		installment.DELETE("/:id", mdw.PermissionMiddleware("installments", "delete"), installmentHandler.Delete)
+	}
 }
 
 func (r *Routes) MasterSettingRoutes() {
 	masterSettingRepo := repositorymastersetting.NewMasterSettingRepo(r.DB)
 	masterSettingHandler := handlermastersetting.NewMasterSettingHandler(servicemastersetting.NewMasterSettingService(masterSettingRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.POST("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.CreateNewsScrapeCronSetting)
-	g.GET("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetNewsScrapeCronSetting)
-	g.GET("/master-settings/news-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetNewsScrapeCronSettingHistory)
-	g.PUT("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.UpdateNewsScrapeCronSetting)
-	g.DELETE("/master-settings/news-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.DeleteNewsScrapeCronSetting)
-	g.POST("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.CreatePriceScrapeCronSetting)
-	g.GET("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetPriceScrapeCronSetting)
-	g.GET("/master-settings/prices-scrape-cron/history", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.GetPriceScrapeCronSettingHistory)
-	g.PUT("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.UpdatePriceScrapeCronSetting)
-	g.DELETE("/master-settings/prices-scrape-cron", menuAccess("/master-settings"), mdw.RoleMiddleware(utils.RoleSuperAdmin), masterSettingHandler.DeletePriceScrapeCronSetting)
+	masterSetting := r.App.Group("/api/master-setting").Use(mdw.AuthMiddleware())
+	{
+		masterSetting.POST("/news-scrape-cron", mdw.PermissionMiddleware("master_settings", "create"), masterSettingHandler.CreateNewsScrapeCronSetting)
+		masterSetting.GET("/news-scrape-cron", mdw.PermissionMiddleware("master_settings", "view"), masterSettingHandler.GetNewsScrapeCronSetting)
+		masterSetting.GET("/news-scrape-cron/history", mdw.PermissionMiddleware("master_settings", "view"), masterSettingHandler.GetNewsScrapeCronSettingHistory)
+		masterSetting.PUT("/news-scrape-cron", mdw.PermissionMiddleware("master_settings", "update"), masterSettingHandler.UpdateNewsScrapeCronSetting)
+		masterSetting.DELETE("/news-scrape-cron", mdw.PermissionMiddleware("master_settings", "delete"), masterSettingHandler.DeleteNewsScrapeCronSetting)
+		masterSetting.POST("/prices-scrape-cron", mdw.PermissionMiddleware("master_settings", "create"), masterSettingHandler.CreatePriceScrapeCronSetting)
+		masterSetting.GET("/prices-scrape-cron", mdw.PermissionMiddleware("master_settings", "view"), masterSettingHandler.GetPriceScrapeCronSetting)
+		masterSetting.GET("/prices-scrape-cron/history", mdw.PermissionMiddleware("master_settings", "view"), masterSettingHandler.GetPriceScrapeCronSettingHistory)
+		masterSetting.PUT("/prices-scrape-cron", mdw.PermissionMiddleware("master_settings", "update"), masterSettingHandler.UpdatePriceScrapeCronSetting)
+		masterSetting.DELETE("/prices-scrape-cron", mdw.PermissionMiddleware("master_settings", "delete"), masterSettingHandler.DeletePriceScrapeCronSetting)
+	}
 }
 
 func (r *Routes) FinanceRoutes() {
@@ -402,36 +396,39 @@ func (r *Routes) FinanceRoutes() {
 	financeCompanyHandler := handlerfinancecompany.NewFinanceCompanyHandler(servicefinancecompany.NewFinanceCompanyService(financeCompanyRepo))
 	financeHandler := handlerfinance.NewFinanceHandler(servicefinance.NewFinanceService(financeRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.GetAll)
-	g.GET("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.GetAll)
-	g.GET("/finance/report/migrations", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), financeHandler.FinanceMigrationReport)
-	g.GET("/finance/report/migrations/:id/order-ins", menuAccess("/business", "/finance", "/dealer", "/finance-report"), mdw.PermissionMiddleware("finance", "list_dealers"), financeHandler.FinanceMigrationOrderInDetail)
-	g.GET("/finance/dealers/:id/metrics", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "view_metrics"), financeHandler.DealerMetrics)
-	g.POST("/finance/dealers", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Create)
-	g.PUT("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Update)
-	g.DELETE("/finance/dealers/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), dealerHandler.Delete)
-	g.POST("/finance/companies", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.Create)
-	g.PUT("/finance/companies/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.Update)
-	g.DELETE("/finance/companies/:id", menuAccess("/business", "/finance", "/dealer"), mdw.PermissionMiddleware("finance", "list_dealers"), financeCompanyHandler.Delete)
+	finance := r.App.Group("/api/finance").Use(mdw.AuthMiddleware())
+	{
+		finance.GET("/dealers", mdw.PermissionMiddleware("business", "list"), dealerHandler.GetAll)
+		finance.GET("/companies", mdw.PermissionMiddleware("business", "list"), financeCompanyHandler.GetAll)
+		finance.GET("/report/migrations", mdw.PermissionMiddleware("business", "list"), financeHandler.FinanceMigrationReport)
+		finance.GET("/report/migrations/:id/order-ins", mdw.PermissionMiddleware("business", "list"), financeHandler.FinanceMigrationOrderInDetail)
+		finance.GET("/dealers/:id/metrics", mdw.PermissionMiddleware("business", "view_metrics"), financeHandler.DealerMetrics)
+		finance.POST("/dealers", mdw.PermissionMiddleware("business", "create"), dealerHandler.Create)
+		finance.PUT("/dealers/:id", mdw.PermissionMiddleware("business", "update"), dealerHandler.Update)
+		finance.DELETE("/dealers/:id", mdw.PermissionMiddleware("business", "delete"), dealerHandler.Delete)
+		finance.POST("/companies", mdw.PermissionMiddleware("business", "create"), financeCompanyHandler.Create)
+		finance.PUT("/companies/:id", mdw.PermissionMiddleware("business", "update"), financeCompanyHandler.Update)
+		finance.DELETE("/companies/:id", mdw.PermissionMiddleware("business", "delete"), financeCompanyHandler.Delete)
+	}
 }
 
 func (r *Routes) JobRoutes() {
 	jobRepo := repositoryjob.NewJobRepo(r.DB)
 	jobHandler := handlerjob.NewJobHandler(servicejob.NewJobService(jobRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "list"), jobHandler.GetAll)
-	g.GET("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "view"), jobHandler.GetByID)
-	g.POST("/jobs", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "create"), jobHandler.Create)
-	g.PUT("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "update"), jobHandler.Update)
-	g.DELETE("/jobs/:id", menuAccess("/jobs"), mdw.PermissionMiddleware("jobs", "delete"), jobHandler.Delete)
+	r.App.GET("/api/jobs", mdw.AuthMiddleware(), mdw.PermissionMiddleware("jobs", "list"), jobHandler.GetAll)
+
+	job := r.App.Group("/api/job").Use(mdw.AuthMiddleware())
+	{
+		job.GET("/:id", mdw.PermissionMiddleware("jobs", "view"), jobHandler.GetByID)
+		job.POST("", mdw.PermissionMiddleware("jobs", "create"), jobHandler.Create)
+		job.PUT("/:id", mdw.PermissionMiddleware("jobs", "update"), jobHandler.Update)
+		job.DELETE("/:id", mdw.PermissionMiddleware("jobs", "delete"), jobHandler.Delete)
+	}
 }
 
 func (r *Routes) NetIncomeRoutes() {
@@ -439,15 +436,17 @@ func (r *Routes) NetIncomeRoutes() {
 	jobRepo := repositoryjob.NewJobRepo(r.DB)
 	netIncomeHandler := handlernetincome.NewNetIncomeHandler(servicenetincome.NewNetIncomeService(netIncomeRepo, jobRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "list"), netIncomeHandler.GetAll)
-	g.GET("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "view"), netIncomeHandler.GetByID)
-	g.POST("/net-income", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "create"), netIncomeHandler.Create)
-	g.PUT("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "update"), netIncomeHandler.Update)
-	g.DELETE("/net-income/:id", menuAccess("/net-income", "/jobs"), mdw.PermissionMiddleware("net_income", "delete"), netIncomeHandler.Delete)
+	r.App.GET("/api/net-incomes", mdw.AuthMiddleware(), mdw.PermissionMiddleware("net_income", "list"), netIncomeHandler.GetAll)
+
+	netIncome := r.App.Group("/api/net-income").Use(mdw.AuthMiddleware())
+	{
+		netIncome.GET("/:id", mdw.PermissionMiddleware("net_income", "view"), netIncomeHandler.GetByID)
+		netIncome.POST("", mdw.PermissionMiddleware("net_income", "create"), netIncomeHandler.Create)
+		netIncome.PUT("/:id", mdw.PermissionMiddleware("net_income", "update"), netIncomeHandler.Update)
+		netIncome.DELETE("/:id", mdw.PermissionMiddleware("net_income", "delete"), netIncomeHandler.Delete)
+	}
 }
 
 func (r *Routes) CreditRoutes() {
@@ -456,14 +455,16 @@ func (r *Routes) CreditRoutes() {
 	creditService := servicecredit.NewCreditService(creditRepo, jobRepo)
 	creditHandler := handlercredit.NewCreditHandler(creditService)
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.POST("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "upsert"), creditHandler.Upsert)
-	g.GET("/credit", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), creditHandler.GetAll)
-	g.GET("/credit/worksheet", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), creditHandler.Worksheet)
-	g.GET("/credit/summary", menuAccess("/credit"), mdw.PermissionMiddleware("credit", "list"), creditHandler.Summary)
+	r.App.GET("/api/credits", mdw.AuthMiddleware(), mdw.PermissionMiddleware("credit", "list"), creditHandler.GetAll)
+
+	credit := r.App.Group("/api/credit").Use(mdw.AuthMiddleware())
+	{
+		credit.POST("", mdw.PermissionMiddleware("credit", "upsert"), creditHandler.Upsert)
+		credit.GET("/worksheet", mdw.PermissionMiddleware("credit", "list"), creditHandler.Worksheet)
+		credit.GET("/summary", mdw.PermissionMiddleware("credit", "list"), creditHandler.Summary)
+	}
 }
 
 func (r *Routes) QuadrantRoutes() {
@@ -473,53 +474,66 @@ func (r *Routes) QuadrantRoutes() {
 	creditService := servicecredit.NewCreditService(creditRepo, jobRepo)
 	quadrantHandler := handlerquadrant.NewQuadrantHandler(servicequadrant.NewQuadrantService(quadrantRepo, creditService))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.POST("/quadrants/recompute", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "recompute"), quadrantHandler.Recompute)
-	g.GET("/quadrants", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.GetAll)
-	g.GET("/quadrants/summary", menuAccess("/quadrants"), mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.Summary)
+	r.App.GET("/api/quadrants", mdw.AuthMiddleware(), mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.GetAll)
+
+	quadrant := r.App.Group("/api/quadrant").Use(mdw.AuthMiddleware())
+	{
+		quadrant.POST("/recompute", mdw.PermissionMiddleware("quadrants", "recompute"), quadrantHandler.Recompute)
+		quadrant.GET("/summary", mdw.PermissionMiddleware("quadrants", "list"), quadrantHandler.Summary)
+	}
 }
 
 func (r *Routes) NewsRoutes() {
 	newsRepo := repositorynews.NewNewsRepo(r.DB)
 	newsHandler := handlernews.NewNewsHandler(servicenews.NewNewsService(newsRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/dashboard/news-items", newsHandler.DashboardItems)
-	g.POST("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), newsHandler.UpsertSource)
-	g.GET("/news/sources", menuAccess("/news"), mdw.PermissionMiddleware("news", "upsert_source"), newsHandler.ListSources)
-	g.POST("/news/scrape", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), newsHandler.Scrape)
-	g.POST("/news/import", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), newsHandler.Import)
-	g.GET("/news/latest", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), newsHandler.Latest)
-	g.GET("/news/items", menuAccess("/news"), mdw.PermissionMiddleware("news", "view"), newsHandler.ListItems)
-	g.DELETE("/news/items/:id", menuAccess("/news"), mdw.PermissionMiddleware("news", "scrape"), newsHandler.DeleteItem)
+	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware())
+	{
+		dashboard.GET("/news-items", newsHandler.DashboardItems)
+	}
+
+	news := r.App.Group("/api/news").Use(mdw.AuthMiddleware())
+	{
+		news.POST("/sources", mdw.PermissionMiddleware("news", "upsert"), newsHandler.UpsertSource)
+		news.GET("/sources", mdw.PermissionMiddleware("news", "list"), newsHandler.ListSources)
+		news.POST("/scrape", mdw.PermissionMiddleware("news", "scrape"), newsHandler.Scrape)
+		news.POST("/import", mdw.PermissionMiddleware("news", "scrape"), newsHandler.Import)
+		news.GET("/latest", mdw.PermissionMiddleware("news", "list"), newsHandler.Latest)
+		news.GET("/items", mdw.PermissionMiddleware("news", "list"), newsHandler.ListItems)
+		news.DELETE("/items/:id", mdw.PermissionMiddleware("news", "delete"), newsHandler.DeleteItem)
+	}
 }
 
 func (r *Routes) CommodityRoutes() {
 	commodityRepo := repositorycommodity.NewCommodityRepo(r.DB)
 	commodityHandler := handlercommodity.NewCommodityHandler(servicecommodity.NewCommodityService(commodityRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/dashboard/prices", commodityHandler.DashboardPrices)
-	g.POST("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "upsert"), commodityHandler.Upsert)
-	g.POST("/commodities/price", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), commodityHandler.AddPrice)
-	g.GET("/commodities/prices/latest", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), commodityHandler.LatestPrices)
-	g.GET("/commodities", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), commodityHandler.ListCommodities)
-	g.GET("/commodities/prices", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "list_prices"), commodityHandler.ListPrices)
-	g.DELETE("/commodities/prices/:id", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.DeletePrice)
-	g.POST("/commodities/prices/scrape", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ScrapePrices)
-	g.POST("/commodities/prices/scrape-jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.CreateScrapeJob)
-	g.GET("/commodities/prices/jobs", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ListScrapeJobs)
-	g.GET("/commodities/prices/jobs/:id/results", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "scrape_prices"), commodityHandler.ListScrapeResults)
-	g.POST("/commodities/prices/jobs/:id/commit", menuAccess("/prices"), mdw.PermissionMiddleware("commodities", "add_price"), commodityHandler.CommitScrapeResults)
+	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware())
+	{
+		dashboard.GET("/prices", commodityHandler.DashboardPrices)
+	}
+
+	r.App.GET("/api/commodities", mdw.AuthMiddleware(), mdw.PermissionMiddleware("commodities", "list"), commodityHandler.ListCommodities)
+
+	commodity := r.App.Group("/api/commodity").Use(mdw.AuthMiddleware())
+	{
+		commodity.POST("", mdw.PermissionMiddleware("commodities", "upsert"), commodityHandler.Upsert)
+		commodity.POST("/price", mdw.PermissionMiddleware("commodities", "create"), commodityHandler.AddPrice)
+		commodity.GET("/prices", mdw.PermissionMiddleware("commodities", "list"), commodityHandler.ListPrices)
+		commodity.GET("/prices/latest", mdw.PermissionMiddleware("commodities", "list"), commodityHandler.LatestPrices)
+		commodity.DELETE("/prices/:id", mdw.PermissionMiddleware("commodities", "delete"), commodityHandler.DeletePrice)
+		commodity.POST("/prices/scrape", mdw.PermissionMiddleware("commodities", "scrape"), commodityHandler.ScrapePrices)
+		commodity.POST("/prices/scrape-jobs", mdw.PermissionMiddleware("commodities", "scrape"), commodityHandler.CreateScrapeJob)
+		commodity.GET("/prices/jobs", mdw.PermissionMiddleware("commodities", "list"), commodityHandler.ListScrapeJobs)
+		commodity.GET("/prices/jobs/:id/results", mdw.PermissionMiddleware("commodities", "list"), commodityHandler.ListScrapeResults)
+		commodity.POST("/prices/jobs/:id/commit", mdw.PermissionMiddleware("commodities", "create"), commodityHandler.CommitScrapeResults)
+	}
 }
 
 func (r *Routes) LookupRoutes() {
@@ -527,25 +541,25 @@ func (r *Routes) LookupRoutes() {
 	locationService := servicelocation.NewLocationService(repositorylocation.NewLocationRepo(r.DB))
 	lookupHandler := handlerlookup.NewLookupHandler(servicelookup.NewLookupService(lookupRepo, locationService))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/lookups", menuAccess("/orders", "/business", "/finance", "/dealer", "/credit", "/quadrants", "/prices", "/news", "/jobs", "/net-income", "/scrape-sources", "/motor-types", "/installments", "/master-settings"), lookupHandler.GetAll)
+	r.App.GET("/api/lookups", mdw.AuthMiddleware(), lookupHandler.GetAll)
 }
 
 func (r *Routes) ScrapeSourceRoutes() {
 	scrapeSourceRepo := repositoryscrapesource.NewScrapeSourceRepo(r.DB)
 	scrapeSourceHandler := handlerscrapesource.NewScrapeSourceHandler(servicescrapesource.NewScrapeSourceService(scrapeSourceRepo))
 
-	mdw := r.newSongketMiddleware()
-	menuAccess := r.songketMenuAccess(mdw)
-	g := r.newSongketGroup(mdw)
+	mdw := r.newProtectedMiddleware()
 
-	g.GET("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "list"), scrapeSourceHandler.GetAll)
-	g.POST("/scrape-sources", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "create"), scrapeSourceHandler.Create)
-	g.PUT("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "update"), scrapeSourceHandler.Update)
-	g.DELETE("/scrape-sources/:id", menuAccess("/scrape-sources"), mdw.PermissionMiddleware("scrape_sources", "delete"), scrapeSourceHandler.Delete)
+	r.App.GET("/api/scrape-sources", mdw.AuthMiddleware(), mdw.PermissionMiddleware("scrape_sources", "list"), scrapeSourceHandler.GetAll)
+
+	scrapeSource := r.App.Group("/api/scrape-source").Use(mdw.AuthMiddleware())
+	{
+		scrapeSource.POST("", mdw.PermissionMiddleware("scrape_sources", "create"), scrapeSourceHandler.Create)
+		scrapeSource.PUT("/:id", mdw.PermissionMiddleware("scrape_sources", "update"), scrapeSourceHandler.Update)
+		scrapeSource.DELETE("/:id", mdw.PermissionMiddleware("scrape_sources", "delete"), scrapeSourceHandler.Delete)
+	}
 }
 
 // Minimal Swagger UI that pulls swagger.yaml from the same server.
