@@ -93,7 +93,6 @@ func NewLocationService(repo interfacelocation.RepoLocationInterface) interfacel
 		client:        client,
 		provinceCache: map[string]cachedLocationItems{},
 	}
-	_ = repo.EnsureSchema()
 	return svc
 }
 

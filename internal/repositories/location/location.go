@@ -2,7 +2,6 @@ package repositorylocation
 
 import (
 	"strings"
-	"sync"
 
 	domainlocation "service-songket/internal/domain/location"
 	interfacelocation "service-songket/internal/interfaces/location"
@@ -18,32 +17,16 @@ const (
 )
 
 type repo struct {
-	db         *gorm.DB
-	schemaOnce sync.Once
-	schemaErr  error
+	db *gorm.DB
 }
 
 func NewLocationRepo(db *gorm.DB) interfacelocation.RepoLocationInterface {
 	return &repo{db: db}
 }
 
-func (r *repo) EnsureSchema() error {
-	if r.db == nil {
-		return nil
-	}
-	r.schemaOnce.Do(func() {
-		r.schemaErr = r.db.AutoMigrate(
-			&domainlocation.MasterProvince{},
-			&domainlocation.MasterRegency{},
-			&domainlocation.MasterDistrict{},
-		)
-	})
-	return r.schemaErr
-}
-
 func (r *repo) ListProvinceCache() ([]domainlocation.LocationItem, error) {
-	if err := r.EnsureSchema(); err != nil || r.db == nil {
-		return nil, err
+	if r.db == nil {
+		return nil, nil
 	}
 	var rows []domainlocation.MasterProvince
 	if err := r.db.Model(&domainlocation.MasterProvince{}).Order("code ASC").Find(&rows).Error; err != nil {
@@ -62,8 +45,8 @@ func (r *repo) ListProvinceCache() ([]domainlocation.LocationItem, error) {
 }
 
 func (r *repo) ListCityCache(provinceCode string) ([]domainlocation.LocationItem, error) {
-	if err := r.EnsureSchema(); err != nil || r.db == nil {
-		return nil, err
+	if r.db == nil {
+		return nil, nil
 	}
 	var rows []domainlocation.MasterRegency
 	query := r.db.Model(&domainlocation.MasterRegency{})
@@ -86,8 +69,8 @@ func (r *repo) ListCityCache(provinceCode string) ([]domainlocation.LocationItem
 }
 
 func (r *repo) ListDistrictCache(provinceCode, cityCode string) ([]domainlocation.LocationItem, error) {
-	if err := r.EnsureSchema(); err != nil || r.db == nil {
-		return nil, err
+	if r.db == nil {
+		return nil, nil
 	}
 	var rows []domainlocation.MasterDistrict
 	query := r.db.Model(&domainlocation.MasterDistrict{})
@@ -125,8 +108,8 @@ func (r *repo) UpsertDistrictCache(provinceCode, cityCode string, items []domain
 }
 
 func (r *repo) upsertCache(level, provinceCode, cityCode string, items []domainlocation.LocationItem, source string) error {
-	if err := r.EnsureSchema(); err != nil || r.db == nil || len(items) == 0 {
-		return err
+	if r.db == nil || len(items) == 0 {
+		return nil
 	}
 
 	cleanProvince := strings.TrimSpace(provinceCode)

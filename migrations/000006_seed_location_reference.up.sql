@@ -1,4 +1,4 @@
--- Generated from Sipedas wilayah API.
+-- Generated from the Sipedas location API.
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS master_provinces (

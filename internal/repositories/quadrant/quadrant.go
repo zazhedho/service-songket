@@ -29,24 +29,24 @@ func NewQuadrantRepo(db *gorm.DB) interfacequadrant.RepoQuadrantInterface {
 
 func (r *repo) GetAll(params filter.BaseParams) ([]domainquadrant.QuadrantResult, int64, error) {
 	query := r.db.Model(&domainquadrant.QuadrantResult{}).
-		Joins("LEFT JOIN jobs ON jobs.id = quadrant_results.job_id")
+		Joins("LEFT JOIN jobs ON jobs.id = quadrants.job_id")
 
 	if v, ok := params.Filters["job_id"]; ok {
-		query = query.Where("quadrant_results.job_id = ?", v)
+		query = query.Where("quadrants.job_id = ?", v)
 	}
 	if v, ok := params.Filters["regency"]; ok {
-		query = query.Where("quadrant_results.regency = ?", v)
+		query = query.Where("quadrants.regency = ?", v)
 	}
 	if v, ok := params.Filters["quadrant"]; ok {
-		query = query.Where("quadrant_results.quadrant = ?", v)
+		query = query.Where("quadrants.quadrant = ?", v)
 	}
 	if v, ok := params.Filters["credit_score"]; ok {
-		query = query.Where("quadrant_results.credit_score = ?", v)
+		query = query.Where("quadrants.credit_score = ?", v)
 	}
 
 	if params.Search != "" {
 		search := "%" + strings.ToLower(params.Search) + "%"
-		query = query.Where("LOWER(quadrant_results.regency) LIKE ? OR LOWER(jobs.name) LIKE ?", search, search)
+		query = query.Where("LOWER(quadrants.regency) LIKE ? OR LOWER(jobs.name) LIKE ?", search, search)
 	}
 
 	var total int64
@@ -56,7 +56,7 @@ func (r *repo) GetAll(params filter.BaseParams) ([]domainquadrant.QuadrantResult
 
 	orderBy := params.OrderBy
 	if !strings.Contains(orderBy, ".") {
-		orderBy = "quadrant_results." + orderBy
+		orderBy = "quadrants." + orderBy
 	}
 
 	var data []domainquadrant.QuadrantResult

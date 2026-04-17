@@ -3,7 +3,6 @@ package interfacelocation
 import domainlocation "service-songket/internal/domain/location"
 
 type RepoLocationInterface interface {
-	EnsureSchema() error
 	ListProvinceCache() ([]domainlocation.LocationItem, error)
 	ListCityCache(provinceCode string) ([]domainlocation.LocationItem, error)
 	ListDistrictCache(provinceCode, cityCode string) ([]domainlocation.LocationItem, error)

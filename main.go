@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -38,8 +37,9 @@ func FailOnError(err error, msg string) {
 
 func main() {
 	var (
-		err   error
-		sqlDb *sql.DB
+		err        error
+		sqlDb      *sql.DB
+		runMigrate bool
 	)
 	if timeZone, err := time.LoadLocation("Asia/Jakarta"); err != nil {
 		logger.WriteLog(logger.LogLevelError, "time.LoadLocation - Error: "+err.Error())
@@ -69,21 +69,27 @@ func main() {
 	var port, appName string
 	flag.StringVar(&port, "port", os.Getenv("PORT"), "port of the service")
 	flag.StringVar(&appName, "appname", os.Getenv("APP_NAME"), "service name")
+	flag.BoolVar(&runMigrate, "migrate", utils.GetEnv("RUN_MIGRATION", true).(bool), "run database migration before starting server")
 	flag.Parse()
 	logger.WriteLog(logger.LogLevelInfo, "APP: "+appName+"; PORT: "+port)
 
 	confID := config.GetAppConf("CONFIG_ID", "", nil)
 	logger.WriteLog(logger.LogLevelDebug, fmt.Sprintf("ConfigID: %s", confID))
 
-	// Jalankan migrasi otomatis saat service start
-	//runMigration()
+	if runMigrate {
+		runMigration()
+	}
 
 	// Initialize Redis for session management (optional)
 	redisClient, err := database.InitRedis()
 	if err != nil {
 		logger.WriteLog(logger.LogLevelDebug, "Redis not available, session management will be disabled")
 	} else {
-		defer database.CloseRedis()
+		defer func() {
+			if closeErr := database.CloseRedis(); closeErr != nil {
+				logger.WriteLog(logger.LogLevelError, "Failed to close redis connection: "+closeErr.Error())
+			}
+		}()
 		logger.WriteLog(logger.LogLevelInfo, "Redis initialized, session management enabled")
 	}
 
@@ -92,10 +98,6 @@ func main() {
 	routes.DB, sqlDb, err = database.ConnDb()
 	FailOnError(err, "Failed to open db")
 	defer sqlDb.Close()
-
-	//if err := database.AutoMigrate(routes.DB); err != nil {
-	//	FailOnError(err, "Failed to automigrate")
-	//}
 
 	masterSettingService := servicemastersetting.NewMasterSettingService(repositorymastersetting.NewMasterSettingRepo(routes.DB))
 	newsService := servicenews.NewNewsService(repositorynews.NewNewsRepo(routes.DB))
@@ -154,19 +156,7 @@ func runMigration() {
 	}
 
 	if err := m.Up(); err != nil && err.Error() != "no change" {
-		var derr migrate.ErrDirty
-		if errors.As(err, &derr) {
-			v, _, _ := m.Version()
-			log.Printf("migration dirty at version %d, forcing clean and retrying", v)
-			if err := m.Force(int(v)); err != nil {
-				log.Fatal(err)
-			}
-			if err := m.Up(); err != nil && err.Error() != "no change" {
-				log.Fatal(err)
-			}
-		} else {
-			log.Fatal(err)
-		}
+		log.Fatal(err)
 	}
 	logger.WriteLog(logger.LogLevelInfo, "Migration Success")
 }
