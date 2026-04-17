@@ -238,16 +238,6 @@ func (r *Routes) LocationRoutes() {
 		location.GET("/city", h.GetCity)
 		location.GET("/district", h.GetDistrict)
 	}
-
-	legacy := r.App.Group("/api/master").Use(mdw.AuthMiddleware())
-	{
-		legacy.GET("/province", h.GetProvince)
-		legacy.GET("/city", h.GetCity)
-		legacy.GET("/district", h.GetDistrict)
-		legacy.GET("/provinsi", h.GetProvince)
-		legacy.GET("/kabupaten", h.GetCity)
-		legacy.GET("/kecamatan", h.GetDistrict)
-	}
 }
 
 func (r *Routes) MenuRoutes() {
