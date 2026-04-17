@@ -401,13 +401,6 @@ func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	if strings.TrimSpace(req.Password) == "" {
-		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
-		res.Error = response.Errors{Code: http.StatusBadRequest, Message: "password is required"}
-		ctx.JSON(http.StatusBadRequest, res)
-		return
-	}
-
 	data, err := h.Service.Update(id, currentUserID, role, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))

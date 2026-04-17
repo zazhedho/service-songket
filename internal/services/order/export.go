@@ -95,7 +95,7 @@ func validateOrderExportRequest(req dto.OrderExportRequest) error {
 	return nil
 }
 
-func canAccessOrderExport(job *domainorder.OrderExportJob, role, userID string) bool {
+func canAccessOrderExport(job *domainorder.OrderExportJob) bool {
 	if job == nil {
 		return false
 	}
@@ -204,7 +204,9 @@ func (s *Service) GetExportJob(jobID, role, userID string) (domainorder.OrderExp
 	if !exists {
 		return domainorder.OrderExportJob{}, domainorder.ErrOrderExportNotFound
 	}
-	if !canAccessOrderExport(&raw, role, userID) {
+	_ = role
+	_ = userID
+	if !canAccessOrderExport(&raw) {
 		return domainorder.OrderExportJob{}, domainorder.ErrOrderExportForbidden
 	}
 	return raw, nil
@@ -215,7 +217,9 @@ func (s *Service) DownloadExport(jobID, role, userID string) (domainorder.OrderE
 	if !exists {
 		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportNotFound
 	}
-	if !canAccessOrderExport(&raw, role, userID) {
+	_ = role
+	_ = userID
+	if !canAccessOrderExport(&raw) {
 		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportForbidden
 	}
 	if raw.Status != orderExportStatusCompleted || strings.TrimSpace(raw.FilePath) == "" {
@@ -497,7 +501,7 @@ func (r *exportLocationResolver) resolveRegencyCodes(provinceRaw, regencyRaw str
 	}
 
 	provinceCodes := r.resolveProvinceCodes(provinceRaw)
-	result := []string{}
+	var result []string
 	for _, provinceCode := range provinceCodes {
 		rows, err := r.locationRepo.ListCityCache(strings.TrimSpace(provinceCode))
 		if err != nil {

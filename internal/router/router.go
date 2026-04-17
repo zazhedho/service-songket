@@ -305,7 +305,7 @@ func (r *Routes) OrderRoutes() {
 
 	r.App.GET("/api/orders", mdw.AuthMiddleware(), mdw.PermissionMiddleware("orders", "list"), orderHandler.GetAll)
 
-	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware())
+	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware(), mdw.PermissionMiddleware("dashboard", "view"))
 	{
 		dashboard.GET("/orders", orderHandler.DashboardOrders)
 		dashboard.GET("/summary", orderHandler.DashboardSummary)
@@ -481,7 +481,7 @@ func (r *Routes) NewsRoutes() {
 
 	mdw := r.newProtectedMiddleware()
 
-	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware())
+	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware(), mdw.PermissionMiddleware("dashboard", "view"))
 	{
 		dashboard.GET("/news-items", newsHandler.DashboardItems)
 	}
@@ -504,7 +504,7 @@ func (r *Routes) CommodityRoutes() {
 
 	mdw := r.newProtectedMiddleware()
 
-	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware())
+	dashboard := r.App.Group("/api/dashboard").Use(mdw.AuthMiddleware(), mdw.PermissionMiddleware("dashboard", "view"))
 	{
 		dashboard.GET("/prices", commodityHandler.DashboardPrices)
 	}
