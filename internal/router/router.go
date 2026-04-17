@@ -33,6 +33,7 @@ import (
 	repositorycommodity "service-songket/internal/repositories/commodity"
 	repositorycredit "service-songket/internal/repositories/credit"
 	repositorydealer "service-songket/internal/repositories/dealer"
+	repositoryfinance "service-songket/internal/repositories/finance"
 	repositoryfinancecompany "service-songket/internal/repositories/financecompany"
 	repositoryinstallment "service-songket/internal/repositories/installment"
 	repositoryjob "service-songket/internal/repositories/job"
@@ -323,8 +324,9 @@ func (r *Routes) songketMenuAccess(mdw *middlewares.Middleware) func(...string) 
 func (r *Routes) OrderRoutes() {
 	orderRepo := repositoryorder.NewOrderRepo(r.DB)
 	dealerRepo := repositorydealer.NewDealerRepo(r.DB)
+	locationRepo := repositorylocation.NewLocationRepo(r.DB)
 	motorRepo := repositorymotor.NewMotorRepo(r.DB)
-	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, motorRepo, r.DB))
+	orderHandler := handlerorder.NewOrderHandler(serviceorder.NewOrderService(orderRepo, dealerRepo, locationRepo, motorRepo))
 
 	mdw := r.newSongketMiddleware()
 	menuAccess := r.songketMenuAccess(mdw)
@@ -394,10 +396,11 @@ func (r *Routes) MasterSettingRoutes() {
 
 func (r *Routes) FinanceRoutes() {
 	dealerRepo := repositorydealer.NewDealerRepo(r.DB)
+	financeRepo := repositoryfinance.NewFinanceRepo(r.DB)
 	financeCompanyRepo := repositoryfinancecompany.NewFinanceCompanyRepo(r.DB)
 	dealerHandler := handlerdealer.NewDealerHandler(servicedealer.NewDealerService(dealerRepo))
 	financeCompanyHandler := handlerfinancecompany.NewFinanceCompanyHandler(servicefinancecompany.NewFinanceCompanyService(financeCompanyRepo))
-	financeHandler := handlerfinance.NewFinanceHandler(servicefinance.NewFinanceService(r.DB))
+	financeHandler := handlerfinance.NewFinanceHandler(servicefinance.NewFinanceService(financeRepo))
 
 	mdw := r.newSongketMiddleware()
 	menuAccess := r.songketMenuAccess(mdw)
@@ -521,7 +524,8 @@ func (r *Routes) CommodityRoutes() {
 
 func (r *Routes) LookupRoutes() {
 	lookupRepo := repositorylookup.NewLookupRepo(r.DB)
-	lookupHandler := handlerlookup.NewLookupHandler(servicelookup.NewLookupService(lookupRepo, r.DB))
+	locationService := servicelocation.NewLocationService(repositorylocation.NewLocationRepo(r.DB))
+	lookupHandler := handlerlookup.NewLookupHandler(servicelookup.NewLookupService(lookupRepo, locationService))
 
 	mdw := r.newSongketMiddleware()
 	menuAccess := r.songketMenuAccess(mdw)

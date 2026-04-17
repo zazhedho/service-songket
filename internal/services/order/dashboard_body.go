@@ -11,11 +11,8 @@ import (
 )
 
 func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, role, userID string) (map[string]interface{}, error) {
-	baseQuery := s.buildDashboardSummaryBaseQuery(req, role, userID)
-	query := applyDashboardPeriodFilters(baseQuery, req)
-
-	var rows []dashboardSummaryRow
-	if err := query.Order("o.pooling_at ASC").Scan(&rows).Error; err != nil {
+	rows, err := s.repo.ListDashboardSummaryRows(req, role, userID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -33,10 +30,8 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 	chartReq.From = periodWindow.CurrentFrom.Format("2006-01-02")
 	chartReq.To = periodWindow.CurrentTo.Format("2006-01-02")
 
-	chartBaseQuery := s.buildDashboardSummaryBaseQuery(chartReq, role, userID)
-	chartBaseQuery = applyDashboardPeriodFilters(chartBaseQuery, chartReq)
-	var chartRows []dashboardSummaryRow
-	if err := chartBaseQuery.Order("o.pooling_at ASC").Scan(&chartRows).Error; err != nil {
+	chartRows, err := s.repo.ListDashboardSummaryRows(chartReq, role, userID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -138,34 +133,8 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		leadAvgSeconds = leadTotalSeconds / float64(leadCount)
 	}
 
-	type financeDecisionDailyRow struct {
-		DateKey      string `gorm:"column:date_key"`
-		ApproveTotal int64  `gorm:"column:approve_total"`
-		RejectTotal  int64  `gorm:"column:reject_total"`
-	}
-	type financeDecisionByCompanyRow struct {
-		DateKey        string `gorm:"column:date_key"`
-		FinanceCompany string `gorm:"column:finance_company"`
-		ApproveTotal   int64  `gorm:"column:approve_total"`
-		RejectTotal    int64  `gorm:"column:reject_total"`
-	}
-
-	financeApproveQuery := s.db.
-		Table("orders o").
-		Select(`
-			TO_CHAR(DATE(o.pooling_at), 'YYYY-MM-DD') AS date_key,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
-		`).
-		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
-		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
-		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	financeApproveQuery = applyDashboardScopeFilters(financeApproveQuery, req, role, userID, "oa.finance_company_id")
-	financeApproveQuery = applyDashboardPeriodFilters(financeApproveQuery, req)
-
-	var financeApproveRows []financeDecisionDailyRow
-	if err := financeApproveQuery.Group("DATE(o.pooling_at)").Order("DATE(o.pooling_at) ASC").Scan(&financeApproveRows).Error; err != nil {
+	financeApproveRows, err := s.repo.ListDashboardFinanceDecisionDailyRows(req, role, userID)
+	if err != nil {
 		return nil, err
 	}
 	for _, item := range financeApproveRows {
@@ -180,22 +149,8 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		}
 	}
 
-	financeApproveChartQuery := s.db.
-		Table("orders o").
-		Select(`
-			TO_CHAR(DATE(o.pooling_at), 'YYYY-MM-DD') AS date_key,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
-		`).
-		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
-		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
-		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	financeApproveChartQuery = applyDashboardScopeFilters(financeApproveChartQuery, chartReq, role, userID, "oa.finance_company_id")
-	financeApproveChartQuery = applyDashboardPeriodFilters(financeApproveChartQuery, chartReq)
-
-	var financeApproveChartRows []financeDecisionDailyRow
-	if err := financeApproveChartQuery.Group("DATE(o.pooling_at)").Order("DATE(o.pooling_at) ASC").Scan(&financeApproveChartRows).Error; err != nil {
+	financeApproveChartRows, err := s.repo.ListDashboardFinanceDecisionDailyRows(chartReq, role, userID)
+	if err != nil {
 		return nil, err
 	}
 	for _, item := range financeApproveChartRows {
@@ -207,24 +162,8 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		dailyFinanceRejectCounterChart[dateKey] += item.RejectTotal
 	}
 
-	financeDecisionByCompanyQuery := s.db.
-		Table("orders o").
-		Select(`
-			TO_CHAR(DATE(o.pooling_at), 'YYYY-MM-DD') AS date_key,
-			COALESCE(NULLIF(fc.name, ''), '-') AS finance_company,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
-		`).
-		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
-		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
-		Joins("LEFT JOIN finance_companies fc ON fc.id = oa.finance_company_id AND fc.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
-		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	financeDecisionByCompanyQuery = applyDashboardScopeFilters(financeDecisionByCompanyQuery, chartReq, role, userID, "oa.finance_company_id")
-	financeDecisionByCompanyQuery = applyDashboardPeriodFilters(financeDecisionByCompanyQuery, chartReq)
-
-	var financeDecisionByCompanyRows []financeDecisionByCompanyRow
-	if err := financeDecisionByCompanyQuery.Group("DATE(o.pooling_at), COALESCE(NULLIF(fc.name, ''), '-')").Order("DATE(o.pooling_at) ASC, COALESCE(NULLIF(fc.name, ''), '-') ASC").Scan(&financeDecisionByCompanyRows).Error; err != nil {
+	financeDecisionByCompanyRows, err := s.repo.ListDashboardFinanceDecisionByCompanyRows(chartReq, role, userID)
+	if err != nil {
 		return nil, err
 	}
 	dailyFinanceDecisionByCompany := make([]map[string]interface{}, 0, len(financeDecisionByCompanyRows))

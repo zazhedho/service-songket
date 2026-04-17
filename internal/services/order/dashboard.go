@@ -5,21 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
-
 	"service-songket/internal/dto"
-	"service-songket/utils"
 )
-
-type dashboardSummaryRow struct {
-	PoolingAt          time.Time  `gorm:"column:pooling_at"`
-	ResultAt           *time.Time `gorm:"column:result_at"`
-	ResultStatus       string     `gorm:"column:result_status"`
-	DPPct              float64    `gorm:"column:dp_pct"`
-	JobName            string     `gorm:"column:job_name"`
-	MotorTypeName      string     `gorm:"column:motor_type_name"`
-	FinanceCompanyName string     `gorm:"column:finance_company_name"`
-}
 
 type dashboardPeriodWindow struct {
 	Analysis      string
@@ -35,95 +22,6 @@ type dashboardPeriodTotals struct {
 	OrderIn int64
 	Approve int64
 	Reject  int64
-}
-
-func applyDashboardScopeFilters(query *gorm.DB, req dto.DashboardSummaryQuery, role, userID, financeCompanyColumn string) *gorm.DB {
-	if role == utils.RoleDealer {
-		query = query.Where("o.created_by = ?", userID)
-	}
-	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
-		query = query.Where("o.dealer_id = ?", dealerID)
-	}
-	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" && strings.TrimSpace(financeCompanyColumn) != "" {
-		query = query.Where(fmt.Sprintf("%s = ?", financeCompanyColumn), financeCompanyID)
-	}
-	if area := strings.ToLower(strings.TrimSpace(req.Area)); area != "" {
-		query = query.Where("(LOWER(COALESCE(d.regency, '')) = ? OR LOWER(COALESCE(d.district, '')) = ?)", area, area)
-	}
-	if resultStatus := strings.ToLower(strings.TrimSpace(req.ResultStatus)); resultStatus != "" {
-		query = query.Where("LOWER(COALESCE(o.result_status, '')) = ?", resultStatus)
-	}
-	return query
-}
-
-func (s *Service) buildDashboardSummaryBaseQuery(req dto.DashboardSummaryQuery, role, userID string) *gorm.DB {
-	query := s.db.
-		Table("orders o").
-		Select(`
-			o.pooling_at,
-			o.result_at,
-			LOWER(COALESCE(o.result_status, '')) AS result_status,
-			COALESCE(o.dp_pct, 0) AS dp_pct,
-			COALESCE(NULLIF(j.name, ''), '-') AS job_name,
-			COALESCE(NULLIF(mt.name, ''), '-') AS motor_type_name,
-			COALESCE(NULLIF(fc1.name, ''), '-') AS finance_company_name
-		`).
-		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
-		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
-		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
-		Joins("LEFT JOIN order_finance_attempts a1 ON a1.order_id = o.id AND a1.attempt_no = 1").
-		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL")
-	return applyDashboardScopeFilters(query, req, role, userID, "a1.finance_company_id")
-}
-
-func applyDashboardPeriodFilters(query *gorm.DB, req dto.DashboardSummaryQuery) *gorm.DB {
-	analysis := strings.ToLower(strings.TrimSpace(req.Analysis))
-	switch analysis {
-	case "yearly":
-		if req.Year > 0 {
-			query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
-		}
-		return query
-	case "monthly":
-		if req.Year > 0 {
-			query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
-		}
-		if req.Month >= 1 && req.Month <= 12 {
-			query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", req.Month)
-		}
-		return query
-	case "daily":
-		if date := strings.TrimSpace(req.Date); date != "" {
-			query = query.Where("DATE(o.pooling_at) = ?", date)
-		}
-		return query
-	case "custom":
-		if from := strings.TrimSpace(req.From); from != "" {
-			query = query.Where("DATE(o.pooling_at) >= ?", from)
-		}
-		if to := strings.TrimSpace(req.To); to != "" {
-			query = query.Where("DATE(o.pooling_at) <= ?", to)
-		}
-		return query
-	}
-
-	if date := strings.TrimSpace(req.Date); date != "" {
-		query = query.Where("DATE(o.pooling_at) = ?", date)
-	}
-	if from := strings.TrimSpace(req.From); from != "" {
-		query = query.Where("DATE(o.pooling_at) >= ?", from)
-	}
-	if to := strings.TrimSpace(req.To); to != "" {
-		query = query.Where("DATE(o.pooling_at) <= ?", to)
-	}
-	if req.Month >= 1 && req.Month <= 12 {
-		query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", req.Month)
-	}
-	if req.Year > 0 {
-		query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
-	}
-	return query
 }
 
 func parseDashboardHolidaySet(rawValues ...string) map[string]struct{} {
@@ -374,35 +272,18 @@ func (s *Service) computeDashboardPeriodTotals(req dto.DashboardSummaryQuery, ro
 	rangeReq.To = to.Format("2006-01-02")
 
 	var totals dashboardPeriodTotals
-	orderInQuery := applyDashboardPeriodFilters(s.buildDashboardSummaryBaseQuery(rangeReq, role, userID), rangeReq)
-	if err := orderInQuery.Distinct("o.id").Count(&totals.OrderIn).Error; err != nil {
+	orderCount, err := s.repo.CountDashboardOrders(rangeReq, role, userID)
+	if err != nil {
+		return dashboardPeriodTotals{}, err
+	}
+	decisionTotals, err := s.repo.GetDashboardDecisionTotals(rangeReq, role, userID)
+	if err != nil {
 		return dashboardPeriodTotals{}, err
 	}
 
-	type decisionTotalsRow struct {
-		ApproveTotal int64 `gorm:"column:approve_total"`
-		RejectTotal  int64 `gorm:"column:reject_total"`
-	}
-	var decisionRow decisionTotalsRow
-
-	decisionQuery := s.db.
-		Table("orders o").
-		Select(`
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'approve' THEN 1 END) AS approve_total,
-			COUNT(CASE WHEN LOWER(COALESCE(oa.status, '')) = 'reject' THEN 1 END) AS reject_total
-		`).
-		Joins("JOIN order_finance_attempts oa ON oa.order_id = o.id").
-		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
-		Where("o.deleted_at IS NULL").
-		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	decisionQuery = applyDashboardScopeFilters(decisionQuery, rangeReq, role, userID, "oa.finance_company_id")
-	decisionQuery = applyDashboardPeriodFilters(decisionQuery, rangeReq)
-	if err := decisionQuery.Scan(&decisionRow).Error; err != nil {
-		return dashboardPeriodTotals{}, err
-	}
-
-	totals.Approve = decisionRow.ApproveTotal
-	totals.Reject = decisionRow.RejectTotal
+	totals.OrderIn = orderCount
+	totals.Approve = decisionTotals.ApproveTotal
+	totals.Reject = decisionTotals.RejectTotal
 	return totals, nil
 }
 

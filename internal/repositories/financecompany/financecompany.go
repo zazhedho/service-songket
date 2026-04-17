@@ -6,7 +6,9 @@ import (
 
 	domainfinancecompany "service-songket/internal/domain/financecompany"
 	interfacefinancecompany "service-songket/internal/interfaces/financecompany"
+	interfacelocation "service-songket/internal/interfaces/location"
 	repositorygeneric "service-songket/internal/repositories/generic"
+	repositorylocation "service-songket/internal/repositories/location"
 	sharedsvc "service-songket/internal/services/shared"
 	"service-songket/pkg/filter"
 
@@ -15,17 +17,22 @@ import (
 
 type repo struct {
 	*repositorygeneric.GenericRepository[domainfinancecompany.FinanceCompany]
+	locationRepo interfacelocation.RepoLocationInterface
 }
 
 func NewFinanceCompanyRepo(db *gorm.DB) interfacefinancecompany.RepoFinanceCompanyInterface {
-	return &repo{GenericRepository: repositorygeneric.New[domainfinancecompany.FinanceCompany](db)}
+	return &repo{
+		GenericRepository: repositorygeneric.New[domainfinancecompany.FinanceCompany](db),
+		locationRepo:      repositorylocation.NewLocationRepo(db),
+	}
 }
 
 func (r *repo) GetAll(params filter.BaseParams) ([]domainfinancecompany.FinanceCompany, int64, error) {
 	query := r.DB.Model(&domainfinancecompany.FinanceCompany{})
 
 	if v, ok := params.Filters["province"]; ok {
-		aliases := sharedsvc.ResolveProvinceAliases(r.DB, v)
+		provinces, _ := r.locationRepo.ListProvinceCache()
+		aliases := sharedsvc.ResolveProvinceAliases(v, provinces)
 		query = sharedsvc.ApplyStringAliasesFilter(query, "province", aliases)
 	}
 	if v, ok := params.Filters["regency"]; ok {

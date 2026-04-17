@@ -6,7 +6,9 @@ import (
 
 	domaindealer "service-songket/internal/domain/dealer"
 	interfacedealer "service-songket/internal/interfaces/dealer"
+	interfacelocation "service-songket/internal/interfaces/location"
 	repositorygeneric "service-songket/internal/repositories/generic"
+	repositorylocation "service-songket/internal/repositories/location"
 	sharedsvc "service-songket/internal/services/shared"
 	"service-songket/pkg/filter"
 
@@ -15,17 +17,22 @@ import (
 
 type repo struct {
 	*repositorygeneric.GenericRepository[domaindealer.Dealer]
+	locationRepo interfacelocation.RepoLocationInterface
 }
 
 func NewDealerRepo(db *gorm.DB) interfacedealer.RepoDealerInterface {
-	return &repo{GenericRepository: repositorygeneric.New[domaindealer.Dealer](db)}
+	return &repo{
+		GenericRepository: repositorygeneric.New[domaindealer.Dealer](db),
+		locationRepo:      repositorylocation.NewLocationRepo(db),
+	}
 }
 
 func (r *repo) GetAll(params filter.BaseParams) ([]domaindealer.Dealer, int64, error) {
 	query := r.DB.Model(&domaindealer.Dealer{})
 
 	if v, ok := params.Filters["province"]; ok {
-		aliases := sharedsvc.ResolveProvinceAliases(r.DB, v)
+		provinces, _ := r.locationRepo.ListProvinceCache()
+		aliases := sharedsvc.ResolveProvinceAliases(v, provinces)
 		query = sharedsvc.ApplyStringAliasesFilter(query, "province", aliases)
 	}
 	if v, ok := params.Filters["regency"]; ok {

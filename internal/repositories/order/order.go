@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	domainorder "service-songket/internal/domain/order"
+	"service-songket/internal/dto"
 	interfaceorder "service-songket/internal/interfaces/order"
 	"service-songket/pkg/filter"
 
@@ -102,6 +103,81 @@ func (r *repo) GetAll(params filter.BaseParams, createdBy string) ([]domainorder
 	}
 
 	return orders, total, nil
+}
+
+func (r *repo) ListForExport(req dto.OrderExportRequest, role, userID string) ([]domainorder.Order, error) {
+	query := r.DB.
+		Model(&domainorder.Order{}).
+		Preload("Dealer").
+		Preload("Job").
+		Preload("MotorType").
+		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("attempt_no ASC").Preload("FinanceCompany")
+		})
+
+	if role == "dealer" {
+		query = query.Where("created_by = ?", strings.TrimSpace(userID))
+	}
+	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
+		query = query.Where("dealer_id = ?", dealerID)
+	}
+	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
+		query = query.Joins("LEFT JOIN order_finance_attempts oa1 ON oa1.order_id = orders.id AND oa1.attempt_no = 1").
+			Where("oa1.finance_company_id = ?", financeCompanyID)
+	}
+	if status := strings.ToLower(strings.TrimSpace(req.Status)); status != "" {
+		query = query.Where("LOWER(result_status) = ?", status)
+	}
+	if search := strings.ToLower(strings.TrimSpace(req.Search)); search != "" {
+		pattern := "%" + search + "%"
+		query = query.Where("LOWER(pooling_number) LIKE ? OR LOWER(consumer_name) LIKE ? OR LOWER(consumer_phone) LIKE ?", pattern, pattern, pattern)
+	}
+
+	fromDate := strings.TrimSpace(req.FromDate)
+	toDate := strings.TrimSpace(req.ToDate)
+	query = query.Where(
+		`(
+			(DATE(orders.created_at) >= ? AND DATE(orders.created_at) <= ?)
+			OR
+			(DATE(orders.pooling_at) >= ? AND DATE(orders.pooling_at) <= ?)
+		)`,
+		fromDate, toDate, fromDate, toDate,
+	)
+
+	if !r.DB.Migrator().HasColumn(&domainorder.Order{}, "installment") {
+		query = query.Select(`
+			orders.id,
+			orders.pooling_number,
+			orders.pooling_at,
+			orders.result_at,
+			orders.dealer_id,
+			orders.consumer_name,
+			orders.consumer_phone,
+			orders.province,
+			orders.regency,
+			orders.district,
+			orders.village,
+			orders.address,
+			orders.job_id,
+			orders.motor_type_id,
+			orders.otr,
+			orders.dp_gross,
+			orders.dp_paid,
+			orders.dp_pct,
+			orders.tenor,
+			orders.result_status,
+			orders.result_notes,
+			orders.created_by,
+			orders.created_at,
+			orders.updated_at
+		`)
+	}
+
+	var orders []domainorder.Order
+	if err := query.Order("pooling_at ASC").Find(&orders).Error; err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
 
 func (r *repo) Delete(id string) error {

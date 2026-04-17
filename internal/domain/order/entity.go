@@ -92,3 +92,31 @@ type OrderExportDownload struct {
 	ContentType string
 	Content     []byte
 }
+
+type DashboardSummaryRow struct {
+	PoolingAt          time.Time  `gorm:"column:pooling_at"`
+	ResultAt           *time.Time `gorm:"column:result_at"`
+	ResultStatus       string     `gorm:"column:result_status"`
+	DPPct              float64    `gorm:"column:dp_pct"`
+	JobName            string     `gorm:"column:job_name"`
+	MotorTypeName      string     `gorm:"column:motor_type_name"`
+	FinanceCompanyName string     `gorm:"column:finance_company_name"`
+}
+
+type DashboardFinanceDecisionDailyRow struct {
+	DateKey      string `gorm:"column:date_key"`
+	ApproveTotal int64  `gorm:"column:approve_total"`
+	RejectTotal  int64  `gorm:"column:reject_total"`
+}
+
+type DashboardFinanceDecisionByCompanyRow struct {
+	DateKey        string `gorm:"column:date_key"`
+	FinanceCompany string `gorm:"column:finance_company"`
+	ApproveTotal   int64  `gorm:"column:approve_total"`
+	RejectTotal    int64  `gorm:"column:reject_total"`
+}
+
+type DashboardDecisionTotals struct {
+	ApproveTotal int64 `gorm:"column:approve_total"`
+	RejectTotal  int64 `gorm:"column:reject_total"`
+}

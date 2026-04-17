@@ -77,27 +77,23 @@ func ApplyStringAliasesFilter(query *gorm.DB, column string, aliases []string) *
 	return query.Where(fmt.Sprintf("LOWER(TRIM(%s)) IN ?", column), cleaned)
 }
 
-func ResolveProvinceAliases(db *gorm.DB, raw interface{}) []string {
+func ResolveProvinceAliases(raw interface{}, provinces []domainlocation.LocationItem) []string {
 	base := strings.TrimSpace(fmt.Sprint(raw))
 	if base == "" {
 		return nil
 	}
 
 	aliases := []string{base}
-	var provinces []domainlocation.MasterProvince
-	if err := db.
-		Model(&domainlocation.MasterProvince{}).
-		Select("code", "name").
-		Where("LOWER(code) = LOWER(?) OR LOWER(name) = LOWER(?)", base, base).
-		Find(&provinces).Error; err != nil {
-		return aliases
-	}
-
 	for _, province := range provinces {
-		if code := strings.TrimSpace(province.Code); code != "" {
+		code := strings.TrimSpace(province.Code)
+		name := strings.TrimSpace(province.Name)
+		if !strings.EqualFold(code, base) && !strings.EqualFold(name, base) {
+			continue
+		}
+		if code != "" {
 			aliases = append(aliases, code)
 		}
-		if name := strings.TrimSpace(province.Name); name != "" {
+		if name != "" {
 			aliases = append(aliases, name)
 		}
 	}

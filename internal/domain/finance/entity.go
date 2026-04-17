@@ -7,6 +7,40 @@ type DateRange struct {
 	To   time.Time
 }
 
+type DealerMetricsBase struct {
+	TotalOrders        int64    `json:"total_orders"`
+	LeadTimeSecondsAvg *float64 `json:"lead_time_seconds_avg"`
+	ApprovedOrders     int64    `json:"approved_orders"`
+	RescuedOrders      int64    `json:"rescued_orders"`
+}
+
+type DealerFinanceCompanyMetricRow struct {
+	FinanceCompanyID   string   `json:"finance_company_id"`
+	FinanceCompanyName string   `json:"finance_company_name"`
+	TotalOrders        int64    `json:"total_orders"`
+	ApprovedCount      int64    `json:"approved_count"`
+	RejectedCount      int64    `json:"rejected_count"`
+	LeadTimeSecondsAvg *float64 `json:"lead_time_seconds_avg"`
+	RescueApprovedFc2  int64    `json:"rescue_approved_fc2"`
+}
+
+type FinanceApprovalGroupingRow struct {
+	FinanceCompanyID   string `gorm:"column:finance_company_id" json:"finance_company_id"`
+	FinanceCompanyName string `gorm:"column:finance_company_name" json:"finance_company_name"`
+	Status             string `gorm:"column:status" json:"status"`
+	TotalData          int64  `gorm:"column:total_data" json:"total_data"`
+}
+
+type FinanceApprovalTransitionRow struct {
+	Finance1CompanyID   string `gorm:"column:finance_1_company_id" json:"finance_1_company_id"`
+	Finance1CompanyName string `gorm:"column:finance_1_company_name" json:"finance_1_company_name"`
+	Finance2CompanyID   string `gorm:"column:finance_2_company_id" json:"finance_2_company_id"`
+	Finance2CompanyName string `gorm:"column:finance_2_company_name" json:"finance_2_company_name"`
+	TotalData           int64  `gorm:"column:total_data" json:"total_data"`
+	ApprovedCount       int64  `gorm:"column:approved_count" json:"approved_count"`
+	RejectedCount       int64  `gorm:"column:rejected_count" json:"rejected_count"`
+}
+
 type FinanceMigrationReportItem struct {
 	OrderID           string     `gorm:"column:order_id" json:"order_id"`
 	PoolingNumber     string     `gorm:"column:pooling_number" json:"pooling_number"`

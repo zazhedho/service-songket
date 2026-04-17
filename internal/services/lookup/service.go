@@ -7,20 +7,23 @@ import (
 
 	domaindealer "service-songket/internal/domain/dealer"
 	domainlookup "service-songket/internal/domain/lookup"
+	interfacelocation "service-songket/internal/interfaces/location"
 	interfacelookup "service-songket/internal/interfaces/lookup"
-	repositorylocation "service-songket/internal/repositories/location"
-	servicelocation "service-songket/internal/services/location"
-
-	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo interfacelookup.RepoLookupInterface
-	db   *gorm.DB
+	repo            interfacelookup.RepoLookupInterface
+	locationService interfacelocation.ServiceLocationInterface
 }
 
-func NewLookupService(repo interfacelookup.RepoLookupInterface, db *gorm.DB) interfacelookup.ServiceLookupInterface {
-	return &Service{repo: repo, db: db}
+func NewLookupService(
+	repo interfacelookup.RepoLookupInterface,
+	locationService interfacelocation.ServiceLocationInterface,
+) interfacelookup.ServiceLookupInterface {
+	return &Service{
+		repo:            repo,
+		locationService: locationService,
+	}
 }
 
 func (s *Service) GetAll() (map[string]interface{}, error) {
@@ -85,11 +88,10 @@ func (s *Service) buildDashboardAreaOptions(dealers []domaindealer.Dealer) []dom
 	}
 
 	kabupatenCodeToName := map[string]string{}
-	if len(provinceSet) > 0 {
-		locationSvc := servicelocation.NewLocationService(repositorylocation.NewLocationRepo(s.db))
+	if len(provinceSet) > 0 && s.locationService != nil {
 		ctx := context.Background()
 		for province := range provinceSet {
-			items, err := locationSvc.GetCity(ctx, "", province)
+			items, err := s.locationService.GetCity(ctx, "", province)
 			if err != nil {
 				continue
 			}
@@ -149,17 +151,4 @@ func (s *Service) buildDashboardAreaOptions(dealers []domaindealer.Dealer) []dom
 	})
 
 	return options
-}
-
-func isNumericAreaCode(value string) bool {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return false
-	}
-	for _, ch := range trimmed {
-		if ch < '0' || ch > '9' {
-			return false
-		}
-	}
-	return true
 }

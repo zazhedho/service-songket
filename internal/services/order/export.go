@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/oviekshgya/shago-lib/excel"
-	"gorm.io/gorm"
 
 	domainlocation "service-songket/internal/domain/location"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
+	interfacelocation "service-songket/internal/interfaces/location"
 	"service-songket/utils"
 )
 
@@ -199,78 +199,7 @@ func (s *Service) runOrderExport(jobID string, req dto.OrderExportRequest, role,
 }
 
 func (s *Service) listOrdersForExport(req dto.OrderExportRequest, role, userID string) ([]domainorder.Order, error) {
-	query := s.db.
-		Model(&domainorder.Order{}).
-		Preload("Dealer").
-		Preload("Job").
-		Preload("MotorType").
-		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("attempt_no ASC").Preload("FinanceCompany")
-		})
-
-	if role == utils.RoleDealer {
-		query = query.Where("created_by = ?", strings.TrimSpace(userID))
-	}
-	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
-		query = query.Where("dealer_id = ?", dealerID)
-	}
-	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
-		query = query.Joins("LEFT JOIN order_finance_attempts oa1 ON oa1.order_id = orders.id AND oa1.attempt_no = 1").
-			Where("oa1.finance_company_id = ?", financeCompanyID)
-	}
-	if status := strings.ToLower(strings.TrimSpace(req.Status)); status != "" {
-		query = query.Where("LOWER(result_status) = ?", status)
-	}
-	if search := strings.ToLower(strings.TrimSpace(req.Search)); search != "" {
-		pattern := "%" + search + "%"
-		query = query.Where("LOWER(pooling_number) LIKE ? OR LOWER(consumer_name) LIKE ? OR LOWER(consumer_phone) LIKE ?", pattern, pattern, pattern)
-	}
-
-	fromDate := strings.TrimSpace(req.FromDate)
-	toDate := strings.TrimSpace(req.ToDate)
-	query = query.Where(
-		`(
-			(DATE(orders.created_at) >= ? AND DATE(orders.created_at) <= ?)
-			OR
-			(DATE(orders.pooling_at) >= ? AND DATE(orders.pooling_at) <= ?)
-		)`,
-		fromDate, toDate, fromDate, toDate,
-	)
-
-	if !s.db.Migrator().HasColumn(&domainorder.Order{}, "installment") {
-		query = query.Select(`
-			orders.id,
-			orders.pooling_number,
-			orders.pooling_at,
-			orders.result_at,
-			orders.dealer_id,
-			orders.consumer_name,
-			orders.consumer_phone,
-			orders.province,
-			orders.regency,
-			orders.district,
-			orders.village,
-			orders.address,
-			orders.job_id,
-			orders.motor_type_id,
-			orders.otr,
-			orders.dp_gross,
-			orders.dp_paid,
-			orders.dp_pct,
-			orders.tenor,
-			orders.result_status,
-			orders.result_notes,
-			orders.created_by,
-			orders.created_at,
-			orders.updated_at
-		`)
-	}
-
-	var orders []domainorder.Order
-	if err := query.Order("pooling_at ASC").Find(&orders).Error; err != nil {
-		return nil, err
-	}
-	return orders, nil
+	return s.repo.ListForExport(req, role, userID)
 }
 
 func (s *Service) GetExportJob(jobID, role, userID string) (domainorder.OrderExportJob, error) {
@@ -405,7 +334,7 @@ func (s *Service) mapOrdersToExportRows(orders []domainorder.Order) ([]string, [
 	columns := []string{"No", "Pooling Number", "Pooling At", "Result At", "Dealer Name", "Consumer Name", "Consumer Phone", "Province", "Regency", "District", "Village", "Address", "Job Name", "Motor Type Name", "Motor Brand", "Motor Model", "Motor Variant Type", "Installment", "OTR", "DP Gross", "DP Paid", "DP Pct", "Tenor", "Result Status", "Result Notes", "Finance 1", "Status Finance 1", "Keterangan Finance 1", "Finance 2", "Status Finance 2", "Keterangan Finance 2"}
 
 	rows := make([]map[string]any, 0, len(orders))
-	locationResolver := newExportLocationResolver(s.db)
+	locationResolver := newExportLocationResolver(s.locationRepo)
 	for idx, order := range orders {
 		attempt1, _ := findAttempt(order.Attempts, 1)
 		attempt2, _ := findAttempt(order.Attempts, 2)
@@ -451,7 +380,7 @@ func (s *Service) mapOrdersToExportRows(orders []domainorder.Order) ([]string, [
 }
 
 type exportLocationResolver struct {
-	db *gorm.DB
+	locationRepo interfacelocation.RepoLocationInterface
 
 	provinceNameCache map[string]string
 	provinceCodes     map[string][]string
@@ -460,9 +389,9 @@ type exportLocationResolver struct {
 	districtNameCache map[string]string
 }
 
-func newExportLocationResolver(db *gorm.DB) *exportLocationResolver {
+func newExportLocationResolver(locationRepo interfacelocation.RepoLocationInterface) *exportLocationResolver {
 	return &exportLocationResolver{
-		db:                db,
+		locationRepo:      locationRepo,
 		provinceNameCache: map[string]string{},
 		provinceCodes:     map[string][]string{},
 		regencyNameCache:  map[string]string{},
@@ -501,17 +430,34 @@ func (r *exportLocationResolver) resolveProvinceCodes(provinceRaw string) []stri
 		return cached
 	}
 
-	var rows []domainlocation.MasterProvince
-	if err := r.db.Model(&domainlocation.MasterProvince{}).Select("code", "name").Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).Find(&rows).Error; err != nil {
+	rows, err := r.locationRepo.ListProvinceCache()
+	if err != nil {
 		result := dedupeTokens([]string{base})
 		r.provinceCodes[cacheKey] = result
 		return result
 	}
 	result := make([]string, 0, len(rows)+1)
 	for _, row := range rows {
-		if code := strings.TrimSpace(row.Code); code != "" {
-			result = append(result, code)
+		if strings.EqualFold(strings.TrimSpace(row.Code), cacheKey) || strings.EqualFold(strings.TrimSpace(row.Name), cacheKey) {
+			if code := strings.TrimSpace(row.Code); code != "" {
+				result = append(result, code)
+			}
 		}
+	}
+	if len(result) == 0 {
+		for _, row := range rows {
+			if code := strings.TrimSpace(row.Code); code != "" && strings.EqualFold(strings.TrimSpace(row.Name), base) {
+				result = append(result, code)
+			}
+		}
+	}
+	if len(result) == 0 {
+		for _, row := range rows {
+			if code := strings.TrimSpace(row.Code); code != "" {
+				result = append(result, code)
+			}
+		}
+		result = findMatchingLocationCodes(rows, cacheKey, base)
 	}
 	if len(result) == 0 {
 		result = append(result, base)
@@ -531,10 +477,9 @@ func (r *exportLocationResolver) resolveProvinceName(provinceRaw string) string 
 		return cached
 	}
 
-	var row domainlocation.MasterProvince
-	if err := r.db.Model(&domainlocation.MasterProvince{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", cacheKey, cacheKey).First(&row).Error; err == nil {
-		name := strings.TrimSpace(row.Name)
-		if name != "" {
+	rows, err := r.locationRepo.ListProvinceCache()
+	if err == nil {
+		if name := findLocationName(rows, cacheKey); name != "" {
 			r.provinceNameCache[cacheKey] = name
 			return name
 		}
@@ -557,15 +502,11 @@ func (r *exportLocationResolver) resolveRegencyCodes(provinceRaw, regencyRaw str
 	provinceCodes := r.resolveProvinceCodes(provinceRaw)
 	result := []string{}
 	for _, provinceCode := range provinceCodes {
-		var rows []domainlocation.MasterRegency
-		if err := r.db.Model(&domainlocation.MasterRegency{}).Select("code").Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).Find(&rows).Error; err != nil {
+		rows, err := r.locationRepo.ListCityCache(strings.TrimSpace(provinceCode))
+		if err != nil {
 			continue
 		}
-		for _, row := range rows {
-			if code := strings.TrimSpace(row.Code); code != "" {
-				result = append(result, code)
-			}
-		}
+		result = append(result, findMatchingLocationCodes(rows, regencyKey, regencyRaw)...)
 	}
 	if len(result) == 0 {
 		result = append(result, strings.TrimSpace(regencyRaw))
@@ -588,19 +529,11 @@ func (r *exportLocationResolver) resolveRegencyName(provinceRaw, regencyRaw stri
 
 	provinceCodes := r.resolveProvinceCodes(provinceRaw)
 	for _, provinceCode := range provinceCodes {
-		var row domainlocation.MasterRegency
-		if err := r.db.Model(&domainlocation.MasterRegency{}).Select("name").Where("province_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), regencyKey, regencyKey).First(&row).Error; err == nil {
-			name := strings.TrimSpace(row.Name)
-			if name != "" {
-				r.regencyNameCache[cacheKey] = name
-				return name
-			}
+		rows, err := r.locationRepo.ListCityCache(strings.TrimSpace(provinceCode))
+		if err != nil {
+			continue
 		}
-	}
-	var fallback domainlocation.MasterRegency
-	if err := r.db.Model(&domainlocation.MasterRegency{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", regencyKey, regencyKey).First(&fallback).Error; err == nil {
-		name := strings.TrimSpace(fallback.Name)
-		if name != "" {
+		if name := findLocationName(rows, regencyKey); name != "" {
 			r.regencyNameCache[cacheKey] = name
 			return name
 		}
@@ -624,24 +557,53 @@ func (r *exportLocationResolver) resolveDistrictName(provinceRaw, regencyRaw, di
 	regencyCodes := r.resolveRegencyCodes(provinceRaw, regencyRaw)
 	for _, provinceCode := range provinceCodes {
 		for _, regencyCode := range regencyCodes {
-			var row domainlocation.MasterDistrict
-			if err := r.db.Model(&domainlocation.MasterDistrict{}).Select("name").Where("province_code = ? AND regency_code = ? AND (LOWER(code) = ? OR LOWER(name) = ?)", strings.TrimSpace(provinceCode), strings.TrimSpace(regencyCode), districtKey, districtKey).First(&row).Error; err == nil {
-				name := strings.TrimSpace(row.Name)
-				if name != "" {
-					r.districtNameCache[cacheKey] = name
-					return name
-				}
+			rows, err := r.locationRepo.ListDistrictCache(strings.TrimSpace(provinceCode), strings.TrimSpace(regencyCode))
+			if err != nil {
+				continue
 			}
-		}
-	}
-	var fallback domainlocation.MasterDistrict
-	if err := r.db.Model(&domainlocation.MasterDistrict{}).Select("name").Where("LOWER(code) = ? OR LOWER(name) = ?", districtKey, districtKey).First(&fallback).Error; err == nil {
-		name := strings.TrimSpace(fallback.Name)
-		if name != "" {
-			r.districtNameCache[cacheKey] = name
-			return name
+			if name := findLocationName(rows, districtKey); name != "" {
+				r.districtNameCache[cacheKey] = name
+				return name
+			}
 		}
 	}
 	r.districtNameCache[cacheKey] = base
 	return base
+}
+
+func findMatchingLocationCodes(rows []domainlocation.LocationItem, normalizedValue, rawValue string) []string {
+	result := make([]string, 0)
+	if normalizedValue == "" {
+		return result
+	}
+	for _, row := range rows {
+		if strings.EqualFold(strings.TrimSpace(row.Code), normalizedValue) || strings.EqualFold(strings.TrimSpace(row.Name), normalizedValue) {
+			if code := strings.TrimSpace(row.Code); code != "" {
+				result = append(result, code)
+			}
+		}
+	}
+	if len(result) > 0 {
+		return result
+	}
+	rawValue = strings.TrimSpace(rawValue)
+	for _, row := range rows {
+		if strings.EqualFold(strings.TrimSpace(row.Name), rawValue) {
+			if code := strings.TrimSpace(row.Code); code != "" {
+				result = append(result, code)
+			}
+		}
+	}
+	return result
+}
+
+func findLocationName(rows []domainlocation.LocationItem, normalizedValue string) string {
+	for _, row := range rows {
+		if strings.EqualFold(strings.TrimSpace(row.Code), normalizedValue) || strings.EqualFold(strings.TrimSpace(row.Name), normalizedValue) {
+			if name := strings.TrimSpace(row.Name); name != "" {
+				return name
+			}
+		}
+	}
+	return ""
 }
