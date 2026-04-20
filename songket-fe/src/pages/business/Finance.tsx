@@ -1,7 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
-import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
   createDealer,
@@ -20,95 +18,36 @@ import {
   fetchProvinces,
 } from '../../services/locationService'
 import { fetchLookups } from '../../services/lookupService'
-import DealerLeafletSearchMap, { type DealerLeafletPlace } from '../../components/maps/DealerLeafletSearchMap'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
-
-const markerIcon = new L.Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-})
-
-type Option = { code: string; name: string }
-type DealerLocationNames = { province: string; regency: string; district: string }
-type CompanyLocationNames = { regency: string }
-
-type DealerForm = {
-  name: string
-  province: string
-  regency: string
-  district: string
-  village: string
-  phone: string
-  address: string
-  lat: string
-  lng: string
-}
-
-type FinanceForm = {
-  name: string
-  province: string
-  regency: string
-  district: string
-  village: string
-  phone: string
-  address: string
-}
-
-type CompanyDealerRow = {
-  dealer_id: string
-  dealer_name: string
-  total_orders: number
-  approval_rate: number
-  lead_time_seconds_avg: number | null
-  rescue_approved_fc2: number
-}
-
-type CompanySummary = {
-  total_orders: number
-  approval_rate: number
-  lead_time_seconds_avg: number | null
-  rescue_approved_fc2: number
-  active_dealers: number
-  dealer_rows: CompanyDealerRow[]
-}
-
-const initialDealerForm: DealerForm = {
-  name: '',
-  province: '',
-  regency: '',
-  district: '',
-  village: '',
-  phone: '',
-  address: '',
-  lat: '',
-  lng: '',
-}
-
-const initialFinanceForm: FinanceForm = {
-  name: '',
-  province: '',
-  regency: '',
-  district: '',
-  village: '',
-  phone: '',
-  address: '',
-}
-
-const INDONESIA_CENTER: [number, number] = [-2.5489, 118.0149]
-
-function parseFinanceMode(pathname: string) {
-  if (pathname === '/dealer/dealers/create' || pathname === '/business/dealer/dealers/create') return 'dealer_create'
-  if (/^(\/dealer|\/business\/dealer)\/dealers\/[^/]+\/edit$/.test(pathname)) return 'dealer_edit'
-  if (/^(\/dealer|\/business\/dealer)\/dealers\/[^/]+$/.test(pathname)) return 'dealer_detail'
-  if (pathname === '/finance/companies/create' || pathname === '/business/finance/companies/create') return 'company_create'
-  if (/^(\/finance|\/business\/finance)\/companies\/[^/]+\/edit$/.test(pathname)) return 'company_edit'
-  if (/^(\/finance|\/business\/finance)\/companies\/[^/]+$/.test(pathname)) return 'company_detail'
-  return 'list'
-}
+import DealerDetail from './components/DealerDetail'
+import CompanyDetail from './components/CompanyDetail'
+import DealerForm from './components/DealerForm'
+import CompanyForm from './components/CompanyForm'
+import FinanceList from './components/FinanceList'
+import {
+  type CompanyDealerRow,
+  type CompanyLocationNames,
+  type CompanySummary,
+  type DealerForm,
+  type DealerLocationNames,
+  type FinanceForm,
+  type Option,
+  INDONESIA_CENTER,
+  findOptionCodeByNames,
+  findOptionCodeByValue,
+  firstFilled,
+  formatDealerLocationSummary,
+  hasRegionAddressFields,
+  initialDealerForm,
+  initialFinanceForm,
+  lookupOptionName,
+  parseCoordinateValue,
+  parseFinanceMode,
+  resolveOptionNameValue,
+  roundCoordinate,
+  splitDisplayAddressSegments,
+} from './components/financeHelpers'
 
 export default function FinancePage() {
   const navigate = useNavigate()
@@ -900,7 +839,7 @@ export default function FinancePage() {
     }
   }
 
-  const handleDealerPlaceChanged = (place: DealerLeafletPlace) => {
+  const handleDealerPlaceChanged = (place: any) => {
     void resolveDealerLocationFromMap(place.lat, place.lng, place.formattedAddress, place.address)
   }
 
@@ -1233,402 +1172,83 @@ export default function FinancePage() {
 
   if (isDealerDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Dealer</div>
-            <div style={{ color: '#64748b' }}>Dealer profile and location map</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canManage && selectedId && (
-              <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
-                Edit Dealer
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate(dealerBasePath)}>Kembali</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedDealer && <div className="alert">Dealer tidak ditemukan.</div>}
-          {selectedDealer && (
-            <>
-              <div className="card" style={{ maxWidth: 960 }}>
-                <h3>Dealer Information</h3>
-                <DetailTable
-                  rows={[
-                    { label: 'Name', value: selectedDealer.name || '-' },
-                    { label: 'Phone', value: selectedDealer.phone || '-' },
-                    { label: 'Province', value: selectedDealerProvinceName },
-                    { label: 'Regency / City', value: selectedDealerRegencyName },
-                    { label: 'District', value: selectedDealerDistrictName },
-                    { label: 'Village', value: selectedDealer.village || '-' },
-                    { label: 'Address', value: selectedDealer.address || '-' },
-                    { label: 'Latitude', value: String(selectedDealer.lat ?? selectedDealer.latitude ?? '-') },
-                    { label: 'Longitude', value: String(selectedDealer.lng ?? selectedDealer.longitude ?? '-') },
-                    { label: 'Created At', value: formatDateTime(selectedDealer.created_at) },
-                    { label: 'Updated At', value: formatDateTime(selectedDealer.updated_at) },
-                  ]}
-                />
-              </div>
-
-              <div className="card" style={{ minHeight: 360 }}>
-                <h3>Dealer Map</h3>
-                <div style={{ marginTop: 10 }}>
-                  <MapContainer
-                    center={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
-                    zoom={11}
-                    style={{ height: 300, borderRadius: 12 }}
-                    scrollWheelZoom={false}
-                  >
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                    <Marker
-                      position={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
-                      icon={markerIcon}
-                    >
-                      <Popup>{selectedDealer.name}</Popup>
-                    </Marker>
-                  </MapContainer>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      <DealerDetail
+        canManage={canManage}
+        dealerBasePath={dealerBasePath}
+        navigate={navigate}
+        selectedDealer={selectedDealer}
+        selectedDealerDistrictName={selectedDealerDistrictName}
+        selectedDealerProvinceName={selectedDealerProvinceName}
+        selectedDealerRegencyName={selectedDealerRegencyName}
+        selectedId={selectedId}
+      />
     )
   }
 
   if (isCompanyDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Finance Company</div>
-            <div style={{ color: '#64748b' }}>Company profile and performance summary</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canManage && selectedId && (
-              <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/${selectedId}/edit`, { state: { company: selectedCompany } })}>
-                Edit Finance Company
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate(financeBasePath)}>Kembali</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedCompany && <div className="alert">Finance company tidak ditemukan.</div>}
-          {selectedCompany && (
-            <>
-              <div className="card" style={{ maxWidth: 960 }}>
-                <h3>Finance Company Information</h3>
-                <DetailTable
-                  rows={[
-                    { label: 'Name', value: selectedCompany.name || '-' },
-                    { label: 'Phone', value: selectedCompany.phone || '-' },
-                    { label: 'Province', value: selectedCompanyProvinceName },
-                    { label: 'Regency / City', value: selectedCompanyRegencyName },
-                    { label: 'District', value: selectedCompanyDistrictName },
-                    { label: 'Village', value: selectedCompany.village || '-' },
-                    { label: 'Address', value: selectedCompany.address || '-' },
-                    { label: 'Created At', value: formatDateTime(selectedCompany.created_at) },
-                    { label: 'Updated At', value: formatDateTime(selectedCompany.updated_at) },
-                  ]}
-                />
-              </div>
-
-              <div className="card">
-                <h3>Finance Performence Summary</h3>
-                {companySummaryLoading && <div className="muted">Loading performance summary...</div>}
-                {!companySummaryLoading && !companySummary && <div className="muted">No performance data yet.</div>}
-
-                {!companySummaryLoading && companySummary && (
-                  <>
-                    <div className="grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
-                      <Metric label="Total Order" value={companySummary.total_orders} />
-                      <Metric label="Approval Rate" value={`${(companySummary.approval_rate * 100).toFixed(1)}%`} />
-                      <Metric label="Lead Avg (s)" value={companySummary.lead_time_seconds_avg != null ? companySummary.lead_time_seconds_avg.toFixed(1) : '-'} />
-                      <Metric label="Rescue FC2" value={companySummary.rescue_approved_fc2} />
-                    </div>
-
-                    <div style={{ marginTop: 10, color: '#64748b', fontSize: 12 }}>
-                      Dealer aktif: {companySummary.active_dealers} dari {dealers.length} dealer
-                    </div>
-
-                    <div style={{ marginTop: 12 }}>
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Dealer</th>
-                            <th>Total Order</th>
-                            <th>Approval Rate</th>
-                            <th>Lead Avg (s)</th>
-                            <th>Rescue FC2</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {companySummary.dealer_rows.map((row) => (
-                            <tr key={row.dealer_id}>
-                              <td>{row.dealer_name}</td>
-                              <td>{row.total_orders}</td>
-                              <td>{(row.approval_rate * 100).toFixed(1)}%</td>
-                              <td>{row.lead_time_seconds_avg != null ? row.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                              <td>{row.rescue_approved_fc2}</td>
-                            </tr>
-                          ))}
-                          {companySummary.dealer_rows.length === 0 && (
-                            <tr>
-                              <td colSpan={5}>No dealer performance data yet.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      <CompanyDetail
+        canManage={canManage}
+        companySummary={companySummary}
+        companySummaryLoading={companySummaryLoading}
+        dealers={dealers}
+        financeBasePath={financeBasePath}
+        navigate={navigate}
+        selectedCompany={selectedCompany}
+        selectedCompanyDistrictName={selectedCompanyDistrictName}
+        selectedCompanyProvinceName={selectedCompanyProvinceName}
+        selectedCompanyRegencyName={selectedCompanyRegencyName}
+        selectedId={selectedId}
+      />
     )
   }
 
   if (isDealerCreate || isDealerEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Input Dealer Baru'}</div>
-            <div style={{ color: '#64748b' }}>Form dealer terpisah dari tabel</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate(dealerBasePath)}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 920 }}>
-            <form onSubmit={submitDealer} className="grid" style={{ gap: 10 }}>
-              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label>Nama Dealer</label>
-                  <input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} required />
-                </div>
-                <div>
-                  <label>No Telepon</label>
-                  <input value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: e.target.value }))} required />
-                </div>
-
-                <div>
-                  <label>Provinsi</label>
-                  <select value={dealerForm.province} onChange={(e) => void handleDealerProvince(e.target.value)} required>
-                    <option value="">Pilih</option>
-                    {provinces.map((province) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kab/Kota</label>
-                  <select
-                    value={dealerForm.regency}
-                    onChange={(e) => void handleDealerRegency(e.target.value)}
-                    disabled={!dealerForm.province}
-                    required
-                  >
-                    <option value="">Pilih</option>
-                    {dealerKabupaten.map((kab) => (
-                      <option key={kab.code} value={kab.code}>{kab.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kecamatan</label>
-                  <select
-                    value={dealerForm.district}
-                    onChange={(e) => setDealerForm((prev) => ({ ...prev, district: e.target.value }))}
-                    disabled={!dealerForm.regency}
-                    required
-                  >
-                    <option value="">Pilih</option>
-                    {dealerKecamatan.map((kec) => (
-                      <option key={kec.code} value={kec.code}>{kec.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kelurahan</label>
-                  <input value={dealerForm.village} onChange={(e) => setDealerForm((prev) => ({ ...prev, village: e.target.value }))} />
-                </div>
-
-                <div>
-                  <label>Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={dealerForm.lat}
-                    onChange={(e) => setDealerForm((prev) => ({ ...prev, lat: e.target.value }))}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label>Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={dealerForm.lng}
-                    onChange={(e) => setDealerForm((prev) => ({ ...prev, lng: e.target.value }))}
-                    required
-                  />
-                </div>
-
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label>Alamat</label>
-                  <input
-                    value={dealerForm.address}
-                    onChange={(e) => setDealerForm((prev) => ({ ...prev, address: e.target.value }))}
-                    placeholder="Address is auto-filled when location is selected"
-                  />
-                </div>
-
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <label style={{ marginBottom: 0 }}>Dealer Location Map</label>
-                    {locatingDealerAddress && <span style={{ color: '#64748b', fontSize: 12 }}>Resolving location...</span>}
-                  </div>
-
-                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Search location directly on the map or click the map to pin location.
-                    Suggestion dropdown, map movement, and autofill are available in this Leaflet map.
-                  </div>
-
-                  <DealerLeafletSearchMap
-                    center={dealerFormCenter}
-                    zoom={dealerFormZoom}
-                    lat={dealerFormLat}
-                    lng={dealerFormLng}
-                    onPick={handleDealerPlaceChanged}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate(dealerBasePath)}>Batal</button>
-                <button className="btn" type="submit" disabled={savingDealer}>
-                  {savingDealer ? 'Menyimpan...' : isDealerEdit ? 'Update Dealer' : 'Tambah Dealer'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <DealerForm
+        dealerBasePath={dealerBasePath}
+        dealerForm={dealerForm}
+        dealerFormCenter={dealerFormCenter}
+        dealerFormLat={dealerFormLat}
+        dealerFormLng={dealerFormLng}
+        dealerFormZoom={dealerFormZoom}
+        dealerKabupaten={dealerKabupaten}
+        dealerKecamatan={dealerKecamatan}
+        handleDealerPlaceChanged={handleDealerPlaceChanged}
+        handleDealerProvince={handleDealerProvince}
+        handleDealerRegency={handleDealerRegency}
+        isDealerEdit={isDealerEdit}
+        locatingDealerAddress={locatingDealerAddress}
+        navigate={navigate}
+        provinces={provinces}
+        savingDealer={savingDealer}
+        setDealerForm={setDealerForm}
+        submitDealer={submitDealer}
+      />
     )
   }
 
   if (isCompanyCreate || isCompanyEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Input Finance Company Baru'}</div>
-            <div style={{ color: '#64748b' }}>Form finance company terpisah dari tabel</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate(financeBasePath)}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 920 }}>
-            <form onSubmit={submitFinance} className="grid" style={{ gap: 10 }}>
-              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label>Nama Finance Company</label>
-                  <input value={financeForm.name} onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))} required />
-                </div>
-                <div>
-                  <label>No Telepon</label>
-                  <input value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: e.target.value }))} required />
-                </div>
-
-                <div>
-                  <label>Provinsi</label>
-                  <select value={financeForm.province} onChange={(e) => void handleFinanceProvince(e.target.value)} required>
-                    <option value="">Pilih</option>
-                    {provinces.map((province) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kab/Kota</label>
-                  <select
-                    value={financeForm.regency}
-                    onChange={(e) => void handleFinanceRegency(e.target.value)}
-                    disabled={!financeForm.province}
-                    required
-                  >
-                    <option value="">Pilih</option>
-                    {financeKabupaten.map((kab) => (
-                      <option key={kab.code} value={kab.code}>{kab.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kecamatan</label>
-                  <select
-                    value={financeForm.district}
-                    onChange={(e) => setFinanceForm((prev) => ({ ...prev, district: e.target.value }))}
-                    disabled={!financeForm.regency}
-                    required
-                  >
-                    <option value="">Pilih</option>
-                    {financeKecamatan.map((kec) => (
-                      <option key={kec.code} value={kec.code}>{kec.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>Kelurahan</label>
-                  <input value={financeForm.village} onChange={(e) => setFinanceForm((prev) => ({ ...prev, village: e.target.value }))} />
-                </div>
-
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label>Alamat</label>
-                  <input value={financeForm.address} onChange={(e) => setFinanceForm((prev) => ({ ...prev, address: e.target.value }))} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button className="btn-ghost" type="button" onClick={() => navigate(financeBasePath)}>Batal</button>
-                <button className="btn" type="submit" disabled={savingFinance}>
-                  {savingFinance ? 'Menyimpan...' : isCompanyEdit ? 'Update Finance' : 'Tambah Finance'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <CompanyForm
+        financeBasePath={financeBasePath}
+        financeForm={financeForm}
+        financeKabupaten={financeKabupaten}
+        financeKecamatan={financeKecamatan}
+        handleFinanceProvince={handleFinanceProvince}
+        handleFinanceRegency={handleFinanceRegency}
+        isCompanyEdit={isCompanyEdit}
+        navigate={navigate}
+        provinces={provinces}
+        savingFinance={savingFinance}
+        setFinanceForm={setFinanceForm}
+        submitFinance={submitFinance}
+      />
     )
   }
 
   return (
     <div>
-      <div className="header">
-          <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{listSection === 'dealer' ? 'Dealer Management' : 'Finance Management'}</div>
-          <div style={{ color: '#64748b' }}>
-            {listSection === 'dealer'
-              ? 'Dealer list, map, and dealer performance.'
-              : 'Finance company list and finance performance.'}
-          </div>
-          </div>
-      </div>
-
       {isBusinessTabMode && (
         <div className="business-tabs-pane">
           <button type="button" className="business-tab-btn" onClick={() => navigate('/business')}>
@@ -1651,591 +1271,54 @@ export default function FinancePage() {
         </div>
       )}
 
-      <div className="page" style={{ display: 'grid', gap: 14 }}>
-        {listSection === 'dealer' && (
-          <>
-            <div className="card">
-              <div style={{ marginBottom: 10 }}>
-                <label>Search Dealer</label>
-                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search by name/regency/phone" />
-              </div>
-
-              <div style={{ marginBottom: 10 }}>
-                <label>Dealer Province Filter</label>
-                <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
-                  <option value="">All</option>
-                  {provinces.map((province) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3>Dealers</h3>
-                {canManage && <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/create`)}>Create Dealer</button>}
-              </div>
-
-              <table className="table finance-dealer-table">
-                <colgroup>
-                  <col className="finance-dealer-col-name" />
-                  <col className="finance-dealer-col-location" />
-                  <col className="finance-dealer-col-phone" />
-                  <col className="finance-dealer-col-action" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Location</th>
-                    <th>Phone</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dealers.map((dealer) => (
-                    <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
-                      <td>{dealer.name}</td>
-                      <td
-                        className="finance-dealer-location-cell"
-                        title={formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
-                      >
-                        {formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
-                      </td>
-                      <td>{dealer.phone || '-'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'focus',
-                              label: dealer.id === selectedDealerId ? 'Selected' : 'Focus',
-                              onClick: () => setSelectedDealerId(dealer.id),
-                              disabled: dealer.id === selectedDealerId,
-                            },
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}`, { state: { dealer } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}/edit`, { state: { dealer } }),
-                              hidden: !canManage,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void removeDealer(dealer.id),
-                              hidden: !canManage,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {dealers.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>No dealers available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <Pagination
-                page={dealerPage}
-                totalPages={dealerTotalPages}
-                totalData={dealerTotalData}
-                limit={dealerLimit}
-                onPageChange={setDealerPage}
-                onLimitChange={(next) => {
-                  setDealerLimit(next)
-                  setDealerPage(1)
-                }}
-              />
-            </div>
-
-            <div className="card" style={{ minHeight: 430 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Dealer Map</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName} • {dealerPoints.length} points</div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
-                  <MapFly center={center as any} />
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                  {dealerPoints.map((dealer) => (
-                    <Marker
-                      key={dealer.id}
-                      position={[dealer._lat, dealer._lng]}
-                      icon={markerIcon}
-                      eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
-                    >
-                      <Popup>
-                        <strong>{dealer.name}</strong>
-                        <div>{dealerLocationNameMap[String(dealer.id)]?.regency || dealer.regency || '-'}</div>
-                        <div>{dealer.phone || '-'}</div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-              </div>
-            </div>
-
-          </>
-        )}
-
-        {listSection === 'finance' && (
-          <>
-            <div className="card">
-              <div style={{ marginBottom: 10 }}>
-                <label>Search Finance Company</label>
-                <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search by name/regency/phone" />
-              </div>
-
-              <div style={{ marginBottom: 10 }}>
-                <label>Finance Province Filter</label>
-                <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
-                  <option value="">All</option>
-                  {provinces.map((province) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3>Finance Company</h3>
-                {canManage && <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/create`)}>Create Finance</button>}
-              </div>
-
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Regency</th>
-                    <th>Phone</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {financeCompanies.map((company) => (
-                    <tr key={company.id}>
-                      <td>{company.name}</td>
-                      <td>{financeCompanyLocationNameMap[String(company.id)]?.regency || company.regency || '-'}</td>
-                      <td>{company.phone || '-'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`${financeBasePath}/companies/${company.id}`, { state: { company } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`${financeBasePath}/companies/${company.id}/edit`, { state: { company } }),
-                              hidden: !canManage,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void removeFinance(company.id),
-                              hidden: !canManage,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {financeCompanies.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>No finance company available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <Pagination
-                page={financePage}
-                totalPages={financeTotalPages}
-                totalData={financeTotalData}
-                limit={financeLimit}
-                onPageChange={setFinancePage}
-                onLimitChange={(next) => {
-                  setFinanceLimit(next)
-                  setFinancePage(1)
-                }}
-              />
-            </div>
-
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Finance Performence</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
-              </div>
-
-              <div style={{ marginTop: 12, maxWidth: 360 }}>
-                <label>Select Dealer</label>
-                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                  <option value="">Select dealer</option>
-                  {dealers.map((dealer) => (
-                    <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance company performance.</div>}
-              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
-
-              {metrics && (
-                <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 12, marginTop: 12 }}>
-                  <div>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Finance</th>
-                          <th>Total</th>
-                          <th>Approved</th>
-                          <th>Rejected</th>
-                          <th>Approve %</th>
-                          <th>Lead Avg</th>
-                          <th>Rescue FC2</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {financeMetricRows.map((fc: any) => {
-                          const total = Number(fc?.total_orders || 0)
-                          const approvedRaw = fc?.approved_count
-                          const rejectedRaw = fc?.rejected_count
-                          const approved = Number.isFinite(Number(approvedRaw))
-                            ? Number(approvedRaw)
-                            : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
-                          const rejected = Number.isFinite(Number(rejectedRaw))
-                            ? Number(rejectedRaw)
-                            : Math.max(0, total - approved)
-                          return (
-                            <tr key={fc.finance_company_id}>
-                              <td>{fc.finance_company_name}</td>
-                              <td>{total}</td>
-                              <td>{approved}</td>
-                              <td>{rejected}</td>
-                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                              <td>{fc.rescue_approved_fc2 || 0}</td>
-                            </tr>
-                          )
-                        })}
-                        {financeMetricRows.length === 0 && (
-                          <tr>
-                            <td colSpan={7}>No finance company metric for this dealer.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Summary Chart</div>
-                    {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
-                    {financeMetricRows.map((fc: any) => {
-                      const total = Number(fc?.total_orders || 0)
-                      const approvedRaw = fc?.approved_count
-                      const rejectedRaw = fc?.rejected_count
-                      const approved = Number.isFinite(Number(approvedRaw))
-                        ? Number(approvedRaw)
-                        : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
-                      const rejected = Number.isFinite(Number(rejectedRaw))
-                        ? Number(rejectedRaw)
-                        : Math.max(0, total - approved)
-                      const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
-                      return (
-                        <div key={`chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-                            <span style={{ fontWeight: 600 }}>{fc.finance_company_name || '-'}</span>
-                            <span>{total}</span>
-                          </div>
-                          <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
-                            <div
-                              style={{
-                                width: `${Math.min(100, width)}%`,
-                                height: '100%',
-                                borderRadius: 999,
-                                background: '#2563eb',
-                                transition: 'width .25s ease',
-                              }}
-                            />
-                          </div>
-                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                            Approve {approved} | Reject {rejected} | {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+      <FinanceList
+        canManage={canManage}
+        center={center}
+        dealerBasePath={dealerBasePath}
+        dealerFinanceLimit={dealerFinanceLimit}
+        dealerFinancePage={dealerFinancePage}
+        dealerFinanceRows={dealerFinanceRows}
+        dealerFinanceTotalData={dealerFinanceTotalData}
+        dealerFinanceTotalPages={dealerFinanceTotalPages}
+        dealerLocationNameMap={dealerLocationNameMap}
+        dealerLimit={dealerLimit}
+        dealerPage={dealerPage}
+        dealerPoints={dealerPoints}
+        dealerProvinceFilter={dealerProvinceFilter}
+        dealerSearch={dealerSearch}
+        dealerTotalData={dealerTotalData}
+        dealerTotalPages={dealerTotalPages}
+        dealers={dealers}
+        financeBasePath={financeBasePath}
+        financeCompanies={financeCompanies}
+        financeCompanyLocationNameMap={financeCompanyLocationNameMap}
+        financeLimit={financeLimit}
+        financeMetricMaxTotal={financeMetricMaxTotal}
+        financeMetricRows={financeMetricRows}
+        financePage={financePage}
+        financeProvinceFilter={financeProvinceFilter}
+        financeSearch={financeSearch}
+        financeTotalData={financeTotalData}
+        financeTotalPages={financeTotalPages}
+        listSection={listSection}
+        metrics={metrics}
+        navigate={navigate}
+        provinces={provinces}
+        removeDealer={removeDealer}
+        removeFinance={removeFinance}
+        selectedDealerId={selectedDealerId}
+        selectedDealerName={selectedDealerName}
+        setDealerFinanceLimit={setDealerFinanceLimit}
+        setDealerFinancePage={setDealerFinancePage}
+        setDealerPage={setDealerPage}
+        setDealerProvinceFilter={setDealerProvinceFilter}
+        setDealerSearch={setDealerSearch}
+        setFinanceLimit={setFinanceLimit}
+        setFinancePage={setFinancePage}
+        setFinanceProvinceFilter={setFinanceProvinceFilter}
+        setFinanceSearch={setFinanceSearch}
+        setSelectedDealerId={setSelectedDealerId}
+      />
     </div>
   )
-}
-
-function MapFly({ center }: { center: [number, number] }) {
-  const map = useMap()
-  useEffect(() => {
-    if (center?.length === 2) map.flyTo(center, map.getZoom(), { duration: 0.5 })
-  }, [center, map])
-  return null
-}
-
-function MiniMetric({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="mini-metric">
-      <div className="mini-metric-label">{label}</div>
-      <div className="mini-metric-value">{value}</div>
-    </div>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: any }) {
-  return (
-    <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-      <div style={{ color: '#64748b', fontSize: 12 }}>{label}</div>
-      <div style={{ fontWeight: 700, fontSize: 19 }}>{value}</div>
-    </div>
-  )
-}
-
-function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
-  return (
-    <table className="table" style={{ marginTop: 10 }}>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th style={{ width: '36%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-function resolveOptionNameValue(list: Option[] | undefined, value?: string) {
-  const rawValue = String(value || '').trim()
-  if (!rawValue) return ''
-  const normalized = rawValue.toLowerCase()
-  const found =
-    list?.find((item) => String(item?.code || '').trim().toLowerCase() === normalized) ||
-    list?.find((item) => String(item?.name || '').trim().toLowerCase() === normalized)
-  return found?.name || rawValue
-}
-
-function findOptionCodeByValue(list: Option[] | undefined, value?: string) {
-  const rawValue = String(value || '').trim()
-  if (!rawValue) return ''
-  const normalized = rawValue.toLowerCase()
-  const foundByCode = list?.find((item) => String(item?.code || '').trim().toLowerCase() === normalized)
-  if (foundByCode?.code) return String(foundByCode.code)
-
-  const normalizedName = normalizeLocationName(rawValue)
-  const foundByName = list?.find((item) => normalizeLocationName(item?.name) === normalizedName)
-  if (foundByName?.code) return String(foundByName.code)
-
-  return ''
-}
-
-function lookupOptionName(list: Option[] | undefined, code?: string) {
-  const resolved = resolveOptionNameValue(list, code)
-  return resolved || '-'
-}
-
-function formatDealerLocationSummary(dealer: any, names?: DealerLocationNames) {
-  const normalizeValue = (value: unknown) => {
-    const text = String(value || '').trim()
-    if (!text || text === '-' || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
-      return ''
-    }
-    return text
-  }
-
-  const address = normalizeValue(dealer?.address)
-  const village = normalizeValue(dealer?.village)
-  const district = normalizeValue(names?.district || dealer?.district)
-  const regency = normalizeValue(names?.regency || dealer?.regency)
-  const province = normalizeValue(names?.province || dealer?.province)
-
-  const parts = [address, village, district, regency, province].filter(Boolean)
-  return parts.join(', ') || '-'
-}
-
-function findOptionCodeByNames(list: Option[] | undefined, names: Array<string | undefined>) {
-  const options = Array.isArray(list) ? list : []
-  const candidates = names
-    .map((name) => normalizeLocationName(name))
-    .filter(Boolean)
-
-  if (!candidates.length || !options.length) return ''
-
-  for (const candidate of candidates) {
-    const exact = options.find((item) => normalizeLocationName(item?.name) === candidate)
-    if (exact?.code) return String(exact.code)
-  }
-
-  let bestCode = ''
-  let bestScore = 0
-
-  for (const candidate of candidates) {
-    const candidateTokens = tokenizeLocationName(candidate)
-    if (!candidateTokens.length) continue
-
-    const genericSingleToken = candidateTokens.length === 1 && isGenericLocationToken(candidateTokens[0])
-
-    for (const option of options) {
-      const optionName = normalizeLocationName(option?.name)
-      const optionTokens = tokenizeLocationName(optionName)
-      if (!optionTokens.length) continue
-
-      const matched = candidateTokens.filter((token) => optionTokens.includes(token)).length
-      if (matched === 0) continue
-
-      const coverage = matched / candidateTokens.length
-      const density = matched / optionTokens.length
-      let score = coverage * 70 + density * 30
-
-      if (candidateTokens.length >= 2 && coverage >= 0.75) score += 15
-      if (!genericSingleToken && candidate.length >= 6 && optionName.includes(candidate)) score += 10
-      if (genericSingleToken && coverage < 1) continue
-
-      if (score > bestScore && option?.code) {
-        bestScore = score
-        bestCode = String(option.code)
-      }
-    }
-  }
-
-  return bestScore >= 55 ? bestCode : ''
-}
-
-function normalizeLocationName(value?: string) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/-/g, ' ')
-    .replace(/\//g, ' ')
-    .replace(/\(/g, ' ')
-    .replace(/\)/g, ' ')
-    .replace(/\./g, ' ')
-    .replace(/,/g, ' ')
-    .replace(/\badministrasi\b/g, ' ')
-    .replace(/\badm\b/g, ' ')
-    .replace(/\bkotamadya\b/g, ' ')
-    .replace(/\bkab\s*adm\b/g, ' ')
-    .replace(/\bkota\s*adm\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/^provinsi\s+/, '')
-    .replace(/^prov\s+/, '')
-    .replace(/^kota administrasi\s+/, '')
-    .replace(/^kabupaten administrasi\s+/, '')
-    .replace(/^kabupaten\s+/, '')
-    .replace(/^kab\s+/, '')
-    .replace(/^kab\s*\.\s+/, '')
-    .replace(/^kota\s+/, '')
-    .replace(/^kecamatan\s+/, '')
-    .replace(/^kec\s+/, '')
-    .replace(/^daerah khusus ibukota\s+/, '')
-    .replace(/^daerah istimewa\s+/, '')
-    .replace(/^dki\s+/, '')
-    .replace(/^di\s+/, '')
-}
-
-function firstFilled(values: Array<string | undefined>) {
-  for (const value of values) {
-    const trimmed = String(value || '').trim()
-    if (trimmed) return trimmed
-  }
-  return ''
-}
-
-function tokenizeLocationName(value?: string) {
-  return normalizeLocationName(value)
-    .split(' ')
-    .map((token) => token.trim())
-    .filter(Boolean)
-}
-
-function isGenericLocationToken(token: string) {
-  const generic = new Set([
-    'jawa',
-    'sumatera',
-    'kalimantan',
-    'sulawesi',
-    'papua',
-    'nusa',
-    'kepulauan',
-    'daerah',
-    'khusus',
-    'ibukota',
-    'provinsi',
-    'kota',
-    'kabupaten',
-    'kecamatan',
-    'indonesia',
-  ])
-  return generic.has(String(token || '').trim())
-}
-
-function splitDisplayAddressSegments(displayAddress: string) {
-  return String(displayAddress || '')
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-}
-
-function hasRegionAddressFields(address: Record<string, any>) {
-  if (!address || typeof address !== 'object') return false
-  return Boolean(
-    firstFilled([
-      address.state,
-      address.province,
-      address.region,
-      address.state_district,
-      address.city,
-      address.county,
-      address.municipality,
-      address.regency,
-      address.city_district,
-      address.district,
-    ]),
-  )
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('en-US')
-}
-
-function formatLeadTimeHours(value: unknown) {
-  if (value === null || value === undefined || value === '') return '-'
-  const seconds = Number(value)
-  if (!Number.isFinite(seconds)) return '-'
-  return (seconds / 3600).toFixed(2)
-}
-
-function roundCoordinate(value: number) {
-  return Number(value.toFixed(6))
-}
-
-function parseCoordinateValue(value: unknown) {
-  const raw = String(value ?? '').trim()
-  if (!raw) return Number.NaN
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) ? parsed : Number.NaN
 }

@@ -1,0 +1,56 @@
+import { ReactNode } from 'react'
+import dayjs from 'dayjs'
+
+export function getAttempt(order: any, attemptNo: number) {
+  const attempts = Array.isArray(order?.attempts) ? order.attempts : []
+  return attempts.find((attempt: any) => Number(attempt?.attempt_no) === Number(attemptNo)) || null
+}
+
+export function normalizeCode(value?: string) {
+  return String(value || '').trim().toLowerCase()
+}
+
+export function lookupName(list: any[] | undefined, id: string) {
+  if (!id) return '-'
+  return list?.find((item) => item.id === id)?.name || id
+}
+
+export function lookupOptionName(list: any[] | undefined, code?: string) {
+  if (!code) return '-'
+  const rawCode = String(code).trim()
+  const normalized = rawCode.toLowerCase()
+  const found =
+    list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
+    list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
+  return found?.name || rawCode
+}
+
+export function resolveOptionCode(list: any[] | undefined, value?: string) {
+  const rawValue = String(value || '').trim()
+  if (!rawValue) return ''
+  const normalized = rawValue.toLowerCase()
+  const found =
+    list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
+    list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
+  return String(found?.code || found?.id || '').trim()
+}
+
+export function formatDate(value?: string) {
+  if (!value) return '-'
+  return dayjs(value).format('DD MMM YYYY HH:mm')
+}
+
+export function DetailTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
+  return (
+    <table className="table">
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <th style={{ width: '44%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
+            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}

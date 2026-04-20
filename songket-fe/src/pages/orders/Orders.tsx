@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
@@ -16,11 +16,12 @@ import {
   fetchProvinces,
 } from '../../services/locationService'
 import { fetchLookups } from '../../services/lookupService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
-import { formatRupiah } from '../../utils/currency'
+import OrderDetail from './components/OrderDetail'
+import OrderForm from './components/OrderForm'
+import OrderList from './components/OrderList'
+import { getAttempt, lookupOptionName, normalizeCode, resolveOptionCode } from './components/orderHelpers'
 
 const defaultForm = {
   pooling_number: '',
@@ -644,687 +645,83 @@ export default function OrdersPage() {
   }
 
   const selectedMotor = lookups?.motor_types?.find((m: any) => m.id === form.motor_type_id)
-  const dpPct = selectedMotor?.otr ? ((form.dp_paid / selectedMotor.otr) * 100).toFixed(1) : '0'
 
   const set = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }))
 
   const parseNumber = (value: string) => Number(value.replace(/[^0-9]/g, '')) || 0
-  const exportJobTone = exportJob?.status === 'failed' ? 'error' : exportJob?.status === 'downloaded' ? 'success' : 'info'
   const exportJobRunning = exportJob?.status === 'queued' || exportJob?.status === 'running' || exportDownloading
-  const detailAttempts = useMemo(() => {
-    if (!selectedOrder) return []
-
-    const attempts = Array.isArray(selectedOrder?.attempts) ? [...selectedOrder.attempts] : []
-    const hasAttempt1 = attempts.some((item: any) => Number(item?.attempt_no) === 1)
-    if (!hasAttempt1) {
-      attempts.push({
-        attempt_no: 1,
-        finance_company_id: selectedOrder.finance_company_id,
-        status: selectedOrder.result_status,
-        notes: selectedOrder.result_notes,
-        created_at: selectedOrder.created_at,
-      })
-    }
-
-    return attempts
-      .filter((item: any) => {
-        const attemptNo = Number(item?.attempt_no || 0)
-        return attemptNo > 0 && attemptNo <= 2
-      })
-      .sort((a: any, b: any) => Number(a?.attempt_no || 0) - Number(b?.attempt_no || 0))
-      .filter((item: any, index: number, rows: any[]) => {
-        if (index === 0) return true
-        const prev = rows[index - 1]
-        return String(prev?.status || '').toLowerCase() === 'reject'
-      })
-  }, [selectedOrder])
-  const detailMotor = selectedOrder?.motor_type || lookups?.motor_types?.find((m: any) => m.id === selectedOrder?.motor_type_id) || null
-  const detailDpPct = Number.isFinite(Number(selectedOrder?.dp_pct))
-    ? Number(selectedOrder?.dp_pct)
-    : selectedOrder?.otr
-      ? (Number(selectedOrder?.dp_paid || 0) / Number(selectedOrder.otr || 1)) * 100
-      : 0
-  const detailProvinceName = lookupOptionName(provinces, selectedOrder?.province)
-  const detailRegencyName = lookupOptionName(detailKabupaten, selectedOrder?.regency)
-  const detailDistrictName = lookupOptionName(detailKecamatan, selectedOrder?.district)
-  const detailVillageName = selectedOrder?.village || '-'
-  const orderLocationLabel = (order: any) => {
-    const provinceCode = String(order?.province || '').trim()
-    const regencyCode = String(order?.regency || '').trim()
-    const districtCode = String(order?.district || '').trim()
-    const village = String(order?.village || '').trim()
-    const address = String(order?.address || '').trim()
-
-    const provinceName = lookupOptionName(provinces, provinceCode)
-    const provinceKey = normalizeCode(provinceCode)
-    const regencyKey = normalizeCode(regencyCode)
-    const districtKey = normalizeCode(districtCode)
-
-    const regencyName = regencyCode
-      ? kabupatenLookup[`${provinceKey}|${regencyKey}`] || regencyCode
-      : '-'
-    const districtName = districtCode
-      ? kecamatanLookup[`${provinceKey}|${regencyKey}|${districtKey}`] || districtCode
-      : '-'
-
-    return (
-      [districtName, regencyName, provinceName]
-        .filter((item) => String(item || '').trim() && item !== '-')
-        .join(', ') || '-'
-    )
-  }
 
   if (isDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Order</div>
-            <div style={{ color: '#64748b' }}>Lihat data lengkap order in</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button
-                className="btn"
-                onClick={() => navigate(`/orders/${selectedId}/edit`, { state: { order: selectedOrder, back_to: backTo } })}
-              >
-                Edit Order
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate(backTo)}>Kembali</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedOrder && <div className="alert">Order tidak ditemukan.</div>}
-          {selectedOrder && (
-            <div className="card">
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,340px),1fr))', gap: 12 }}>
-                  <div className="card" style={{ background: '#f8fafc' }}>
-                    <h4 style={{ marginTop: 0 }}>Informasi Utama</h4>
-                    <DetailTable
-                      rows={[
-                        { label: 'Pooling Number', value: selectedOrder.pooling_number || '-' },
-                        { label: 'Waktu Pooling', value: formatDate(selectedOrder.pooling_at) },
-                        { label: 'Waktu Hasil', value: formatDate(selectedOrder.result_at) },
-                        { label: 'Dealer', value: lookupName(lookups?.dealers, selectedOrder.dealer_id) },
-                        {
-                          label: 'Status Order',
-                          value: <span className={`badge ${selectedOrder.result_status || 'pending'}`}>{selectedOrder.result_status || '-'}</span>,
-                        },
-                        { label: 'Catatan Order', value: selectedOrder.result_notes || '-' },
-                        { label: 'Dibuat', value: formatDate(selectedOrder.created_at) },
-                        { label: 'Update Terakhir', value: formatDate(selectedOrder.updated_at) },
-                      ]}
-                    />
-                  </div>
-
-                  <div className="card" style={{ background: '#f8fafc' }}>
-                    <h4 style={{ marginTop: 0 }}>Data Konsumen</h4>
-                    <DetailTable
-                      rows={[
-                        { label: 'Nama', value: selectedOrder.consumer_name || '-' },
-                        { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
-                        { label: 'Provinsi', value: detailProvinceName },
-                        { label: 'Kabupaten/Kota', value: detailRegencyName },
-                        { label: 'Kecamatan', value: detailDistrictName },
-                        { label: 'Kelurahan', value: detailVillageName },
-                        { label: 'Alamat', value: selectedOrder.address || '-' },
-                        { label: 'Pekerjaan', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
-                      ]}
-                    />
-                  </div>
-
-                  <div className="card" style={{ background: '#f8fafc' }}>
-                    <h4 style={{ marginTop: 0 }}>Kredit & Motor</h4>
-                    <DetailTable
-                      rows={[
-                        { label: 'Tipe Motor', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
-                        { label: 'Brand/Model', value: [detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-' },
-                        { label: 'OTR', value: formatRupiah(selectedOrder.otr || 0) },
-                        { label: 'Angsuran', value: formatRupiah(selectedOrder.installment || 0) },
-                        { label: 'DP Gross', value: formatRupiah(selectedOrder.dp_gross || 0) },
-                        { label: 'DP Setor', value: formatRupiah(selectedOrder.dp_paid || 0) },
-                        { label: '%DP', value: `${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%` },
-                        { label: 'Tenor', value: `${selectedOrder.tenor || 0} bln` },
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Hasil Finance</h4>
-                  <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))', gap: 12 }}>
-                    {detailAttempts.map((attempt: any) => (
-                      <div
-                        key={`attempt-${attempt.attempt_no}`}
-                        style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#fff', minWidth: 0 }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <strong>Finance Attempt {attempt.attempt_no}</strong>
-                          <span className={`badge ${attempt?.status || 'pending'}`}>{attempt?.status || '-'}</span>
-                        </div>
-                        <DetailTable
-                          rows={[
-                            {
-                              label: 'Finance Company',
-                              value: lookupName(lookups?.finance_companies, attempt?.finance_company_id),
-                            },
-                            { label: 'Catatan', value: attempt?.notes || '-' },
-                            { label: 'Waktu Attempt', value: formatDate(attempt?.created_at) },
-                          ]}
-                        />
-                      </div>
-                    ))}
-                    {detailAttempts.length === 0 && (
-                      <div style={{ color: '#64748b', fontSize: 13 }}>Belum ada data attempt finance.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <OrderDetail
+        backTo={backTo}
+        canUpdate={canUpdate}
+        detailKabupaten={detailKabupaten}
+        detailKecamatan={detailKecamatan}
+        lookups={lookups}
+        navigate={navigate}
+        provinces={provinces}
+        selectedId={selectedId}
+        selectedOrder={selectedOrder}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Order In' : 'Input Order In'}</div>
-            <div style={{ color: '#64748b' }}>Form order dipisah dari tabel utama</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/orders')}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card">
-            {isCreate && !canCreate && <div className="alert">Anda tidak punya izin membuat order.</div>}
-            {isEdit && !canUpdate && <div className="alert">Anda tidak punya izin mengubah order.</div>}
-            {error && <div className="alert" style={{ marginBottom: 10 }}>{error}</div>}
-
-            <form
-              className="grid"
-              style={{ gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', alignItems: 'start' }}
-              onSubmit={submit}
-            >
-              <div>
-                <label>Dealer</label>
-                <select
-                  value={form.dealer_id}
-                  onChange={(e) => set('dealer_id', e.target.value)}
-                  required
-                  disabled={role === 'dealer' && lookups?.dealers?.length === 1}
-                >
-                  <option value="">Pilih</option>
-                  {lookups?.dealers?.map((dealer: any) => (
-                    <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Nomor Pooling</label>
-                <input value={form.pooling_number} onChange={(e) => set('pooling_number', e.target.value)} required />
-              </div>
-
-              <div>
-                <label>Waktu Pooling</label>
-                <input
-                  type="datetime-local"
-                  value={dayjs(form.pooling_at).format('YYYY-MM-DDTHH:mm')}
-                  onChange={(e) => set('pooling_at', dayjs(e.target.value).toISOString())}
-                  required
-                />
-              </div>
-
-              <div>
-                <label>Waktu Hasil</label>
-                <input
-                  type="datetime-local"
-                  value={form.result_at ? dayjs(form.result_at).format('YYYY-MM-DDTHH:mm') : ''}
-                  onChange={(e) => set('result_at', e.target.value ? dayjs(e.target.value).toISOString() : '')}
-                />
-              </div>
-
-              <div>
-                <label>Finance Company 1</label>
-                <select value={form.finance_company_id} onChange={(e) => set('finance_company_id', e.target.value)} required>
-                  <option value="">Pilih</option>
-                  {lookups?.finance_companies?.map((finance: any) => (
-                    <option key={finance.id} value={finance.id}>{finance.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Nama Konsumen</label>
-                <input value={form.consumer_name} onChange={(e) => set('consumer_name', e.target.value)} required />
-              </div>
-
-              <div>
-                <label>No HP</label>
-                <input value={form.consumer_phone} onChange={(e) => set('consumer_phone', e.target.value)} required />
-              </div>
-
-              <div>
-                <label>Provinsi</label>
-                <select
-                  value={form.province}
-                  onChange={(e) => setForm((prev) => ({ ...prev, province: e.target.value, regency: '', district: '' }))}
-                  required
-                >
-                  <option value="">Pilih</option>
-                  {provinces.map((prov: any) => (
-                    <option key={prov.code} value={prov.code}>{prov.name}</option>
-                  ))}
-                  {form.province && !resolveOptionCode(provinces, form.province) && (
-                    <option value={form.province}>{lookupOptionName(provinces, form.province)}</option>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label>Kabupaten/Kota</label>
-                <select
-                  value={form.regency}
-                  onChange={(e) => setForm((prev) => ({ ...prev, regency: e.target.value, district: '' }))}
-                  disabled={!form.province}
-                >
-                  <option value="">Pilih</option>
-                  {kabupaten.map((kab: any) => (
-                    <option key={kab.code} value={kab.code}>{kab.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Kecamatan</label>
-                <select value={form.district} onChange={(e) => set('district', e.target.value)} disabled={!form.regency}>
-                  <option value="">Pilih</option>
-                  {kecamatan.map((kec: any) => (
-                    <option key={kec.code} value={kec.code}>{kec.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Kelurahan</label>
-                <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Tulis kelurahan" />
-              </div>
-
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label>Alamat</label>
-                <input value={form.address} onChange={(e) => set('address', e.target.value)} />
-              </div>
-
-              <div>
-                <label>Pekerjaan</label>
-                <select value={form.job_id} onChange={(e) => set('job_id', e.target.value)}>
-                  <option value="">Pilih</option>
-                  {lookups?.jobs?.map((job: any) => (
-                    <option key={job.id} value={job.id}>{job.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Tipe Motor</label>
-                <select value={form.motor_type_id} onChange={(e) => set('motor_type_id', e.target.value)}>
-                  <option value="">Pilih</option>
-                  {filteredMotorTypes.map((motor: any) => (
-                    <option key={motor.id} value={motor.id}>
-                      {motor.name} - OTR {motor.otr?.toLocaleString?.('id-ID')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>OTR (auto)</label>
-                <input value={selectedMotor?.otr ? formatRupiah(selectedMotor.otr) : ''} readOnly />
-              </div>
-
-              <div>
-                <label>DP Gross</label>
-                <input
-                  type="text"
-                  value={formatRupiah(form.dp_gross)}
-                  onChange={(e) => set('dp_gross', parseNumber(e.target.value))}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div>
-                <label>DP Setor</label>
-                <input
-                  type="text"
-                  value={formatRupiah(form.dp_paid)}
-                  onChange={(e) => set('dp_paid', parseNumber(e.target.value))}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div>
-                <label>%DP (auto)</label>
-                <input value={dpPct} readOnly />
-              </div>
-
-              <div>
-                <label>Tenor</label>
-                <input type="number" min={1} max={60} value={form.tenor} onChange={(e) => set('tenor', Number(e.target.value))} />
-              </div>
-
-              <div>
-                <label>Angsuran</label>
-                <input
-                  type="text"
-                  value={formatRupiah(form.installment)}
-                  onChange={(e) => set('installment', parseNumber(e.target.value))}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div>
-                <label>Hasil</label>
-                <select value={form.result_status} onChange={(e) => set('result_status', e.target.value)}>
-                  <option value="approve">Approve</option>
-                  <option value="pending">Pending</option>
-                  <option value="reject">Reject</option>
-                </select>
-              </div>
-
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label>Keterangan Hasil</label>
-                <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} />
-              </div>
-
-              {form.result_status === 'reject' && !showAttempt2 && poolingRowsCount >= 2 && (
-                <div style={{ gridColumn: '1 / -1', color: '#64748b', fontSize: 12 }}>
-                  Pooling number ini sudah memiliki 2 data, sehingga tidak bisa menambah finance attempt baru.
-                </div>
-              )}
-
-              {showAttempt2 && (
-                <>
-                  <div style={{ gridColumn: '1 / -1', marginTop: 4, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance Attempt 2</div>
-                    <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
-                      Attempt 2 akan tampil ketika hasil attempt 1 adalah reject.
-                    </div>
-                  </div>
-
-                  <div>
-                    <label>Finance Company 2</label>
-                    <select value={form.finance_company2_id} onChange={(e) => set('finance_company2_id', e.target.value)}>
-                      <option value="">Pilih</option>
-                      {lookups?.finance_companies?.map((finance: any) => (
-                        <option key={finance.id} value={finance.id}>{finance.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label>Hasil Finance 2</label>
-                    <select value={form.result_status2} onChange={(e) => set('result_status2', e.target.value)}>
-                      <option value="">--</option>
-                      <option value="approve">Approve</option>
-                      <option value="pending">Pending</option>
-                      <option value="reject">Reject</option>
-                    </select>
-                  </div>
-
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Keterangan Finance 2</label>
-                    <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
-                  </div>
-                </>
-              )}
-
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
-                <button className="btn" type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Order'}</button>
-                <button
-                  className="btn-ghost"
-                  type="button"
-                  onClick={() => {
-                    setForm(defaultForm)
-                    setError('')
-                    navigate('/orders')
-                  }}
-                >
-                  Batal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <OrderForm
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        error={error}
+        filteredMotorTypes={filteredMotorTypes}
+        form={form}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        kabupaten={kabupaten}
+        kecamatan={kecamatan}
+        loading={loading}
+        lookups={lookups}
+        navigate={navigate}
+        parseNumber={parseNumber}
+        poolingRowsCount={poolingRowsCount}
+        provinces={provinces}
+        role={role}
+        selectedMotor={selectedMotor}
+        set={set}
+        setError={setError}
+        setForm={setForm}
+        showAttempt2={showAttempt2}
+        submit={submit}
+      />
     )
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Form Order In</div>
-        </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/orders/create')}>Input Order</button>}
-      </div>
-
-      <div className="page">
-        <div className="card">
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, alignItems: 'end' }}>
-            <div>
-              <label>Search</label>
-              <input placeholder={'Search ..'} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} />
-            </div>
-            <div>
-              <label>Status</label>
-              <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
-                <option value="">Semua</option>
-                <option value="approve">Approve</option>
-                <option value="pending">Pending</option>
-                <option value="reject">Reject</option>
-              </select>
-            </div>
-            <div>
-              <label>Export From</label>
-              <input
-                type="date"
-                value={filters.export_from}
-                onChange={(e) => setFilters((prev) => ({ ...prev, export_from: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label>Export To</label>
-              <input
-                type="date"
-                value={filters.export_to}
-                onChange={(e) => setFilters((prev) => ({ ...prev, export_to: e.target.value }))}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'end' }}>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => void requestOrderExport()}
-                disabled={exportJobRunning}
-                style={{ width: '100%' }}
-              >
-                {exportJobRunning ? 'Exporting...' : 'Export to Excel'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>Order List</h3>
-          {!showTable && <div className="alert">Anda tidak punya izin melihat order.</div>}
-          {showTable && (
-            <>
-              <table className="table">
-              <thead>
-                <tr>
-                  <th>Pooling</th>
-                  <th>Konsumen</th>
-                  <th>Lokasi</th>
-                  <th>Finance</th>
-                  <th>Status</th>
-                  <th>Tenor</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((order) => (
-                  <tr key={order.id}>
-                    <td>{order.pooling_number}</td>
-                    <td>{order.consumer_name}</td>
-                    <td>{orderLocationLabel(order)}</td>
-                    <td>
-                      <div>{lookupName(lookups?.finance_companies, getAttempt(order, 1)?.finance_company_id)}</div>
-                      {getAttempt(order, 2)?.finance_company_id && (
-                        <div style={{ color: '#64748b', fontSize: 12 }}>
-                          F2: {lookupName(lookups?.finance_companies, getAttempt(order, 2)?.finance_company_id)}
-                        </div>
-                      )}
-                    </td>
-                    <td><span className={`badge ${order.result_status}`}>{order.result_status}</span></td>
-                    <td>{order.tenor} bln</td>
-                    <td className="action-cell">
-                      <ActionMenu
-                        items={[
-                          {
-                            key: 'view',
-                            label: 'View',
-                            onClick: () => navigate(`/orders/${order.id}`, { state: { order } }),
-                          },
-                          {
-                            key: 'edit',
-                            label: 'Edit',
-                            onClick: () => navigate(`/orders/${order.id}/edit`, { state: { order } }),
-                            hidden: !canUpdate,
-                          },
-                          {
-                            key: 'delete',
-                            label: 'Delete',
-                            onClick: () => void removeOrder(order.id),
-                            hidden: !canDelete,
-                            danger: true,
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {list.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>Belum ada order.</td>
-                  </tr>
-                )}
-              </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      {exportJob && (
-        <div className="toast-stack">
-          <div className={`toast-card ${exportJobTone}`} role="status" aria-live="polite" style={{ display: 'grid', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-              <div className="toast-message">{exportJob.message || 'Export in progress'}</div>
-              {(exportJob.status === 'failed' || exportJob.status === 'downloaded') && (
-                <button className="toast-close" onClick={() => setExportJob(null)} aria-label="Close export toast">x</button>
-              )}
-            </div>
-            <div style={{ height: 8, borderRadius: 999, background: 'rgba(15, 23, 42, 0.12)', overflow: 'hidden' }}>
-              <div
-                style={{
-                  width: `${Math.max(0, Math.min(100, Number(exportJob.progress || 0)))}%`,
-                  height: '100%',
-                  borderRadius: 999,
-                  background: exportJob.status === 'failed' ? '#ef4444' : '#2563eb',
-                  transition: 'width 220ms ease',
-                }}
-              />
-            </div>
-            <div style={{ fontSize: 12, color: '#334155' }}>
-              {Math.max(0, Math.min(100, Number(exportJob.progress || 0)))}%
-              {exportJob.error ? ` · ${exportJob.error}` : ''}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function getAttempt(order: any, attemptNo: number) {
-  const attempts = Array.isArray(order?.attempts) ? order.attempts : []
-  return attempts.find((attempt: any) => Number(attempt?.attempt_no) === Number(attemptNo)) || null
-}
-
-function normalizeCode(value?: string) {
-  return String(value || '').trim().toLowerCase()
-}
-
-function lookupName(list: any[] | undefined, id: string) {
-  if (!id) return '-'
-  return list?.find((item) => item.id === id)?.name || id
-}
-
-function lookupOptionName(list: any[] | undefined, code?: string) {
-  if (!code) return '-'
-  const rawCode = String(code).trim()
-  const normalized = rawCode.toLowerCase()
-  const found =
-    list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
-    list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
-  return found?.name || rawCode
-}
-
-function resolveOptionCode(list: any[] | undefined, value?: string) {
-  const rawValue = String(value || '').trim()
-  if (!rawValue) return ''
-  const normalized = rawValue.toLowerCase()
-  const found =
-    list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
-    list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
-  return String(found?.code || found?.id || '').trim()
-}
-
-function formatDate(value?: string) {
-  if (!value) return '-'
-  return dayjs(value).format('DD MMM YYYY HH:mm')
-}
-
-function DetailTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
-  return (
-    <table className="table">
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th style={{ width: '44%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <OrderList
+      canCreate={canCreate}
+      canDelete={canDelete}
+      canUpdate={canUpdate}
+      exportDownloading={exportDownloading}
+      exportJob={exportJob}
+      exportJobRunning={exportJobRunning}
+      filters={filters}
+      kabupatenLookup={kabupatenLookup}
+      kecamatanLookup={kecamatanLookup}
+      limit={limit}
+      list={list}
+      lookups={lookups}
+      navigate={navigate}
+      onExport={requestOrderExport}
+      onClearExportJob={() => setExportJob(null)}
+      onFilterChange={setFilters}
+      onLimitChange={setLimit}
+      onPageChange={setPage}
+      onRemove={removeOrder}
+      page={page}
+      provinces={provinces}
+      showTable={showTable}
+      totalData={totalData}
+      totalPages={totalPages}
+    />
   )
 }

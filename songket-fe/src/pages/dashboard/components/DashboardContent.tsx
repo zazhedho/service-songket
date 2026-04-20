@@ -1,0 +1,329 @@
+import dayjs from 'dayjs'
+import { formatRupiah } from '../../../utils/currency'
+import { BarLineChart, DonutCard, KpiCard, colorBySign, formatFixed, formatGrowthPercent, formatInteger, formatPercent } from './dashboardHelpers'
+
+type DashboardContentProps = {
+  activeNewsIndex: number
+  activeNewsItem: any
+  activeNewsThumb: string
+  dailyDistributionTrend: any
+  dailyFinanceDecisionTrend: any
+  error: string
+  filtersApplied: { analysis: string }
+  growthNote: string
+  latestCardsLoading: boolean
+  latestNews: any[]
+  latestPriceTableRows: any[]
+  loading: boolean
+  priceTrend: { labels: string[]; values: number[] }
+  resolveSnapshotPeriodLabel: (analysisRaw: string, rowType: 'value' | 'growth', index: number) => string
+  selectedTrendCommodity: string
+  setActiveNewsIndex: React.Dispatch<React.SetStateAction<number>>
+  setSelectedTrendCommodity: React.Dispatch<React.SetStateAction<string>>
+  summary: any
+  trendCommodityOptions: Array<{ value: string; label: string }>
+}
+
+export default function DashboardContent({
+  activeNewsIndex,
+  activeNewsItem,
+  activeNewsThumb,
+  dailyDistributionTrend,
+  dailyFinanceDecisionTrend,
+  error,
+  filtersApplied,
+  growthNote,
+  latestCardsLoading,
+  latestNews,
+  latestPriceTableRows,
+  loading,
+  priceTrend,
+  resolveSnapshotPeriodLabel,
+  selectedTrendCommodity,
+  setActiveNewsIndex,
+  setSelectedTrendCommodity,
+  summary,
+  trendCommodityOptions,
+}: DashboardContentProps) {
+  return (
+    <>
+      {error && <div className="alert">{error}</div>}
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+        <KpiCard label="Total Order In" value={formatInteger(summary.total_orders)} note="Filtered data" />
+        <KpiCard label="Lead Time" value={`${summary.lead_time_avg_hours.toFixed(2)} jam`} note={`${summary.lead_time_avg_seconds.toFixed(0)} detik`} />
+        <KpiCard label="Approval Rate" value={`${(summary.approval_rate * 100).toFixed(2)}%`} note={`${formatInteger(summary.approved_orders)} approved`} />
+        <KpiCard
+          label="Growth"
+          value={`${summary.growth_percent >= 0 ? '+' : ''}${summary.growth_percent.toFixed(2)}%`}
+          note={growthNote}
+          valueColor={summary.growth_percent >= 0 ? '#166534' : '#b91c1c'}
+        />
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 12 }}>
+        <div className="card">
+          <h3>Daily Order In Trend</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Order in harian berdasarkan pooling date.</div>
+          <div style={{ marginTop: 10 }}>
+            <BarLineChart
+              labels={dailyDistributionTrend.labels}
+              barValues={dailyDistributionTrend.values}
+              barName="Order In"
+              xAxisLabel="Tanggal"
+              tooltipDetails={dailyDistributionTrend.tooltipDetails}
+              barColor="#f97316"
+              barHoverColor="#ea580c"
+            />
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Daily Finance Approve</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+            Data approve/reject harian dari tabel order_finance_attempts (sesuai filter dashboard).
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <BarLineChart
+              labels={dailyFinanceDecisionTrend.labels}
+              barValues={dailyFinanceDecisionTrend.approveValues}
+              secondaryBarValues={dailyFinanceDecisionTrend.rejectValues}
+              barName="Finance Approve"
+              secondaryBarName="Finance Reject"
+              xAxisLabel="Tanggal"
+              tooltipDetails={dailyFinanceDecisionTrend.tooltipDetails}
+              tooltipExtraLines={dailyFinanceDecisionTrend.tooltipExtraLines}
+              barColor="#3b82f6"
+              barHoverColor="#2563eb"
+              secondaryBarColor="#ef4444"
+              secondaryBarHoverColor="#dc2626"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>Order In Approve/Reject Summary</h3>
+        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Data perbandingan periode aktif vs periode sebelumnya</div>
+        <div style={{ marginTop: 10, overflowX: 'auto' }}>
+          <table className="table responsive-stack">
+            <thead>
+              <tr>
+                <th>Periode</th>
+                <th>Order In</th>
+                <th>Approve</th>
+                <th>Reject</th>
+                <th>Avg Daily Sales</th>
+                <th>Approve Rate</th>
+                <th>Reject Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.order_decision_snapshot.length === 0 && (
+                <tr>
+                  <td colSpan={7}>No summary data.</td>
+                </tr>
+              )}
+              {summary.order_decision_snapshot.map((row: any, idx: number) => {
+                const isGrowth = row.row_type === 'growth'
+                const periodLabel = resolveSnapshotPeriodLabel(summary.analysis_applied || filtersApplied.analysis, row.row_type, idx)
+                return (
+                  <tr key={`decision-row-${row.label}-${idx}`}>
+                    <td data-label="Periode" style={{ fontWeight: 700 }}>{periodLabel}</td>
+                    <td data-label="Order In" style={{ color: isGrowth ? colorBySign(row.order_in) : undefined }}>
+                      {isGrowth ? formatGrowthPercent(row.order_in) : formatInteger(row.order_in)}
+                    </td>
+                    <td data-label="Approve" style={{ color: isGrowth ? colorBySign(row.approve) : undefined }}>
+                      {isGrowth ? formatGrowthPercent(row.approve) : formatInteger(row.approve)}
+                    </td>
+                    <td data-label="Reject" style={{ color: isGrowth ? colorBySign(row.reject) : undefined }}>
+                      {isGrowth ? formatGrowthPercent(row.reject) : formatInteger(row.reject)}
+                    </td>
+                    <td data-label="Avg Daily Sales" style={{ color: isGrowth ? colorBySign(row.avg_daily_sales) : undefined }}>
+                      {isGrowth ? formatGrowthPercent(row.avg_daily_sales) : formatFixed(row.avg_daily_sales)}
+                    </td>
+                    <td data-label="Approve Rate" style={{ color: isGrowth ? colorBySign(row.approve_rate_percent) : undefined }}>
+                      {isGrowth ? formatGrowthPercent(row.approve_rate_percent) : formatPercent(row.approve_rate_percent)}
+                    </td>
+                    <td data-label="Reject Rate" style={{ color: isGrowth ? colorBySign(row.reject_rate_percent) : undefined }}>
+                      {isGrowth ? formatGrowthPercent(row.reject_rate_percent) : formatPercent(row.reject_rate_percent)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+        <DonutCard title="Proporsi Pekerjaan" subtitle="Distribusi order in per pekerjaan" items={summary.job_proportion} />
+        <DonutCard title="Proporsi Produk" subtitle="Distribusi order in per produk" items={summary.product_proportion} />
+        <DonutCard title="Proporsi Finance Company" subtitle="Distribusi order in berdasarkan finance company" items={summary.finance_company_proportion} />
+      </div>
+
+      <div className="card">
+        <h3>Range DP</h3>
+        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Distribusi range DP: &lt;10% sampai &gt;=40%.</div>
+        <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+          {summary.dp_range.map((item: any) => (
+            <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr) 64px 64px', gap: 8, alignItems: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{item.label}</div>
+              <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${Math.min(100, Math.max(0, Number(item.percent || 0)))}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #22d3ee, #2563eb)',
+                  }}
+                />
+              </div>
+              <div style={{ textAlign: 'right', fontWeight: 700 }}>{formatInteger(item.total)}</div>
+              <div style={{ textAlign: 'right', color: '#64748b', fontSize: 12 }}>{Number(item.percent || 0).toFixed(1)}%</div>
+            </div>
+          ))}
+          {summary.dp_range.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No DP range data.</div>}
+        </div>
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+        <div className="card">
+          <h3>Latest News</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Ringkasan berita terbaru (slideshow).</div>
+          <div style={{ marginTop: 10 }}>
+            {latestCardsLoading && <div style={{ color: '#64748b', fontSize: 12 }}>Loading news...</div>}
+            {!latestCardsLoading && latestNews.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No news data.</div>}
+            {!latestCardsLoading && activeNewsItem && (
+              <>
+                <a
+                  href={activeNewsItem.url || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    border: '1px solid #dbe3ef',
+                    borderRadius: 12,
+                    color: '#0f172a',
+                    textDecoration: 'none',
+                    background: '#fff',
+                    overflow: 'hidden',
+                    display: 'block',
+                  }}
+                >
+                  {activeNewsThumb && (
+                    <img src={activeNewsThumb} alt={activeNewsItem.title || 'News thumbnail'} style={{ width: '100%', height: 190, objectFit: 'cover', display: 'block' }} />
+                  )}
+                  <div style={{ padding: '10px 12px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.4 }}>{activeNewsItem.title || '-'}</div>
+                    <div style={{ color: '#64748b', fontSize: 11, marginTop: 5 }}>
+                      {activeNewsItem.source_name || '-'} • {activeNewsItem.published_at ? dayjs(activeNewsItem.published_at).format('DD MMM YYYY HH:mm') : '-'}
+                    </div>
+                  </div>
+                </a>
+
+                {latestNews.length > 1 && (
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <button className="btn-ghost" onClick={() => setActiveNewsIndex((prev) => (prev - 1 + latestNews.length) % latestNews.length)}>
+                      Prev
+                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {latestNews.map((_: any, idx: number) => (
+                        <button
+                          key={`news-dot-${idx}`}
+                          type="button"
+                          onClick={() => setActiveNewsIndex(idx)}
+                          aria-label={`Slide ${idx + 1}`}
+                          style={{ width: 8, height: 8, borderRadius: 999, border: '0', cursor: 'pointer', background: idx === activeNewsIndex ? '#2563eb' : '#cbd5e1' }}
+                        />
+                      ))}
+                    </div>
+                    <button className="btn-ghost" onClick={() => setActiveNewsIndex((prev) => (prev + 1) % latestNews.length)}>
+                      Next
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+                  {latestNews.map((item: any, idx: number) => (
+                    <a
+                      key={`news-list-${item.id || idx}`}
+                      href={item.url || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      onMouseEnter={() => setActiveNewsIndex(idx)}
+                      style={{
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: '7px 9px',
+                        color: '#0f172a',
+                        textDecoration: 'none',
+                        background: idx === activeNewsIndex ? '#eff6ff' : '#fff',
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.35 }}>{item.title || '-'}</div>
+                      <div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>
+                        {item.source_name || '-'} • {item.published_at ? dayjs(item.published_at).format('DD MMM YYYY HH:mm') : '-'}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Harga Pangan Terbaru</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Update harga komoditas terbaru.</div>
+          <div style={{ marginTop: 8 }}>
+            <label>Grafik Komoditas</label>
+            <select value={selectedTrendCommodity} onChange={(e) => setSelectedTrendCommodity(e.target.value)} disabled={trendCommodityOptions.length === 0}>
+              {trendCommodityOptions.length === 0 && <option value="">No commodity</option>}
+              {trendCommodityOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Harga Pangan Harian" />
+          </div>
+          <div style={{ marginTop: 10, overflowX: 'auto' }}>
+            <table className="table dashboard-latest-prices-table">
+              <thead>
+                <tr>
+                  <th>Komoditas</th>
+                  <th>Harga</th>
+                  <th>Satuan</th>
+                  <th>Tanggal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latestCardsLoading && (
+                  <tr>
+                    <td colSpan={4}>Loading prices...</td>
+                  </tr>
+                )}
+                {!latestCardsLoading && latestPriceTableRows.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>No price data.</td>
+                  </tr>
+                )}
+                {!latestCardsLoading && latestPriceTableRows.map((item: any) => (
+                  <tr key={item.id}>
+                    <td>{item.commodity?.name || '-'}</td>
+                    <td>{formatRupiah(Number(item.price || 0))}</td>
+                    <td>{item.commodity?.unit || '-'}</td>
+                    <td>{item.collected_at ? dayjs(item.collected_at).format('DD MMM YYYY HH:mm') : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {loading && <div className="card"><div style={{ color: '#64748b' }}>Loading dashboard data...</div></div>}
+    </>
+  )
+}

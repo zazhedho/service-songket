@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   adminCreateUser,
@@ -11,8 +11,18 @@ import { listMenus } from '../../services/menuService'
 import { getUserPermissions, listPermissions, setUserPermissions } from '../../services/permissionService'
 import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
+import UserDetail from './components/UserDetail'
+import UserForm from './components/UserForm'
+import UserList from './components/UserList'
+import {
+  detailValue,
+  normalizeKey,
+  roleLabel,
+  roleNames,
+  sanitizeIdList,
+  validatePasswordByBackendRule,
+} from './components/userHelpers'
 
 const emptyForm = { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'dealer' }
 type Perm = {
@@ -37,78 +47,6 @@ function parseMode(pathname: string) {
   if (pathname.endsWith('/edit')) return 'edit'
   if (/\/users\/[^/]+$/.test(pathname)) return 'detail'
   return 'list'
-}
-
-function detailValue(value: unknown) {
-  if (value == null || value === '') return '-'
-  return String(value)
-}
-
-function normalizeKey(value?: string) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/-/g, '_')
-}
-
-function sanitizeIdList(ids: string[]) {
-  return Array.from(new Set(ids.map((id) => String(id || '').trim()).filter(Boolean)))
-}
-
-function roleLabel(value: string) {
-  return String(value || '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase())
-}
-
-function roleNames(items: RoleItem[]) {
-  return Array.from(
-    new Set(
-      items
-        .map((item) => String(item?.name || '').trim())
-        .filter(Boolean),
-    ),
-  )
-}
-
-function validatePasswordByBackendRule(password: string) {
-  if (password.length < 8) return 'Password must be at least 8 characters long.'
-  if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
-  if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
-  if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
-  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must include at least 1 symbol (!@#$%^&*...).'
-  return ''
-}
-
-function getPasswordRuleChecks(password: string) {
-  return [
-    { label: 'At least 8 characters', valid: password.length >= 8 },
-    { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
-    { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
-    { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
-    { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
-  ]
-}
-
-const passwordInputWrapStyle: CSSProperties = {
-  position: 'relative',
-}
-
-const passwordToggleButtonStyle: CSSProperties = {
-  position: 'absolute',
-  right: 8,
-  top: '50%',
-  transform: 'translateY(-50%)',
-  width: 26,
-  height: 26,
-  border: 0,
-  borderRadius: 8,
-  background: 'transparent',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  color: '#374151',
 }
 
 export default function UsersPage() {
@@ -564,357 +502,67 @@ export default function UsersPage() {
 
   if (isDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Detail User</div>
-            <div style={{ color: '#64748b' }}>Lihat informasi detail user</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/users/${selectedId}/edit`, { state: { user: selectedUser } })}>
-                Edit User
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate('/users')}>Kembali</button>
-          </div>
-        </div>
-        <div className="page">
-          {!selectedUser && <div className="alert">Data user tidak ditemukan.</div>}
-          {selectedUser && (
-            <div className="card" style={{ maxWidth: 940 }}>
-              <h3>User Information</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
-                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.name)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Email</th>
-                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.email)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Phone</th>
-                    <td style={{ fontWeight: 600 }}>{detailValue(selectedUser.phone)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Role</th>
-                    <td style={{ fontWeight: 600 }}>{selectedRoleDisplay}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDateTime(selectedUser.created_at)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDateTime(selectedUser.updated_at)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Permission Count</th>
-                    <td style={{ fontWeight: 600 }}>{detailPermissions.length}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <h3 style={{ marginTop: 14 }}>Permissions</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: 70 }}>No</th>
-                    <th>Permission</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detailPermLoading && (
-                    <tr>
-                      <td colSpan={2}>Loading permissions...</td>
-                    </tr>
-                  )}
-                  {!detailPermLoading && detailPermissions.length === 0 && (
-                    <tr>
-                      <td colSpan={2}>No permissions assigned.</td>
-                    </tr>
-                  )}
-                  {!detailPermLoading && detailPermissions.map((permission, index) => (
-                    <tr key={`${permission}-${index}`}>
-                      <td>{index + 1}</td>
-                      <td style={{ fontWeight: 600 }}>{permission}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      <UserDetail
+        canUpdate={canUpdate}
+        detailPermLoading={detailPermLoading}
+        detailPermissions={detailPermissions}
+        navigate={navigate}
+        selectedId={selectedId}
+        selectedRoleDisplay={selectedRoleDisplay}
+        selectedUser={selectedUser}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit User' : 'Input User Baru'}</div>
-            <div style={{ color: '#64748b' }}>Form terpisah dari halaman tabel user</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/users')}>Kembali ke Tabel</button>
-        </div>
-        <div className="page">
-          <div className="card" style={{ maxWidth: 920 }}>
-            {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat user.</div>}
-            {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah user.</div>}
-            <div className="grid" style={{ gap: 10 }}>
-              <div>
-                <label>Nama</label>
-                <input value={form.name} onChange={(e) => set('name', e.target.value)} />
-              </div>
-              <div>
-                <label>Email</label>
-                <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
-              </div>
-              <div>
-                <label>Phone</label>
-                <input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
-              </div>
-              <div>
-                <label>Password</label>
-                <div style={passwordInputWrapStyle}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={form.password}
-                    onChange={(e) => set('password', e.target.value)}
-                    style={{ paddingRight: 42 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    style={passwordToggleButtonStyle}
-                  >
-                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <PasswordRulesGuide password={form.password} />
-                </div>
-              </div>
-              <div>
-                <label>Password Confirmation</label>
-                <div style={passwordInputWrapStyle}>
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={form.confirmPassword}
-                    onChange={(e) => set('confirmPassword', e.target.value)}
-                    style={{ paddingRight: 42 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
-                    style={passwordToggleButtonStyle}
-                  >
-                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
-                </div>
-                {isPasswordConfirmationMismatch && (
-                  <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600, marginTop: 6 }}>
-                    Password and password confirmation do not match.
-                  </div>
-                )}
-              </div>
-              <div>
-                <label>Role</label>
-                <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-                  {availableRoleNames.map((roleName) => (
-                    <option key={roleName} value={roleName}>
-                      {roleLabel(roleName)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {canSetUserPerm && (
-                <div>
-                  <label>Permission (opsional, hanya superadmin)</label>
-                  {roleResourceLoading && (
-                    <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                      Sinkronisasi permission berdasarkan role menu...
-                    </div>
-                  )}
-                  {permLoading && (
-                    <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                      Loading existing user permissions...
-                    </div>
-                  )}
-                  {renderPermTable(
-                    permDraft,
-                    (id) => setPermDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
-                    filterResourcesByTargetRole(form.role, groupedAll),
-                  )}
-                </div>
-              )}
-
-              {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn" onClick={save} disabled={loading}>{loading ? 'Saving...' : 'Save User'}</button>
-                <button
-                  className="btn-ghost"
-                  onClick={() => {
-                    setForm(emptyForm)
-                    setShowPassword(false)
-                    setShowConfirmPassword(false)
-                    setEditingId(null)
-                    navigate('/users')
-                  }}
-                >
-                  Batal
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <UserForm
+        availableRoleNames={availableRoleNames}
+        canCreate={canCreate}
+        canSetUserPerm={canSetUserPerm}
+        canUpdate={canUpdate}
+        error={error}
+        form={form}
+        groupedPermissions={filterResourcesByTargetRole(form.role, groupedAll)}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        isPasswordConfirmationMismatch={isPasswordConfirmationMismatch}
+        loading={loading}
+        navigate={navigate}
+        permDraft={permDraft}
+        permLoading={permLoading}
+        renderPermTable={renderPermTable}
+        roleResourceLoading={roleResourceLoading}
+        save={save}
+        set={set}
+        setEditingId={setEditingId}
+        setForm={setForm}
+        setPermDraft={setPermDraft}
+        setShowConfirmPassword={setShowConfirmPassword}
+        setShowPassword={setShowPassword}
+        showConfirmPassword={showConfirmPassword}
+        showPassword={showPassword}
+      />
     )
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>User Management</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {canCreate && <button className="btn" onClick={() => navigate('/users/create')}>Input User</button>}
-        </div>
-      </div>
-
-      <div className="page">
-        <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search User</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/email/phone" />
-          </div>
-
-          <h3>Daftar User</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat data.</div>}
-          {canList && (
-            <>
-              <table className="table">
-              <thead>
-                <tr>
-                  <th>Nama</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td><span className="badge pending">{user.role}</span></td>
-                    <td className="action-cell">
-                      <ActionMenu
-                        items={[
-                          {
-                            key: 'view',
-                            label: 'View',
-                            onClick: () => navigate(`/users/${user.id}`, { state: { user } }),
-                          },
-                          {
-                            key: 'edit',
-                            label: 'Edit',
-                            onClick: () => navigate(`/users/${user.id}/edit`, { state: { user } }),
-                            hidden: !canUpdate,
-                          },
-                          {
-                            key: 'delete',
-                            label: 'Delete',
-                            onClick: () => void remove(user.id),
-                            hidden: !canDelete,
-                            danger: true,
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={4}>Belum ada user.</td>
-                  </tr>
-                )}
-              </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-
-      </div>
-    </div>
-  )
-}
-
-function formatDateTime(value: unknown) {
-  if (!value) return '-'
-  const date = new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString('en-US')
-}
-
-function EyeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
-  )
-}
-
-function EyeOffIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <path d="M10.6 6.2A11.6 11.6 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.1 3.7M6.1 9.1A18.4 18.4 0 0 0 2 12s3.5 6 10 6c1.2 0 2.3-.2 3.3-.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function PasswordRulesGuide({ password }: { password: string }) {
-  if (!password) return null
-  const checks = getPasswordRuleChecks(password)
-  return (
-    <div
-      style={{
-        border: '1px solid #d7e0ef',
-        borderRadius: 8,
-        background: '#f8fafc',
-        padding: '10px 12px',
-        fontSize: 12,
-        lineHeight: 1.5,
-      }}
-    >
-      {checks.map((rule) => (
-        <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
-          {rule.valid ? 'PASS' : 'FAIL'} {rule.label}
-        </div>
-      ))}
-    </div>
+    <UserList
+      canCreate={canCreate}
+      canDelete={canDelete}
+      canList={canList}
+      canUpdate={canUpdate}
+      limit={limit}
+      navigate={navigate}
+      onLimitChange={setLimit}
+      onPageChange={setPage}
+      onRemove={remove}
+      page={page}
+      search={search}
+      setSearch={setSearch}
+      totalData={totalData}
+      totalPages={totalPages}
+      users={users}
+    />
   )
 }

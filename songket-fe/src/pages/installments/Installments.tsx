@@ -16,11 +16,12 @@ import {
   fetchKabupaten,
   fetchProvinces,
 } from '../../services/locationService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
+import InstallmentDetail from './components/InstallmentDetail'
+import InstallmentForm from './components/InstallmentForm'
+import InstallmentList from './components/InstallmentList'
 
 type OptionItem = {
   code: string
@@ -367,282 +368,69 @@ export default function InstallmentsPage() {
   }
 
   if (isDetail) {
-    const motor = selectedItem?.motor_type
-
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Type & Installment Details</div>
-            <div style={{ color: '#64748b' }}>Combined motor and installment configuration</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/installments/${selectedId}/edit`, { state: { item: selectedItem } })}>
-                Edit
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate('/installments')}>Back</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedItem && <div className="alert">Data not found.</div>}
-          {selectedItem && (
-            <div className="card" style={{ maxWidth: 920 }}>
-              <h3 style={{ marginTop: 0 }}>Motor Type & Installment Information</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>
-                    <td style={{ fontWeight: 600 }}>{motor?.name || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th>
-                    <td style={{ fontWeight: 600 }}>{motor?.brand || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th>
-                    <td style={{ fontWeight: 600 }}>{motor?.model || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th>
-                    <td style={{ fontWeight: 600 }}>{motor?.type || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th>
-                    <td style={{ fontWeight: 600 }}>{formatRupiah(Number(motor?.otr || 0))}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area</th>
-                    <td style={{ fontWeight: 600 }}>{areaLabel(motor)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Installment Amount</th>
-                    <td style={{ fontWeight: 600 }}>{formatRupiah(Number(selectedItem.amount || 0))}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      <InstallmentDetail
+        areaLabel={areaLabel}
+        canUpdate={canUpdate}
+        formatDate={formatDate}
+        formatRupiah={formatRupiah}
+        navigate={navigate}
+        selectedId={selectedId}
+        selectedItem={selectedItem}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>
-              {isEdit ? 'Edit Motor Type & Installment' : 'Create Motor Type & Installment'}
-            </div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/installments')}>Back to Table</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 980 }}>
-            {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
-            {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
-
-            <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-              <div>
-                <label>Motor Type</label>
-                <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>Brand</label>
-                <input value={form.brand} onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>Model</label>
-                <input value={form.model} onChange={(e) => setForm((prev) => ({ ...prev, model: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>Variant</label>
-                <input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>OTR</label>
-                <input
-                  type="text"
-                  value={formatRupiah(form.otr)}
-                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div>
-                <label>Province</label>
-                <select value={form.province_code} onChange={(e) => updateProvince(e.target.value)}>
-                  <option value="">Select</option>
-                  {provinces.map((province) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Regency/City</label>
-                <select value={form.regency_code} onChange={(e) => updateRegency(e.target.value)} disabled={!form.province_code}>
-                  <option value="">Select</option>
-                  {regencies.map((regency) => (
-                    <option key={regency.code} value={regency.code}>{regency.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Installment Amount</label>
-                <input
-                  type="text"
-                  value={formatRupiah(form.amount)}
-                  onChange={(e) => setForm((prev) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))}
-                  inputMode="numeric"
-                />
-              </div>
-
-              {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
-
-              <div style={{ display: 'flex', gap: 10, gridColumn: '1 / -1' }}>
-                <button className="btn" onClick={() => void save()} disabled={loading}>
-                  {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-                </button>
-                <button className="btn-ghost" onClick={() => navigate('/installments')}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <InstallmentForm
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        error={error}
+        form={form}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        loading={loading}
+        navigate={navigate}
+        parseRupiahInput={parseRupiahInput}
+        provinces={provinces}
+        regencies={regencies}
+        save={save}
+        setForm={setForm}
+        updateProvince={updateProvince}
+        updateRegency={updateRegency}
+        formatRupiah={formatRupiah}
+      />
     )
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Types & Installments</div>
-        </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/installments/create')}>Create Motor & Installment</button>}
-      </div>
-
-      <div className="page">
-        <div className="card">
-          <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-            <div>
-              <label>Search</label>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" />
-            </div>
-
-            <div>
-              <label>Filter Province</label>
-              <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}>
-                <option value="">All</option>
-                {provinces.map((province) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Filter Regency</label>
-              <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter}>
-                <option value="">All</option>
-                {filterRegencies.map((regency) => (
-                  <option key={regency.code} value={regency.code}>{regency.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>Data List</h3>
-          {(!canList || !canView) && <div className="alert">No permission to view data.</div>}
-          {canList && canView && (
-            <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Motor Type</th>
-                    <th>Brand / Model</th>
-                    <th>Variant</th>
-                    <th>OTR</th>
-                    <th>Area</th>
-                    <th>Installment</th>
-                    <th>Updated</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.motor_type?.name || '-'}</td>
-                      <td>{[item.motor_type?.brand, item.motor_type?.model].filter(Boolean).join(' / ') || '-'}</td>
-                      <td>{item.motor_type?.type || '-'}</td>
-                      <td>{formatRupiah(Number(item.motor_type?.otr || 0))}</td>
-                      <td>{areaLabel(item.motor_type)}</td>
-                      <td>{formatRupiah(Number(item.amount || 0))}</td>
-                      <td>{formatDate(item.updated_at)}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/installments/${item.id}`, { state: { item } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/installments/${item.id}/edit`, { state: { item } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(item.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={8}>No data available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <InstallmentList
+      areaLabel={areaLabel}
+      canCreate={canCreate}
+      canDelete={canDelete}
+      canList={canList}
+      canUpdate={canUpdate}
+      canView={canView}
+      filterRegencies={filterRegencies}
+      formatDate={formatDate}
+      formatRupiah={formatRupiah}
+      items={items}
+      limit={limit}
+      navigate={navigate}
+      page={page}
+      provinceFilter={provinceFilter}
+      provinces={provinces}
+      regencyFilter={regencyFilter}
+      remove={remove}
+      search={search}
+      setLimit={setLimit}
+      setPage={setPage}
+      setProvinceFilter={setProvinceFilter}
+      setRegencyFilter={setRegencyFilter}
+      setSearch={setSearch}
+      totalData={totalData}
+      totalPages={totalPages}
+    />
   )
 }

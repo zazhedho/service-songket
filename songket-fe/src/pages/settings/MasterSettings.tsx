@@ -14,6 +14,9 @@ import {
 } from '../../services/masterSettingService'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useAuth } from '../../store'
+import MasterSettingForm from './components/MasterSettingForm'
+import MasterSettingHistory from './components/MasterSettingHistory'
+import MasterSettingList from './components/MasterSettingList'
 
 type SettingOption = 'news' | 'prices'
 type PageMode = 'list' | 'form'
@@ -260,6 +263,30 @@ export default function MasterSettingsPage() {
   const intervalLabel = isNews ? 'Interval (minutes)' : 'Interval (days)'
   const intervalMax = isNews ? MAX_INTERVAL_MINUTES : MAX_INTERVAL_DAYS
 
+  const handleStatusChange = (next: boolean) => {
+    if (isNews) {
+      setNewsSetting((prev) => ({ ...prev, is_active: next }))
+      return
+    }
+    setPriceSetting((prev) => ({ ...prev, is_active: next }))
+  }
+
+  const handleIntervalChange = (value: number) => {
+    if (isNews) {
+      setNewsSetting((prev) => ({
+        ...prev,
+        interval_minutes: value,
+        is_active: value <= 0 ? false : prev.is_active,
+      }))
+      return
+    }
+    setPriceSetting((prev) => ({
+      ...prev,
+      interval_days: value,
+      is_active: value <= 0 ? false : prev.is_active,
+    }))
+  }
+
   const settingRows = useMemo<SettingRow[]>(
     () => [
       {
@@ -453,239 +480,58 @@ export default function MasterSettingsPage() {
         )}
 
         {isFormMode ? (
-          <div className="card" style={{ maxWidth: 860 }}>
-            <h3 style={{ marginBottom: 10 }}>
-              {formAction === 'create' ? 'Create Scheduler Setting' : 'Edit Scheduler Setting'}
-            </h3>
-
-            <div style={{ marginBottom: 10 }}>
-              <label>Setting Option</label>
-              <select
-                value={selectedOption}
-                onChange={(e) => setSelectedOption(e.target.value as SettingOption)}
-                disabled={loading || saving}
-              >
-                <option value="news">News Scrape Scheduler</option>
-                <option value="prices">Commodity Price Scrape Scheduler</option>
-              </select>
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label>Scheduler Status</label>
-              <select
-                value={currentStatus ? 'on' : 'off'}
-                onChange={(e) => {
-                  const next = e.target.value === 'on'
-                  if (isNews) {
-                    setNewsSetting((prev) => ({ ...prev, is_active: next }))
-                    return
-                  }
-                  setPriceSetting((prev) => ({ ...prev, is_active: next }))
-                }}
-                disabled={loading || saving}
-              >
-                <option value="on">ON</option>
-                <option value="off">OFF</option>
-              </select>
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label>{intervalLabel}</label>
-              <input
-                type="number"
-                min={0}
-                max={intervalMax}
-                step={1}
-                value={currentInterval}
-                onChange={(e) => {
-                  const next = Number(e.target.value)
-                  const safe = Number.isFinite(next) ? next : 0
-                  if (isNews) {
-                    setNewsSetting((prev) => ({
-                      ...prev,
-                      interval_minutes: safe,
-                      is_active: safe <= 0 ? false : prev.is_active,
-                    }))
-                    return
-                  }
-                  setPriceSetting((prev) => ({
-                    ...prev,
-                    interval_days: safe,
-                    is_active: safe <= 0 ? false : prev.is_active,
-                  }))
-                }}
-                disabled={loading || saving}
-              />
-            </div>
-
-            <div style={{ color: '#64748b', fontSize: 13, marginBottom: 8 }}>
-              {isNews
-                ? `Valid range: ${MIN_INTERVAL_MINUTES} - ${MAX_INTERVAL_MINUTES} minutes (1 month). Input 0 will automatically switch scheduler status to OFF.`
-                : `Valid range: ${MIN_INTERVAL_DAYS} - ${MAX_INTERVAL_DAYS} days. Input 0 will automatically switch scheduler status to OFF.`}
-            </div>
-
-            <div style={{ color: '#64748b', fontSize: 13, marginBottom: 10 }}>
-              Current state: {currentExists ? 'Exists' : 'Not created yet'} | Last updated: {formatDate(currentUpdatedAt)}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button className="btn" onClick={() => void save()} disabled={loading || saving}>
-                {saving ? 'Saving...' : formAction === 'create' ? 'Create Setting' : 'Save Setting'}
-              </button>
-              <button className="btn-ghost" onClick={() => navigate('/master-settings')}>
-                Back to Table
-              </button>
-            </div>
-          </div>
+          <MasterSettingForm
+            currentExists={currentExists}
+            currentInterval={currentInterval}
+            currentStatus={currentStatus}
+            currentUpdatedAt={formatDate(currentUpdatedAt)}
+            formAction={formAction}
+            intervalLabel={intervalLabel}
+            intervalMax={intervalMax}
+            isNews={isNews}
+            loading={loading}
+            navigate={navigate}
+            onIntervalChange={handleIntervalChange}
+            onSave={save}
+            onStatusChange={handleStatusChange}
+            saving={saving}
+            selectedOption={selectedOption}
+            setSelectedOption={setSelectedOption}
+          />
         ) : (
           <>
-            <div className="card">
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  className={activeTab === 'settings' ? 'btn' : 'btn-ghost'}
-                  onClick={() => setActiveTab('settings')}
-                  disabled={loading}
-                >
-                  Settings
-                </button>
-                <button
-                  className={activeTab === 'history' ? 'btn' : 'btn-ghost'}
-                  onClick={() => setActiveTab('history')}
-                  disabled={loading}
-                >
-                  History
-                </button>
-              </div>
-            </div>
-
             {activeTab === 'settings' && (
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Master Settings Table</h3>
-                  <button className="btn-ghost" onClick={() => void load()} disabled={loading}>Refresh</button>
-                </div>
-                <table className="table" style={{ marginTop: 10 }}>
-                  <thead>
-                    <tr>
-                      <th>Setting</th>
-                      <th>Status</th>
-                      <th>Interval</th>
-                      <th>Updated</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedSettings.map((row) => (
-                      <tr key={row.key}>
-                        <td>{row.label}</td>
-                        <td>{row.status}</td>
-                        <td>{row.interval}</td>
-                        <td>{row.updatedAt}</td>
-                        <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {row.exists ? (
-                            <>
-                              <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=edit&option=${row.key}`)}>Edit</button>
-                              <button className="btn-ghost" onClick={() => void remove(row.key)}>Delete</button>
-                            </>
-                          ) : (
-                            <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=create&option=${row.key}`)}>Create</button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <div style={{ color: '#64748b', fontSize: 13 }}>
-                    Page {settingsPage} of {settingsTotalPages}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      className="btn-ghost"
-                      disabled={settingsPage <= 1}
-                      onClick={() => setSettingsPage((prev) => Math.max(1, prev - 1))}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      className="btn-ghost"
-                      disabled={settingsPage >= settingsTotalPages}
-                      onClick={() => setSettingsPage((prev) => Math.min(settingsTotalPages, prev + 1))}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <MasterSettingList
+                activeTab={activeTab}
+                loading={loading}
+                navigate={navigate}
+                onRefresh={load}
+                paginatedSettings={paginatedSettings}
+                remove={remove}
+                setActiveTab={setActiveTab}
+                settingsPage={settingsPage}
+                settingsTotalPages={settingsTotalPages}
+                totalData={settingRows.length}
+                setSettingsPage={setSettingsPage}
+              />
             )}
 
             {activeTab === 'history' && (
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3>Master Settings History</h3>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {historyLoading && <div style={{ color: '#64748b', fontSize: 12 }}>Loading...</div>}
-                    <button className="btn-ghost" onClick={() => void loadHistories()} disabled={historyLoading || loading}>
-                      Refresh History
-                    </button>
-                  </div>
-                </div>
-
-                <table className="table" style={{ marginTop: 10 }}>
-                  <thead>
-                    <tr>
-                      <th>Setting</th>
-                      <th>Time</th>
-                      <th>Changed By</th>
-                      <th>Previous Status</th>
-                      <th>Previous Interval</th>
-                      <th>New Status</th>
-                      <th>New Interval</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedHistories.map((item) => (
-                      <tr key={item.id}>
-                        <td>{formatSettingLabel(item.key)}</td>
-                        <td>{formatDate(item.created_at)}</td>
-                        <td>{item.changed_by_name || '-'}</td>
-                        <td>{item.previous_is_active ? 'ON' : 'OFF'}</td>
-                        <td>{formatHistoryInterval(item.previous_interval_minutes, item.key)}</td>
-                        <td>{item.new_is_active ? 'ON' : 'OFF'}</td>
-                        <td>{formatHistoryInterval(item.new_interval_minutes, item.key)}</td>
-                      </tr>
-                    ))}
-                    {!historyLoading && allHistories.length === 0 && (
-                      <tr>
-                        <td colSpan={7}>No history yet.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <div style={{ color: '#64748b', fontSize: 13 }}>
-                    Page {historyPage} of {historiesTotalPages}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      className="btn-ghost"
-                      disabled={historyPage <= 1}
-                      onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      className="btn-ghost"
-                      disabled={historyPage >= historiesTotalPages}
-                      onClick={() => setHistoryPage((prev) => Math.min(historiesTotalPages, prev + 1))}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <MasterSettingHistory
+                activeTab={activeTab}
+                formatDate={formatDate}
+                formatHistoryInterval={formatHistoryInterval}
+                formatSettingLabel={formatSettingLabel}
+                historiesTotalPages={historiesTotalPages}
+                historyLoading={historyLoading}
+                historyPage={historyPage}
+                loading={loading}
+                onRefresh={loadHistories}
+                paginatedHistories={paginatedHistories}
+                setActiveTab={setActiveTab}
+                setHistoryPage={setHistoryPage}
+                totalData={allHistories.length}
+              />
             )}
           </>
         )}

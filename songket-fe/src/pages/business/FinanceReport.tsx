@@ -1,7 +1,5 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
-import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
   fetchDealerMetrics,
@@ -15,9 +13,10 @@ import {
   fetchKecamatan,
   fetchProvinces,
 } from '../../services/locationService'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
-import { formatRupiah } from '../../utils/currency'
+import FinanceReportDetail from './components/FinanceReportDetail'
+import FinanceReportSummary from './components/FinanceReportSummary'
+import { ReportDetailTable } from './components/financeReportHelpers'
 
 type FinanceMigrationRow = {
   order_id: string
@@ -146,12 +145,6 @@ type FinanceReportRouteState = {
     finance1?: string
   }
 }
-
-const markerIcon = new L.Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-})
 
 function formatDateTime(value?: string) {
   if (!value) return '-'
@@ -316,39 +309,6 @@ function statusBadge(status: string) {
   const s = String(status || '').toLowerCase().trim()
   if (!s) return '-'
   return <span className={`badge ${s}`}>{s}</span>
-}
-
-function DetailTable({
-  rows,
-  wrapValue = false,
-}: {
-  rows: Array<{ label: string; value: ReactNode }>
-  wrapValue?: boolean
-}) {
-  return (
-    <table className="table">
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th style={{ width: 200 }}>{row.label}</th>
-            <td
-              style={wrapValue
-                ? {
-                    maxWidth: 'none',
-                    whiteSpace: 'normal',
-                    overflow: 'visible',
-                    textOverflow: 'clip',
-                    wordBreak: 'break-word',
-                  }
-                : undefined}
-            >
-              {row.value}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
 }
 
 export default function FinanceReportPage() {
@@ -1059,853 +1019,93 @@ export default function FinanceReportPage() {
   }
 
   if (isDetail) {
-    const item = detailRow
-    const financePairText = item ? `${item.finance_1_name || '-'} -> ${item.finance_2_name || '-'}` : '-'
-    const modalLocationNamed = selectedOrderInRow ? locationNamesByOrderId[selectedOrderInRow.order_id] : null
-    const modalLocationText = selectedOrderInRow
-      ? [
-          modalLocationNamed?.province || selectedOrderInRow.province || '-',
-          modalLocationNamed?.regency || selectedOrderInRow.regency || '-',
-          modalLocationNamed?.district || selectedOrderInRow.district || '-',
-          selectedOrderInRow.village || '-',
-          selectedOrderInRow.address || '-',
-        ].join(', ')
-      : '-'
-    const modalMotorOtrText = selectedOrderInRow
-      ? `${selectedOrderInRow.motor_type_name || '-'} | ${formatRupiah(Number(selectedOrderInRow.otr || 0))}`
-      : '-'
-    const dealerDonutSlices = buildDonutSlices(detailFinanceSummary?.dealerTotals || [], 6)
-    const motorTypeDonutSlices = buildDonutSlices(detailFinanceSummary?.motorTypeTotals || [], 6)
-    const dealerDonutGradient = buildDonutGradient(dealerDonutSlices)
-    const motorTypeDonutGradient = buildDonutGradient(motorTypeDonutSlices)
-
     return (
-      <div style={{ overflowX: 'hidden' }}>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance Detail</div>
-            <div style={{ color: '#64748b' }}>Detailed migration data: {financePairText}</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/business')}>
-            Back
-          </button>
-        </div>
-
-        <div className="page" style={{ overflowX: 'hidden' }}>
-          {error && <div className="alert">{error}</div>}
-          {loading && !item && <div className="card"><div className="muted">Loading detail...</div></div>}
-          {!loading && !item && <div className="card"><div className="alert">Finance migration detail not found.</div></div>}
-
-          {item && (
-            <>
-              <div className="card">
-                <h3>Finance Detail Identity</h3>
-                <div
-                  className="mobile-filter-grid"
-                  style={{
-                    marginTop: 10,
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr)',
-                    gap: 10,
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                    <div className="muted" style={{ fontSize: 12 }}>Finance Pair</div>
-                    <div style={{ marginTop: 4, fontWeight: 700 }}>{financePairText}</div>
-                  </div>
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                    <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Status Finance 1</div>
-                    {statusBadge(item.finance_1_status || '')}
-                  </div>
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                    <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Status Finance 2</div>
-                    {statusBadge(item.finance_2_status || '')}
-                  </div>
-                </div>
-              </div>
-
-              <div className="card">
-                <h3>Order In Data</h3>
-                <div
-                  className="mobile-filter-grid"
-                  style={{
-                    marginTop: 10,
-                    marginBottom: 12,
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1fr) auto',
-                    gap: 10,
-                    alignItems: 'end',
-                  }}
-                >
-                  <div>
-                    <label>Search</label>
-                    <input
-                      placeholder="Pooling number, dealer, consumer..."
-                      value={detailOrderInSearchInput}
-                      onChange={(e) => setDetailOrderInSearchInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') applyDetailOrderInFilters()
-                      }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button className="btn" onClick={applyDetailOrderInFilters}>Apply</button>
-                    <button className="btn-ghost" onClick={resetDetailOrderInFilters}>Reset</button>
-                  </div>
-                </div>
-
-                {detailOrderInError && <div className="alert" style={{ marginTop: 10 }}>{detailOrderInError}</div>}
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table" style={{ minWidth: 1280 }}>
-                    <thead>
-                      <tr>
-                        <th>Pooling Number</th>
-                        <th>Pooling Date</th>
-                        <th>Dealer</th>
-                        <th>Consumer</th>
-                        <th>Location</th>
-                        <th>Motor / OTR</th>
-                        <th>Status 1</th>
-                        <th>Keterangan Finance 1</th>
-                        <th>Status 2</th>
-                        <th>Keterangan Finance 2</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailOrderInLoading && (
-                        <tr>
-                          <td colSpan={11}>Loading order in data...</td>
-                        </tr>
-                      )}
-                      {!detailOrderInLoading && detailOrderInRows.length === 0 && (
-                        <tr>
-                          <td colSpan={11}>No order in data found for this migration.</td>
-                        </tr>
-                      )}
-                      {!detailOrderInLoading && detailOrderInRows.map((row) => {
-                        const rowLocationNamed = locationNamesByOrderId[row.order_id]
-                        const rowLocationText = [
-                          rowLocationNamed?.province || row.province || '-',
-                          rowLocationNamed?.regency || row.regency || '-',
-                          rowLocationNamed?.district || row.district || '-',
-                          row.village || '-',
-                          row.address || '-',
-                        ].join(', ')
-                        const rowMotorOtrText = `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}`
-
-                        return (
-                          <tr key={`detail-order-in-${row.order_id}`}>
-                            <td>{row.pooling_number || '-'}</td>
-                            <td>{formatDateTime(row.pooling_at)}</td>
-                            <td>{row.dealer_name || '-'}</td>
-                            <td>{row.consumer_name || '-'}</td>
-                            <td>{rowLocationText}</td>
-                            <td>{rowMotorOtrText}</td>
-                            <td>{statusBadge(row.finance_1_status || '')}</td>
-                            <td title={row.finance_1_notes || '-'}>{truncateTableText(row.finance_1_notes || '-')}</td>
-                            <td>{statusBadge(row.finance_2_status || '')}</td>
-                            <td title={row.finance_2_notes || '-'}>{truncateTableText(row.finance_2_notes || '-')}</td>
-                            <td className="action-cell">
-                              <button
-                                type="button"
-                                className="btn-ghost"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
-                                onClick={() => setSelectedOrderInRow(row)}
-                              >
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                                  <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                                </svg>
-                                View
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <Pagination
-                  page={detailOrderInPage}
-                  totalPages={detailOrderInTotalPages}
-                  totalData={detailOrderInTotalData}
-                  limit={detailOrderInLimit}
-                  onPageChange={setDetailOrderInPage}
-                  onLimitChange={(next) => {
-                    setDetailOrderInLimit(next)
-                    setDetailOrderInPage(1)
-                  }}
-                  disabled={detailOrderInLoading}
-                />
-              </div>
-
-              <div className="card">
-                <h3>Finance Result Summary</h3>
-                {detailFinanceSummaryError && <div className="alert" style={{ marginTop: 10 }}>{detailFinanceSummaryError}</div>}
-                {detailFinanceSummaryLoading && <div className="muted" style={{ marginTop: 10 }}>Loading summary...</div>}
-
-                {!detailFinanceSummaryLoading && detailFinanceSummary && (
-                  <>
-                    <div
-                      style={{
-                        marginTop: 10,
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                        <div className="muted" style={{ fontSize: 12 }}>Total Order Data</div>
-                        <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
-                      </div>
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                        <div className="muted" style={{ fontSize: 12 }}>Total Dealer</div>
-                        <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.totalDealers}</div>
-                      </div>
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                        <div className="muted" style={{ fontSize: 12 }}>Dealer Coverage</div>
-                        <div style={{ fontSize: 20, fontWeight: 700 }}>{detailFinanceSummary.dealerCoveragePercent.toFixed(1)}%</div>
-                        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Unique dealer / total order data</div>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performence</div>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="table" style={{ minWidth: 760 }}>
-                          <thead>
-                            <tr>
-                              <th>Total</th>
-                              <th>Approve</th>
-                              <th>Rejected</th>
-                              <th>Approve %</th>
-                              <th>Lead Avg</th>
-                              <th>Rescue FC2</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>{detailFinanceSummary.totalOrders}</td>
-                              <td>{detailFinanceSummary.approvedCount}</td>
-                              <td>{detailFinanceSummary.rejectedCount}</td>
-                              <td>{(detailFinanceSummary.approvalRate * 100).toFixed(1)}%</td>
-                              <td>{detailFinanceSummary.leadAvgSeconds != null ? `${detailFinanceSummary.leadAvgSeconds.toFixed(1)} s` : '-'}</td>
-                              <td>{detailFinanceSummary.rescueFc2}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 12,
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: 12,
-                      }}
-                      className="mobile-filter-grid"
-                    >
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Dealer Summary</div>
-                        <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
-                          {dealerDonutSlices.length === 0 && <div className="muted">No dealer summary.</div>}
-                          {dealerDonutSlices.length > 0 && (
-                            <>
-                              <div style={{ display: 'grid', placeItems: 'center' }}>
-                                <div style={{ width: 132, height: 132, borderRadius: '50%', background: dealerDonutGradient, position: 'relative' }}>
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      inset: 18,
-                                      borderRadius: '50%',
-                                      background: '#fff',
-                                      display: 'grid',
-                                      placeItems: 'center',
-                                      textAlign: 'center',
-                                      border: '1px solid #e2e8f0',
-                                    }}
-                                  >
-                                    <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Dealer</div>
-                                    <div style={{ fontSize: 16, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                                {dealerDonutSlices.map((slice) => (
-                                  <div key={`dealer-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
-                                    <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
-                                    <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
-                                    <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
-                                    <div style={{ fontWeight: 700 }}>{slice.total}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 8 }}>Motor Type Summary</div>
-                        <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
-                          {motorTypeDonutSlices.length === 0 && <div className="muted">No motor type summary.</div>}
-                          {motorTypeDonutSlices.length > 0 && (
-                            <>
-                              <div style={{ display: 'grid', placeItems: 'center' }}>
-                                <div style={{ width: 132, height: 132, borderRadius: '50%', background: motorTypeDonutGradient, position: 'relative' }}>
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      inset: 18,
-                                      borderRadius: '50%',
-                                      background: '#fff',
-                                      display: 'grid',
-                                      placeItems: 'center',
-                                      textAlign: 'center',
-                                      border: '1px solid #e2e8f0',
-                                    }}
-                                  >
-                                    <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Motor Type</div>
-                                    <div style={{ fontSize: 16, fontWeight: 700 }}>{detailFinanceSummary.totalOrders}</div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                                {motorTypeDonutSlices.map((slice) => (
-                                  <div key={`motor-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
-                                    <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
-                                    <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
-                                    <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
-                                    <div style={{ fontWeight: 700 }}>{slice.total}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-            </>
-          )}
-        </div>
-
-        {selectedOrderInRow && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Order In Detail" onClick={() => setSelectedOrderInRow(null)}>
-            <div className="modal" style={{ width: 'min(880px, 100%)' }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <h3>Order In Detail</h3>
-                <button className="btn-ghost" onClick={() => setSelectedOrderInRow(null)}>Close</button>
-              </div>
-              <DetailTable
-                wrapValue
-                rows={[
-                  { label: 'Pooling Number', value: selectedOrderInRow.pooling_number || '-' },
-                  { label: 'Pooling Date', value: formatDateTime(selectedOrderInRow.pooling_at) },
-                  { label: 'Result Date', value: formatDateTime(selectedOrderInRow.result_at) },
-                  { label: 'Created At', value: formatDateTime(selectedOrderInRow.order_created_at) },
-                  { label: 'Updated At', value: formatDateTime(selectedOrderInRow.order_updated_at) },
-                  { label: 'Dealer', value: selectedOrderInRow.dealer_name || '-' },
-                  { label: 'Consumer Name', value: selectedOrderInRow.consumer_name || '-' },
-                  { label: 'Consumer Phone', value: selectedOrderInRow.consumer_phone || '-' },
-                  { label: 'Location', value: modalLocationText },
-                  { label: 'Job', value: selectedOrderInRow.job_name || '-' },
-                  { label: 'Motor Type / OTR', value: modalMotorOtrText },
-                  { label: 'Installment', value: formatRupiah(Number(selectedOrderInRow.installment_amount || 0)) },
-                  { label: 'Net Income', value: formatRupiah(Number(selectedOrderInRow.net_income || 0)) },
-                  { label: 'DP Gross', value: formatRupiah(Number(selectedOrderInRow.dp_gross || 0)) },
-                  { label: 'DP Paid', value: formatRupiah(Number(selectedOrderInRow.dp_paid || 0)) },
-                  { label: 'DP Percentage', value: `${Number(selectedOrderInRow.dp_pct || 0).toFixed(2)}%` },
-                  { label: 'Tenor', value: `${Number(selectedOrderInRow.tenor || 0)} months` },
-                  { label: 'Order Status', value: statusBadge(selectedOrderInRow.order_result_status || '') },
-                  { label: 'Order Notes', value: selectedOrderInRow.order_result_notes || '-' },
-                  { label: 'Finance 1', value: selectedOrderInRow.finance_1_name || '-' },
-                  { label: 'Status 1', value: statusBadge(selectedOrderInRow.finance_1_status || '') },
-                  { label: 'Decision At 1', value: formatDateTime(selectedOrderInRow.finance_1_decision_at) },
-                  { label: 'Notes Finance 1', value: selectedOrderInRow.finance_1_notes || '-' },
-                  { label: 'Finance 2', value: selectedOrderInRow.finance_2_name || '-' },
-                  { label: 'Status 2', value: statusBadge(selectedOrderInRow.finance_2_status || '') },
-                  { label: 'Decision At 2', value: formatDateTime(selectedOrderInRow.finance_2_decision_at) },
-                  { label: 'Notes Finance 2', value: selectedOrderInRow.finance_2_notes || '-' },
-                ]}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <FinanceReportDetail
+        applyDetailOrderInFilters={applyDetailOrderInFilters}
+        buildDetailFinanceSummary={buildDetailFinanceSummary}
+        buildDonutGradient={buildDonutGradient}
+        buildDonutSlices={buildDonutSlices}
+        detailFinanceSummary={detailFinanceSummary}
+        detailFinanceSummaryError={detailFinanceSummaryError}
+        detailFinanceSummaryLoading={detailFinanceSummaryLoading}
+        detailOrderInError={detailOrderInError}
+        detailOrderInLimit={detailOrderInLimit}
+        detailOrderInLoading={detailOrderInLoading}
+        detailOrderInPage={detailOrderInPage}
+        detailOrderInRows={detailOrderInRows}
+        detailOrderInSearchInput={detailOrderInSearchInput}
+        detailOrderInTotalData={detailOrderInTotalData}
+        detailOrderInTotalPages={detailOrderInTotalPages}
+        detailRow={detailRow}
+        error={error}
+        formatDateTime={formatDateTime}
+        loading={loading}
+        locationNamesByOrderId={locationNamesByOrderId}
+        navigate={navigate}
+        resetDetailOrderInFilters={resetDetailOrderInFilters}
+        selectedOrderInRow={selectedOrderInRow}
+        setDetailOrderInLimit={setDetailOrderInLimit}
+        setDetailOrderInPage={setDetailOrderInPage}
+        setDetailOrderInSearchInput={setDetailOrderInSearchInput}
+        setSelectedOrderInRow={setSelectedOrderInRow}
+        statusBadge={statusBadge}
+        truncateTableText={truncateTableText}
+      />
     )
   }
 
   return (
-    <div style={{ overflowX: 'hidden' }}>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Business</div>
-          <div style={{ color: '#64748b' }}>Dealer Performance dan Migration Fincoy (Finance 1 ke Finance 2)</div>
-        </div>
-      </div>
-
-      <div className="business-tabs-pane">
-        <button type="button" className="business-tab-btn active" onClick={() => navigate('/business')}>
-          Summary
-        </button>
-        <button type="button" className="business-tab-btn" onClick={() => navigate('/business/finance')}>
-          Finance
-        </button>
-        <button type="button" className="business-tab-btn" onClick={() => navigate('/business/dealer')}>
-          Dealer
-        </button>
-      </div>
-
-      <div className="page" style={{ overflowX: 'hidden' }}>
-        <div className="business-top-grid">
-          <div className="card business-map-card">
-            <div className="business-map-head">
-              <h3>Map Dealer</h3>
-              <div className="business-map-meta">
-                <span className="muted">Selected:</span>
-                <span style={{ fontWeight: 700 }}>{activeDealerName}</span>
-              </div>
-            </div>
-            <div className="business-map-shell">
-              <MapContainer center={dealerMapCenter} zoom={dealerMapZoom} scrollWheelZoom={false}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapFly center={dealerMapCenter} zoom={dealerMapZoom} />
-                {dealerPoints.map((dealerItem) => (
-                  <Marker
-                    key={`business-map-${dealerItem.id}`}
-                    position={[dealerItem._lat, dealerItem._lng]}
-                    icon={markerIcon}
-                    eventHandlers={{
-                      click: () => {
-                        setSelectedDealerId(dealerItem.id)
-                        setDealerInput(dealerItem.id)
-                      },
-                    }}
-                  >
-                    <Popup>
-                      <div style={{ fontWeight: 700 }}>{dealerItem.name || '-'}</div>
-                      <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                        {summarizeLocation([dealerItem.regency, dealerItem.district, dealerItem.village])}
-                      </div>
-                      {dealerItem.phone && (
-                        <div className="muted" style={{ marginTop: 2, fontSize: 12 }}>
-                          {dealerItem.phone}
-                        </div>
-                      )}
-                      {dealerItem.address && (
-                        <div className="muted" style={{ marginTop: 2, fontSize: 12 }}>
-                          {truncateTableText(dealerItem.address, 72)}
-                        </div>
-                      )}
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
-            </div>
-            {dealerPoints.length === 0 && (
-              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                No dealer coordinates found. Set latitude/longitude in dealer data.
-              </div>
-            )}
-          </div>
-
-          <div className="card business-dealer-detail-card">
-            <div className="business-map-head">
-              <h3>Detail Dealer</h3>
-              <div className="business-map-meta">
-                <span className="muted">Source:</span>
-                <span style={{ fontWeight: 700 }}>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</span>
-              </div>
-            </div>
-
-            {!activeDealerPoint && (
-              <div className="muted" style={{ fontSize: 12 }}>
-                Klik titik dealer pada map untuk menampilkan detail dealer.
-              </div>
-            )}
-
-            {activeDealerPoint && (
-              <div className="business-dealer-detail-grid">
-                <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Nama Dealer</div>
-                  <div className="business-dealer-detail-value">{activeDealerPoint.name || '-'}</div>
-                </div>
-                <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Phone</div>
-                  <div className="business-dealer-detail-value">{activeDealerPoint.phone || '-'}</div>
-                </div>
-                <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Lokasi</div>
-                  <div className="business-dealer-detail-value">
-                    {summarizeLocation([
-                      activeDealerPoint.province,
-                      activeDealerPoint.regency,
-                      activeDealerPoint.district,
-                      activeDealerPoint.village,
-                    ])}
-                  </div>
-                </div>
-                <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Alamat</div>
-                  <div className="business-dealer-detail-value">{activeDealerPoint.address || '-'}</div>
-                </div>
-                <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Latitude</div>
-                  <div className="business-dealer-detail-value">{formatCoordinate(activeDealerPoint._lat)}</div>
-                </div>
-                <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Longitude</div>
-                  <div className="business-dealer-detail-value">{formatCoordinate(activeDealerPoint._lng)}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {masterError && <div className="alert">{masterError}</div>}
-        {masterLoading && <div className="muted">Loading dealer and finance data...</div>}
-
-        <div className="card business-filter-card">
-          <div className="business-filter-row mobile-filter-grid">
-            <div>
-              <label>Dealer</label>
-              <select
-                value={dealerInput}
-                onChange={(e) => {
-                  setDealerInput(e.target.value)
-                }}
-              >
-                <option value="">All Dealer</option>
-                {dealerOptions.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Bulan</label>
-              <select value={monthInput} onChange={(e) => setMonthInput(e.target.value)}>
-                <option value="">All Months</option>
-                {Array.from({ length: 12 }, (_, idx) => (
-                  <option key={idx + 1} value={String(idx + 1)}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Tahun</label>
-              <select value={yearInput} onChange={(e) => setYearInput(e.target.value)}>
-                <option value="">All Years</option>
-                {yearOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={applyFilters}>Apply</button>
-              <button className="btn-ghost" onClick={resetFilters}>Reset</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="card business-section">
-          <div className="business-section-head">
-            <h3 className="business-section-title">Dealer Performance</h3>
-            <div className="business-section-side">{activeDealerName}</div>
-          </div>
-
-          <div style={{ padding: 12 }}>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
-              <div>
-                <label>Select Dealer</label>
-                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                  <option value="">Select dealer</option>
-                  {dealerRows.map((dealerItem) => (
-                    <option key={`summary-dealer-${dealerItem.id}`} value={dealerItem.id}>
-                      {dealerItem.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
-            {selectedDealerId && !dealerMetrics && (
-              <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>
-            )}
-
-            {dealerMetrics && (
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Total Order</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.total_orders)}</div>
-                </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Approval Rate</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{`${(toSafeNumber(dealerMetrics.approval_rate) * 100).toFixed(1)}%`}</div>
-                </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Lead Time Avg (h)</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{formatLeadTimeHours(dealerMetrics.lead_time_seconds_avg)}</div>
-                </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Rescue FC2</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.rescue_approved_fc2)}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="card business-section">
-          <div className="business-section-head">
-            <h3 className="business-section-title">Finance Performance</h3>
-            <div className="business-section-side">{activeDealerName}</div>
-          </div>
-
-          {dealerMetricsError && <div className="alert" style={{ marginTop: 12 }}>{dealerMetricsError}</div>}
-          {!dealerMetricsError && dealerMetricsLoading && <div className="muted" style={{ marginTop: 12 }}>Loading dealer performance...</div>}
-
-          {!dealerMetricsLoading && !dealerMetricsError && (
-            <div className="business-dealer-grid">
-              <div style={{ overflowX: 'auto' }}>
-                <table className="table" style={{ minWidth: 760 }}>
-                  <thead>
-                    <tr>
-                      <th>Finance Company</th>
-                      <th>Total Data</th>
-                      <th>Approved</th>
-                      <th>Rejected</th>
-                      <th>Approve %</th>
-                      <th>Lead Time</th>
-                      <th>Rescue FC2</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dealerMetricRows.map((item) => {
-                      const total = toSafeNumber(item.total_orders)
-                      const approvedRaw = toSafeNumber(item.approved_count)
-                      const rejectedRaw = toSafeNumber(item.rejected_count)
-                      const approved = approvedRaw > 0 || rejectedRaw > 0
-                        ? approvedRaw
-                        : Math.max(0, Math.min(total, Math.round(toSafeNumber(item.approval_rate) * total)))
-                      const rejected = approvedRaw > 0 || rejectedRaw > 0
-                        ? rejectedRaw
-                        : Math.max(0, total - approved)
-
-                      return (
-                        <tr key={`dealer-metric-${item.finance_company_id}`}>
-                          <td>{item.finance_company_name || '-'}</td>
-                          <td>{total}</td>
-                          <td>{approved}</td>
-                          <td>{rejected}</td>
-                          <td>{(toSafeNumber(item.approval_rate) * 100).toFixed(2)}%</td>
-                          <td>{formatLeadTimeHours(item.lead_time_seconds_avg)}</td>
-                          <td>{toSafeNumber(item.rescue_approved_fc2)}</td>
-                        </tr>
-                      )
-                    })}
-                    {dealerMetricRows.length === 0 && (
-                      <tr>
-                        <td colSpan={7}>No dealer metric data.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="business-summary-chart">
-                <div style={{ fontWeight: 700, marginBottom: 10 }}>Summary Chart</div>
-                {dealerMetricRows.length === 0 && <div className="muted">No summary data.</div>}
-                {dealerMetricRows.map((item) => {
-                  const total = toSafeNumber(item.total_orders)
-                  const width = Math.max(8, (total / dealerMetricMaxTotal) * 100)
-                  return (
-                    <div key={`dealer-summary-${item.finance_company_id}`} style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-                        <span style={{ fontWeight: 600 }}>{truncateTableText(item.finance_company_name, 48)}</span>
-                        <span>{total}</span>
-                      </div>
-                      <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
-                        <div
-                          style={{
-                            width: `${Math.min(100, width)}%`,
-                            height: '100%',
-                            borderRadius: 999,
-                            background: '#2563eb',
-                            transition: 'width .25s ease',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="card business-section">
-          <div className="business-section-head">
-            <h3 className="business-section-title">Migration Fincoy</h3>
-            <div style={{ minWidth: 230 }}>
-              <label style={{ marginBottom: 4 }}>Finance company 1</label>
-              <select
-                value={finance1Input}
-                onChange={(e) => {
-                  const next = e.target.value
-                  setFinance1Input(next)
-                  setFinance1(next)
-                  setPage(1)
-                }}
-              >
-                <option value="">All Finance 1</option>
-                {finance1Options.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="business-summary-row">
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Total Group</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalRows}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Order In Total</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalDataSum}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Approve</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalApproveSum}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Reject</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalRejectSum}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Approve Rate</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.approvalRate.toFixed(2)}%</div>
-            </div>
-          </div>
-
-          {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
-
-          <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
-            <table className="table" style={{ minWidth: 1180, tableLayout: 'fixed' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 56 }}>No</th>
-                  <th style={{ width: 170 }}>Finance 2 Name</th>
-                  <th style={{ width: 190 }}>Last Approve Status Finance 2</th>
-                  <th style={{ width: 120 }}>Total Data</th>
-                  <th style={{ width: 150 }}>Total Data Reject</th>
-                  <th style={{ width: 150 }}>Total Data Approve</th>
-                  <th style={{ width: 170 }}>Finance 1 Name</th>
-                  <th style={{ width: 120 }}>Status Finance 1</th>
-                  <th style={{ width: 100 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!loading && rows.length === 0 && (
-                  <tr>
-                    <td colSpan={9}>No finance migration data.</td>
-                  </tr>
-                )}
-                {rows.map((item, idx) => {
-                  const rowNumber = (page - 1) * limit + idx + 1
-
-                  return (
-                    <tr key={`${item.order_id}-${idx}`}>
-                      <td>{rowNumber}</td>
-                      <td title={item.finance_2_name || '-'}>{truncateTableText(item.finance_2_name)}</td>
-                      <td>{statusBadge(item.finance_2_status)}</td>
-                      <td>{toSafeNumber(item.transition_total_data)}</td>
-                      <td>{toSafeNumber(item.total_reject_finance_2)}</td>
-                      <td>{toSafeNumber(item.total_approve_finance_2)}</td>
-                      <td title={item.finance_1_name || '-'}>{truncateTableText(item.finance_1_name)}</td>
-                      <td>{statusBadge(item.finance_1_status)}</td>
-                      <td className="action-cell">
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
-                          onClick={() =>
-                            navigate(`/business/migrations/${item.order_id}`, {
-                              state: {
-                                row: item,
-                                context: {
-                                  finance1,
-                                },
-                              },
-                            })
-                          }
-                        >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                          </svg>
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>
-            Filter Finance 1 aktif: {activeFinance1Name}
-          </div>
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalData={totalData}
-            limit={limit}
-            onPageChange={setPage}
-            onLimitChange={(next) => {
-              setLimit(next)
-              setPage(1)
-            }}
-            disabled={loading}
-          />
-        </div>
-      </div>
-    </div>
+    <FinanceReportSummary
+      activeDealerName={activeDealerName}
+      activeDealerPoint={activeDealerPoint}
+      activeFinance1Name={activeFinance1Name}
+      applyFilters={applyFilters}
+      dealerInput={dealerInput}
+      dealerMapCenter={dealerMapCenter}
+      dealerMapZoom={dealerMapZoom}
+      dealerMetricMaxTotal={dealerMetricMaxTotal}
+      dealerMetricRows={dealerMetricRows}
+      dealerMetrics={dealerMetrics}
+      dealerMetricsError={dealerMetricsError}
+      dealerMetricsLoading={dealerMetricsLoading}
+      dealerOptions={dealerOptions}
+      dealerPoints={dealerPoints}
+      dealerRows={dealerRows}
+      error={error}
+      finance1Input={finance1Input}
+      finance1Options={finance1Options}
+      loading={loading}
+      limit={limit}
+      masterError={masterError}
+      masterLoading={masterLoading}
+      migrationSummary={migrationSummary}
+      monthInput={monthInput}
+      navigate={navigate}
+      page={page}
+      resetFilters={resetFilters}
+      rows={rows}
+      selectedDealerId={selectedDealerId}
+      setDealer={setDealer}
+      setDealerInput={setDealerInput}
+      setFinance1={setFinance1}
+      setFinance1Input={setFinance1Input}
+      setLimit={setLimit}
+      setMonth={setMonth}
+      setMonthInput={setMonthInput}
+      setPage={setPage}
+      setSelectedDealerId={setSelectedDealerId}
+      setYear={setYear}
+      setYearInput={setYearInput}
+      statusBadge={statusBadge}
+      summarizeLocation={summarizeLocation}
+      toSafeNumber={toSafeNumber}
+      totalData={totalData}
+      totalPages={totalPages}
+      truncateTableText={truncateTableText}
+      yearInput={yearInput}
+      yearOptions={yearOptions}
+      formatCoordinate={formatCoordinate}
+      formatLeadTimeHours={formatLeadTimeHours}
+    />
   )
-}
-
-function MapFly({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (center?.length === 2) {
-      map.flyTo(center, zoom, { duration: 0.5 })
-    }
-  }, [center, map, zoom])
-
-  return null
 }

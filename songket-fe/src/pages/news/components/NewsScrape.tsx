@@ -1,0 +1,154 @@
+import dayjs from 'dayjs'
+import ActionMenu from '../../../components/common/ActionMenu'
+import Pagination from '../../../components/common/Pagination'
+import type { ScrapedNews } from './newsHelpers'
+import { shortText } from './newsHelpers'
+
+type NewsScrapeProps = {
+  added: Record<string, boolean>
+  adding: Record<string, boolean>
+  canScrape: boolean
+  navigate: (path: string, options?: any) => void
+  onAddToNews: (row: ScrapedNews) => Promise<void>
+  onStartScrape: () => void
+  pagedScrapedRows: ScrapedNews[]
+  scrapedLimit: number
+  scrapedPage: number
+  scrapedRows: ScrapedNews[]
+  scrapedTotalPages: number
+  scraping: boolean
+  setScrapedLimit: React.Dispatch<React.SetStateAction<number>>
+  setScrapedPage: React.Dispatch<React.SetStateAction<number>>
+  setUrls: React.Dispatch<React.SetStateAction<string[]>>
+  sourceOptions: { url: string; name: string }[]
+  urls: string[]
+}
+
+export default function NewsScrape({
+  added,
+  adding,
+  canScrape,
+  navigate,
+  onAddToNews,
+  onStartScrape,
+  pagedScrapedRows,
+  scrapedLimit,
+  scrapedPage,
+  scrapedRows,
+  scrapedTotalPages,
+  scraping,
+  setScrapedLimit,
+  setScrapedPage,
+  setUrls,
+  sourceOptions,
+  urls,
+}: NewsScrapeProps) {
+  return (
+    <div>
+      <div className="header">
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape Portal Berita</div>
+          <div style={{ color: '#64748b' }}>Halaman input URL scraping terpisah</div>
+        </div>
+        <button className="btn-ghost" onClick={() => navigate('/news')}>Kembali ke Tabel</button>
+      </div>
+
+      <div className="page">
+        {!canScrape && <div className="alert">Tidak ada izin scrape berita.</div>}
+
+        {canScrape && (
+          <div className="card">
+            <div className="muted">Masukkan 1 atau lebih URL portal berita, tambahkan baris jika perlu.</div>
+            {sourceOptions.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
+                Source terdaftar: {sourceOptions.map((item) => `${item.name || 'source'} (${item.url})`).join(', ')}
+              </div>
+            )}
+            <div className="grid" style={{ gap: 10, marginTop: 10 }}>
+              {urls.map((url, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={url}
+                    placeholder="https://"
+                    onChange={(e) => {
+                      const next = [...urls]
+                      next[idx] = e.target.value
+                      setUrls(next)
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  {urls.length > 1 && (
+                    <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>Hapus</button>
+                  )}
+                </div>
+              ))}
+              <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Tambah baris</button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button className="btn" onClick={onStartScrape} disabled={scraping}>
+                {scraping ? 'Memproses...' : 'Proses Scrape'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {canScrape && scrapedRows.length > 0 && (
+          <div className="card">
+            <h3>Hasil Scrape (Preview)</h3>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Judul</th>
+                  <th>Isi</th>
+                  <th>Created At</th>
+                  <th>Sumber</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedScrapedRows.map((row) => (
+                  <tr key={row.url}>
+                    <td style={{ maxWidth: 320 }}>{row.judul}</td>
+                    <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(row.isi, 180)}</td>
+                    <td>{row.created_at ? dayjs(row.created_at).format('DD MMM YYYY HH:mm') : '-'}</td>
+                    <td>{row.sumber || '-'}</td>
+                    <td className="action-cell">
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } }),
+                          },
+                          {
+                            key: 'add',
+                            label: added[row.url] ? 'Added' : adding[row.url] ? 'Adding...' : 'Add to News',
+                            onClick: () => void onAddToNews(row),
+                            disabled: !!adding[row.url] || !!added[row.url],
+                          },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <Pagination
+              page={scrapedPage}
+              totalPages={scrapedTotalPages}
+              totalData={scrapedRows.length}
+              limit={scrapedLimit}
+              onPageChange={setScrapedPage}
+              onLimitChange={(next) => {
+                setScrapedLimit(next)
+                setScrapedPage(1)
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

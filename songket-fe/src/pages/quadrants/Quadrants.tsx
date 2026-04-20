@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchQuadrantSummary } from '../../services/quadrantService'
 import { fetchKabupaten, fetchProvinces } from '../../services/locationService'
-import Pagination from '../../components/common/Pagination'
+import QuadrantContent from './components/QuadrantContent'
+import { buildAnalysisText, buildAxisTicks, clampPercent, formatAxisPercent, getOrderInGrowth, normalizeToken, pctChange, quadrantColor } from './components/quadrantHelpers'
 
 type QuadrantItem = {
   job_id?: string
@@ -35,93 +36,6 @@ type QuadrantJobPoint = {
 }
 
 type OptionItem = { value: string; label: string }
-
-function normalizeToken(value?: string) {
-  return String(value || '').trim().toLowerCase()
-}
-
-function clampPercent(value: number) {
-  const number = Number(value || 0)
-  if (number < 0) return 0
-  if (number > 100) return 100
-  return number
-}
-
-function getOrderInGrowth(item: { order_in_growth_percent?: number; order_in_percent?: number }) {
-  const raw = Number(item.order_in_growth_percent ?? item.order_in_percent ?? 0)
-  return Number.isFinite(raw) ? raw : 0
-}
-
-function buildAxisTicks(min: number, max: number, targetTickCount = 6) {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0]
-  if (max <= min) return [min]
-
-  const rawStep = (max - min) / Math.max(1, targetTickCount - 1)
-  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 1e-6))))
-  const normalized = rawStep / magnitude
-
-  let step = magnitude
-  if (normalized > 5) step = 10 * magnitude
-  else if (normalized > 2) step = 5 * magnitude
-  else if (normalized > 1) step = 2 * magnitude
-
-  const start = Math.floor(min / step) * step
-  const end = Math.ceil(max / step) * step
-
-  const ticks: number[] = []
-  for (let value = start; value <= end + step * 0.5; value += step) {
-    ticks.push(Number(value.toFixed(6)))
-  }
-  return ticks
-}
-
-function formatAxisPercent(value: number) {
-  const abs = Math.abs(value)
-  if (Number.isInteger(value) || abs >= 100) return `${value.toFixed(0)}%`
-  if (abs >= 10) return `${value.toFixed(1)}%`
-  return `${value.toFixed(2)}%`
-}
-
-function quadrantColor(value: number) {
-  switch (value) {
-    case 1:
-      return '#16a34a'
-    case 2:
-      return '#f59e0b'
-    case 3:
-      return '#f97316'
-    default:
-      return '#ef4444'
-  }
-}
-
-function buildAnalysisText(item: {
-  order_in_growth_percent?: number
-  order_in_percent?: number
-  total_orders?: number
-  order_in_current_total?: number
-  order_in_previous_total?: number
-  reference_month?: string
-  reference_prev_month?: string
-  credit_capability?: number
-}) {
-  const growth = getOrderInGrowth(item)
-  const growthText = `${growth >= 0 ? '+' : ''}${growth.toFixed(2)}%`
-  const currentTotal = Number(item.order_in_current_total ?? item.total_orders ?? 0)
-  const previousTotal = Number(item.order_in_previous_total ?? 0)
-  const referenceMonth = String(item.reference_month || '-')
-  const referencePrevMonth = String(item.reference_prev_month || '-')
-
-  return `Order In ${currentTotal.toLocaleString('id-ID')} unit (${referenceMonth}) vs ${previousTotal.toLocaleString('id-ID')} unit (${referencePrevMonth}), growth ${growthText}, credit capability ${Number(item.credit_capability || 0).toFixed(2)}%.`
-}
-
-function pctChange(current: number, previous: number) {
-  if (previous === 0) {
-    if (current === 0) return 0
-    return 100
-  }
-  return ((current - previous) / previous) * 100
-}
 
 export default function QuadrantsPage() {
   const currentYear = new Date().getFullYear()
@@ -565,349 +479,34 @@ export default function QuadrantsPage() {
         </div>
       </div>
 
-      <div className="page">
-        <div className="card">
-          <h3>Quadrant Flow</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            Job-based points (aggregated by selected area filter). Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: 10,
-              marginTop: 12,
-            }}
-          >
-            <div>
-              <label>Province</label>
-              <select
-                value={filter.province}
-                onChange={(e) => setFilter((prev) => ({ ...prev, province: e.target.value, regency: '' }))}
-              >
-                <option value="">All</option>
-                {provinceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Regency/City</label>
-              <select
-                value={filter.regency}
-                onChange={(e) => setFilter((prev) => ({ ...prev, regency: e.target.value }))}
-                disabled={!regencyOptions.length}
-              >
-                <option value="">All</option>
-                {regencyOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Search Job/Area</label>
-              <input
-                value={filter.search}
-                onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))}
-                placeholder="Search job / province / regency"
-              />
-            </div>
-
-            <div>
-              <label>Year</label>
-              <select
-                value={selectedYear}
-                onChange={(e) => {
-                  const nextYear = e.target.value
-                  setSelectedYear(nextYear)
-                  if (!nextYear) {
-                    setSelectedMonth('')
-                  }
-                }}
-              >
-                <option value="">Latest</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Month</label>
-              <select
-                value={selectedMonth}
-                onChange={(e) => {
-                  const nextMonth = e.target.value
-                  setSelectedMonth(nextMonth)
-                  if (nextMonth && !selectedYear) {
-                    setSelectedYear(String(currentYear))
-                  }
-                }}
-              >
-                <option value="">Latest</option>
-                {Array.from({ length: 12 }, (_, idx) => (
-                  <option key={`m-${idx + 1}`} value={String(idx + 1)}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {loadError && (
-            <div style={{ marginTop: 8, color: '#b91c1c', fontSize: 12 }}>
-              {loadError}
-            </div>
-          )}
-
-          <div style={{ marginTop: 14 }}>
-            {isLoading && (
-              <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                Loading quadrant points...
-              </div>
-            )}
-            {!isLoading && filtered.length === 0 && (
-              <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                No quadrant points for selected period/filter.
-              </div>
-            )}
-            <svg
-              viewBox={`0 0 ${chart.width} ${chart.height}`}
-              width="100%"
-              style={{
-                display: 'block',
-                background: '#fff',
-                border: '1px solid #e2e8f0',
-                borderRadius: 14,
-              }}
-            >
-              <rect
-                x={chart.left}
-                y={chart.top}
-                width={chart.right - chart.left}
-                height={chart.bottom - chart.top}
-                fill="#f8fafc"
-                stroke="#111827"
-                strokeWidth={1.8}
-                strokeDasharray="2 8"
-                rx={10}
-              />
-
-              <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
-              <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
-
-              {chart.borderTicks.map((value) => (
-                <text
-                  key={`bottom-${value}`}
-                  x={chart.toX(value)}
-                  y={chart.bottom + (isMobile ? 12 : 16)}
-                  textAnchor="middle"
-                  fontSize={isMobile ? 7.5 : 10}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {value}%
-                </text>
-              ))}
-
-              {chart.yTicks.map((value) => (
-                <text
-                  key={`left-${value}`}
-                  x={chart.left - (isMobile ? 4 : 8)}
-                  y={chart.toY(value) + 3}
-                  textAnchor="end"
-                  fontSize={isMobile ? 7.5 : 10}
-                  fontWeight={700}
-                  fill="#111827"
-                >
-                  {formatAxisPercent(value)}
-                </text>
-              ))}
-
-              <text
-                x={chart.xSplit}
-                y={chart.bottom + (isMobile ? 24 : 28)}
-                textAnchor="middle"
-                fontSize={isMobile ? 8 : 11}
-                fontWeight={700}
-                fill="#111827"
-              >
-                {chart.splitXPercent}%
-              </text>
-
-              <text
-                x={chart.left - (isMobile ? 16 : 20)}
-                y={chart.ySplit + 4}
-                textAnchor="end"
-                fontSize={isMobile ? 8 : 11}
-                fontWeight={700}
-                fill="#111827"
-              >
-                {chart.splitYGrowthPercent}%
-              </text>
-
-              <text
-                x={chart.xSplit}
-                y={chart.top - (isMobile ? 6 : 10)}
-                textAnchor="middle"
-                fontSize={isMobile ? 12 : 16}
-                fontWeight={700}
-                fill="#111827"
-              >
-                Order In Growth
-              </text>
-              <text
-                x={chart.right - 6}
-                y={chart.ySplit - (isMobile ? 10 : 12)}
-                textAnchor="end"
-                fontSize={isMobile ? 12 : 16}
-                fontWeight={700}
-                fill="#111827"
-              >
-                Credit Capability
-              </text>
-
-              <text
-                x={(chart.left + chart.xSplit) / 2}
-                y={(chart.top + chart.ySplit) / 2}
-                textAnchor="middle"
-                fontSize={isMobile ? 11 : 20}
-                fontWeight={700}
-                fill="#16a34a"
-              >
-                Quadrant 1
-              </text>
-              <text
-                x={(chart.xSplit + chart.right) / 2}
-                y={(chart.top + chart.ySplit) / 2}
-                textAnchor="middle"
-                fontSize={isMobile ? 11 : 20}
-                fontWeight={700}
-                fill="#f97316"
-              >
-                Quadrant 3
-              </text>
-              <text
-                x={(chart.left + chart.xSplit) / 2}
-                y={(chart.ySplit + chart.bottom) / 2}
-                textAnchor="middle"
-                fontSize={isMobile ? 11 : 20}
-                fontWeight={700}
-                fill="#f59e0b"
-              >
-                Quadrant 2
-              </text>
-              <text
-                x={(chart.xSplit + chart.right) / 2}
-                y={(chart.ySplit + chart.bottom) / 2}
-                textAnchor="middle"
-                fontSize={isMobile ? 11 : 20}
-                fontWeight={700}
-                fill="#ef4444"
-              >
-                Quadrant 4
-              </text>
-
-              {chart.points.map((point) => (
-                <g key={point.id}>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={point.id === activePointId ? (isMobile ? 7 : 8) : isMobile ? 5 : 6}
-                    fill={quadrantColor(point.quadrant)}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                    style={{ cursor: 'default' }}
-                    onMouseEnter={() => setActivePointId(point.id)}
-                    onMouseLeave={() => setActivePointId('')}
-                  />
-                </g>
-              ))}
-
-              {activePoint && tooltip && (
-                <g pointerEvents="none">
-                  <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={6} fill="#0f172a" opacity={0.94} />
-                  <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={isMobile ? 11 : 12} fill="#fff" fontWeight={700}>
-                    {`${activePoint.jobName}`}
-                  </text>
-                  <text x={tooltip.x + 10} y={tooltip.y + 40} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
-                    {`Total Order In: ${Number(activePoint.totalOrders || 0).toLocaleString('id-ID')}`}
-                  </text>
-                  <text x={tooltip.x + 10} y={tooltip.y + 56} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
-                    {`Order In Growth: ${activePoint.orderInGrowthPercent >= 0 ? '+' : ''}${activePoint.orderInGrowthPercent.toFixed(2)}%`}
-                  </text>
-                  <text x={tooltip.x + 10} y={tooltip.y + 72} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
-                    {`Coverage Area: ${Number(activePoint.areaCount || 0)}`}
-                  </text>
-                </g>
-              )}
-            </svg>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>Job Points</h3>
-          <table className="table" style={{ marginTop: 10 }}>
-            <thead>
-              <tr>
-                <th>Job</th>
-                <th>Coverage Area</th>
-                <th>Total Order In</th>
-                <th>Order In Growth %</th>
-                <th>Credit Capability %</th>
-                <th>Quadrant</th>
-                <th>Analysis</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paged.map((row, idx) => (
-                <tr key={`${row.job_id || row.job_name}-${idx}`}>
-                  <td>{row.job_name || '-'}</td>
-                  <td>{Number(row.area_count || 0)}</td>
-                  <td>{Number(row.order_in_current_total ?? row.total_orders ?? 0).toLocaleString('id-ID')}</td>
-                  <td>{`${getOrderInGrowth(row) >= 0 ? '+' : ''}${getOrderInGrowth(row).toFixed(2)}%`}</td>
-                  <td>{row.credit_capability.toFixed(2)}%</td>
-                  <td>
-                    <span className="badge" style={{ background: quadrantColor(row.quadrant), color: '#fff' }}>
-                      Q{row.quadrant}
-                    </span>
-                  </td>
-                  <td style={{ maxWidth: 420, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                    {buildAnalysisText(row)}
-                  </td>
-                </tr>
-              ))}
-              {paged.length === 0 && (
-                <tr>
-                  <td colSpan={7}>No data found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalData={filtered.length}
-            limit={limit}
-            onPageChange={setPage}
-            onLimitChange={(next) => {
-              setLimit(next)
-              setPage(1)
-            }}
-            limitOptions={[10, 20, 50]}
-          />
-        </div>
-      </div>
+      <QuadrantContent
+        activePoint={activePoint}
+        activePointId={activePointId}
+        chart={chart}
+        currentYear={currentYear}
+        filter={filter}
+        filtered={filtered}
+        isLoading={isLoading}
+        isMobile={isMobile}
+        limit={limit}
+        loadError={loadError}
+        page={page}
+        paged={paged}
+        provinceOptions={provinceOptions}
+        referencePeriod={referencePeriod}
+        regencyOptions={regencyOptions}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        setActivePointId={setActivePointId}
+        setFilter={setFilter}
+        setLimit={setLimit}
+        setPage={setPage}
+        setSelectedMonth={setSelectedMonth}
+        setSelectedYear={setSelectedYear}
+        tooltip={tooltip}
+        totalPages={totalPages}
+        yearOptions={yearOptions}
+      />
     </div>
   )
 }
