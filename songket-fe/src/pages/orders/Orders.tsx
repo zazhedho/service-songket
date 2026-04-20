@@ -16,8 +16,8 @@ import {
   fetchProvinces,
 } from '../../services/locationService'
 import { fetchLookups } from '../../services/lookupService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import OrderDetail from './components/OrderDetail'
 import OrderForm from './components/OrderForm'
 import OrderList from './components/OrderList'
@@ -57,6 +57,7 @@ function parseMode(pathname: string) {
 }
 
 export default function OrdersPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -68,16 +69,15 @@ export default function OrdersPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const permissions = useAuth((s) => s.permissions)
-  const role = useAuth((s) => s.role)
+  const { hasPermission, role } = usePermissions()
   const confirm = useConfirm()
 
-  const canCreate = permissions.includes('create_orders')
-  const canUpdate = permissions.includes('update_orders')
-  const canView = permissions.includes('view_orders')
-  const canList = permissions.includes('list_orders')
-  const canDelete = permissions.includes('delete_orders')
-  const showTable = canList && canView
+  const canCreate = hasPermission('orders', 'create')
+  const canUpdate = hasPermission('orders', 'update')
+  const canList = hasPermission('orders', 'list')
+  const canDelete = hasPermission('orders', 'delete')
+  const canView = canList
+  const showTable = canList
 
   const [list, setList] = useState<any[]>([])
   const [form, setForm] = useState(defaultForm)
@@ -372,11 +372,11 @@ export default function OrdersPage() {
     const fromDate = String(filters.export_from || '').trim()
     const toDate = String(filters.export_to || '').trim()
     if (!fromDate || !toDate) {
-      window.alert('Please select export date range first.')
+      await showAlert('Please select export date range first.')
       return
     }
     if (dayjs(fromDate).isAfter(dayjs(toDate), 'day')) {
-      window.alert('Export from date cannot be after to date.')
+      await showAlert('Export from date cannot be after to date.')
       return
     }
 
@@ -580,11 +580,11 @@ export default function OrdersPage() {
     payload.result_notes3 = ''
 
     if (payload.finance_company2_id && !payload.result_status2) {
-      window.alert('Pilih hasil untuk Finance Company 2.')
+      await showAlert('Pilih hasil untuk Finance Company 2.')
       return
     }
     if (!payload.finance_company2_id && payload.result_status2) {
-      window.alert('Pilih Finance Company 2 sebelum mengisi hasil Finance 2.')
+      await showAlert('Pilih Finance Company 2 sebelum mengisi hasil Finance 2.')
       return
     }
     setLoading(true)
@@ -608,7 +608,7 @@ export default function OrdersPage() {
     } catch (err: any) {
       const message = err?.response?.data?.error || err?.message || 'Gagal menyimpan order'
       setError(message)
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }
@@ -638,7 +638,7 @@ export default function OrdersPage() {
       })
     } catch (err: any) {
       const message = err?.response?.data?.error || err?.message || 'Gagal menghapus order'
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }

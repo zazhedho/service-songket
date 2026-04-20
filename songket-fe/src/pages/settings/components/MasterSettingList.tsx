@@ -1,3 +1,4 @@
+import Can from '../../../components/common/Can'
 import Pagination from '../../../components/common/Pagination'
 
 type MasterSettingListProps = {
@@ -80,11 +81,17 @@ export default function MasterSettingList({
                 <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {row.exists ? (
                     <>
-                      <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=edit&option=${row.key}`)}>Edit</button>
-                      <button className="btn-ghost" onClick={() => void remove(row.key)}>Delete</button>
+                      <Can resource="master_settings" action="update">
+                        <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=edit&option=${row.key}`)}>Edit</button>
+                      </Can>
+                      <Can resource="master_settings" action="delete">
+                        <button className="btn-ghost" onClick={() => void remove(row.key)}>Delete</button>
+                      </Can>
                     </>
                   ) : (
-                    <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=create&option=${row.key}`)}>Create</button>
+                    <Can resource="master_settings" action="create">
+                      <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=create&option=${row.key}`)}>Create</button>
+                    </Can>
                   )}
                 </td>
               </tr>

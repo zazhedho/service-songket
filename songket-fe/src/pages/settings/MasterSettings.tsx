@@ -13,7 +13,7 @@ import {
   updatePriceScrapeCronSetting,
 } from '../../services/masterSettingService'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { usePermissions } from '../../hooks/usePermissions'
 import MasterSettingForm from './components/MasterSettingForm'
 import MasterSettingHistory from './components/MasterSettingHistory'
 import MasterSettingList from './components/MasterSettingList'
@@ -135,13 +135,17 @@ function defaultPriceSetting(): CronDaySetting {
 }
 
 export default function MasterSettingsPage() {
-  const role = useAuth((s) => s.role)
+  const { hasPermission } = usePermissions()
   const confirm = useConfirm()
   const navigate = useNavigate()
   const location = useLocation()
 
   const mode = parseMode(location.pathname)
   const isFormMode = mode === 'form'
+  const canView = hasPermission('master_settings', 'view')
+  const canCreate = hasPermission('master_settings', 'create')
+  const canUpdate = hasPermission('master_settings', 'update')
+  const canDelete = hasPermission('master_settings', 'delete')
 
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
   const queryOption = query.get('option')
@@ -342,6 +346,10 @@ export default function MasterSettingsPage() {
   }, [historyPage, historiesTotalPages])
 
   const save = async () => {
+    if ((formAction === 'create' && !canCreate) || (formAction === 'edit' && !canUpdate)) {
+      return
+    }
+
     setSaving(true)
     setError('')
     setSuccess('')
@@ -411,6 +419,8 @@ export default function MasterSettingsPage() {
   }
 
   const remove = async (option: SettingOption) => {
+    if (!canDelete) return
+
     const ok = await confirm({
       title: 'Delete Setting',
       description: 'Are you sure you want to delete this master setting?',
@@ -436,11 +446,11 @@ export default function MasterSettingsPage() {
     }
   }
 
-  if (role !== 'superadmin') {
+  if (!canView) {
     return (
       <div className="page">
         <div className="card">
-          <div className="alert">This page is only available for superadmin.</div>
+          <div className="alert">You do not have permission to access master settings.</div>
         </div>
       </div>
     )
@@ -456,7 +466,9 @@ export default function MasterSettingsPage() {
         {isFormMode ? (
           <button className="btn-ghost" onClick={() => navigate('/master-settings')}>Back</button>
         ) : (
+          (canCreate || canUpdate) && (
           <button className="btn" onClick={() => navigate('/master-settings/form?action=create')}>Setting</button>
+          )
         )}
       </div>
 
@@ -480,8 +492,8 @@ export default function MasterSettingsPage() {
         )}
 
         {isFormMode ? (
-          <MasterSettingForm
-            currentExists={currentExists}
+      <MasterSettingForm
+        currentExists={currentExists}
             currentInterval={currentInterval}
             currentStatus={currentStatus}
             currentUpdatedAt={formatDate(currentUpdatedAt)}
@@ -501,9 +513,9 @@ export default function MasterSettingsPage() {
         ) : (
           <>
             {activeTab === 'settings' && (
-              <MasterSettingList
-                activeTab={activeTab}
-                loading={loading}
+      <MasterSettingList
+        activeTab={activeTab}
+        loading={loading}
                 navigate={navigate}
                 onRefresh={load}
                 paginatedSettings={paginatedSettings}

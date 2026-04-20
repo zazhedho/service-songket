@@ -13,7 +13,7 @@ import {
   fetchProvinces,
 } from '../../services/locationService'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
 import NetIncomeDetail from './components/NetIncomeDetail'
 import NetIncomeForm from './components/NetIncomeForm'
@@ -145,11 +145,11 @@ export default function NetIncomePage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_net_income')
-  const canCreate = perms.includes('create_net_income')
-  const canUpdate = perms.includes('update_net_income')
-  const canDelete = perms.includes('delete_net_income')
+  const { hasPermission } = usePermissions()
+  const canList = hasPermission('net_income', 'list')
+  const canCreate = hasPermission('net_income', 'create')
+  const canUpdate = hasPermission('net_income', 'update')
+  const canDelete = hasPermission('net_income', 'delete')
   const confirm = useConfirm()
 
   const [items, setItems] = useState<NetIncomeItem[]>([])

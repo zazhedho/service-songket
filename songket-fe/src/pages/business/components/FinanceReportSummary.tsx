@@ -1,7 +1,7 @@
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { Suspense, lazy } from 'react'
 import Pagination from '../../../components/common/Pagination'
-import { markerIcon } from './financeHelpers'
-import { ReportMapFly } from './financeReportHelpers'
+
+const FinanceReportDealerMap = lazy(() => import('./FinanceReportMap'))
 
 type FinanceReportSummaryProps = {
   activeDealerName: string
@@ -140,43 +140,17 @@ export default function FinanceReportSummary({
               </div>
             </div>
             <div className="business-map-shell">
-              <MapContainer center={dealerMapCenter} zoom={dealerMapZoom} scrollWheelZoom={false}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                <FinanceReportDealerMap
+                  dealerMapCenter={dealerMapCenter}
+                  dealerMapZoom={dealerMapZoom}
+                  dealerPoints={dealerPoints}
+                  setDealerInput={setDealerInput}
+                  setSelectedDealerId={setSelectedDealerId}
+                  summarizeLocation={summarizeLocation}
+                  truncateTableText={truncateTableText}
                 />
-                <ReportMapFly center={dealerMapCenter} zoom={dealerMapZoom} />
-                {dealerPoints.map((dealerItem) => (
-                  <Marker
-                    key={`business-map-${dealerItem.id}`}
-                    position={[dealerItem._lat, dealerItem._lng]}
-                    icon={markerIcon}
-                    eventHandlers={{
-                      click: () => {
-                        setSelectedDealerId(dealerItem.id)
-                        setDealerInput(dealerItem.id)
-                      },
-                    }}
-                  >
-                    <Popup>
-                      <div style={{ fontWeight: 700 }}>{dealerItem.name || '-'}</div>
-                      <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                        {summarizeLocation([dealerItem.regency, dealerItem.district, dealerItem.village])}
-                      </div>
-                      {dealerItem.phone && (
-                        <div className="muted" style={{ marginTop: 2, fontSize: 12 }}>
-                          {dealerItem.phone}
-                        </div>
-                      )}
-                      {dealerItem.address && (
-                        <div className="muted" style={{ marginTop: 2, fontSize: 12 }}>
-                          {truncateTableText(dealerItem.address, 72)}
-                        </div>
-                      )}
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
+              </Suspense>
             </div>
             {dealerPoints.length === 0 && (
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>

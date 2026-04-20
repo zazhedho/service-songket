@@ -1,7 +1,7 @@
 import { DetailTable, Metric, formatDateTime } from './financeHelpers'
 
 type CompanyDetailProps = {
-  canManage: boolean
+  canUpdate: boolean
   companySummary: any
   companySummaryLoading: boolean
   dealers: any[]
@@ -15,7 +15,7 @@ type CompanyDetailProps = {
 }
 
 export default function CompanyDetail({
-  canManage,
+  canUpdate,
   companySummary,
   companySummaryLoading,
   dealers,
@@ -35,7 +35,7 @@ export default function CompanyDetail({
           <div style={{ color: '#64748b' }}>Company profile and performance summary</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {canManage && selectedId && (
+          {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/${selectedId}/edit`, { state: { company: selectedCompany } })}>
               Edit Finance Company
             </button>

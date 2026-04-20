@@ -16,8 +16,8 @@ import {
   fetchKabupaten,
   fetchProvinces,
 } from '../../services/locationService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
 import InstallmentDetail from './components/InstallmentDetail'
 import InstallmentForm from './components/InstallmentForm'
@@ -103,6 +103,7 @@ function errorMessage(err: any, fallback: string) {
 }
 
 export default function InstallmentsPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -114,12 +115,18 @@ export default function InstallmentsPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_installments') || perms.includes('list_motor_types')
-  const canView = perms.includes('view_installments') || perms.includes('view_motor_types')
-  const canCreate = perms.includes('create_installments') && perms.includes('create_motor_types')
-  const canUpdate = perms.includes('update_installments') && perms.includes('update_motor_types')
-  const canDelete = perms.includes('delete_installments')
+  const { hasAnyPermission, hasPermission } = usePermissions()
+  const canList = hasAnyPermission([
+    { resource: 'installments', action: 'list' },
+    { resource: 'motor_types', action: 'list' },
+  ])
+  const canView = hasAnyPermission([
+    { resource: 'installments', action: 'view' },
+    { resource: 'motor_types', action: 'view' },
+  ])
+  const canCreate = hasPermission('installments', 'create') && hasPermission('motor_types', 'create')
+  const canUpdate = hasPermission('installments', 'update') && hasPermission('motor_types', 'update')
+  const canDelete = hasPermission('installments', 'delete')
   const confirm = useConfirm()
 
   const [items, setItems] = useState<InstallmentItem[]>([])
@@ -342,7 +349,7 @@ export default function InstallmentsPage() {
     } catch (err: any) {
       const message = errorMessage(err, 'Failed to save motor type and installment')
       setError(message)
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }
@@ -363,7 +370,7 @@ export default function InstallmentsPage() {
       await deleteInstallment(id)
       await load()
     } catch (err: any) {
-      window.alert(errorMessage(err, 'Failed to delete installment data'))
+      await showAlert(errorMessage(err, 'Failed to delete installment data'))
     }
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchCreditWorksheet } from '../../services/creditService'
-import { useAuth } from '../../store'
+import { usePermissions } from '../../hooks/usePermissions'
 import CreditFilters from './components/CreditFilters'
 import CreditMatrix from './components/CreditMatrix'
 import CreditSummary from './components/CreditSummary'
@@ -110,8 +110,8 @@ export default function CreditPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_credit')
+  const { hasPermission } = usePermissions()
+  const canList = hasPermission('credit', 'list')
 
   useEffect(() => {
     if (!canList) return

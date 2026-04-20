@@ -1,8 +1,10 @@
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
-import { DetailTable, formatDateTime, markerIcon } from './financeHelpers'
+import { Suspense, lazy } from 'react'
+import { DetailTable, formatDateTime } from './financeHelpers'
+
+const DealerLocationMap = lazy(() => import('./FinanceMap').then((module) => ({ default: module.DealerLocationMap })))
 
 type DealerDetailProps = {
-  canManage: boolean
+  canUpdate: boolean
   dealerBasePath: string
   navigate: (path: string, options?: any) => void
   selectedDealer: any
@@ -13,7 +15,7 @@ type DealerDetailProps = {
 }
 
 export default function DealerDetail({
-  canManage,
+  canUpdate,
   dealerBasePath,
   navigate,
   selectedDealer,
@@ -30,7 +32,7 @@ export default function DealerDetail({
           <div style={{ color: '#64748b' }}>Dealer profile and location map</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {canManage && selectedId && (
+          {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
               Edit Dealer
             </button>
@@ -65,20 +67,13 @@ export default function DealerDetail({
             <div className="card" style={{ minHeight: 360 }}>
               <h3>Dealer Map</h3>
               <div style={{ marginTop: 10 }}>
-                <MapContainer
-                  center={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
-                  zoom={11}
-                  style={{ height: 300, borderRadius: 12 }}
-                  scrollWheelZoom={false}
-                >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                  <Marker
-                    position={[Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58), Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)]}
-                    icon={markerIcon}
-                  >
-                    <Popup>{selectedDealer.name}</Popup>
-                  </Marker>
-                </MapContainer>
+                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                  <DealerLocationMap
+                    lat={Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58)}
+                    lng={Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)}
+                    name={selectedDealer.name}
+                  />
+                </Suspense>
               </div>
             </div>
           </>

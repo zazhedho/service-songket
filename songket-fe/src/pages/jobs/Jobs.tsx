@@ -18,8 +18,8 @@ import {
   fetchKabupaten,
   fetchProvinces,
 } from '../../services/locationService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
 import JobDetail from './components/JobDetail'
 import JobForm from './components/JobForm'
@@ -160,6 +160,7 @@ function errorMessage(err: any, fallback: string) {
 }
 
 export default function JobsPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -171,11 +172,17 @@ export default function JobsPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_jobs') || perms.includes('list_net_income')
-  const canCreate = perms.includes('create_jobs') && perms.includes('create_net_income')
-  const canUpdate = perms.includes('update_jobs') && (perms.includes('update_net_income') || perms.includes('create_net_income'))
-  const canDelete = perms.includes('delete_jobs')
+  const { hasAnyPermission, hasPermission } = usePermissions()
+  const canList = hasAnyPermission([
+    { resource: 'jobs', action: 'list' },
+    { resource: 'net_income', action: 'list' },
+  ])
+  const canCreate = hasPermission('jobs', 'create') && hasPermission('net_income', 'create')
+  const canUpdate = hasPermission('jobs', 'update') && hasAnyPermission([
+    { resource: 'net_income', action: 'update' },
+    { resource: 'net_income', action: 'create' },
+  ])
+  const canDelete = hasPermission('jobs', 'delete')
   const confirm = useConfirm()
 
   const [items, setItems] = useState<CombinedItem[]>([])
@@ -438,7 +445,7 @@ export default function JobsPage() {
     } catch (err: any) {
       const message = errorMessage(err, 'Failed to save jobs and net income')
       setError(message)
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }
@@ -462,7 +469,7 @@ export default function JobsPage() {
       await deleteJob(item.job_id)
       await load()
     } catch (err: any) {
-      window.alert(errorMessage(err, 'Failed to delete job'))
+      await showAlert(errorMessage(err, 'Failed to delete job'))
     }
   }
 

@@ -1,7 +1,3 @@
-import { useEffect } from 'react'
-import { useMap } from 'react-leaflet'
-import L from 'leaflet'
-
 export type Option = { code: string; name: string }
 export type DealerLocationNames = { province: string; regency: string; district: string }
 export type CompanyLocationNames = { regency: string }
@@ -46,12 +42,6 @@ export type CompanySummary = {
   dealer_rows: CompanyDealerRow[]
 }
 
-export const markerIcon = new L.Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-})
-
 export const initialDealerForm: DealerForm = {
   name: '',
   province: '',
@@ -84,14 +74,6 @@ export function parseFinanceMode(pathname: string) {
   if (/^(\/finance|\/business\/finance)\/companies\/[^/]+\/edit$/.test(pathname)) return 'company_edit'
   if (/^(\/finance|\/business\/finance)\/companies\/[^/]+$/.test(pathname)) return 'company_detail'
   return 'list'
-}
-
-export function MapFly({ center }: { center: [number, number] }) {
-  const map = useMap()
-  useEffect(() => {
-    if (center?.length === 2) map.flyTo(center, map.getZoom(), { duration: 0.5 })
-  }, [center, map])
-  return null
 }
 
 export function Metric({ label, value }: { label: string; value: any }) {

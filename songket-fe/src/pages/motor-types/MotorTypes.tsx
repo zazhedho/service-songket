@@ -11,8 +11,8 @@ import {
   fetchKabupaten,
   fetchProvinces,
 } from '../../services/locationService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
 import MotorTypeDetail from './components/MotorTypeDetail'
 import MotorTypeForm from './components/MotorTypeForm'
@@ -79,6 +79,7 @@ function errorMessage(err: any, fallback: string) {
 }
 
 export default function MotorTypesPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -90,12 +91,12 @@ export default function MotorTypesPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_motor_types')
-  const canView = perms.includes('view_motor_types')
-  const canCreate = perms.includes('create_motor_types')
-  const canUpdate = perms.includes('update_motor_types')
-  const canDelete = perms.includes('delete_motor_types')
+  const { hasPermission } = usePermissions()
+  const canList = hasPermission('motor_types', 'list')
+  const canView = hasPermission('motor_types', 'view')
+  const canCreate = hasPermission('motor_types', 'create')
+  const canUpdate = hasPermission('motor_types', 'update')
+  const canDelete = hasPermission('motor_types', 'delete')
   const confirm = useConfirm()
 
   const [items, setItems] = useState<MotorTypeItem[]>([])
@@ -229,7 +230,7 @@ export default function MotorTypesPage() {
     } catch (err: any) {
       const message = errorMessage(err, 'Gagal menyimpan jenis motor')
       setError(message)
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }
@@ -250,7 +251,7 @@ export default function MotorTypesPage() {
       await deleteMotorType(id)
       await load()
     } catch (err: any) {
-      window.alert(errorMessage(err, 'Gagal menghapus jenis motor'))
+      await showAlert(errorMessage(err, 'Gagal menghapus jenis motor'))
     }
   }
 

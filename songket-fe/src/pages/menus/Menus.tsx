@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { listMenus, updateMenu } from '../../services/menuService'
 import { normalizeIconName } from '../../components/common/AppIcon'
+import { useAlert } from '../../components/common/ConfirmDialog'
 import { MENUS_UPDATED_EVENT } from '../../constants/events'
-import { useAuth } from '../../store'
+import { usePermissions } from '../../hooks/usePermissions'
 import MenuDetail from './components/MenuDetail'
 import MenuForm from './components/MenuForm'
 import MenuList from './components/MenuList'
@@ -40,6 +41,7 @@ function parseMode(pathname: string) {
 }
 
 export default function MenusPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -50,9 +52,9 @@ export default function MenusPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_menus')
-  const canUpdate = perms.includes('update_menu')
+  const { hasPermission } = usePermissions()
+  const canList = hasPermission('menus', 'list')
+  const canUpdate = hasPermission('menus', 'update')
 
   const [items, setItems] = useState<MenuItem[]>([])
   const [search, setSearch] = useState('')
@@ -161,7 +163,7 @@ export default function MenusPage() {
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Failed to save menu'
       setError(message)
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }

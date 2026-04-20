@@ -1,3 +1,5 @@
+import { usePermissions } from '../../../hooks/usePermissions'
+
 type MasterSettingFormProps = {
   currentExists: boolean
   currentInterval: number
@@ -35,6 +37,11 @@ export default function MasterSettingForm({
   selectedOption,
   setSelectedOption,
 }: MasterSettingFormProps) {
+  const { hasPermission } = usePermissions()
+  const canSave = formAction === 'create'
+    ? hasPermission('master_settings', 'create')
+    : hasPermission('master_settings', 'update')
+
   return (
     <div className="card" style={{ maxWidth: 860 }}>
       <h3 style={{ marginBottom: 10 }}>
@@ -92,7 +99,7 @@ export default function MasterSettingForm({
       </div>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button className="btn" onClick={() => void onSave()} disabled={loading || saving}>
+        <button className="btn" onClick={() => void onSave()} disabled={!canSave || loading || saving}>
           {saving ? 'Saving...' : formAction === 'create' ? 'Create Setting' : 'Save Setting'}
         </button>
         <button className="btn-ghost" onClick={() => navigate('/master-settings')}>

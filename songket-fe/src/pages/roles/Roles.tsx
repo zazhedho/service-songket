@@ -10,7 +10,7 @@ import {
 } from '../../services/roleService'
 import { listPermissions } from '../../services/permissionService'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { usePermissions } from '../../hooks/usePermissions'
 import RoleDetail from './components/RoleDetail'
 import RoleForm from './components/RoleForm'
 import RoleList from './components/RoleList'
@@ -42,12 +42,12 @@ export default function RolesPage() {
   const location = useLocation()
   const params = useParams()
 
-  const userPerms = useAuth((s) => s.permissions)
-  const canList = userPerms.includes('list_roles')
-  const canCreate = userPerms.includes('create_roles')
-  const canUpdate = userPerms.includes('update_roles')
-  const canDelete = userPerms.includes('delete_roles')
-  const canAssignPerms = userPerms.includes('assign_permissions')
+  const { hasPermission } = usePermissions()
+  const canList = hasPermission('roles', 'list')
+  const canCreate = hasPermission('roles', 'create')
+  const canUpdate = hasPermission('roles', 'update')
+  const canDelete = hasPermission('roles', 'delete')
+  const canAssignPerms = hasPermission('roles', 'assign_permissions')
   const confirm = useConfirm()
 
   const mode = parseMode(location.pathname)
@@ -110,7 +110,7 @@ export default function RolesPage() {
       .trim()
       .toLowerCase()
       .replace(/\s+/g, '_')
-    return ['superadmin', 'admin', 'staff', 'viewer', 'dealer', 'main_dealer'].includes(roleName)
+    return ['superadmin', 'admin', 'dealer', 'main_dealer'].includes(roleName)
   }, [roleDetail?.is_system, roleDetail?.name, selectedRole?.is_system, selectedRole?.name, form.name])
 
   const sortedPerms = useMemo(

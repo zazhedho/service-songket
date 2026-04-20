@@ -6,12 +6,11 @@ import {
   listUsers,
   updateUserById,
 } from '../../services/userService'
-import { getRoleById, listRoles } from '../../services/roleService'
-import { listMenus } from '../../services/menuService'
+import { listRoles } from '../../services/roleService'
 import { getUserPermissions, listPermissions, setUserPermissions } from '../../services/permissionService'
 import ActionMenu from '../../components/common/ActionMenu'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import UserDetail from './components/UserDetail'
 import UserForm from './components/UserForm'
 import UserList from './components/UserList'
@@ -33,14 +32,6 @@ type Perm = {
   action?: string
 }
 type RoleItem = { id: string; name?: string; display_name?: string }
-type MenuItem = { id: string; name?: string; path?: string }
-
-const MENU_RESOURCE_ALIASES: Record<string, string[]> = {
-  prices: ['commodities'],
-  jobs: ['net_income'],
-  installments: ['motor_types'],
-  role_menu_access: ['roles', 'menus'],
-}
 
 function parseMode(pathname: string) {
   if (pathname.endsWith('/create')) return 'create'
@@ -50,12 +41,12 @@ function parseMode(pathname: string) {
 }
 
 export default function UsersPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const params = useParams()
   const location = useLocation()
 
-  const perms = useAuth((s) => s.permissions)
-  const role = useAuth((s) => s.role)
+  const { hasPermission } = usePermissions()
 
   const mode = parseMode(location.pathname)
   const selectedId = params.id || ''
@@ -64,11 +55,12 @@ export default function UsersPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const canList = perms.includes('list_users')
-  const canCreate = perms.includes('create_users')
-  const canUpdate = perms.includes('update_users')
-  const canDelete = perms.includes('delete_users')
-  const canSetUserPerm = role === 'superadmin'
+  const canList = hasPermission('users', 'list')
+  const canCreate = hasPermission('users', 'create')
+  const canUpdate = hasPermission('users', 'assign_role')
+  const canDelete = hasPermission('users', 'delete')
+  const canViewUserPerm = hasPermission('users', 'view_permissions') || hasPermission('users', 'assign_permissions')
+  const canSetUserPerm = hasPermission('users', 'assign_permissions')
   const confirm = useConfirm()
 
   const [users, setUsers] = useState<any[]>([])
@@ -87,8 +79,6 @@ export default function UsersPage() {
   const [allPerms, setAllPerms] = useState<Perm[]>([])
   const [permDraft, setPermDraft] = useState<string[]>([])
   const [permLoading, setPermLoading] = useState(false)
-  const [roleResourceMap, setRoleResourceMap] = useState<Record<string, string[]>>({})
-  const [roleResourceLoading, setRoleResourceLoading] = useState(false)
   const [roleOptions, setRoleOptions] = useState<RoleItem[]>([])
   const [detailPermissions, setDetailPermissions] = useState<string[]>([])
   const [detailPermLoading, setDetailPermLoading] = useState(false)
@@ -115,90 +105,16 @@ export default function UsersPage() {
       .catch(() => setRoleOptions([]))
   }, [])
 
-  const menuToResources = (menu?: MenuItem) => {
-    const resources = new Set<string>()
-    const menuName = normalizeKey(menu?.name)
-    if (menuName) resources.add(menuName)
-
-    const pathKey = normalizeKey(menu?.path?.replace(/^\//, '').split('/')[0] || '')
-    if (pathKey) resources.add(pathKey)
-
-    ;(MENU_RESOURCE_ALIASES[menuName] || []).forEach((resource) => resources.add(normalizeKey(resource)))
-    ;(MENU_RESOURCE_ALIASES[pathKey] || []).forEach((resource) => resources.add(normalizeKey(resource)))
-    return Array.from(resources)
-  }
-
-  const loadRoleResourceMap = async () => {
-    if (!canSetUserPerm) {
-      setRoleResourceMap({})
-      return {}
-    }
-
-    setRoleResourceLoading(true)
-    try {
-      const [rolesRes, menusRes] = await Promise.all([listRoles({ page: 1, limit: 500 }), listMenus({ page: 1, limit: 500 })])
-      const rolesData: RoleItem[] = rolesRes.data.data || rolesRes.data || []
-      const menusData: MenuItem[] = menusRes.data.data || menusRes.data || []
-      const menuById = menusData.reduce<Record<string, MenuItem>>((acc, menu) => {
-        acc[menu.id] = menu
-        return acc
-      }, {})
-
-      const details = await Promise.all(
-        rolesData.map(async (roleItem) => {
-          try {
-            const detailRes = await getRoleById(roleItem.id)
-            const detail = detailRes.data?.data || detailRes.data || {}
-            return {
-              roleName: normalizeKey(roleItem.name),
-              menuIds: Array.isArray(detail?.menu_ids) ? detail.menu_ids : [],
-            }
-          } catch {
-            return {
-              roleName: normalizeKey(roleItem.name),
-              menuIds: [] as string[],
-            }
-          }
-        }),
-      )
-
-      const nextMap: Record<string, string[]> = {}
-      details.forEach(({ roleName, menuIds }) => {
-        const allowed = new Set<string>()
-        menuIds.forEach((menuId) => {
-          menuToResources(menuById[menuId]).forEach((resource) => allowed.add(resource))
-        })
-        nextMap[roleName] = Array.from(allowed)
-      })
-      setRoleResourceMap(nextMap)
-      return nextMap
-    } catch {
-      setRoleResourceMap({})
-      return {}
-    } finally {
-      setRoleResourceLoading(false)
-    }
-  }
-
   useEffect(() => {
     if (!canSetUserPerm) {
       setAllPerms([])
-      setRoleResourceMap({})
       return
     }
 
     listPermissions({ limit: 500, page: 1, order_by: 'resource', order_direction: 'asc' })
       .then((p: any) => setAllPerms(p.data.data || p.data || []))
       .catch(() => setAllPerms([]))
-
-    void loadRoleResourceMap()
   }, [canSetUserPerm])
-
-  useEffect(() => {
-    if (!canSetUserPerm) return
-    if (!isCreate && !isEdit) return
-    void loadRoleResourceMap()
-  }, [canSetUserPerm, isCreate, isEdit])
 
   useEffect(() => {
     setPage(1)
@@ -232,8 +148,7 @@ export default function UsersPage() {
     if (form.role && !backendRoles.includes(form.role)) {
       return [form.role, ...backendRoles]
     }
-    if (backendRoles.length > 0) return backendRoles
-    return ['superadmin', 'admin', 'main_dealer', 'dealer']
+    return backendRoles
   }, [form.role, roleOptions])
   const isPasswordConfirmationMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
 
@@ -248,7 +163,7 @@ export default function UsersPage() {
       ? selectedUser.permissions.map((item: any) => String(item)).filter(Boolean)
       : []
 
-    if (!canSetUserPerm) {
+    if (!canViewUserPerm) {
       setDetailPermissions(fallback)
       setDetailPermLoading(false)
       return
@@ -269,7 +184,7 @@ export default function UsersPage() {
         setDetailPermissions(fallback)
       })
       .finally(() => setDetailPermLoading(false))
-  }, [canSetUserPerm, isDetail, selectedUser?.id, selectedUser?.permissions])
+  }, [canViewUserPerm, isDetail, selectedUser?.id, selectedUser?.permissions])
 
   useEffect(() => {
     if (isCreate) {
@@ -326,41 +241,6 @@ export default function UsersPage() {
   }
 
   const groupedAll = useMemo(() => groupPerms(allPerms), [allPerms])
-
-  const filterResourcesByTargetRole = (
-    targetRole: string,
-    grouped: Record<string, Perm[]>,
-    customRoleResourceMap?: Record<string, string[]>,
-  ) => {
-    const sourceMap = customRoleResourceMap || roleResourceMap
-    const roleKey = normalizeKey(targetRole)
-    const hasMappedRole = Object.prototype.hasOwnProperty.call(sourceMap, roleKey)
-    if (!hasMappedRole) return grouped
-
-    const allowedResources = sourceMap[roleKey] || []
-    if (!allowedResources.length) return {}
-
-    const allowSet = new Set(allowedResources.map((resource) => normalizeKey(resource)))
-    return Object.fromEntries(
-      Object.entries(grouped).filter(([resource]) => allowSet.has(normalizeKey(resource))),
-    )
-  }
-
-  const allowedPermissionIdsForRole = (targetRole: string, customRoleResourceMap?: Record<string, string[]>) => {
-    const grouped = filterResourcesByTargetRole(targetRole, groupedAll, customRoleResourceMap)
-    const ids = Object.values(grouped).flat().map((permission) => permission.id)
-    return new Set(ids)
-  }
-
-  useEffect(() => {
-    if (!canSetUserPerm || !permDraft.length) return
-    const allowed = allowedPermissionIdsForRole(form.role)
-    setPermDraft((prev) => {
-      const next = prev.filter((id) => allowed.has(id))
-      return next.length === prev.length ? prev : next
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSetUserPerm, form.role, groupedAll, roleResourceMap])
 
   const renderPermTable = (
     selected: string[],
@@ -419,28 +299,28 @@ export default function UsersPage() {
     if (!trimmedPassword) {
       const message = 'Password is required.'
       setError(message)
-      window.alert(message)
+      await showAlert(message)
       return
     }
 
     const passwordRuleError = validatePasswordByBackendRule(trimmedPassword)
     if (passwordRuleError) {
       setError(passwordRuleError)
-      window.alert(passwordRuleError)
+      await showAlert(passwordRuleError)
       return
     }
 
     if (!confirmPassword) {
       const message = 'Password confirmation is required.'
       setError(message)
-      window.alert(message)
+      await showAlert(message)
       return
     }
 
     if (trimmedPassword !== confirmPassword) {
       const message = 'Password and password confirmation do not match.'
       setError(message)
-      window.alert(message)
+      await showAlert(message)
       return
     }
 
@@ -478,7 +358,7 @@ export default function UsersPage() {
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Failed to save user'
       setError(message)
-      window.alert(message)
+      await showAlert(message)
     } finally {
       setLoading(false)
     }
@@ -523,7 +403,7 @@ export default function UsersPage() {
         canUpdate={canUpdate}
         error={error}
         form={form}
-        groupedPermissions={filterResourcesByTargetRole(form.role, groupedAll)}
+        groupedPermissions={groupedAll}
         isCreate={isCreate}
         isEdit={isEdit}
         isPasswordConfirmationMismatch={isPasswordConfirmationMismatch}
@@ -532,7 +412,6 @@ export default function UsersPage() {
         permDraft={permDraft}
         permLoading={permLoading}
         renderPermTable={renderPermTable}
-        roleResourceLoading={roleResourceLoading}
         save={save}
         set={set}
         setEditingId={setEditingId}

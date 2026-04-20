@@ -10,8 +10,8 @@ import {
   fetchPriceList,
   scrapePrices,
 } from '../../services/commodityService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah } from '../../utils/currency'
 import ScrapeSourceDetail from './components/ScrapeSourceDetail'
 import ScrapeSourceForm from './components/ScrapeSourceForm'
@@ -28,6 +28,7 @@ function parseMode(pathname: string) {
 }
 
 export default function ScrapeSourcesPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -53,12 +54,12 @@ export default function ScrapeSourcesPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_scrape_sources')
-  const canCreate = perms.includes('create_scrape_source')
-  const canUpdate = perms.includes('update_scrape_source')
-  const canDelete = perms.includes('delete_scrape_source')
-  const canScrape = perms.includes('scrape_prices')
+  const { hasPermission } = usePermissions()
+  const canList = hasPermission('scrape_sources', 'list')
+  const canCreate = hasPermission('scrape_sources', 'create')
+  const canUpdate = hasPermission('scrape_sources', 'update')
+  const canDelete = hasPermission('scrape_sources', 'delete')
+  const canScrape = hasPermission('commodities', 'scrape')
   const confirm = useConfirm()
 
   const stateSource = (location.state as any)?.source || null
@@ -132,7 +133,7 @@ export default function ScrapeSourcesPage() {
     } catch (err: any) {
       const text = err?.response?.data?.error || 'Gagal menyimpan sumber'
       setMessage({ text, ok: false })
-      window.alert(text)
+      await showAlert(text)
     } finally {
       setLoading(false)
     }

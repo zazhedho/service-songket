@@ -1,5 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
-import { useMap } from 'react-leaflet'
+import { type ReactNode } from 'react'
 
 export function ReportDetailTable({
   rows,
@@ -32,18 +31,6 @@ export function ReportDetailTable({
       </tbody>
     </table>
   )
-}
-
-export function ReportMapFly({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (center?.length === 2) {
-      map.flyTo(center, zoom, { duration: 0.5 })
-    }
-  }, [center, map, zoom])
-
-  return null
 }
 
 export type SummaryBucket = {

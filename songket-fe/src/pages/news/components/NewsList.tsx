@@ -14,7 +14,7 @@ type NewsListProps = {
   navigate: (path: string, options?: any) => void
   page: number
   setCategory: React.Dispatch<React.SetStateAction<string>>
-  setConfirmDeleteId: React.Dispatch<React.SetStateAction<string | null>>
+  setConfirmDeleteId: (id: string) => void | Promise<void>
   setLimit: React.Dispatch<React.SetStateAction<number>>
   setPage: React.Dispatch<React.SetStateAction<number>>
   totalData: number

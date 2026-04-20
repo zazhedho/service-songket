@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { deleteNewsItem, importNews, listNewsItems, scrapeNews } from '../../services/newsService'
 import { listScrapeSources } from '../../services/scrapeSourceService'
-import { useAuth } from '../../store'
+import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import NewsDetail from './components/NewsDetail'
-import { DeleteConfirmDialog, ToastLayer } from './components/NewsFeedback'
+import { ToastLayer } from './components/NewsFeedback'
 import { normalizeNewsUrl, type ScrapedNews, type ToastTone, toDetailRow } from './components/newsHelpers'
 import NewsList from './components/NewsList'
 import NewsScrape from './components/NewsScrape'
@@ -40,16 +41,16 @@ export default function NewsPage() {
   const [adding, setAdding] = useState<Record<string, boolean>>({})
   const [added, setAdded] = useState<Record<string, boolean>>({})
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null)
   const [urls, setUrls] = useState<string[]>([''])
   const [sourceOptions, setSourceOptions] = useState<{ url: string; name: string }[]>([])
   const toastTimer = useRef<number | null>(null)
 
-  const perms = useAuth((s) => s.permissions)
-  const canView = perms.includes('view_news')
-  const canScrape = perms.includes('scrape_news')
-  const canDelete = canScrape
+  const { hasPermission } = usePermissions()
+  const confirm = useConfirm()
+  const canView = hasPermission('news', 'list')
+  const canScrape = hasPermission('news', 'scrape')
+  const canDelete = hasPermission('news', 'delete')
 
   const stateDetail = (location.state as any)?.detail || null
 
@@ -160,9 +161,9 @@ export default function NewsPage() {
   }
 
   const removeNews = async () => {
-    if (!canDelete || !confirmDeleteId) return
-    const id = confirmDeleteId
-    setConfirmDeleteId(null)
+    if (!canDelete) return
+    const id = pendingDeleteIdRef.current
+    if (!id) return
     setDeleting((prev) => ({ ...prev, [id]: true }))
     try {
       await deleteNewsItem(id)
@@ -173,6 +174,26 @@ export default function NewsPage() {
     } finally {
       setDeleting((prev) => ({ ...prev, [id]: false }))
     }
+  }
+
+  const pendingDeleteIdRef = useRef<string | null>(null)
+
+  const requestDeleteNews = async (id: string) => {
+    if (!canDelete) return
+    pendingDeleteIdRef.current = id
+    const ok = await confirm({
+      title: 'Konfirmasi Hapus',
+      description: 'Hapus berita ini?',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      tone: 'danger',
+    })
+    if (!ok) {
+      pendingDeleteIdRef.current = null
+      return
+    }
+    await removeNews()
+    pendingDeleteIdRef.current = null
   }
 
   const pagedScrapedRows = useMemo(() => {
@@ -229,11 +250,6 @@ export default function NewsPage() {
           toast={toast}
           onCloseToast={() => setToast(null)}
         />
-        <DeleteConfirmDialog
-          visible={!!confirmDeleteId}
-          onCancel={() => setConfirmDeleteId(null)}
-          onConfirm={() => void removeNews()}
-        />
       </div>
     )
   }
@@ -264,11 +280,6 @@ export default function NewsPage() {
           toast={toast}
           onCloseToast={() => setToast(null)}
         />
-        <DeleteConfirmDialog
-          visible={!!confirmDeleteId}
-          onCancel={() => setConfirmDeleteId(null)}
-          onConfirm={() => void removeNews()}
-        />
       </div>
     )
   }
@@ -286,7 +297,7 @@ export default function NewsPage() {
         navigate={navigate}
         page={page}
         setCategory={setCategory}
-        setConfirmDeleteId={setConfirmDeleteId}
+        setConfirmDeleteId={requestDeleteNews}
         setLimit={setLimit}
         setPage={setPage}
         totalData={totalData}
@@ -295,11 +306,6 @@ export default function NewsPage() {
       <ToastLayer
         toast={toast}
         onCloseToast={() => setToast(null)}
-      />
-      <DeleteConfirmDialog
-        visible={!!confirmDeleteId}
-        onCancel={() => setConfirmDeleteId(null)}
-        onConfirm={() => void removeNews()}
       />
     </div>
   )

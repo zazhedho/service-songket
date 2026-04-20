@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import 'leaflet/dist/leaflet.css'
 import {
   createDealer,
   createFinanceCompany,
@@ -14,8 +13,8 @@ import {
   fetchKecamatan,
   fetchProvinces,
 } from '../../services/locationService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import DealerDetail from './components/DealerDetail'
 import CompanyDetail from './components/CompanyDetail'
 import DealerForm from './components/DealerForm'
@@ -44,6 +43,7 @@ import { useFinanceData } from './hooks/useFinanceData'
 import { useFinanceLocationMetadata } from './hooks/useFinanceLocationMetadata'
 
 export default function FinancePage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -66,9 +66,11 @@ export default function FinancePage() {
   const dealerBasePath = isBusinessTabMode ? '/business/dealer' : '/dealer'
   const financeBasePath = isBusinessTabMode ? '/business/finance' : '/finance'
 
-  const perms = useAuth((s) => s.permissions)
-  const canView = perms.includes('list_finance_dealers')
-  const canManage = canView
+  const { hasPermission } = usePermissions()
+  const canView = hasPermission('business', 'list')
+  const canCreate = hasPermission('business', 'create')
+  const canUpdate = hasPermission('business', 'update')
+  const canDelete = hasPermission('business', 'delete')
   const confirm = useConfirm()
 
   const {
@@ -587,13 +589,13 @@ export default function FinancePage() {
 
   const submitDealer = async (e: FormEvent) => {
     e.preventDefault()
-    if (!canManage) return
+    if ((isDealerEdit && !canUpdate) || (!isDealerEdit && !canCreate)) return
 
     const lat = parseCoordinateValue(dealerForm.lat)
     const lng = parseCoordinateValue(dealerForm.lng)
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      window.alert('Latitude/Longitude tidak valid')
+      await showAlert('Latitude/Longitude tidak valid')
       return
     }
 
@@ -616,7 +618,7 @@ export default function FinancePage() {
       await reloadBusinessData()
       navigate(dealerBasePath)
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menyimpan dealer')
+      await showAlert(err?.response?.data?.error || 'Gagal menyimpan dealer')
     } finally {
       setSavingDealer(false)
     }
@@ -624,7 +626,7 @@ export default function FinancePage() {
 
   const submitFinance = async (e: FormEvent) => {
     e.preventDefault()
-    if (!canManage) return
+    if ((isCompanyEdit && !canUpdate) || (!isCompanyEdit && !canCreate)) return
 
     const payload = {
       name: financeForm.name.trim(),
@@ -643,14 +645,14 @@ export default function FinancePage() {
       await reloadBusinessData()
       navigate(financeBasePath)
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menyimpan finance company')
+      await showAlert(err?.response?.data?.error || 'Gagal menyimpan finance company')
     } finally {
       setSavingFinance(false)
     }
   }
 
   const removeDealer = async (id: string) => {
-    if (!canManage) return
+    if (!canDelete) return
     const ok = await confirm({
       title: 'Delete Dealer',
       description: 'Are you sure you want to delete this dealer?',
@@ -663,12 +665,12 @@ export default function FinancePage() {
       await deleteDealer(id)
       await reloadBusinessData()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menghapus dealer')
+      await showAlert(err?.response?.data?.error || 'Gagal menghapus dealer')
     }
   }
 
   const removeFinance = async (id: string) => {
-    if (!canManage) return
+    if (!canDelete) return
     const ok = await confirm({
       title: 'Delete Finance Company',
       description: 'Are you sure you want to delete this finance company?',
@@ -681,7 +683,7 @@ export default function FinancePage() {
       await deleteFinanceCompany(id)
       await reloadBusinessData()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menghapus finance company')
+      await showAlert(err?.response?.data?.error || 'Gagal menghapus finance company')
     }
   }
 
@@ -699,7 +701,7 @@ export default function FinancePage() {
   if (isDealerDetail) {
     return (
       <DealerDetail
-        canManage={canManage}
+        canUpdate={canUpdate}
         dealerBasePath={dealerBasePath}
         navigate={navigate}
         selectedDealer={selectedDealer}
@@ -714,7 +716,7 @@ export default function FinancePage() {
   if (isCompanyDetail) {
     return (
       <CompanyDetail
-        canManage={canManage}
+        canUpdate={canUpdate}
         companySummary={companySummary}
         companySummaryLoading={companySummaryLoading}
         dealers={dealers}
@@ -798,7 +800,9 @@ export default function FinancePage() {
       )}
 
       <FinanceList
-        canManage={canManage}
+        canCreate={canCreate}
+        canDelete={canDelete}
+        canUpdate={canUpdate}
         center={center}
         dealerBasePath={dealerBasePath}
         dealerFinanceLimit={dealerFinanceLimit}

@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import ConfirmationModal from './ConfirmationModal'
 
 type ConfirmTone = 'default' | 'danger'
 
@@ -12,12 +13,14 @@ type ConfirmOptions = {
 }
 
 type ConfirmContextValue = (options: ConfirmOptions) => Promise<boolean>
+type AlertContextValue = (message: string, options?: Omit<ConfirmOptions, 'description' | 'showCancel' | 'cancelText'>) => Promise<boolean>
 
 type ConfirmState = ConfirmOptions & {
   open: boolean
 }
 
 const ConfirmContext = createContext<ConfirmContextValue | null>(null)
+const AlertContext = createContext<AlertContextValue | null>(null)
 
 const defaultState: ConfirmState = {
   open: false,
@@ -69,44 +72,26 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     [confirm],
   )
 
-  useEffect(() => {
-    const nativeAlert = window.alert.bind(window)
-    window.alert = (message?: any) => {
-      void alertDialog(String(message ?? ''))
-    }
-    return () => {
-      window.alert = nativeAlert
-    }
-  }, [alertDialog])
-
   const value = useMemo<ConfirmContextValue>(() => confirm, [confirm])
+  const alertValue = useMemo<AlertContextValue>(() => alertDialog, [alertDialog])
 
   return (
     <ConfirmContext.Provider value={value}>
-      {children}
+      <AlertContext.Provider value={alertValue}>
+        {children}
 
-      {dialog.open && (
-        <div className="confirm-backdrop" role="dialog" aria-modal="true" aria-label="Confirmation">
-          <div className="confirm-toast">
-            <div className="confirm-title">{dialog.title}</div>
-            <div className="confirm-description">{dialog.description}</div>
-            <div className="confirm-actions">
-              {dialog.showCancel && (
-                <button className="btn-ghost" type="button" onClick={() => close(false)}>
-                  {dialog.cancelText}
-                </button>
-              )}
-              <button
-                className={`btn ${dialog.tone === 'danger' ? 'confirm-danger' : ''}`}
-                type="button"
-                onClick={() => close(true)}
-              >
-                {dialog.confirmText}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        <ConfirmationModal
+          show={dialog.open}
+          title={dialog.title || 'Confirmation'}
+          message={dialog.description || 'Are you sure you want to continue?'}
+          confirmText={dialog.confirmText}
+          cancelText={dialog.cancelText}
+          danger={dialog.tone === 'danger'}
+          showCancel={dialog.showCancel}
+          onConfirm={() => close(true)}
+          onCancel={() => close(false)}
+        />
+      </AlertContext.Provider>
     </ConfirmContext.Provider>
   )
 }
@@ -115,6 +100,14 @@ export function useConfirm() {
   const context = useContext(ConfirmContext)
   if (!context) {
     throw new Error('useConfirm must be used inside ConfirmProvider')
+  }
+  return context
+}
+
+export function useAlert() {
+  const context = useContext(AlertContext)
+  if (!context) {
+    throw new Error('useAlert must be used inside ConfirmProvider')
   }
   return context
 }

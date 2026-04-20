@@ -1,10 +1,14 @@
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { Suspense, lazy } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
-import { MapFly, formatDealerLocationSummary, markerIcon } from './financeHelpers'
+import { formatDealerLocationSummary } from './financeHelpers'
+
+const FinanceDealerMap = lazy(() => import('./FinanceMap').then((module) => ({ default: module.FinanceDealerMap })))
 
 type FinanceListProps = {
-  canManage: boolean
+  canCreate: boolean
+  canDelete: boolean
+  canUpdate: boolean
   center: [number, number]
   dealerBasePath: string
   dealerFinanceLimit: number
@@ -53,7 +57,9 @@ type FinanceListProps = {
 }
 
 export default function FinanceList({
-  canManage,
+  canCreate,
+  canDelete,
+  canUpdate,
   center,
   dealerBasePath,
   dealerFinanceLimit,
@@ -134,7 +140,7 @@ export default function FinanceList({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h3>Dealers</h3>
-                {canManage && <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/create`)}>Create Dealer</button>}
+                {canCreate && <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/create`)}>Create Dealer</button>}
               </div>
 
               <table className="table finance-dealer-table">
@@ -181,13 +187,13 @@ export default function FinanceList({
                               key: 'edit',
                               label: 'Edit',
                               onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}/edit`, { state: { dealer } }),
-                              hidden: !canManage,
+                              hidden: !canUpdate,
                             },
                             {
                               key: 'delete',
                               label: 'Delete',
                               onClick: () => void removeDealer(dealer.id),
-                              hidden: !canManage,
+                              hidden: !canDelete,
                               danger: true,
                             },
                           ]}
@@ -223,24 +229,14 @@ export default function FinanceList({
               </div>
 
               <div style={{ marginTop: 10 }}>
-                <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
-                  <MapFly center={center as any} />
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                  {dealerPoints.map((dealer: any) => (
-                    <Marker
-                      key={dealer.id}
-                      position={[dealer._lat, dealer._lng]}
-                      icon={markerIcon}
-                      eventHandlers={{ click: () => setSelectedDealerId(dealer.id) }}
-                    >
-                      <Popup>
-                        <strong>{dealer.name}</strong>
-                        <div>{dealerLocationNameMap[String(dealer.id)]?.regency || dealer.regency || '-'}</div>
-                        <div>{dealer.phone || '-'}</div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
+                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                  <FinanceDealerMap
+                    center={center}
+                    dealerLocationNameMap={dealerLocationNameMap}
+                    dealerPoints={dealerPoints}
+                    setSelectedDealerId={setSelectedDealerId}
+                  />
+                </Suspense>
               </div>
             </div>
           </>
@@ -266,7 +262,7 @@ export default function FinanceList({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h3>Finance Company</h3>
-                {canManage && <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/create`)}>Create Finance</button>}
+                {canCreate && <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/create`)}>Create Finance</button>}
               </div>
 
               <table className="table">
@@ -296,13 +292,13 @@ export default function FinanceList({
                               key: 'edit',
                               label: 'Edit',
                               onClick: () => navigate(`${financeBasePath}/companies/${company.id}/edit`, { state: { company } }),
-                              hidden: !canManage,
+                              hidden: !canUpdate,
                             },
                             {
                               key: 'delete',
                               label: 'Delete',
                               onClick: () => void removeFinance(company.id),
-                              hidden: !canManage,
+                              hidden: !canDelete,
                               danger: true,
                             },
                           ]}

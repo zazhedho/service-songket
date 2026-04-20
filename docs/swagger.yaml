@@ -29,7 +29,7 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
   /api/user/register:
     post:
-      summary: Register user (role default viewer)
+      summary: Register user (role default dealer)
       requestBody:
         required: true
         content:

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L, { type Map as LeafletMap } from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { useAlert } from '../common/ConfirmDialog'
 
 import 'leaflet/dist/leaflet.css'
 
@@ -354,6 +355,7 @@ export default function DealerLeafletSearchMap({
   lng,
   onPick,
 }: DealerLeafletSearchMapProps) {
+  const showAlert = useAlert()
   const mapRef = useRef<LeafletMap | null>(null)
   const requestSeqRef = useRef(0)
   const blurTimerRef = useRef<number | null>(null)
@@ -392,7 +394,7 @@ export default function DealerLeafletSearchMap({
   const runKeywordSearch = useCallback(async () => {
     const keyword = query.trim()
     if (!keyword) {
-      window.alert('Please type location keyword.')
+      void showAlert('Please type location keyword.')
       setSuggestions([])
       return
     }
@@ -405,7 +407,7 @@ export default function DealerLeafletSearchMap({
       if (seq !== requestSeqRef.current) return
 
       if (places.length === 0) {
-        window.alert('Location not found for this keyword.')
+        void showAlert('Location not found for this keyword.')
         setMarkers([])
         setSuggestions([])
         keepMultiResultRef.current = false
@@ -422,13 +424,13 @@ export default function DealerLeafletSearchMap({
       }
     } catch {
       if (seq !== requestSeqRef.current) return
-      window.alert('Failed to search location. Please try again.')
+      void showAlert('Failed to search location. Please try again.')
     } finally {
       if (seq === requestSeqRef.current) {
         setSearching(false)
       }
     }
-  }, [fitMapToPlaces, onPick, query])
+  }, [fitMapToPlaces, onPick, query, showAlert])
 
   const selectSuggestion = useCallback(
     (place: DealerLeafletPlace) => {

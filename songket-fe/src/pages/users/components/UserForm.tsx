@@ -16,7 +16,6 @@ type UserFormProps = {
   permDraft: string[]
   permLoading: boolean
   renderPermTable: (selected: string[], toggle: (id: string) => void, customGrouped?: Record<string, any[]>) => JSX.Element
-  roleResourceLoading: boolean
   save: () => Promise<void>
   set: (key: string, value: string) => void
   setEditingId: (value: string | null) => void
@@ -44,7 +43,6 @@ export default function UserForm({
   permDraft,
   permLoading,
   renderPermTable,
-  roleResourceLoading,
   save,
   set,
   setEditingId,
@@ -140,12 +138,7 @@ export default function UserForm({
 
             {canSetUserPerm && (
               <div>
-                <label>Permission (opsional, hanya superadmin)</label>
-                {roleResourceLoading && (
-                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Sinkronisasi permission berdasarkan role menu...
-                  </div>
-                )}
+                <label>Permission (optional)</label>
                 {permLoading && (
                   <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
                     Loading existing user permissions...

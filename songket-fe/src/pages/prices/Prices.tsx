@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { addCommodityPrice, commitScrapeResults, createScrapeJob, deletePrice, fetchPriceList, fetchScrapeResults, listScrapeJobs } from '../../services/commodityService'
-import { useConfirm } from '../../components/common/ConfirmDialog'
-import { useAuth } from '../../store'
+import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
 import PriceDetail from './components/PriceDetail'
 import PriceForm from './components/PriceForm'
@@ -34,6 +34,7 @@ function parseMode(pathname: string) {
 }
 
 export default function PricesPage() {
+  const showAlert = useAlert()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -44,10 +45,13 @@ export default function PricesPage() {
   const isCreate = mode === 'create'
   const isDetail = mode === 'detail'
 
-  const perms = useAuth((s) => s.permissions)
-  const canList = perms.includes('list_prices')
-  const canScrape = perms.includes('scrape_prices')
-  const canImport = perms.includes('add_price') || canScrape
+  const { hasAnyPermission, hasPermission } = usePermissions()
+  const canList = hasPermission('commodities', 'list')
+  const canScrape = hasPermission('commodities', 'scrape')
+  const canImport = hasAnyPermission([
+    { resource: 'commodities', action: 'create' },
+    { resource: 'commodities', action: 'scrape' },
+  ])
   const confirm = useConfirm()
 
   const [prices, setPrices] = useState<any[]>([])
@@ -164,7 +168,7 @@ export default function PricesPage() {
   const submitManual = async () => {
     if (!canImport) return
     if (!manual.name) {
-      window.alert('Nama komoditas wajib diisi')
+      await showAlert('Nama komoditas wajib diisi')
       return
     }
 
@@ -180,7 +184,7 @@ export default function PricesPage() {
       loadPrices()
       navigate('/prices')
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menyimpan harga')
+      await showAlert(err?.response?.data?.error || 'Gagal menyimpan harga')
     }
   }
 
@@ -193,7 +197,7 @@ export default function PricesPage() {
       setUrls([''])
       loadJobs()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal membuat job')
+      await showAlert(err?.response?.data?.error || 'Gagal membuat job')
     } finally {
       setStartingJob(false)
     }
@@ -205,15 +209,15 @@ export default function PricesPage() {
 
   const importSelected = async () => {
     if (!selectedJob || selectedResultIds.length === 0) {
-      window.alert('Pilih minimal satu hasil untuk diimport')
+      await showAlert('Pilih minimal satu hasil untuk diimport')
       return
     }
     try {
       await commitScrapeResults(selectedJob, selectedResultIds)
-      window.alert('Data berhasil dimasukkan')
+      await showAlert('Data berhasil dimasukkan', { title: 'Success', confirmText: 'OK' })
       loadPrices()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal mengimport')
+      await showAlert(err?.response?.data?.error || 'Gagal mengimport')
     }
   }
 
@@ -231,7 +235,7 @@ export default function PricesPage() {
       await deletePrice(id)
       loadPrices()
     } catch (err: any) {
-      window.alert(err?.response?.data?.error || 'Gagal menghapus')
+      await showAlert(err?.response?.data?.error || 'Gagal menghapus')
     }
   }
 
