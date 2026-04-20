@@ -10,11 +10,13 @@ import {
   fetchPriceList,
   scrapePrices,
 } from '../../services/commodityService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
 import { formatRupiah } from '../../utils/currency'
+import ScrapeSourceDetail from './components/ScrapeSourceDetail'
+import ScrapeSourceForm from './components/ScrapeSourceForm'
+import ScrapeSourceList from './components/ScrapeSourceList'
+import ScrapeSourcePanels from './components/ScrapeSourcePanels'
 
 const empty = { name: '', url: '', category: '', type: 'prices', is_active: true }
 
@@ -176,238 +178,65 @@ export default function ScrapeSourcesPage() {
 
   if (isDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape Source Details</div>
-            <div style={{ color: '#64748b' }}>Scraping URL configuration</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/scrape-sources/${selectedId}/edit`, { state: { source: selectedSource } })}>
-                Edit Source
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Back</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedSource && <div className="alert">Source data not found.</div>}
-          {selectedSource && (
-            <div className="card" style={{ maxWidth: 820 }}>
-              <h3 style={{ marginTop: 0 }}>Source Information</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
-                    <td style={{ fontWeight: 600 }}>{selectedSource.name || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>URL</th>
-                    <td style={{ fontWeight: 600 }}>{selectedSource.url || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Type</th>
-                    <td style={{ fontWeight: 600 }}>{selectedSource.type || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Category</th>
-                    <td style={{ fontWeight: 600 }}>{selectedSource.category || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Status</th>
-                    <td style={{ fontWeight: 600 }}>{selectedSource.is_active ? 'Active' : 'Inactive'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      <ScrapeSourceDetail
+        canUpdate={canUpdate}
+        navigate={navigate}
+        selectedId={selectedId}
+        selectedSource={selectedSource}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Scrape Source' : 'Input Scrape Source Baru'}</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 860 }}>
-            {!canCreate && isCreate && <div className="alert">Tidak ada izin tambah sumber.</div>}
-            {!canUpdate && isEdit && <div className="alert">Tidak ada izin ubah sumber.</div>}
-
-            <div className="grid" style={{ gap: 10 }}>
-              <div><label>Nama</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
-              <div><label>URL</label><input value={form.url} onChange={(e) => set('url', e.target.value)} /></div>
-              <div>
-                <label>Type</label>
-                <select value={form.type} onChange={(e) => set('type', e.target.value)}>
-                  <option value="prices">Harga Pangan</option>
-                  <option value="news">Portal Berita</option>
-                </select>
-              </div>
-              <div><label>Kategori</label><input value={form.category} onChange={(e) => set('category', e.target.value)} /></div>
-              <div>
-                <label>Aktif</label>
-                <select value={form.is_active ? 'true' : 'false'} onChange={(e) => set('is_active', e.target.value === 'true')}>
-                  <option value="true">Aktif</option>
-                  <option value="false">Nonaktif</option>
-                </select>
-              </div>
-
-              {message && !message.ok && <div style={{ color: '#b91c1c', fontSize: 13 }}>{message.text}</div>}
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" onClick={() => void save()} disabled={loading || (!canCreate && !canUpdate)}>
-                  {loading ? 'Saving...' : isEdit ? 'Update Source' : 'Simpan Source'}
-                </button>
-                <button className="btn-ghost" onClick={() => navigate('/scrape-sources')}>Batal</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ScrapeSourceForm
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        form={form}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        loading={loading}
+        message={message}
+        navigate={navigate}
+        save={save}
+        set={set}
+      />
     )
   }
 
   return (
     <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape URLs</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {canCreate && <button className="btn" onClick={() => navigate('/scrape-sources/create')}>Input Source</button>}
-        </div>
-      </div>
+      <ScrapeSourceList
+        canCreate={canCreate}
+        canDelete={canDelete}
+        canList={canList}
+        canUpdate={canUpdate}
+        limit={limit}
+        navigate={navigate}
+        page={page}
+        remove={remove}
+        search={search}
+        setLimit={setLimit}
+        setPage={setPage}
+        setSearch={setSearch}
+        setTypeFilter={setTypeFilter}
+        sources={sources}
+        totalData={totalData}
+        totalPages={totalPages}
+        typeFilter={typeFilter}
+      />
 
       <div className="page">
-        <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search Source</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/url/kategori" />
-          </div>
-
-          <div style={{ marginBottom: 10 }}>
-            <label>Filter Type</label>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="">Semua</option>
-              <option value="prices">Harga Pangan</option>
-              <option value="news">Portal Berita</option>
-            </select>
-          </div>
-
-          <h3>Daftar Sumber</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat sumber scrape.</div>}
-          {canList && (
-            <>
-              <table className="table">
-              <thead>
-                <tr>
-                  <th>Nama</th>
-                  <th>URL</th>
-                  <th>Type</th>
-                  <th>Aktif</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map((source) => (
-                  <tr key={source.id}>
-                    <td>{source.name}</td>
-                    <td style={{ maxWidth: 300, wordBreak: 'break-word' }}>{source.url}</td>
-                    <td>{source.type || '-'}</td>
-                    <td>{source.is_active ? 'Ya' : 'Tidak'}</td>
-                    <td className="action-cell">
-                      <ActionMenu
-                        items={[
-                          {
-                            key: 'view',
-                            label: 'View',
-                            onClick: () => navigate(`/scrape-sources/${source.id}`, { state: { source } }),
-                          },
-                          {
-                            key: 'edit',
-                            label: 'Edit',
-                            onClick: () => navigate(`/scrape-sources/${source.id}/edit`, { state: { source } }),
-                            hidden: !canUpdate,
-                          },
-                          {
-                            key: 'delete',
-                            label: 'Delete',
-                            onClick: () => void remove(source.id),
-                            hidden: !canDelete,
-                            danger: true,
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {sources.length === 0 && (
-                  <tr>
-                    <td colSpan={5}>Belum ada source.</td>
-                  </tr>
-                )}
-              </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-
-        {canScrape && (
-          <div className="card">
-            <h3>Scrape Manual</h3>
-            <label>URL list (pisah koma, jika kosong pakai default aktif)</label>
-            <input value={customUrls} onChange={(e) => setCustomUrls(e.target.value)} placeholder="https://..." />
-            <div style={{ marginTop: 8 }}>
-              <button className="btn" onClick={() => void runScrape()} disabled={loading || !canScrape}>
-                {loading ? 'Scraping...' : 'Scrape Sekarang'}
-              </button>
-            </div>
-            {message && (
-              <div style={{ color: message.ok ? '#166534' : '#b91c1c', marginTop: 8, fontSize: 13 }}>
-                {message.text}
-              </div>
-            )}
-          </div>
-        )}
-
-        {canScrape && (
-          <div className="card">
-            <h3>Harga Terbaru (Preview)</h3>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 10 }}>
-              {prices.map((price) => (
-                <div key={price.id} style={{ background: '#f8fafc', padding: 10, borderRadius: 10, border: '1px solid #dde4ee' }}>
-                  <div style={{ fontWeight: 700 }}>{price.commodity?.name || 'Komoditas'}</div>
-                  <div style={{ color: '#64748b' }}>
-                    {formatRupiah(price.price || 0)} / {price.commodity?.unit}
-                  </div>
-                </div>
-              ))}
-              {prices.length === 0 && <div className="muted">Belum ada preview harga.</div>}
-            </div>
-          </div>
-        )}
+        <ScrapeSourcePanels
+          canScrape={canScrape}
+          customUrls={customUrls}
+          formatRupiah={formatRupiah}
+          loading={loading}
+          message={message}
+          prices={prices}
+          runScrape={runScrape}
+          setCustomUrls={setCustomUrls}
+        />
       </div>
     </div>
   )

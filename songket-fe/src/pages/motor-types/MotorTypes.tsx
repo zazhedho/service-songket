@@ -11,11 +11,12 @@ import {
   fetchKabupaten,
   fetchProvinces,
 } from '../../services/locationService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
+import MotorTypeDetail from './components/MotorTypeDetail'
+import MotorTypeForm from './components/MotorTypeForm'
+import MotorTypeList from './components/MotorTypeList'
 
 type MotorTypeItem = {
   id: string
@@ -275,263 +276,65 @@ export default function MotorTypesPage() {
 
   if (isDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Type Details</div>
-            <div style={{ color: '#64748b' }}>Motor type data by area</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/motor-types/${selectedId}/edit`, { state: { motorType: selectedItem } })}>
-                Edit
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Back</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedItem && <div className="alert">Motor type data not found.</div>}
-          {selectedItem && (
-            <div className="card" style={{ maxWidth: 860 }}>
-              <h3 style={{ marginTop: 0 }}>Motor Type Information</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.name || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.brand || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.model || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.type || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th>
-                    <td style={{ fontWeight: 600 }}>{formatRupiah(selectedItem.otr || 0)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Province</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.province_name || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Regency / City</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.regency_name || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      <MotorTypeDetail
+        canUpdate={canUpdate}
+        formatDate={formatDate}
+        formatRupiah={formatRupiah}
+        navigate={navigate}
+        selectedId={selectedId}
+        selectedItem={selectedItem}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Jenis Motor' : 'Input Jenis Motor'}</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 980 }}>
-            {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat data.</div>}
-            {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah data.</div>}
-
-            <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-              <div>
-                <label>Jenis Motor</label>
-                <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>Merek</label>
-                <input value={form.brand} onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>Model</label>
-                <input value={form.model} onChange={(e) => setForm((prev) => ({ ...prev, model: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>Type</label>
-                <input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} />
-              </div>
-
-              <div>
-                <label>OTR</label>
-                <input
-                  type="text"
-                  value={formatRupiah(form.otr)}
-                  onChange={(e) => setForm((prev) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div>
-                <label>Provinsi</label>
-                <select value={form.province_code} onChange={(e) => updateProvince(e.target.value)}>
-                  <option value="">Pilih</option>
-                  {provinces.map((province: any) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Kabupaten/Kota</label>
-                <select value={form.regency_code} onChange={(e) => updateRegency(e.target.value)} disabled={!form.province_code}>
-                  <option value="">Pilih</option>
-                  {regencies.map((regency: any) => (
-                    <option key={regency.code} value={regency.code}>{regency.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
-
-              <div style={{ display: 'flex', gap: 10, gridColumn: '1 / -1' }}>
-                <button className="btn" onClick={() => void save()} disabled={loading}>
-                  {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-                </button>
-                <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Batal</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MotorTypeForm
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        error={error}
+        form={form}
+        formatRupiah={formatRupiah}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        loading={loading}
+        navigate={navigate}
+        parseRupiahInput={parseRupiahInput}
+        provinces={provinces}
+        regencies={regencies}
+        save={save}
+        setForm={setForm}
+        updateProvince={updateProvince}
+        updateRegency={updateRegency}
+      />
     )
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Jenis Motor</div>
-        </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/motor-types/create')}>Input Jenis Motor</button>}
-      </div>
-
-      <div className="page">
-        <div className="card">
-          <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-            <div>
-              <label>Search</label>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari jenis/merek/model" />
-            </div>
-
-            <div>
-              <label>Filter Provinsi</label>
-              <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}>
-                <option value="">Semua</option>
-                {provinces.map((province: any) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Filter Kabupaten</label>
-              <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter}>
-                <option value="">Semua</option>
-                {filterRegencies.map((regency: any) => (
-                  <option key={regency.code} value={regency.code}>{regency.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>Daftar Jenis Motor</h3>
-          {(!canList || !canView) && <div className="alert">Tidak ada izin melihat data jenis motor.</div>}
-          {canList && canView && (
-            <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Jenis</th>
-                    <th>Merek/Model</th>
-                    <th>Type</th>
-                    <th>OTR</th>
-                    <th>Wilayah</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.name || '-'}</td>
-                      <td>{[item.brand, item.model].filter(Boolean).join(' / ') || '-'}</td>
-                      <td>{item.type || '-'}</td>
-                      <td>{formatRupiah(item.otr || 0)}</td>
-                      <td>{[item.regency_name, item.province_name].filter(Boolean).join(', ') || '-'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/motor-types/${item.id}`, { state: { motorType: item } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/motor-types/${item.id}/edit`, { state: { motorType: item } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(item.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={6}>Belum ada data jenis motor.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <MotorTypeList
+      canCreate={canCreate}
+      canDelete={canDelete}
+      canList={canList}
+      canUpdate={canUpdate}
+      canView={canView}
+      filterRegencies={filterRegencies}
+      formatRupiah={formatRupiah}
+      items={items}
+      limit={limit}
+      navigate={navigate}
+      page={page}
+      provinceFilter={provinceFilter}
+      provinces={provinces}
+      regencyFilter={regencyFilter}
+      remove={remove}
+      search={search}
+      setLimit={setLimit}
+      setPage={setPage}
+      setProvinceFilter={setProvinceFilter}
+      setRegencyFilter={setRegencyFilter}
+      setSearch={setSearch}
+      totalData={totalData}
+      totalPages={totalPages}
+    />
   )
 }

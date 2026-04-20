@@ -12,11 +12,12 @@ import {
   fetchKabupaten,
   fetchProvinces,
 } from '../../services/locationService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
+import NetIncomeDetail from './components/NetIncomeDetail'
+import NetIncomeForm from './components/NetIncomeForm'
+import NetIncomeList from './components/NetIncomeList'
 
 type OptionItem = {
   code: string
@@ -382,259 +383,64 @@ export default function NetIncomePage() {
 
   if (isDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Net Income Details</div>
-            <div style={{ color: '#64748b' }}>Net income summary per job and area</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/net-income/${selectedId}/edit`, { state: { item: selectedItem } })}>
-                Edit
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate('/net-income')}>Back</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedItem && <div className="alert">Net income data not found.</div>}
-          {selectedItem && (
-            <div className="card" style={{ maxWidth: 820 }}>
-              <h3 style={{ marginTop: 0 }}>Net Income Information</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Job</th>
-                    <td style={{ fontWeight: 600 }}>{jobName(selectedItem.job_id, selectedItem.job_name)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Net Income</th>
-                    <td style={{ fontWeight: 600 }}>{formatRupiah(Number(selectedItem.net_income || 0))}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area Coverage</th>
-                    <td style={{ fontWeight: 600 }}>
-                      {selectedItem.area_net_income.length ? selectedItem.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.created_at)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      <NetIncomeDetail
+        areaLabel={areaLabel}
+        canUpdate={canUpdate}
+        formatDate={formatDate}
+        formatRupiah={formatRupiah}
+        jobName={jobName}
+        navigate={navigate}
+        selectedId={selectedId}
+        selectedItem={selectedItem}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Net Income' : 'Input Net Income'}</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/net-income')}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 900 }}>
-            {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat data.</div>}
-            {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah data.</div>}
-
-            <div className="grid" style={{ gap: 10 }}>
-              <div>
-                <label>Pekerjaan</label>
-                <select value={form.job_id} onChange={(e) => setForm((prev) => ({ ...prev, job_id: e.target.value }))}>
-                  <option value="">Pilih pekerjaan</option>
-                  {jobs.map((job) => (
-                    <option key={job.id} value={job.id}>{job.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Net Income</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.net_income}
-                  onChange={(e) => setForm((prev) => ({ ...prev, net_income: formatRupiahInput(e.target.value) }))}
-                />
-              </div>
-
-              <div style={{ border: '1px solid #dde4ee', borderRadius: 10, padding: 12, background: '#f8fafc' }}>
-                <div style={{ fontWeight: 700, marginBottom: 10 }}>Tambah Area Net Income</div>
-                <div className="grid" style={{ gap: 10 }}>
-                  <div>
-                    <label>Provinsi</label>
-                    <select
-                      value={form.province_code}
-                      onChange={(e) => setForm((prev) => ({ ...prev, province_code: e.target.value, regency_code: '' }))}
-                    >
-                      <option value="">Pilih provinsi</option>
-                      {provinces.map((province) => (
-                        <option key={province.code} value={province.code}>{province.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label>Kabupaten / Kota</label>
-                    <select
-                      value={form.regency_code}
-                      onChange={(e) => setForm((prev) => ({ ...prev, regency_code: e.target.value }))}
-                      disabled={!form.province_code}
-                    >
-                      <option value="">Pilih kabupaten/kota</option>
-                      {kabupaten.map((item) => (
-                        <option key={item.code} value={item.code}>{item.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <button className="btn-ghost" type="button" onClick={addArea}>Tambah Area</button>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 10 }}>
-                  {form.selected_areas.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>Belum ada area dipilih.</div>}
-                  {form.selected_areas.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {form.selected_areas.map((area, idx) => (
-                        <div
-                          key={`${area.province_code}-${area.regency_code}-${idx}`}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 10,
-                            border: '1px solid #dde4ee',
-                            borderRadius: 8,
-                            padding: '8px 10px',
-                            background: '#fff',
-                          }}
-                        >
-                          <div style={{ fontWeight: 600 }}>{areaLabel(area)}</div>
-                          <button className="btn-ghost" type="button" onClick={() => removeArea(idx)}>Hapus</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn" onClick={() => void save()} disabled={loading}>
-                  {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-                </button>
-                <button className="btn-ghost" onClick={() => navigate('/net-income')}>Batal</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <NetIncomeForm
+        addArea={addArea}
+        areaLabel={areaLabel}
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        error={error}
+        form={form}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        jobs={jobs}
+        kabupaten={kabupaten}
+        loading={loading}
+        navigate={navigate}
+        provinces={provinces}
+        removeArea={removeArea}
+        save={save}
+        setForm={setForm}
+        formatRupiahInput={formatRupiahInput}
+      />
     )
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Net Income</div>
-        </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/net-income/create')}>Input Net Income</button>}
-      </div>
-
-      <div className="page">
-        <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search Net Income</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama pekerjaan" />
-          </div>
-
-          <h3>Daftar Net Income</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat data net income.</div>}
-          {canList && (
-            <>
-              <table className="table">
-              <thead>
-                <tr>
-                  <th>Pekerjaan</th>
-                  <th>Net Income</th>
-                  <th>Area</th>
-                  <th>Updated</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{jobName(item.job_id, item.job_name)}</td>
-                    <td>{formatRupiah(Number(item.net_income || 0))}</td>
-                    <td>{item.area_net_income.length ? item.area_net_income.map((area) => areaLabel(area)).join(', ') : '-'}</td>
-                    <td>{formatDate(item.updated_at)}</td>
-                    <td className="action-cell">
-                      <ActionMenu
-                        items={[
-                          {
-                            key: 'view',
-                            label: 'View',
-                            onClick: () => navigate(`/net-income/${item.id}`, { state: { item } }),
-                          },
-                          {
-                            key: 'edit',
-                            label: 'Edit',
-                            onClick: () => navigate(`/net-income/${item.id}/edit`, { state: { item } }),
-                            hidden: !canUpdate,
-                          },
-                          {
-                            key: 'delete',
-                            label: 'Delete',
-                            onClick: () => void remove(item.id),
-                            hidden: !canDelete,
-                            danger: true,
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan={5}>Belum ada data net income.</td>
-                  </tr>
-                )}
-              </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <NetIncomeList
+      areaLabel={areaLabel}
+      canCreate={canCreate}
+      canDelete={canDelete}
+      canList={canList}
+      canUpdate={canUpdate}
+      formatDate={formatDate}
+      formatRupiah={formatRupiah}
+      items={items}
+      jobName={jobName}
+      limit={limit}
+      navigate={navigate}
+      page={page}
+      remove={remove}
+      search={search}
+      setLimit={setLimit}
+      setPage={setPage}
+      setSearch={setSearch}
+      totalData={totalData}
+      totalPages={totalPages}
+    />
   )
 }

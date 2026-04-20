@@ -47,3 +47,6 @@ temp/
 # Generated export files
 storage/order-exports/*
 !storage/order-exports/.gitkeep
+
+songket-fe/dist/
+songket-fe/node_modules/

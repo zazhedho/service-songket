@@ -9,10 +9,11 @@ import {
   updateRole,
 } from '../../services/roleService'
 import { listPermissions } from '../../services/permissionService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
+import RoleDetail from './components/RoleDetail'
+import RoleForm from './components/RoleForm'
+import RoleList from './components/RoleList'
 
 const empty = { name: '', display_name: '', description: '' }
 
@@ -111,11 +112,6 @@ export default function RolesPage() {
       .replace(/\s+/g, '_')
     return ['superadmin', 'admin', 'staff', 'viewer', 'dealer', 'main_dealer'].includes(roleName)
   }, [roleDetail?.is_system, roleDetail?.name, selectedRole?.is_system, selectedRole?.name, form.name])
-
-  const sortedMenus = useMemo(
-    () => [...menus].sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),
-    [menus],
-  )
 
   const sortedPerms = useMemo(
     () => [...perms].sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),
@@ -328,233 +324,55 @@ export default function RolesPage() {
 
   if (isDetail) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Role Details</div>
-            <div style={{ color: '#64748b' }}>Role profile with related permissions</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canUpdate && selectedId && (
-              <button className="btn" onClick={() => navigate(`/roles/${selectedId}/edit`, { state: { role: selectedRole } })}>
-                Edit Role
-              </button>
-            )}
-            <button className="btn-ghost" onClick={() => navigate('/roles')}>Back</button>
-          </div>
-        </div>
-
-        <div className="page">
-          {!selectedRole && !roleDetail && <div className="alert">Role not found.</div>}
-
-          {(selectedRole || roleDetail) && (
-            <div className="card" style={{ maxWidth: 960 }}>
-              <h3 style={{ marginTop: 0 }}>Role Information</h3>
-              <DetailTable
-                rows={[
-                  { label: 'Name', value: roleDetail?.name || selectedRole?.name || '-' },
-                  { label: 'Display Name', value: roleDetail?.display_name || selectedRole?.display_name || '-' },
-                  { label: 'Description', value: roleDetail?.description || selectedRole?.description || '-' },
-                ]}
-              />
-            </div>
-          )}
-
-          <div className="card" style={{ maxWidth: 960 }}>
-            <h3>Permissions</h3>
-            <table className="table" style={{ marginTop: 8 }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 70 }}>No</th>
-                  <th>Permission</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(roleDetail?.permission_ids || []).map((id: string, index: number) => (
-                  <tr key={id}>
-                    <td>{index + 1}</td>
-                    <td>{permissionLabel(id)}</td>
-                  </tr>
-                ))}
-                {(roleDetail?.permission_ids || []).length === 0 && (
-                  <tr>
-                    <td colSpan={2}>No permissions assigned.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <RoleDetail
+        canUpdate={canUpdate}
+        navigate={navigate}
+        permissionLabel={permissionLabel}
+        roleDetail={roleDetail}
+        selectedId={selectedId}
+        selectedRole={selectedRole}
+      />
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Role & Permissions' : 'Input Role Baru & Permissions'}</div>
-            <div style={{ color: '#64748b' }}>Role dan permission disimpan dari satu form.</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/roles')}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          <div className="card" style={{ maxWidth: 980 }}>
-            {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat role.</div>}
-            {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah role.</div>}
-
-            <div className="grid" style={{ gap: 10 }}>
-              <div>
-                <label>Name</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
-                  disabled={isEdit}
-                  placeholder={isEdit ? 'Name role tidak dapat diubah' : 'Masukkan name role'}
-                />
-                {isEdit && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Name role tidak bisa diubah setelah dibuat.</div>}
-              </div>
-              <div>
-                <label>Display Name</label>
-                <input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} />
-              </div>
-              <div>
-                <label>Description</label>
-                <input value={form.description} onChange={(e) => set('description', e.target.value)} />
-              </div>
-
-              {canAssignPerms && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Akses akan disimpan bersamaan saat klik tombol {isEdit ? 'Update Role' : 'Create Role'}.
-                  </div>
-                  <div className="card" style={{ background: '#f8fafc' }}>
-                    <h4>Assign Permissions</h4>
-                    <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-                      Pilih permission yang ingin diberikan ke role ini.
-                    </div>
-                    {renderPermissionTable()}
-                    <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>
-                      {permDraft.length} permission dipilih.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn" onClick={() => void saveRole()} disabled={loading}>
-                  {loading ? 'Saving...' : isEdit ? 'Update Role' : 'Create Role'}
-                </button>
-                <button className="btn-ghost" onClick={() => navigate('/roles')}>Batal</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <RoleForm
+        canAssignPerms={canAssignPerms}
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        error={error}
+        form={form}
+        groupedPerms={groupedPerms}
+        isCreate={isCreate}
+        isEdit={isEdit}
+        loading={loading}
+        navigate={navigate}
+        permDraft={permDraft}
+        renderPermissionTable={renderPermissionTable}
+        saveRole={saveRole}
+        set={set}
+      />
     )
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Roles & Access</div>
-        </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/roles/create')}>Input Role</button>}
-      </div>
-
-      <div className="page">
-        <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search Role</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari name/display name" />
-          </div>
-
-          <h3>Daftar Role</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat role.</div>}
-          {canList && (
-            <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Display Name</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roles.map((roleItem) => (
-                    <tr key={roleItem.id}>
-                      <td>{roleItem.name}</td>
-                      <td>{roleItem.display_name}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(roleItem.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {roles.length === 0 && (
-                    <tr>
-                      <td colSpan={3}>Belum ada role.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalData={totalData}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next)
-                  setPage(1)
-                }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
-  return (
-    <table className="table" style={{ marginTop: 8 }}>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th style={{ width: '35%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ fontWeight: 600 }}>{row.value || '-'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <RoleList
+      canCreate={canCreate}
+      canDelete={canDelete}
+      canList={canList}
+      canUpdate={canUpdate}
+      navigate={navigate}
+      page={page}
+      remove={remove}
+      roles={roles}
+      search={search}
+      setLimit={setLimit}
+      setPage={setPage}
+      setSearch={setSearch}
+      totalData={totalData}
+      totalPages={totalPages}
+      limit={limit}
+    />
   )
 }

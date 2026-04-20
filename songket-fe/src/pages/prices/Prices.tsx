@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { addCommodityPrice, commitScrapeResults, createScrapeJob, deletePrice, fetchPriceList, fetchScrapeResults, listScrapeJobs } from '../../services/commodityService'
-import ActionMenu from '../../components/common/ActionMenu'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import Pagination from '../../components/common/Pagination'
 import { useAuth } from '../../store'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
+import PriceDetail from './components/PriceDetail'
+import PriceForm from './components/PriceForm'
+import PriceJobDock from './components/PriceJobDock'
+import PriceList from './components/PriceList'
+import PriceScrapeModal from './components/PriceScrapeModal'
+import PriceScrapeResults from './components/PriceScrapeResults'
 
 type Job = {
   id: string
@@ -242,98 +246,18 @@ export default function PricesPage() {
     [],
   )
 
-  if (isDetail) {
-    return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Price Details</div>
-            <div style={{ color: '#64748b' }}>Complete commodity price information</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/prices')}>Back</button>
-        </div>
-
-        <div className="page">
-          {!selectedPrice && <div className="alert">Price data not found.</div>}
-          {selectedPrice && (
-            <div className="card" style={{ maxWidth: 820 }}>
-              <h3 style={{ marginTop: 0 }}>Price Information</h3>
-              <table className="table" style={{ marginTop: 10 }}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Commodity</th>
-                    <td style={{ fontWeight: 600 }}>{selectedPrice.commodity?.name || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Price</th>
-                    <td style={{ fontWeight: 600 }}>{formatRupiah(selectedPrice.price)}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Unit</th>
-                    <td style={{ fontWeight: 600 }}>{selectedPrice.commodity?.unit || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Source URL</th>
-                    <td style={{ fontWeight: 600 }}>{selectedPrice.source_url || '-'}</td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Collected At</th>
-                    <td style={{ fontWeight: 600 }}>{selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('en-US') : '-'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
+  if (isDetail) return <PriceDetail formatRupiah={formatRupiah} navigate={navigate} selectedPrice={selectedPrice} />
 
   if (isCreate) {
     return (
-      <div>
-        <div className="header">
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Input Manual Harga Pangan</div>
-            <div style={{ color: '#64748b' }}>Halaman form terpisah dari tabel harga</div>
-          </div>
-          <button className="btn-ghost" onClick={() => navigate('/prices')}>Kembali ke Tabel</button>
-        </div>
-
-        <div className="page">
-          {!canImport && <div className="alert">Tidak ada izin input harga manual.</div>}
-
-          <div className="card" style={{ maxWidth: 820 }}>
-            <div className="grid" style={{ gap: 10 }}>
-              <div>
-                <label>Nama komoditas</label>
-                <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Contoh: Beras Medium" />
-              </div>
-              <div>
-                <label>Satuan</label>
-                <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/ikat" />
-              </div>
-              <div>
-                <label>Harga (Rp)</label>
-                <input
-                  value={manual.price}
-                  onChange={(e) => setManual((m) => ({ ...m, price: formatRupiahInput(e.target.value) }))}
-                  placeholder="Rp 10.000"
-                />
-              </div>
-              <div>
-                <label>Sumber URL</label>
-                <input value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button className="btn" onClick={() => void submitManual()}>Simpan</button>
-              <button className="btn-ghost" onClick={() => navigate('/prices')}>Batal</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PriceForm
+        canImport={canImport}
+        manual={manual}
+        navigate={navigate}
+        setManual={setManual}
+        submitManual={submitManual}
+        formatRupiahInput={formatRupiahInput}
+      />
     )
   }
 
@@ -360,317 +284,79 @@ export default function PricesPage() {
 
       {canScrape && (
         <div className="page" style={{ paddingTop: 0, paddingBottom: 0 }}>
-          <JobDock
-            open={jobsOpen}
-            onToggle={() => setJobsOpen((value) => !value)}
+          <PriceJobDock
             jobs={jobs}
+            jobsLimit={jobsLimit}
+            jobsOpen={jobsOpen}
+            jobsPage={jobsPage}
+            jobsSearch={jobSearch}
+            jobsTotalData={jobsTotalData}
+            jobsTotalPages={jobsTotalPages}
+            onSearchChange={setJobSearch}
             onSelect={(id) => {
               setResultPage(1)
               loadResults(id)
             }}
+            onToggle={() => setJobsOpen((value) => !value)}
+            setJobsLimit={setJobsLimit}
+            setJobsPage={setJobsPage}
             statusColor={statusColor}
-            page={jobsPage}
-            totalPages={jobsTotalPages}
-            totalData={jobsTotalData}
-            limit={jobsLimit}
-            onPageChange={setJobsPage}
-            onLimitChange={(next) => {
-              setJobsLimit(next)
-              setJobsPage(1)
-            }}
-            search={jobSearch}
-            onSearchChange={setJobSearch}
           />
         </div>
       )}
 
-      {!canList && <div className="page"><div className="alert">Tidak ada izin melihat harga.</div></div>}
+      <PriceList
+        canImport={canImport}
+        canList={canList}
+        canScrape={canScrape}
+        formatRupiah={formatRupiah}
+        loadingPrices={loadingPrices}
+        navigate={navigate}
+        onRemovePrice={removePrice}
+        priceLimit={priceLimit}
+        pricePage={pricePage}
+        priceSearch={priceSearch}
+        priceTotalData={priceTotalData}
+        priceTotalPages={priceTotalPages}
+        prices={prices}
+        setPriceLimit={setPriceLimit}
+        setPricePage={setPricePage}
+        setPriceSearch={setPriceSearch}
+        setShowModal={setShowModal}
+      />
 
-      {canList && (
+      {canList && selectedJob && (
         <div className="page">
-          <div className="card">
-            <div style={{ marginBottom: 10 }}>
-              <label>Search Harga</label>
-              <input value={priceSearch} onChange={(e) => setPriceSearch(e.target.value)} placeholder="Cari komoditas/sumber" />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Daftar Harga</h3>
-              <small style={{ color: '#64748b' }}>Data harga dengan pagination</small>
-            </div>
-
-            {loadingPrices ? (
-              <div>Memuat...</div>
-            ) : (
-              <>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Komoditas</th>
-                      <th>Harga</th>
-                      <th>Sumber</th>
-                      <th>Waktu</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prices.map((price) => (
-                      <tr key={price.id}>
-                        <td>{price.commodity?.name || 'Komoditas'}</td>
-                        <td>{formatRupiah(price.price)} {price.commodity?.unit ? `/ ${price.commodity?.unit}` : ''}</td>
-                        <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{price.source_url || '-'}</td>
-                        <td>{price.collected_at ? new Date(price.collected_at).toLocaleString('id-ID') : '-'}</td>
-                        <td className="action-cell">
-                          <ActionMenu
-                            items={[
-                              {
-                                key: 'view',
-                                label: 'View',
-                                onClick: () => navigate(`/prices/${price.id}`, { state: { price } }),
-                              },
-                              {
-                                key: 'delete',
-                                label: 'Delete',
-                                onClick: () => void removePrice(price.id),
-                                hidden: !canScrape,
-                                danger: true,
-                              },
-                            ]}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {prices.length === 0 && (
-                      <tr>
-                        <td colSpan={5}>Belum ada harga.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                <Pagination
-                  page={pricePage}
-                  totalPages={priceTotalPages}
-                  totalData={priceTotalData}
-                  limit={priceLimit}
-                  onPageChange={setPricePage}
-                  onLimitChange={(next) => {
-                    setPriceLimit(next)
-                    setPricePage(1)
-                  }}
-                  disabled={loadingPrices}
-                />
-              </>
-            )}
-          </div>
-
-          {selectedJob && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Hasil Scrape (Job {selectedJob.slice(0, 6)})</h3>
-                {canImport && (
-                  <button className="btn" onClick={() => void importSelected()} disabled={selectedResultIds.length === 0}>
-                    Import pilihan ({selectedResultIds.length})
-                  </button>
-                )}
-              </div>
-
-              <div style={{ marginTop: 10, marginBottom: 10 }}>
-                <label>Search Hasil Scrape</label>
-                <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Cari komoditas/sumber" />
-              </div>
-
-              {loadingResults ? (
-                <div>Memuat hasil...</div>
-              ) : results.length === 0 ? (
-                <div className="muted">Belum ada hasil untuk job ini.</div>
-              ) : (
-                <>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Pilih</th>
-                        <th>Komoditas</th>
-                        <th>Harga</th>
-                        <th>Sumber</th>
-                        <th>Waktu Scrape</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.map((result) => (
-                        <tr key={result.id}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={selectedResultIds.includes(result.id)}
-                              onChange={() => toggleResult(result.id)}
-                            />
-                          </td>
-                          <td>{result.commodity_name}</td>
-                          <td>{formatRupiah(result.price)} {result.unit ? `/ ${result.unit}` : ''}</td>
-                          <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{result.source_url}</td>
-                          <td>{new Date(result.scraped_at).toLocaleString('id-ID')}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  <Pagination
-                    page={resultPage}
-                    totalPages={resultTotalPages}
-                    totalData={resultTotalData}
-                    limit={resultLimit}
-                    onPageChange={setResultPage}
-                    onLimitChange={(next) => {
-                      setResultLimit(next)
-                      setResultPage(1)
-                    }}
-                    disabled={loadingResults}
-                  />
-                </>
-              )}
-            </div>
-          )}
+          <PriceScrapeResults
+            canImport={canImport}
+            formatRupiah={formatRupiah}
+            importSelected={importSelected}
+            loadingResults={loadingResults}
+            resultLimit={resultLimit}
+            resultPage={resultPage}
+            resultSearch={resultSearch}
+            resultTotalData={resultTotalData}
+            resultTotalPages={resultTotalPages}
+            results={results}
+            selectedJob={selectedJob}
+            selectedResultIds={selectedResultIds}
+            setResultLimit={setResultLimit}
+            setResultPage={setResultPage}
+            setResultSearch={setResultSearch}
+            toggleResult={toggleResult}
+          />
         </div>
       )}
 
-      {showModal && canScrape && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Input URL untuk di-scrape</h3>
-            <div className="muted" style={{ marginBottom: 8 }}>Tambahkan 1 atau lebih URL. Bisa tambah baris.</div>
-            <div className="grid" style={{ gap: 10 }}>
-              {urls.map((url, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    style={{ flex: 1 }}
-                    value={url}
-                    placeholder="https://..."
-                    onChange={(e) => {
-                      const next = [...urls]
-                      next[idx] = e.target.value
-                      setUrls(next)
-                    }}
-                  />
-                  {urls.length > 1 && (
-                    <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>
-                      Hapus
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Tambah baris</button>
-            </div>
-
-            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn-ghost" onClick={() => setShowModal(false)}>Batal</button>
-              <button className="btn" onClick={() => void startJob()} disabled={startingJob}>
-                {startingJob ? 'Memulai...' : 'Proses'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function JobDock({
-  open,
-  onToggle,
-  jobs,
-  onSelect,
-  statusColor,
-  page,
-  totalPages,
-  totalData,
-  limit,
-  onPageChange,
-  onLimitChange,
-  search,
-  onSearchChange,
-}: {
-  open: boolean
-  onToggle: () => void
-  jobs: Job[]
-  onSelect: (id: string) => void
-  statusColor: Record<string, string>
-  page: number
-  totalPages: number
-  totalData: number
-  limit: number
-  onPageChange: (page: number) => void
-  onLimitChange: (limit: number) => void
-  search: string
-  onSearchChange: (value: string) => void
-}) {
-  const safeTotalPages = totalPages > 0 ? totalPages : 1
-
-  return (
-    <div
-      style={{
-        width: '100%',
-        background: '#ffffff',
-        border: '1px solid #dbe3ef',
-        borderRadius: 12,
-        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
-      }}
-    >
-      <div style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 700 }}>Job Scrape</div>
-        <button className="btn-ghost" onClick={onToggle}>{open ? 'Tutup' : 'Buka'}</button>
-      </div>
-
-      {open && (
-        <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Cari status/message" />
-
-          <div style={{ maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {jobs.length === 0 && <div className="muted">Belum ada job.</div>}
-            {jobs.map((job) => (
-              <button
-                key={job.id}
-                className="btn-ghost"
-                style={{ justifyContent: 'space-between', borderRadius: 10, padding: 10 }}
-                onClick={() => onSelect(job.id)}
-              >
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>{job.id.slice(0, 8)}</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>{new Date(job.created_at).toLocaleTimeString('id-ID')}</div>
-                </div>
-                <span
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: 999,
-                    background: `${statusColor[job.status] || '#334155'}22`,
-                    color: statusColor[job.status] || '#334155',
-                    fontSize: 12,
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {job.status}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ color: '#64748b', fontSize: 12 }}>
-              Total {totalData} • Halaman {page} / {safeTotalPages}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <select value={limit} onChange={(e) => onLimitChange(Number(e.target.value))} style={{ width: 90 }}>
-                <option value={10}>10 / page</option>
-                <option value={20}>20 / page</option>
-                <option value={50}>50 / page</option>
-              </select>
-
-              <button className="btn-ghost" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>Prev</button>
-              <button className="btn-ghost" onClick={() => onPageChange(page + 1)} disabled={page >= safeTotalPages}>Next</button>
-            </div>
-          </div>
-        </div>
+      {canScrape && (
+        <PriceScrapeModal
+          setShowModal={setShowModal}
+          setUrls={setUrls}
+          showModal={showModal}
+          startJob={startJob}
+          startingJob={startingJob}
+          urls={urls}
+        />
       )}
     </div>
   )
