@@ -1,23 +1,23 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import Layout from './components/Layout'
-import Protected from './components/Protected'
-import CreditPage from './pages/Credit'
-import DashboardPage from './pages/Dashboard'
-import FinancePage from './pages/Finance'
-import FinanceReportPage from './pages/FinanceReport'
-import InstallmentsPage from './pages/Installments'
-import JobsPage from './pages/Jobs'
-import LoginPage from './pages/Login'
-import MasterSettingsPage from './pages/MasterSettings'
-import MenusPage from './pages/Menus'
-import NewsPage from './pages/News'
-import OrdersPage from './pages/Orders'
-import PricesPage from './pages/Prices'
-import ProfilePage from './pages/Profile'
-import QuadrantsPage from './pages/Quadrants'
-import RolesPage from './pages/Roles'
-import ScrapeSourcesPage from './pages/ScrapeSources'
-import UsersPage from './pages/Users'
+import Layout from './components/common/Layout'
+import Protected from './components/common/Protected'
+import LoginPage from './pages/auth/Login'
+import FinancePage from './pages/business/Finance'
+import FinanceReportPage from './pages/business/FinanceReport'
+import CreditPage from './pages/credit/Credit'
+import DashboardPage from './pages/dashboard/Dashboard'
+import InstallmentsPage from './pages/installments/Installments'
+import JobsPage from './pages/jobs/Jobs'
+import MenusPage from './pages/menus/Menus'
+import NewsPage from './pages/news/News'
+import OrdersPage from './pages/orders/Orders'
+import PricesPage from './pages/prices/Prices'
+import ProfilePage from './pages/profile/Profile'
+import QuadrantsPage from './pages/quadrants/Quadrants'
+import RolesPage from './pages/roles/Roles'
+import ScrapeSourcesPage from './pages/scrape-sources/ScrapeSources'
+import MasterSettingsPage from './pages/settings/MasterSettings'
+import UsersPage from './pages/users/Users'
 
 function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
@@ -111,7 +111,7 @@ export default function App() {
         <Route path="/roles/:id/edit" element={<Guarded><RolesPage /></Guarded>} />
 
         <Route path="/menus" element={<Guarded><MenusPage /></Guarded>} />
-        <Route path="/menus/create" element={<Guarded><MenusPage /></Guarded>} />
+        <Route path="/menus/create" element={<Guarded><Navigate to="/menus" replace /></Guarded>} />
         <Route path="/menus/:id" element={<Guarded><MenusPage /></Guarded>} />
         <Route path="/menus/:id/edit" element={<Guarded><MenusPage /></Guarded>} />
 
@@ -119,8 +119,6 @@ export default function App() {
         <Route path="/scrape-sources/create" element={<Guarded><ScrapeSourcesPage /></Guarded>} />
         <Route path="/scrape-sources/:id" element={<Guarded><ScrapeSourcesPage /></Guarded>} />
         <Route path="/scrape-sources/:id/edit" element={<Guarded><ScrapeSourcesPage /></Guarded>} />
-
-        <Route path="/role-menu-access" element={<Guarded><Navigate to="/roles" replace /></Guarded>} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
