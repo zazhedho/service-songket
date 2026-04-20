@@ -89,6 +89,10 @@ export default function PricesPage() {
   const [priceSearch, setPriceSearch] = useState('')
   const [jobSearch, setJobSearch] = useState('')
   const [resultSearch, setResultSearch] = useState('')
+  const [isPageVisible, setIsPageVisible] = useState(() => {
+    if (typeof document === 'undefined') return true
+    return document.visibilityState === 'visible'
+  })
 
   const statePrice = (location.state as any)?.price || null
 
@@ -96,6 +100,11 @@ export default function PricesPage() {
     if (!selectedId) return null
     return prices.find((price) => price.id === selectedId) || (statePrice?.id === selectedId ? statePrice : null)
   }, [prices, selectedId, statePrice])
+
+  const hasActiveJobs = useMemo(
+    () => jobs.some((job) => ['pending', 'running', 'queued'].includes(String(job.status || '').toLowerCase())),
+    [jobs],
+  )
 
   const loadPrices = () => {
     if (!canList) return
@@ -142,16 +151,39 @@ export default function PricesPage() {
   }, [canList, isList, priceLimit, pricePage, priceSearch])
 
   useEffect(() => {
+    if (typeof document === 'undefined') return
+    const onVisibilityChange = () => setIsPageVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
+  useEffect(() => {
     if (!canScrape) return
     loadJobs()
-    const timer = setInterval(loadJobs, 3000)
-    return () => clearInterval(timer)
   }, [canScrape, jobsLimit, jobsPage, jobSearch])
+
+  useEffect(() => {
+    if (!canScrape || !isPageVisible || !hasActiveJobs) return
+    const timer = setInterval(loadJobs, 5000)
+    return () => clearInterval(timer)
+  }, [canScrape, hasActiveJobs, isPageVisible, jobsLimit, jobsPage, jobSearch])
 
   useEffect(() => {
     if (!selectedJob) return
     loadResults(selectedJob)
   }, [resultLimit, resultPage, resultSearch, selectedJob])
+
+  useEffect(() => {
+    if (!selectedJob || !isPageVisible) return
+    const activeSelectedJob = jobs.find((job) => job.id === selectedJob)
+    const status = String(activeSelectedJob?.status || '').toLowerCase()
+    if (!['pending', 'running', 'queued'].includes(status)) return
+
+    const timer = setInterval(() => {
+      loadResults(selectedJob)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [isPageVisible, jobs, selectedJob, resultLimit, resultPage, resultSearch])
 
   useEffect(() => {
     setPricePage(1)
@@ -168,7 +200,7 @@ export default function PricesPage() {
   const submitManual = async () => {
     if (!canImport) return
     if (!manual.name) {
-      await showAlert('Nama komoditas wajib diisi')
+      await showAlert('Commodity name is required.')
       return
     }
 
@@ -184,7 +216,7 @@ export default function PricesPage() {
       loadPrices()
       navigate('/prices')
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal menyimpan harga')
+      await showAlert(err?.response?.data?.error || 'Failed to save price.')
     }
   }
 
@@ -197,7 +229,7 @@ export default function PricesPage() {
       setUrls([''])
       loadJobs()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal membuat job')
+      await showAlert(err?.response?.data?.error || 'Failed to create scrape job.')
     } finally {
       setStartingJob(false)
     }
@@ -209,15 +241,15 @@ export default function PricesPage() {
 
   const importSelected = async () => {
     if (!selectedJob || selectedResultIds.length === 0) {
-      await showAlert('Pilih minimal satu hasil untuk diimport')
+      await showAlert('Select at least one result to import.')
       return
     }
     try {
       await commitScrapeResults(selectedJob, selectedResultIds)
-      await showAlert('Data berhasil dimasukkan', { title: 'Success', confirmText: 'OK' })
+      await showAlert('Data imported successfully.', { title: 'Success', confirmText: 'OK' })
       loadPrices()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal mengimport')
+      await showAlert(err?.response?.data?.error || 'Failed to import data.')
     }
   }
 
@@ -235,7 +267,7 @@ export default function PricesPage() {
       await deletePrice(id)
       loadPrices()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal menghapus')
+      await showAlert(err?.response?.data?.error || 'Failed to delete price.')
     }
   }
 
@@ -269,18 +301,18 @@ export default function PricesPage() {
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Harga Pangan</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Prices</div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {canScrape && (
             <button className="btn" onClick={() => setShowModal(true)}>
-              Jalankan Scrape
+              Run Scrape
             </button>
           )}
           {canImport && (
             <button className="btn-ghost" onClick={() => navigate('/prices/create')}>
-              Input Manual
+              Manual Entry
             </button>
           )}
         </div>

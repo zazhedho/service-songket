@@ -7,11 +7,8 @@ import {
   listMotorTypes,
   updateMotorType,
 } from '../../services/motorTypeService'
-import {
-  fetchKabupaten,
-  fetchProvinces,
-} from '../../services/locationService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
 import MotorTypeDetail from './components/MotorTypeDetail'
@@ -68,7 +65,7 @@ function formatDate(value?: string) {
   if (!value) return '-'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleString('id-ID')
+  return d.toLocaleString('en-GB')
 }
 
 function errorMessage(err: any, fallback: string) {
@@ -107,15 +104,22 @@ export default function MotorTypesPage() {
   const [search, setSearch] = useState('')
   const [provinceFilter, setProvinceFilter] = useState('')
   const [regencyFilter, setRegencyFilter] = useState('')
-  const [provinces, setProvinces] = useState<any[]>([])
-  const [regencies, setRegencies] = useState<any[]>([])
-  const [filterRegencies, setFilterRegencies] = useState<any[]>([])
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
 
   const stateItem = (location.state as any)?.motorType || null
+  const isFormMode = isCreate || isEdit
+  const { provinces, regencies } = useLocationOptions({
+    enabled: isFormMode || isList || isDetail,
+    provinceCode: form.province_code,
+  })
+  const { regencies: filterRegencies } = useLocationOptions({
+    enabled: Boolean(provinceFilter),
+    loadProvinces: false,
+    provinceCode: provinceFilter,
+  })
 
   const load = async () => {
     const res = await listMotorTypes({
@@ -134,20 +138,9 @@ export default function MotorTypesPage() {
   }
 
   useEffect(() => {
-    fetchProvinces()
-      .then((res) => setProvinces(res.data.data || res.data || []))
-      .catch(() => setProvinces([]))
-  }, [])
-
-  useEffect(() => {
     if (!provinceFilter) {
-      setFilterRegencies([])
       setRegencyFilter('')
-      return
     }
-    fetchKabupaten(provinceFilter)
-      .then((res) => setFilterRegencies(res.data.data || res.data || []))
-      .catch(() => setFilterRegencies([]))
   }, [provinceFilter])
 
   useEffect(() => {
@@ -176,17 +169,6 @@ export default function MotorTypesPage() {
   }, [selectedId, selectedItem])
 
   useEffect(() => {
-    if (!form.province_code) {
-      setRegencies([])
-      setForm((prev) => ({ ...prev, regency_code: '', regency_name: '' }))
-      return
-    }
-    fetchKabupaten(form.province_code)
-      .then((res) => setRegencies(res.data.data || res.data || []))
-      .catch(() => setRegencies([]))
-  }, [form.province_code])
-
-  useEffect(() => {
     if (isCreate) {
       setForm(emptyForm)
       setError('')
@@ -209,6 +191,12 @@ export default function MotorTypesPage() {
     }
   }, [isCreate, isEdit, selectedItem])
 
+  useEffect(() => {
+    if (!form.province_code && !form.regency_code && !form.regency_name) return
+    if (form.province_code) return
+    setForm((prev) => ({ ...prev, regency_code: '', regency_name: '' }))
+  }, [form.province_code, form.regency_code, form.regency_name])
+
   const save = async () => {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
@@ -228,7 +216,7 @@ export default function MotorTypesPage() {
       setForm(emptyForm)
       navigate('/motor-types')
     } catch (err: any) {
-      const message = errorMessage(err, 'Gagal menyimpan jenis motor')
+      const message = errorMessage(err, 'Failed to save motor type.')
       setError(message)
       await showAlert(message)
     } finally {
@@ -251,7 +239,7 @@ export default function MotorTypesPage() {
       await deleteMotorType(id)
       await load()
     } catch (err: any) {
-      await showAlert(errorMessage(err, 'Gagal menghapus jenis motor'))
+      await showAlert(errorMessage(err, 'Failed to delete motor type.'))
     }
   }
 

@@ -11,6 +11,24 @@ import {
   toSafeNumber,
 } from '../components/financeReportHelpers'
 
+const MASTER_DATA_CACHE_TTL_MS = 5 * 60 * 1000
+const DEALER_METRICS_CACHE_TTL_MS = 2 * 60 * 1000
+
+type MasterDataCacheValue = {
+  dealerRows: DealerRow[]
+  dealerOptions: OptionItem[]
+  finance1Options: OptionItem[]
+}
+
+type CacheEntry<T> = {
+  value: T
+  expiresAt: number
+}
+
+let masterDataCache: CacheEntry<MasterDataCacheValue> | null = null
+const dealerMetricsCache = new Map<string, CacheEntry<DealerMetricPayload>>()
+const dealerMetricsInflight = new Map<string, Promise<DealerMetricPayload>>()
+
 type FinanceMigrationRow = {
   order_id: string
   transition_total_data?: number
@@ -248,6 +266,14 @@ export function useFinanceReportSummaryData({
   }
 
   const loadMasterData = async () => {
+    const now = Date.now()
+    if (masterDataCache && masterDataCache.expiresAt > now) {
+      setDealerRows(masterDataCache.value.dealerRows)
+      setDealerOptions(masterDataCache.value.dealerOptions)
+      setFinance1Options(masterDataCache.value.finance1Options)
+      return
+    }
+
     const [dealerRes, financeRes] = await Promise.all([
       fetchDealers({
         page: 1,
@@ -284,6 +310,15 @@ export function useFinanceReportSummaryData({
       }))
       .filter((item) => item.code && item.name)
       .sort((a, b) => a.name.localeCompare(b.name))
+
+    masterDataCache = {
+      value: {
+        dealerRows: nextDealers,
+        dealerOptions: nextDealerOptions,
+        finance1Options: nextFinanceOptions,
+      },
+      expiresAt: now + MASTER_DATA_CACHE_TTL_MS,
+    }
 
     setDealerRows(nextDealers)
     setDealerOptions(nextDealerOptions)
@@ -334,9 +369,32 @@ export function useFinanceReportSummaryData({
     const metricsParams = dealerMetricRange ? { from: dealerMetricRange.from, to: dealerMetricRange.to } : undefined
 
     const loadMetrics = async () => {
+      const cacheKey = JSON.stringify({
+        activeDealerId: activeDealerId || '',
+        from: dealerMetricRange?.from || '',
+        to: dealerMetricRange?.to || '',
+        dealerCount: dealerRows.length,
+      })
+      const now = Date.now()
+      const cached = dealerMetricsCache.get(cacheKey)
+      if (cached && cached.expiresAt > now) {
+        return cached.value
+      }
+      const inflight = dealerMetricsInflight.get(cacheKey)
+      if (inflight) {
+        return inflight
+      }
+
+      const request = (async () => {
       if (activeDealerId) {
         const res = await fetchDealerMetrics(activeDealerId, metricsParams)
-        return (res?.data?.data || res?.data || null) as DealerMetricPayload | null
+        return ((res?.data?.data || res?.data || null) as DealerMetricPayload | null) || {
+          total_orders: 0,
+          approval_rate: 0,
+          lead_time_seconds_avg: 0,
+          rescue_approved_fc2: 0,
+          finance_companies: [],
+        }
       }
 
       const dealerIds = dealerRows.map((item) => normalizeText(item.id)).filter(Boolean)
@@ -442,6 +500,19 @@ export function useFinanceReportSummaryData({
         rescue_approved_fc2: totalRescue,
         finance_companies: financeCompanies,
       } as DealerMetricPayload
+      })()
+      dealerMetricsInflight.set(cacheKey, request)
+
+      try {
+        const payload = await request
+        dealerMetricsCache.set(cacheKey, {
+          value: payload,
+          expiresAt: now + DEALER_METRICS_CACHE_TTL_MS,
+        })
+        return payload
+      } finally {
+        dealerMetricsInflight.delete(cacheKey)
+      }
     }
 
     loadMetrics()

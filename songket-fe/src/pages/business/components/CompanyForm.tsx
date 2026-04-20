@@ -33,10 +33,10 @@ export default function CompanyForm({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Input Finance Company Baru'}</div>
-          <div style={{ color: '#64748b' }}>Form finance company terpisah dari tabel</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{isCompanyEdit ? 'Edit Finance Company' : 'Create Finance Company'}</div>
+          <div style={{ color: '#64748b' }}>Finance company form is separated from the table</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate(financeBasePath)}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate(financeBasePath)}>Back to Table</button>
       </div>
 
       <div className="page">
@@ -44,18 +44,18 @@ export default function CompanyForm({
           <form onSubmit={(e) => void submitFinance(e)} className="grid" style={{ gap: 10 }}>
             <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label>Nama Finance Company</label>
+                <label>Finance Company Name</label>
                 <input value={financeForm.name} onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))} required />
               </div>
               <div>
-                <label>No Telepon</label>
+                <label>Phone Number</label>
                 <input value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: e.target.value }))} required />
               </div>
 
               <div>
-                <label>Provinsi</label>
+                <label>Province</label>
                 <select value={financeForm.province} onChange={(e) => void handleFinanceProvince(e.target.value)} required>
-                  <option value="">Pilih</option>
+                  <option value="">Select</option>
                   {provinces.map((province) => (
                     <option key={province.code} value={province.code}>{province.name}</option>
                   ))}
@@ -63,14 +63,14 @@ export default function CompanyForm({
               </div>
 
               <div>
-                <label>Kab/Kota</label>
+                <label>Regency / City</label>
                 <select
                   value={financeForm.regency}
                   onChange={(e) => void handleFinanceRegency(e.target.value)}
                   disabled={!financeForm.province}
                   required
                 >
-                  <option value="">Pilih</option>
+                  <option value="">Select</option>
                   {financeKabupaten.map((kab) => (
                     <option key={kab.code} value={kab.code}>{kab.name}</option>
                   ))}
@@ -78,14 +78,14 @@ export default function CompanyForm({
               </div>
 
               <div>
-                <label>Kecamatan</label>
+                <label>District</label>
                 <select
                   value={financeForm.district}
                   onChange={(e) => setFinanceForm((prev) => ({ ...prev, district: e.target.value }))}
                   disabled={!financeForm.regency}
                   required
                 >
-                  <option value="">Pilih</option>
+                  <option value="">Select</option>
                   {financeKecamatan.map((kec) => (
                     <option key={kec.code} value={kec.code}>{kec.name}</option>
                   ))}
@@ -93,20 +93,20 @@ export default function CompanyForm({
               </div>
 
               <div>
-                <label>Kelurahan</label>
+                <label>Village</label>
                 <input value={financeForm.village} onChange={(e) => setFinanceForm((prev) => ({ ...prev, village: e.target.value }))} />
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
-                <label>Alamat</label>
+                <label>Address</label>
                 <input value={financeForm.address} onChange={(e) => setFinanceForm((prev) => ({ ...prev, address: e.target.value }))} />
               </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn-ghost" type="button" onClick={() => navigate(financeBasePath)}>Batal</button>
+              <button className="btn-ghost" type="button" onClick={() => navigate(financeBasePath)}>Cancel</button>
               <button className="btn" type="submit" disabled={savingFinance}>
-                {savingFinance ? 'Menyimpan...' : isCompanyEdit ? 'Update Finance' : 'Tambah Finance'}
+                {savingFinance ? 'Saving...' : isCompanyEdit ? 'Update Finance Company' : 'Create Finance Company'}
               </button>
             </div>
           </form>

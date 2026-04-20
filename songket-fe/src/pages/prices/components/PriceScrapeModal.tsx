@@ -20,8 +20,8 @@ export default function PriceScrapeModal({
   return (
     <div className="modal-backdrop">
       <div className="modal">
-        <h3>Input URL untuk di-scrape</h3>
-        <div className="muted" style={{ marginBottom: 8 }}>Tambahkan 1 atau lebih URL. Bisa tambah baris.</div>
+        <h3>Enter URLs to Scrape</h3>
+        <div className="muted" style={{ marginBottom: 8 }}>Add one or more URLs. You can insert additional rows.</div>
         <div className="grid" style={{ gap: 10 }}>
           {urls.map((url, idx) => (
             <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -37,18 +37,18 @@ export default function PriceScrapeModal({
               />
               {urls.length > 1 && (
                 <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>
-                  Hapus
+                  Remove
                 </button>
               )}
             </div>
           ))}
-          <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Tambah baris</button>
+          <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Add Row</button>
         </div>
 
         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button className="btn-ghost" onClick={() => setShowModal(false)}>Batal</button>
+          <button className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
           <button className="btn" onClick={() => void startJob()} disabled={startingJob}>
-            {startingJob ? 'Memulai...' : 'Proses'}
+            {startingJob ? 'Starting...' : 'Run'}
           </button>
         </div>
       </div>

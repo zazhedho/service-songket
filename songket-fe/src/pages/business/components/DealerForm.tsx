@@ -46,10 +46,10 @@ export default function DealerForm({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Input Dealer Baru'}</div>
-          <div style={{ color: '#64748b' }}>Form dealer terpisah dari tabel</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{isDealerEdit ? 'Edit Dealer' : 'Create Dealer'}</div>
+          <div style={{ color: '#64748b' }}>Dealer form is separated from the table</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate(dealerBasePath)}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate(dealerBasePath)}>Back to Table</button>
       </div>
 
       <div className="page">
@@ -57,18 +57,18 @@ export default function DealerForm({
           <form onSubmit={(e) => void submitDealer(e)} className="grid" style={{ gap: 10 }}>
             <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label>Nama Dealer</label>
+                <label>Dealer Name</label>
                 <input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} required />
               </div>
               <div>
-                <label>No Telepon</label>
+                <label>Phone Number</label>
                 <input value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: e.target.value }))} required />
               </div>
 
               <div>
-                <label>Provinsi</label>
+                <label>Province</label>
                 <select value={dealerForm.province} onChange={(e) => void handleDealerProvince(e.target.value)} required>
-                  <option value="">Pilih</option>
+                  <option value="">Select</option>
                   {provinces.map((province) => (
                     <option key={province.code} value={province.code}>{province.name}</option>
                   ))}
@@ -76,14 +76,14 @@ export default function DealerForm({
               </div>
 
               <div>
-                <label>Kab/Kota</label>
+                <label>Regency / City</label>
                 <select
                   value={dealerForm.regency}
                   onChange={(e) => void handleDealerRegency(e.target.value)}
                   disabled={!dealerForm.province}
                   required
                 >
-                  <option value="">Pilih</option>
+                  <option value="">Select</option>
                   {dealerKabupaten.map((kab) => (
                     <option key={kab.code} value={kab.code}>{kab.name}</option>
                   ))}
@@ -91,14 +91,14 @@ export default function DealerForm({
               </div>
 
               <div>
-                <label>Kecamatan</label>
+                <label>District</label>
                 <select
                   value={dealerForm.district}
                   onChange={(e) => setDealerForm((prev) => ({ ...prev, district: e.target.value }))}
                   disabled={!dealerForm.regency}
                   required
                 >
-                  <option value="">Pilih</option>
+                  <option value="">Select</option>
                   {dealerKecamatan.map((kec) => (
                     <option key={kec.code} value={kec.code}>{kec.name}</option>
                   ))}
@@ -106,7 +106,7 @@ export default function DealerForm({
               </div>
 
               <div>
-                <label>Kelurahan</label>
+                <label>Village</label>
                 <input value={dealerForm.village} onChange={(e) => setDealerForm((prev) => ({ ...prev, village: e.target.value }))} />
               </div>
 
@@ -133,7 +133,7 @@ export default function DealerForm({
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
-                <label>Alamat</label>
+                <label>Address</label>
                 <input
                   value={dealerForm.address}
                   onChange={(e) => setDealerForm((prev) => ({ ...prev, address: e.target.value }))}
@@ -163,9 +163,9 @@ export default function DealerForm({
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn-ghost" type="button" onClick={() => navigate(dealerBasePath)}>Batal</button>
+              <button className="btn-ghost" type="button" onClick={() => navigate(dealerBasePath)}>Cancel</button>
               <button className="btn" type="submit" disabled={savingDealer}>
-                {savingDealer ? 'Menyimpan...' : isDealerEdit ? 'Update Dealer' : 'Tambah Dealer'}
+                {savingDealer ? 'Saving...' : isDealerEdit ? 'Update Dealer' : 'Create Dealer'}
               </button>
             </div>
           </form>

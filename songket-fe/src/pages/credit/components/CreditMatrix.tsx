@@ -26,14 +26,14 @@ export default function CreditMatrix({
           <thead>
             <tr>
               <th rowSpan={2}>Area</th>
-              <th rowSpan={2}>Pekerjaan</th>
+              <th rowSpan={2}>Job</th>
               <th colSpan={2}>Credit Capability</th>
               <th colSpan={2}>Program Suggestion</th>
             </tr>
             <tr>
-              <th>Tipe Motor</th>
+              <th>Motor Type</th>
               <th>Rate</th>
-              <th>Tipe Motor</th>
+              <th>Motor Type</th>
               <th>Rate</th>
             </tr>
           </thead>

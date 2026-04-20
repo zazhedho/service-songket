@@ -47,21 +47,21 @@ export default function NewsScrape({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape Portal Berita</div>
-          <div style={{ color: '#64748b' }}>Halaman input URL scraping terpisah</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape News Portal</div>
+          <div style={{ color: '#64748b' }}>Dedicated page for news source URL scraping</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/news')}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate('/news')}>Back to Table</button>
       </div>
 
       <div className="page">
-        {!canScrape && <div className="alert">Tidak ada izin scrape berita.</div>}
+        {!canScrape && <div className="alert">No permission to scrape news.</div>}
 
         {canScrape && (
           <div className="card">
-            <div className="muted">Masukkan 1 atau lebih URL portal berita, tambahkan baris jika perlu.</div>
+            <div className="muted">Enter one or more news portal URLs and add rows if needed.</div>
             {sourceOptions.length > 0 && (
               <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
-                Source terdaftar: {sourceOptions.map((item) => `${item.name || 'source'} (${item.url})`).join(', ')}
+                Registered sources: {sourceOptions.map((item) => `${item.name || 'source'} (${item.url})`).join(', ')}
               </div>
             )}
             <div className="grid" style={{ gap: 10, marginTop: 10 }}>
@@ -78,16 +78,16 @@ export default function NewsScrape({
                     style={{ flex: 1 }}
                   />
                   {urls.length > 1 && (
-                    <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>Hapus</button>
+                    <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>Remove</button>
                   )}
                 </div>
               ))}
-              <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Tambah baris</button>
+              <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Add row</button>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
               <button className="btn" onClick={onStartScrape} disabled={scraping}>
-                {scraping ? 'Memproses...' : 'Proses Scrape'}
+                {scraping ? 'Processing...' : 'Run Scrape'}
               </button>
             </div>
           </div>
@@ -95,14 +95,14 @@ export default function NewsScrape({
 
         {canScrape && scrapedRows.length > 0 && (
           <div className="card">
-            <h3>Hasil Scrape (Preview)</h3>
+            <h3>Scrape Results Preview</h3>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Judul</th>
-                  <th>Isi</th>
+                  <th>Title</th>
+                  <th>Content</th>
                   <th>Created At</th>
-                  <th>Sumber</th>
+                  <th>Source</th>
                   <th>Action</th>
                 </tr>
               </thead>

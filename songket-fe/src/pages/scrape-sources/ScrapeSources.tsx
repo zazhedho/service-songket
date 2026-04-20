@@ -11,6 +11,7 @@ import {
   scrapePrices,
 } from '../../services/commodityService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useToast } from '../../components/common/ToastProvider'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah } from '../../utils/currency'
 import ScrapeSourceDetail from './components/ScrapeSourceDetail'
@@ -29,6 +30,7 @@ function parseMode(pathname: string) {
 
 export default function ScrapeSourcesPage() {
   const showAlert = useAlert()
+  const showToast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -52,7 +54,6 @@ export default function ScrapeSourcesPage() {
   const [customUrls, setCustomUrls] = useState('')
   const [prices, setPrices] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
   const { hasPermission } = usePermissions()
   const canList = hasPermission('scrape_sources', 'list')
@@ -121,7 +122,6 @@ export default function ScrapeSourcesPage() {
     if (isEdit && !canUpdate) return
 
     setLoading(true)
-    setMessage(null)
     try {
       if (isEdit && selectedId) await updateScrapeSource(selectedId, form)
       else await createScrapeSource(form)
@@ -129,10 +129,10 @@ export default function ScrapeSourcesPage() {
         await load().catch(() => undefined)
       }
       setForm(empty)
+      showToast(isEdit ? 'Source updated successfully.' : 'Source saved successfully.', { tone: 'success' })
       navigate('/scrape-sources')
     } catch (err: any) {
-      const text = err?.response?.data?.error || 'Gagal menyimpan sumber'
-      setMessage({ text, ok: false })
+      const text = err?.response?.data?.error || 'Failed to save source.'
       await showAlert(text)
     } finally {
       setLoading(false)
@@ -157,7 +157,6 @@ export default function ScrapeSourcesPage() {
     if (!canScrape) return
 
     setLoading(true)
-    setMessage(null)
 
     const urls = customUrls
       .split(',')
@@ -166,10 +165,10 @@ export default function ScrapeSourcesPage() {
 
     try {
       await scrapePrices(urls.length ? { urls } : {})
-      setMessage({ text: 'Scrape berhasil dijalankan', ok: true })
+      showToast('Scrape started successfully.', { tone: 'success' })
       await loadPrices()
     } catch (err: any) {
-      setMessage({ text: err?.response?.data?.error || 'Scrape gagal', ok: false })
+      showToast(err?.response?.data?.error || 'Scrape failed.', { tone: 'error' })
     } finally {
       setLoading(false)
     }
@@ -197,7 +196,6 @@ export default function ScrapeSourcesPage() {
         isCreate={isCreate}
         isEdit={isEdit}
         loading={loading}
-        message={message}
         navigate={navigate}
         save={save}
         set={set}
@@ -233,7 +231,6 @@ export default function ScrapeSourcesPage() {
           customUrls={customUrls}
           formatRupiah={formatRupiah}
           loading={loading}
-          message={message}
           prices={prices}
           runScrape={runScrape}
           setCustomUrls={setCustomUrls}

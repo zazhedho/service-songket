@@ -34,16 +34,16 @@ export default function RoleForm({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Role & Permissions' : 'Input Role Baru & Permissions'}</div>
-          <div style={{ color: '#64748b' }}>Role dan permission disimpan dari satu form.</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Role & Permissions' : 'Create Role & Permissions'}</div>
+          <div style={{ color: '#64748b' }}>Role and permissions are managed from a single form.</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/roles')}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate('/roles')}>Back to List</button>
       </div>
 
       <div className="page">
         <div className="card" style={{ maxWidth: 980 }}>
-          {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat role.</div>}
-          {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah role.</div>}
+          {!canCreate && isCreate && <div className="alert">You do not have permission to create roles.</div>}
+          {!canUpdate && isEdit && <div className="alert">You do not have permission to update roles.</div>}
 
           <div className="grid" style={{ gap: 10 }}>
             <div>
@@ -52,9 +52,9 @@ export default function RoleForm({
                 value={form.name}
                 onChange={(e) => set('name', e.target.value)}
                 disabled={isEdit}
-                placeholder={isEdit ? 'Name role tidak dapat diubah' : 'Masukkan name role'}
+                placeholder={isEdit ? 'Role name cannot be changed' : 'Enter role name'}
               />
-              {isEdit && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Name role tidak bisa diubah setelah dibuat.</div>}
+              {isEdit && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Role name cannot be changed after creation.</div>}
             </div>
             <div>
               <label>Display Name</label>
@@ -68,16 +68,16 @@ export default function RoleForm({
             {canAssignPerms && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                  Akses akan disimpan bersamaan saat klik tombol {isEdit ? 'Update Role' : 'Create Role'}.
+                  Permissions will be saved together when you click {isEdit ? 'Update Role' : 'Create Role'}.
                 </div>
                 <div className="card" style={{ background: '#f8fafc' }}>
                   <h4>Assign Permissions</h4>
                   <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-                    Pilih permission yang ingin diberikan ke role ini.
+                    Select the permissions to assign to this role.
                   </div>
                   {renderPermissionTable()}
                   <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>
-                    {permDraft.length} permission dipilih.
+                    {permDraft.length} permissions selected.
                   </div>
                 </div>
               </div>
@@ -89,7 +89,7 @@ export default function RoleForm({
               <button className="btn" onClick={() => void saveRole()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update Role' : 'Create Role'}
               </button>
-              <button className="btn-ghost" onClick={() => navigate('/roles')}>Batal</button>
+              <button className="btn-ghost" onClick={() => navigate('/roles')}>Cancel</button>
             </div>
           </div>
         </div>

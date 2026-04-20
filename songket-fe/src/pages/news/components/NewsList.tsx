@@ -42,34 +42,34 @@ export default function NewsList({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Portal Berita</div>
-          <div style={{ color: '#64748b' }}>Default halaman menampilkan tabel berita dari database</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>News Portal</div>
+          <div style={{ color: '#64748b' }}>This page shows news entries stored in the database</div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 220 }}>
-            <option value="">Semua</option>
+            <option value="">All</option>
             <option value="agri">Agriculture</option>
-            <option value="pariwisata">Pariwisata</option>
+            <option value="pariwisata">Tourism</option>
             <option value="pns">PNS/Gov</option>
           </select>
-          {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape Berita</button>}
+          {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape News</button>}
         </div>
       </div>
 
-      {!canView && <div className="page"><div className="alert">Tidak ada izin melihat berita.</div></div>}
+      {!canView && <div className="page"><div className="alert">No permission to view news.</div></div>}
 
       {canView && (
         <div className="page">
           <div className="card">
-            <h3>Daftar Berita</h3>
+            <h3>News List</h3>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Judul</th>
-                  <th>Isi</th>
+                  <th>Title</th>
+                  <th>Content</th>
                   <th>Created At</th>
-                  <th>Sumber</th>
+                  <th>Source</th>
                   <th>Link</th>
                   <th>Action</th>
                 </tr>
@@ -88,7 +88,7 @@ export default function NewsList({
                       </td>
                       <td>{item.source_name || item.source?.name || detailRow.sumber || '-'}</td>
                       <td>
-                        <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Buka Link</a>
+                        <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Open Link</a>
                       </td>
                       <td className="action-cell">
                         <ActionMenu
@@ -118,7 +118,7 @@ export default function NewsList({
                 })}
                 {items.length === 0 && (
                   <tr>
-                    <td colSpan={6}>Belum ada berita tersimpan.</td>
+                    <td colSpan={6}>No saved news yet.</td>
                   </tr>
                 )}
               </tbody>

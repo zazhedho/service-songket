@@ -50,24 +50,24 @@ export default function NetIncomeList({
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Net Income</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/net-income/create')}>Input Net Income</button>}
+        {canCreate && <button className="btn" onClick={() => navigate('/net-income/create')}>Create Net Income</button>}
       </div>
 
       <div className="page">
         <div className="card">
           <div style={{ marginBottom: 10 }}>
             <label>Search Net Income</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama pekerjaan" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search job name" />
           </div>
 
-          <h3>Daftar Net Income</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat data net income.</div>}
+          <h3>Net Income List</h3>
+          {!canList && <div className="alert">No permission to view net income data.</div>}
           {canList && (
             <>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Pekerjaan</th>
+                    <th>Job</th>
                     <th>Net Income</th>
                     <th>Area</th>
                     <th>Updated</th>
@@ -109,7 +109,7 @@ export default function NetIncomeList({
                   ))}
                   {items.length === 0 && (
                     <tr>
-                      <td colSpan={5}>Belum ada data net income.</td>
+                      <td colSpan={5}>No net income data yet.</td>
                     </tr>
                   )}
                 </tbody>

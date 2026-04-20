@@ -98,7 +98,7 @@ export function formatLeadTimeHours(value: unknown) {
   if (value === null || value === undefined || value === '') return '-'
   const seconds = Number(value)
   if (!Number.isFinite(seconds)) return '-'
-  return `${(seconds / 3600).toFixed(2)} jam`
+  return `${(seconds / 3600).toFixed(2)} hours`
 }
 
 export function formatCoordinate(value: unknown) {

@@ -251,7 +251,7 @@ export default function UsersPage() {
     const resources = Object.keys(sourceGrouped).sort((a, b) => a.localeCompare(b))
 
     if (!resources.length) {
-      return <div style={{ color: '#64748b', fontSize: 12 }}>Permission belum tersedia.</div>
+      return <div style={{ color: '#64748b', fontSize: 12 }}>No permissions available yet.</div>
     }
 
     return (

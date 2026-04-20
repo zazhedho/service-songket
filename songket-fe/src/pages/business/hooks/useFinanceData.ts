@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchDealerMetrics,
   fetchDealers,
@@ -41,16 +41,19 @@ export function useFinanceData({
   const [metrics, setMetrics] = useState<any>(null)
   const [dealerSearch, setDealerSearch] = useState('')
   const [financeSearch, setFinanceSearch] = useState('')
+  const [debouncedDealerSearch, setDebouncedDealerSearch] = useState('')
+  const [debouncedFinanceSearch, setDebouncedFinanceSearch] = useState('')
   const [dealerProvinceFilter, setDealerProvinceFilter] = useState('')
   const [financeProvinceFilter, setFinanceProvinceFilter] = useState('')
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
+  const financeCompanyFallbackRef = useRef<any[] | null>(null)
 
   const loadDealers = async () => {
     const dealerRes = await fetchDealers({
       page: dealerPage,
       limit: dealerLimit,
-      search: dealerSearch || undefined,
+      search: debouncedDealerSearch || undefined,
       filters: { province: dealerProvinceFilter || undefined },
     })
     const dealerData = dealerRes.data.data || dealerRes.data || []
@@ -66,15 +69,12 @@ export function useFinanceData({
   }
 
   const loadFinanceCompanies = async () => {
-    const [companyRes, lookupRes] = await Promise.all([
-      fetchFinanceCompanies({
-        page: financePage,
-        limit: financeLimit,
-        search: financeSearch || undefined,
-        filters: { province: financeProvinceFilter || undefined },
-      }),
-      fetchLookups(),
-    ])
+    const companyRes = await fetchFinanceCompanies({
+      page: financePage,
+      limit: financeLimit,
+      search: debouncedFinanceSearch || undefined,
+      filters: { province: financeProvinceFilter || undefined },
+    })
 
     const companyData = companyRes.data.data || companyRes.data || []
     setFinanceCompanies(companyData)
@@ -83,10 +83,33 @@ export function useFinanceData({
     setFinancePage(companyRes.data.current_page || financePage)
 
     if (!Array.isArray(companyData) || companyData.length === 0) {
-      const fallback = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
+      if (!financeCompanyFallbackRef.current) {
+        const lookupRes = await fetchLookups()
+        const fallback = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
+        financeCompanyFallbackRef.current = Array.isArray(fallback) ? fallback : []
+      }
+      const fallback = financeCompanyFallbackRef.current || []
       setFinanceCompanies(Array.isArray(fallback) ? fallback : [])
     }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedDealerSearch(dealerSearch)
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [dealerSearch])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedFinanceSearch(financeSearch)
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [financeSearch])
 
   const reloadBusinessData = async () => {
     if (!canView) return
@@ -113,11 +136,11 @@ export function useFinanceData({
     dealerLimit,
     dealerPage,
     dealerProvinceFilter,
-    dealerSearch,
+    debouncedDealerSearch,
     financeLimit,
     financePage,
     financeProvinceFilter,
-    financeSearch,
+    debouncedFinanceSearch,
     modeKey,
   ])
 

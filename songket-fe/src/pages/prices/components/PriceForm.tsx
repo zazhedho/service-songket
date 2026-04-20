@@ -29,42 +29,42 @@ export default function PriceForm({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Input Manual Harga Pangan</div>
-          <div style={{ color: '#64748b' }}>Halaman form terpisah dari tabel harga</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Create Manual Commodity Price</div>
+          <div style={{ color: '#64748b' }}>Form page is separated from the price table</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/prices')}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate('/prices')}>Back to Table</button>
       </div>
 
       <div className="page">
-        {!canImport && <div className="alert">Tidak ada izin input harga manual.</div>}
+        {!canImport && <div className="alert">No permission to create manual prices.</div>}
 
         <div className="card" style={{ maxWidth: 820 }}>
           <div className="grid" style={{ gap: 10 }}>
             <div>
-              <label>Nama komoditas</label>
-              <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Contoh: Beras Medium" />
+              <label>Commodity Name</label>
+              <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Example: Medium Rice" />
             </div>
             <div>
-              <label>Satuan</label>
-              <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/ikat" />
+              <label>Unit</label>
+              <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/bundle" />
             </div>
             <div>
-              <label>Harga (Rp)</label>
+              <label>Price (IDR)</label>
               <input
                 value={manual.price}
                 onChange={(e) => setManual((m) => ({ ...m, price: formatRupiahInput(e.target.value) }))}
-                placeholder="Rp 10.000"
+                placeholder="IDR 10,000"
               />
             </div>
             <div>
-              <label>Sumber URL</label>
+              <label>Source URL</label>
               <input value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button className="btn" onClick={() => void submitManual()}>Simpan</button>
-            <button className="btn-ghost" onClick={() => navigate('/prices')}>Batal</button>
+            <button className="btn" onClick={() => void submitManual()}>Save</button>
+            <button className="btn-ghost" onClick={() => navigate('/prices')}>Cancel</button>
           </div>
         </div>
       </div>

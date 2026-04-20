@@ -49,33 +49,33 @@ export default function PriceScrapeResults({
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3>Hasil Scrape (Job {selectedJob.slice(0, 6)})</h3>
+        <h3>Scrape Results (Job {selectedJob.slice(0, 6)})</h3>
         {canImport && (
           <button className="btn" onClick={() => void importSelected()} disabled={selectedResultIds.length === 0}>
-            Import pilihan ({selectedResultIds.length})
+            Import Selected ({selectedResultIds.length})
           </button>
         )}
       </div>
 
       <div style={{ marginTop: 10, marginBottom: 10 }}>
-        <label>Search Hasil Scrape</label>
-        <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Cari komoditas/sumber" />
+        <label>Search Scrape Results</label>
+        <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Search commodity/source" />
       </div>
 
       {loadingResults ? (
-        <div>Memuat hasil...</div>
+        <div>Loading results...</div>
       ) : results.length === 0 ? (
-        <div className="muted">Belum ada hasil untuk job ini.</div>
+        <div className="muted">No results found for this job.</div>
       ) : (
         <>
           <table className="table">
             <thead>
               <tr>
-                <th>Pilih</th>
-                <th>Komoditas</th>
-                <th>Harga</th>
-                <th>Sumber</th>
-                <th>Waktu Scrape</th>
+                <th>Select</th>
+                <th>Commodity</th>
+                <th>Price</th>
+                <th>Source</th>
+                <th>Scraped At</th>
               </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@ export default function PriceScrapeResults({
                   <td>{result.commodity_name}</td>
                   <td>{formatRupiah(result.price)} {result.unit ? `/ ${result.unit}` : ''}</td>
                   <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{result.source_url}</td>
-                  <td>{new Date(result.scraped_at).toLocaleString('id-ID')}</td>
+                  <td>{new Date(result.scraped_at).toLocaleString('en-GB')}</td>
                 </tr>
               ))}
             </tbody>

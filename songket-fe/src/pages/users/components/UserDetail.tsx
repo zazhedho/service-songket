@@ -23,8 +23,8 @@ export default function UserDetail({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Detail User</div>
-          <div style={{ color: '#64748b' }}>Lihat informasi detail user</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>User Details</div>
+          <div style={{ color: '#64748b' }}>Review detailed user information</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canUpdate && selectedId && (
@@ -32,11 +32,11 @@ export default function UserDetail({
               Edit User
             </button>
           )}
-          <button className="btn-ghost" onClick={() => navigate('/users')}>Kembali</button>
+          <button className="btn-ghost" onClick={() => navigate('/users')}>Back</button>
         </div>
       </div>
       <div className="page">
-        {!selectedUser && <div className="alert">Data user tidak ditemukan.</div>}
+        {!selectedUser && <div className="alert">User data not found.</div>}
         {selectedUser && (
           <div className="card" style={{ maxWidth: 940 }}>
             <h3>User Information</h3>

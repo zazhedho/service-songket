@@ -44,59 +44,59 @@ export default function PriceList({
     <>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Harga Pangan</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Prices</div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {canScrape && (
             <button className="btn" onClick={() => setShowModal(true)}>
-              Jalankan Scrape
+              Run Scrape
             </button>
           )}
           {canImport && (
             <button className="btn-ghost" onClick={() => navigate('/prices/create')}>
-              Input Manual
+              Manual Entry
             </button>
           )}
         </div>
       </div>
 
-      {!canList && <div className="page"><div className="alert">Tidak ada izin melihat harga.</div></div>}
+      {!canList && <div className="page"><div className="alert">You do not have permission to view prices.</div></div>}
 
       {canList && (
         <div className="page">
           <div className="card">
             <div style={{ marginBottom: 10 }}>
-              <label>Search Harga</label>
-              <input value={priceSearch} onChange={(e) => setPriceSearch(e.target.value)} placeholder="Cari komoditas/sumber" />
-            </div>
+            <label>Search Prices</label>
+            <input value={priceSearch} onChange={(e) => setPriceSearch(e.target.value)} placeholder="Search commodity/source" />
+          </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Daftar Harga</h3>
-              <small style={{ color: '#64748b' }}>Data harga dengan pagination</small>
+              <h3>Price List</h3>
+              <small style={{ color: '#64748b' }}>Price data with pagination</small>
             </div>
 
             {loadingPrices ? (
-              <div>Memuat...</div>
+              <div>Loading...</div>
             ) : (
               <>
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Komoditas</th>
-                      <th>Harga</th>
-                      <th>Sumber</th>
-                      <th>Waktu</th>
+                      <th>Commodity</th>
+                      <th>Price</th>
+                      <th>Source</th>
+                      <th>Collected At</th>
                       <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {prices.map((price) => (
                       <tr key={price.id}>
-                        <td>{price.commodity?.name || 'Komoditas'}</td>
+                        <td>{price.commodity?.name || 'Commodity'}</td>
                         <td>{formatRupiah(price.price)} {price.commodity?.unit ? `/ ${price.commodity?.unit}` : ''}</td>
                         <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{price.source_url || '-'}</td>
-                        <td>{price.collected_at ? new Date(price.collected_at).toLocaleString('id-ID') : '-'}</td>
+                        <td>{price.collected_at ? new Date(price.collected_at).toLocaleString('en-GB') : '-'}</td>
                         <td className="action-cell">
                           <ActionMenu
                             items={[
@@ -117,11 +117,11 @@ export default function PriceList({
                         </td>
                       </tr>
                     ))}
-                    {prices.length === 0 && (
-                      <tr>
-                        <td colSpan={5}>Belum ada harga.</td>
-                      </tr>
-                    )}
+                  {prices.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>No prices found.</td>
+                    </tr>
+                  )}
                   </tbody>
                 </table>
 

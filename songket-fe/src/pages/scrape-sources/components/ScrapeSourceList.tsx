@@ -47,7 +47,7 @@ export default function ScrapeSourceList({
           <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape URLs</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {canCreate && <button className="btn" onClick={() => navigate('/scrape-sources/create')}>Input Source</button>}
+          {canCreate && <button className="btn" onClick={() => navigate('/scrape-sources/create')}>Create Source</button>}
         </div>
       </div>
 
@@ -55,29 +55,29 @@ export default function ScrapeSourceList({
         <div className="card">
           <div style={{ marginBottom: 10 }}>
             <label>Search Source</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/url/kategori" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/url/category" />
           </div>
 
           <div style={{ marginBottom: 10 }}>
             <label>Filter Type</label>
             <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="">Semua</option>
-              <option value="prices">Harga Pangan</option>
-              <option value="news">Portal Berita</option>
+              <option value="">All</option>
+              <option value="prices">Commodity Prices</option>
+              <option value="news">News Portal</option>
             </select>
           </div>
 
-          <h3>Daftar Sumber</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat sumber scrape.</div>}
+          <h3>Source List</h3>
+          {!canList && <div className="alert">No permission to view scrape sources.</div>}
           {canList && (
             <>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Nama</th>
+                    <th>Name</th>
                     <th>URL</th>
                     <th>Type</th>
-                    <th>Aktif</th>
+                    <th>Active</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -87,7 +87,7 @@ export default function ScrapeSourceList({
                       <td>{source.name}</td>
                       <td style={{ maxWidth: 300, wordBreak: 'break-word' }}>{source.url}</td>
                       <td>{source.type || '-'}</td>
-                      <td>{source.is_active ? 'Ya' : 'Tidak'}</td>
+                      <td>{source.is_active ? 'Yes' : 'No'}</td>
                       <td className="action-cell">
                         <ActionMenu
                           items={[
@@ -116,7 +116,7 @@ export default function ScrapeSourceList({
                   ))}
                   {sources.length === 0 && (
                     <tr>
-                      <td colSpan={5}>Belum ada source.</td>
+                      <td colSpan={5}>No sources yet.</td>
                     </tr>
                   )}
                 </tbody>

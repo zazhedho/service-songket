@@ -39,24 +39,24 @@ export default function MotorTypeForm({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Jenis Motor' : 'Input Jenis Motor'}</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Motor Type' : 'Create Motor Type'}</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Back to Table</button>
       </div>
 
       <div className="page">
         <div className="card" style={{ maxWidth: 980 }}>
-          {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat data.</div>}
-          {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah data.</div>}
+          {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
+          {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
           <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
             <div>
-              <label>Jenis Motor</label>
+              <label>Motor Type</label>
               <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} />
             </div>
 
             <div>
-              <label>Merek</label>
+              <label>Brand</label>
               <input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} />
             </div>
 
@@ -81,9 +81,9 @@ export default function MotorTypeForm({
             </div>
 
             <div>
-              <label>Provinsi</label>
+              <label>Province</label>
               <select value={form.province_code} onChange={(e) => updateProvince(e.target.value)}>
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {provinces.map((province: any) => (
                   <option key={province.code} value={province.code}>{province.name}</option>
                 ))}
@@ -91,9 +91,9 @@ export default function MotorTypeForm({
             </div>
 
             <div>
-              <label>Kabupaten/Kota</label>
+              <label>Regency / City</label>
               <select value={form.regency_code} onChange={(e) => updateRegency(e.target.value)} disabled={!form.province_code}>
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {regencies.map((regency: any) => (
                   <option key={regency.code} value={regency.code}>{regency.name}</option>
                 ))}
@@ -106,7 +106,7 @@ export default function MotorTypeForm({
               <button className="btn" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
               </button>
-              <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Batal</button>
+              <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Cancel</button>
             </div>
           </div>
         </div>

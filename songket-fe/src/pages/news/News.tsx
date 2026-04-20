@@ -4,9 +4,9 @@ import { deleteNewsItem, importNews, listNewsItems, scrapeNews } from '../../ser
 import { listScrapeSources } from '../../services/scrapeSourceService'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useToast } from '../../components/common/ToastProvider'
 import NewsDetail from './components/NewsDetail'
-import { ToastLayer } from './components/NewsFeedback'
-import { normalizeNewsUrl, type ScrapedNews, type ToastTone, toDetailRow } from './components/newsHelpers'
+import { normalizeNewsUrl, type ScrapedNews, toDetailRow } from './components/newsHelpers'
 import NewsList from './components/NewsList'
 import NewsScrape from './components/NewsScrape'
 
@@ -41,38 +41,17 @@ export default function NewsPage() {
   const [adding, setAdding] = useState<Record<string, boolean>>({})
   const [added, setAdded] = useState<Record<string, boolean>>({})
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
-  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null)
   const [urls, setUrls] = useState<string[]>([''])
   const [sourceOptions, setSourceOptions] = useState<{ url: string; name: string }[]>([])
-  const toastTimer = useRef<number | null>(null)
 
   const { hasPermission } = usePermissions()
   const confirm = useConfirm()
+  const showToast = useToast()
   const canView = hasPermission('news', 'list')
   const canScrape = hasPermission('news', 'scrape')
   const canDelete = hasPermission('news', 'delete')
 
   const stateDetail = (location.state as any)?.detail || null
-
-  const showToast = (message: string, tone: ToastTone = 'info', durationMs = 2800) => {
-    if (toastTimer.current) {
-      window.clearTimeout(toastTimer.current)
-      toastTimer.current = null
-    }
-    setToast({ message, tone })
-    if (durationMs > 0) {
-      toastTimer.current = window.setTimeout(() => {
-        setToast(null)
-        toastTimer.current = null
-      }, durationMs)
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (toastTimer.current) window.clearTimeout(toastTimer.current)
-    }
-  }, [])
 
   const load = () =>
     listNewsItems({ category: category || undefined, page, limit }).then((res) => {
@@ -126,12 +105,12 @@ export default function NewsPage() {
     if (!canScrape || !row?.url) return
     const normalizedRowURL = normalizeNewsUrl(row.url)
     if (normalizedRowURL && existingNewsUrls.has(normalizedRowURL)) {
-      showToast('news already added', 'warning')
+      showToast('news already added', { tone: 'warning' })
       setAdded((prev) => ({ ...prev, [row.url]: true }))
       return
     }
     if (row.from_db) {
-      showToast('news already added', 'warning')
+      showToast('news already added', { tone: 'warning' })
       setAdded((prev) => ({ ...prev, [row.url]: true }))
       return
     }
@@ -139,16 +118,16 @@ export default function NewsPage() {
     try {
       await importNews({ items: [row] })
       setAdded((prev) => ({ ...prev, [row.url]: true }))
-      showToast('Berita berhasil ditambahkan', 'success')
+      showToast('News item added successfully.', { tone: 'success' })
       await load()
     } catch (err: any) {
-      const message = String(err?.response?.data?.error || err?.message || 'Gagal menambahkan berita')
+      const message = String(err?.response?.data?.error || err?.message || 'Failed to add news item.')
       const lower = message.toLowerCase()
       if (lower.includes('duplicate') || lower.includes('already exists') || lower.includes('already exist') || lower.includes('unique')) {
-        showToast('news already added', 'warning')
+        showToast('news already added', { tone: 'warning' })
         setAdded((prev) => ({ ...prev, [row.url]: true }))
       } else {
-        showToast(message, 'error')
+        showToast(message, { tone: 'error' })
       }
     } finally {
       setAdding((prev) => ({ ...prev, [row.url]: false }))
@@ -167,10 +146,10 @@ export default function NewsPage() {
     setDeleting((prev) => ({ ...prev, [id]: true }))
     try {
       await deleteNewsItem(id)
-      showToast('Berita berhasil dihapus', 'success')
+      showToast('News item deleted successfully.', { tone: 'success' })
       await load()
     } catch (err: any) {
-      showToast(String(err?.response?.data?.error || err?.message || 'Gagal menghapus berita'), 'error')
+      showToast(String(err?.response?.data?.error || err?.message || 'Failed to delete news item.'), { tone: 'error' })
     } finally {
       setDeleting((prev) => ({ ...prev, [id]: false }))
     }
@@ -182,10 +161,10 @@ export default function NewsPage() {
     if (!canDelete) return
     pendingDeleteIdRef.current = id
     const ok = await confirm({
-      title: 'Konfirmasi Hapus',
-      description: 'Hapus berita ini?',
-      confirmText: 'Hapus',
-      cancelText: 'Batal',
+      title: 'Delete Confirmation',
+      description: 'Delete this news item?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       tone: 'danger',
     })
     if (!ok) {
@@ -246,10 +225,6 @@ export default function NewsPage() {
           onAddToNews={addToNews}
           selectedDetail={selectedDetail}
         />
-        <ToastLayer
-          toast={toast}
-          onCloseToast={() => setToast(null)}
-        />
       </div>
     )
   }
@@ -276,10 +251,6 @@ export default function NewsPage() {
           sourceOptions={sourceOptions}
           urls={urls}
         />
-        <ToastLayer
-          toast={toast}
-          onCloseToast={() => setToast(null)}
-        />
       </div>
     )
   }
@@ -300,13 +271,9 @@ export default function NewsPage() {
         setConfirmDeleteId={requestDeleteNews}
         setLimit={setLimit}
         setPage={setPage}
-        totalData={totalData}
-        totalPages={totalPages}
-      />
-      <ToastLayer
-        toast={toast}
-        onCloseToast={() => setToast(null)}
-      />
+      totalData={totalData}
+      totalPages={totalPages}
+    />
     </div>
   )
 }

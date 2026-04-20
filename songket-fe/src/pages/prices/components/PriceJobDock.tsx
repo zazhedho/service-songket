@@ -49,16 +49,16 @@ export default function PriceJobDock({
       }}
     >
       <div style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 700 }}>Job Scrape</div>
-        <button className="btn-ghost" onClick={onToggle}>{jobsOpen ? 'Tutup' : 'Buka'}</button>
+        <div style={{ fontWeight: 700 }}>Scrape Jobs</div>
+        <button className="btn-ghost" onClick={onToggle}>{jobsOpen ? 'Close' : 'Open'}</button>
       </div>
 
       {jobsOpen && (
         <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Cari status/message" />
+          <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search status/message" />
 
           <div style={{ maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {jobs.length === 0 && <div className="muted">Belum ada job.</div>}
+            {jobs.length === 0 && <div className="muted">No jobs found.</div>}
             {jobs.map((job) => (
               <button
                 key={job.id}
@@ -68,7 +68,7 @@ export default function PriceJobDock({
               >
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontWeight: 700 }}>{job.id.slice(0, 8)}</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>{new Date(job.created_at).toLocaleTimeString('id-ID')}</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>{new Date(job.created_at).toLocaleTimeString('en-GB')}</div>
                 </div>
                 <span
                   style={{
@@ -88,7 +88,7 @@ export default function PriceJobDock({
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ color: '#64748b', fontSize: 12 }}>
-              Total {jobsTotalData} • Halaman {jobsPage} / {safeTotalPages}
+              Total {jobsTotalData} • Page {jobsPage} / {safeTotalPages}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

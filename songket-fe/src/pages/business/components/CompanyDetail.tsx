@@ -31,7 +31,7 @@ export default function CompanyDetail({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Finance Company</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Finance Company Details</div>
           <div style={{ color: '#64748b' }}>Company profile and performance summary</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -40,12 +40,12 @@ export default function CompanyDetail({
               Edit Finance Company
             </button>
           )}
-          <button className="btn-ghost" onClick={() => navigate(financeBasePath)}>Kembali</button>
+          <button className="btn-ghost" onClick={() => navigate(financeBasePath)}>Back</button>
         </div>
       </div>
 
       <div className="page">
-        {!selectedCompany && <div className="alert">Finance company tidak ditemukan.</div>}
+        {!selectedCompany && <div className="alert">Finance company not found.</div>}
         {selectedCompany && (
           <>
             <div className="card" style={{ maxWidth: 960 }}>
@@ -66,7 +66,7 @@ export default function CompanyDetail({
             </div>
 
             <div className="card">
-              <h3>Finance Performence Summary</h3>
+              <h3>Finance Performance Summary</h3>
               {companySummaryLoading && <div className="muted">Loading performance summary...</div>}
               {!companySummaryLoading && !companySummary && <div className="muted">No performance data yet.</div>}
 
@@ -80,7 +80,7 @@ export default function CompanyDetail({
                   </div>
 
                   <div style={{ marginTop: 10, color: '#64748b', fontSize: 12 }}>
-                    Dealer aktif: {companySummary.active_dealers} dari {dealers.length} dealer
+                    Active dealers: {companySummary.active_dealers} of {dealers.length} dealers
                   </div>
 
                   <div style={{ marginTop: 12 }}>

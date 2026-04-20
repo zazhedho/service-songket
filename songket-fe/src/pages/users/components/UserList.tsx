@@ -43,7 +43,7 @@ export default function UserList({
           <div style={{ fontSize: 22, fontWeight: 700 }}>User Management</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {canCreate && <button className="btn" onClick={() => navigate('/users/create')}>Input User</button>}
+          {canCreate && <button className="btn" onClick={() => navigate('/users/create')}>Create User</button>}
         </div>
       </div>
 
@@ -51,17 +51,17 @@ export default function UserList({
         <div className="card">
           <div style={{ marginBottom: 10 }}>
             <label>Search User</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/email/phone" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/email/phone" />
           </div>
 
-          <h3>Daftar User</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat data.</div>}
+          <h3>User List</h3>
+          {!canList && <div className="alert">You do not have permission to view data.</div>}
           {canList && (
             <>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Nama</th>
+                    <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>Action</th>
@@ -101,7 +101,7 @@ export default function UserList({
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={4}>Belum ada user.</td>
+                      <td colSpan={4}>No users found.</td>
                     </tr>
                   )}
                 </tbody>

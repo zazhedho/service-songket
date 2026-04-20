@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L, { type Map as LeafletMap } from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { useAlert } from '../common/ConfirmDialog'
+import { reverseGeocodedPlace, searchGeocodedPlaces, type GeocodedPlace } from '../../utils/geocoding'
 
 import 'leaflet/dist/leaflet.css'
 
@@ -11,14 +12,7 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 })
 
-export type DealerLeafletPlace = {
-  id: string
-  name: string
-  formattedAddress: string
-  lat: number
-  lng: number
-  address: Record<string, any>
-}
+export type DealerLeafletPlace = GeocodedPlace
 
 type DealerLeafletSearchMapProps = {
   center: [number, number]
@@ -28,292 +22,10 @@ type DealerLeafletSearchMapProps = {
   onPick: (place: DealerLeafletPlace) => void
 }
 
-function normalizeNominatimPlace(item: any, index: number): DealerLeafletPlace | null {
-  const lat = Number(item?.lat)
-  const lng = Number(item?.lon)
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-
-  const formattedAddress = String(item?.display_name || '').trim()
-  const primaryName = String(item?.name || '').trim()
-  const fallbackName = formattedAddress.split(',')[0]?.trim() || 'Selected Location'
-
-  return {
-    id: String(item?.place_id || `${lat}-${lng}-${index}`),
-    name: primaryName || fallbackName,
-    formattedAddress,
-    lat,
-    lng,
-    address: (item?.address || {}) as Record<string, any>,
-  }
-}
-
-async function reverseGeocode(lat: number, lng: number) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
-      String(lat),
-    )}&lon=${encodeURIComponent(String(lng))}&zoom=18&addressdetails=1`,
-  )
-  const payload = await res.json()
-  const normalized = normalizeNominatimPlace(
-    {
-      place_id: payload?.place_id || `${lat}-${lng}`,
-      display_name: payload?.display_name || '',
-      lat: String(lat),
-      lon: String(lng),
-      address: payload?.address || {},
-      name: payload?.name || '',
-    },
-    0,
-  )
-
-  if (normalized) return normalized
-  return {
-    id: `${lat}-${lng}`,
-    name: 'Pinned Location',
-    formattedAddress: '',
-    lat,
-    lng,
-    address: {},
-  } satisfies DealerLeafletPlace
-}
-
 function buildViewBox(map: LeafletMap | null) {
   if (!map) return ''
   const bounds = map.getBounds()
   return `${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()},${bounds.getSouth()}`
-}
-
-async function searchPlaces(query: string, limit: number, map: LeafletMap | null) {
-  const queryVariants = buildSearchQueryVariants(query)
-
-  const runNominatim = async ({
-    queryText,
-    includeCountry,
-    includeViewbox,
-    appendIndonesia,
-  }: {
-    queryText: string
-    includeCountry: boolean
-    includeViewbox: boolean
-    appendIndonesia: boolean
-  }) => {
-    const params = new URLSearchParams({
-      format: 'jsonv2',
-      addressdetails: '1',
-      limit: String(limit),
-      q: appendIndonesia ? `${queryText}, Indonesia` : queryText,
-      dedupe: '1',
-      'accept-language': 'id,en',
-    })
-
-    if (includeCountry) {
-      params.set('countrycodes', 'id')
-    }
-
-    if (includeViewbox) {
-      const viewbox = buildViewBox(map)
-      if (viewbox) {
-        params.set('viewbox', viewbox)
-      }
-    }
-
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`)
-    const payload = await response.json()
-    const rows = Array.isArray(payload) ? payload : []
-    return rows
-      .map((item, index) => normalizeNominatimPlace(item, index))
-      .filter(Boolean) as DealerLeafletPlace[]
-  }
-
-  const runPhoton = async (queryText: string) => {
-    const params = new URLSearchParams({
-      q: queryText,
-      limit: String(limit),
-    })
-
-    const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`)
-    if (!response.ok) {
-      return []
-    }
-    const payload = await response.json()
-    const features = Array.isArray(payload?.features) ? payload.features : []
-
-    return features
-      .map((feature: any, index: number) => {
-        const coords = feature?.geometry?.coordinates
-        const lng = Number(Array.isArray(coords) ? coords[0] : Number.NaN)
-        const lat = Number(Array.isArray(coords) ? coords[1] : Number.NaN)
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-
-        const props = feature?.properties || {}
-        const name = String(props?.name || props?.street || '').trim() || 'Selected Location'
-        const formattedAddress = [
-          name,
-          [props?.street, props?.housenumber].filter(Boolean).join(' ').trim(),
-          props?.district,
-          props?.city,
-          props?.county,
-          props?.state,
-          props?.country,
-        ]
-          .map((part) => String(part || '').trim())
-          .filter(Boolean)
-          .join(', ')
-
-        return {
-          id: String(props?.osm_id || feature?.id || `${lat}-${lng}-${index}`),
-          name,
-          formattedAddress,
-          lat,
-          lng,
-          address: {
-            state: props?.state || '',
-            province: props?.state || '',
-            region: props?.state || '',
-            county: props?.county || props?.city || '',
-            regency: props?.county || props?.city || '',
-            city: props?.city || props?.county || '',
-            municipality: props?.city || props?.county || '',
-            city_district: props?.district || props?.suburb || '',
-            district: props?.district || props?.suburb || '',
-            township: props?.district || '',
-            suburb: props?.suburb || props?.district || '',
-            village: props?.village || props?.locality || '',
-            hamlet: props?.village || props?.locality || '',
-            neighbourhood: props?.suburb || '',
-            quarter: props?.suburb || '',
-          } as Record<string, any>,
-        } satisfies DealerLeafletPlace
-      })
-      .filter(Boolean) as DealerLeafletPlace[]
-  }
-
-  const strategies = [
-    { includeCountry: true, includeViewbox: true, appendIndonesia: false },
-    { includeCountry: true, includeViewbox: false, appendIndonesia: false },
-    { includeCountry: false, includeViewbox: false, appendIndonesia: true },
-  ] as const
-
-  let nominatimResult: DealerLeafletPlace[] = []
-  for (const queryText of queryVariants) {
-    for (const strategy of strategies) {
-      try {
-        const result = await runNominatim({ ...strategy, queryText })
-        if (result.length > 0) {
-          nominatimResult = result
-          break
-        }
-      } catch {
-        // Try next strategy
-      }
-    }
-    if (nominatimResult.length > 0) {
-      break
-    }
-  }
-
-  let photonResult: DealerLeafletPlace[] = []
-  for (const queryText of queryVariants) {
-    try {
-      photonResult = await runPhoton(queryText)
-      if (photonResult.length > 0) break
-    } catch {
-      photonResult = []
-    }
-  }
-
-  const merged = [...nominatimResult, ...photonResult]
-  if (!merged.length) return []
-
-  const dedup = new Map<string, DealerLeafletPlace>()
-  for (const item of merged) {
-    const key = `${item.lat.toFixed(6)}|${item.lng.toFixed(6)}|${item.name.toLowerCase()}`
-    if (!dedup.has(key)) {
-      dedup.set(key, item)
-    }
-  }
-  return rankPlacesByQuery(queryVariants[0], Array.from(dedup.values()))
-}
-
-function buildSearchQueryVariants(query: string) {
-  const raw = String(query || '').trim()
-  if (!raw) return []
-
-  const variants = [raw]
-  const expanded = raw
-    .replace(/\bsman\b/gi, 'sma negeri')
-    .replace(/\bsmpn\b/gi, 'smp negeri')
-    .replace(/\bsdn\b/gi, 'sd negeri')
-    .replace(/\bsmk\b/gi, 'smk')
-
-  if (expanded.toLowerCase() !== raw.toLowerCase()) {
-    variants.push(expanded)
-  }
-
-  return Array.from(new Set(variants))
-}
-
-function normalizeSearchText(value?: string) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function tokenizeSearchText(value?: string) {
-  return normalizeSearchText(value)
-    .split(' ')
-    .map((token) => token.trim())
-    .filter(Boolean)
-}
-
-function extractNumberTokens(tokens: string[]) {
-  return tokens.filter((token) => /^[0-9]+$/.test(token))
-}
-
-function rankPlacesByQuery(query: string, places: DealerLeafletPlace[]) {
-  if (!places.length) return places
-  const queryNorm = normalizeSearchText(query)
-  const queryTokens = tokenizeSearchText(query)
-  const queryNumbers = extractNumberTokens(queryTokens)
-
-  const scored = places.map((place) => {
-    const nameNorm = normalizeSearchText(place.name)
-    const candidate = normalizeSearchText(`${place.name} ${place.formattedAddress}`)
-    const candidateTokens = tokenizeSearchText(candidate)
-    const candidateNumbers = extractNumberTokens(candidateTokens)
-    let score = 0
-
-    if (candidate.includes(queryNorm)) score += 140
-    if (nameNorm.includes(queryNorm)) score += 90
-
-    let matchedTokens = 0
-    for (const token of queryTokens) {
-      if (token.length <= 1 && !/^[0-9]+$/.test(token)) continue
-      if (candidateTokens.includes(token)) {
-        matchedTokens += 1
-        score += 16
-      } else {
-        score -= 10
-      }
-    }
-
-    if (queryNumbers.length > 0) {
-      const allNumbersMatch = queryNumbers.every((num) => candidateNumbers.includes(num))
-      score += allNumbersMatch ? 70 : -130
-    }
-
-    const coverage = queryTokens.length > 0 ? matchedTokens / queryTokens.length : 0
-    if (coverage < 0.5) score -= 90
-    if (nameNorm.startsWith(queryTokens[0] || '')) score += 20
-
-    return { place, score }
-  })
-
-  scored.sort((a, b) => b.score - a.score)
-  const filtered = scored.filter((item, index) => item.score >= -20 || index < 2)
-  return filtered.map((item) => item.place)
 }
 
 function LeafletMapBridge({
@@ -403,7 +115,7 @@ export default function DealerLeafletSearchMap({
     const seq = requestSeqRef.current
     setSearching(true)
     try {
-      const places = await searchPlaces(keyword, 10, mapRef.current)
+      const places = await searchGeocodedPlaces(keyword, 10, { viewbox: buildViewBox(mapRef.current) })
       if (seq !== requestSeqRef.current) return
 
       if (places.length === 0) {
@@ -449,7 +161,7 @@ export default function DealerLeafletSearchMap({
     keepMultiResultRef.current = false
     setSearching(true)
     try {
-      const place = await reverseGeocode(nextLat, nextLng)
+      const place = await reverseGeocodedPlace(nextLat, nextLng)
       setMarkers([place])
       setQuery(place.formattedAddress || query)
       setSuggestions([])
@@ -491,7 +203,7 @@ export default function DealerLeafletSearchMap({
     const timer = window.setTimeout(async () => {
       setLoadingSuggestions(true)
       try {
-        const places = await searchPlaces(keyword, 6, mapRef.current)
+        const places = await searchGeocodedPlaces(keyword, 6, { viewbox: buildViewBox(mapRef.current) })
         if (seq !== requestSeqRef.current) return
         setSuggestions(places)
       } catch {

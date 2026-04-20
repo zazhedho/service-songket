@@ -418,6 +418,50 @@ export default function FinanceReportPage() {
       const kabupatenCache: Record<string, OptionItem[]> = {}
       const kecamatanCache: Record<string, OptionItem[]> = {}
       const nextMap: Record<string, LocationNames> = {}
+      const provinceCodes = Array.from(
+        new Set(
+          sourceRows
+            .map((item) => normalizeText(item.province))
+            .filter(Boolean),
+        ),
+      )
+      const regencyPairs = Array.from(
+        new Set(
+          sourceRows
+            .map((item) => {
+              const provinceCode = normalizeText(item.province)
+              const regencyCode = normalizeText(item.regency)
+              if (!provinceCode || !regencyCode) return ''
+              return `${provinceCode}::${regencyCode}`
+            })
+            .filter(Boolean),
+        ),
+      )
+
+      await Promise.all(
+        provinceCodes.map(async (provinceCode) => {
+          try {
+            const kabRes = await fetchKabupaten(provinceCode)
+            const rawKab = kabRes.data?.data || kabRes.data || []
+            kabupatenCache[provinceCode] = Array.isArray(rawKab) ? rawKab : []
+          } catch {
+            kabupatenCache[provinceCode] = []
+          }
+        }),
+      )
+
+      await Promise.all(
+        regencyPairs.map(async (pair) => {
+          const [provinceCode, regencyCode] = pair.split('::')
+          try {
+            const kecRes = await fetchKecamatan(provinceCode, regencyCode)
+            const rawKec = kecRes.data?.data || kecRes.data || []
+            kecamatanCache[pair] = Array.isArray(rawKec) ? rawKec : []
+          } catch {
+            kecamatanCache[pair] = []
+          }
+        }),
+      )
 
       for (const item of sourceRows) {
         const provinceCode = normalizeText(item.province)
@@ -428,31 +472,13 @@ export default function FinanceReportPage() {
 
         let regencyName = regencyCode || '-'
         if (provinceCode) {
-          if (!kabupatenCache[provinceCode]) {
-            try {
-              const kabRes = await fetchKabupaten(provinceCode)
-              const rawKab = kabRes.data?.data || kabRes.data || []
-              kabupatenCache[provinceCode] = Array.isArray(rawKab) ? rawKab : []
-            } catch {
-              kabupatenCache[provinceCode] = []
-            }
-          }
-          regencyName = lookupOptionName(kabupatenCache[provinceCode], regencyCode)
+          regencyName = lookupOptionName(kabupatenCache[provinceCode] || [], regencyCode)
         }
 
         let districtName = districtCode || '-'
         if (provinceCode && regencyCode) {
           const cacheKey = `${provinceCode}::${regencyCode}`
-          if (!kecamatanCache[cacheKey]) {
-            try {
-              const kecRes = await fetchKecamatan(provinceCode, regencyCode)
-              const rawKec = kecRes.data?.data || kecRes.data || []
-              kecamatanCache[cacheKey] = Array.isArray(rawKec) ? rawKec : []
-            } catch {
-              kecamatanCache[cacheKey] = []
-            }
-          }
-          districtName = lookupOptionName(kecamatanCache[cacheKey], districtCode)
+          districtName = lookupOptionName(kecamatanCache[cacheKey] || [], districtCode)
         }
 
         nextMap[item.order_id] = {

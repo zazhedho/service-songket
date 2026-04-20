@@ -89,7 +89,7 @@ export default function InstallmentForm({
 
             <div style={{ display: 'flex', gap: 10, gridColumn: '1 / -1' }}>
               <button className="btn" onClick={() => void save()} disabled={loading}>
-                {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+                {loading ? 'Saving...' : isEdit ? 'Update Installment' : 'Create Installment'}
               </button>
               <button className="btn-ghost" onClick={() => navigate('/installments')}>Cancel</button>
             </div>

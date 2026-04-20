@@ -57,18 +57,18 @@ export default function UserForm({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit User' : 'Input User Baru'}</div>
-          <div style={{ color: '#64748b' }}>Form terpisah dari halaman tabel user</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit User' : 'Create User'}</div>
+          <div style={{ color: '#64748b' }}>User form separated from the user list page</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/users')}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate('/users')}>Back to List</button>
       </div>
       <div className="page">
         <div className="card" style={{ maxWidth: 920 }}>
-          {!canCreate && isCreate && <div className="alert">Tidak ada izin membuat user.</div>}
-          {!canUpdate && isEdit && <div className="alert">Tidak ada izin mengubah user.</div>}
+          {!canCreate && isCreate && <div className="alert">You do not have permission to create users.</div>}
+          {!canUpdate && isEdit && <div className="alert">You do not have permission to update users.</div>}
           <div className="grid" style={{ gap: 10 }}>
             <div>
-              <label>Nama</label>
+              <label>Name</label>
               <input value={form.name} onChange={(e) => set('name', e.target.value)} />
             </div>
             <div>
@@ -173,7 +173,7 @@ export default function UserForm({
                   navigate('/users')
                 }}
               >
-                Batal
+                Cancel
               </button>
             </div>
           </div>

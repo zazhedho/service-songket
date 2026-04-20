@@ -83,6 +83,7 @@ export default function OrdersPage() {
   const [form, setForm] = useState(defaultForm)
   const [lookups, setLookups] = useState<any>({})
   const [provinces, setProvinces] = useState<any[]>([])
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [kabupaten, setKabupaten] = useState<any[]>([])
   const [kecamatan, setKecamatan] = useState<any[]>([])
   const [kabupatenLookup, setKabupatenLookup] = useState<Record<string, string>>({})
@@ -146,6 +147,15 @@ export default function OrdersPage() {
   }, [])
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(String(filters.search || ''))
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [filters.search])
+
+  useEffect(() => {
     if (role === 'dealer' && lookups?.dealers?.length === 1 && isCreate) {
       setForm((prev) => ({ ...prev, dealer_id: lookups.dealers[0].id }))
     }
@@ -156,7 +166,7 @@ export default function OrdersPage() {
       loadList({
         page,
         limit,
-        search: filters.search || undefined,
+        search: debouncedSearch || undefined,
         status: filters.status || undefined,
         from_date: filters.export_from || undefined,
         to_date: filters.export_to || undefined,
@@ -166,7 +176,7 @@ export default function OrdersPage() {
         setTotalData(0)
       })
     }
-  }, [filters.search, filters.status, filters.export_from, filters.export_to, isList, limit, page, showTable])
+  }, [debouncedSearch, filters.status, filters.export_from, filters.export_to, isList, limit, page, showTable])
 
   useEffect(() => {
     if (!list.length) return
@@ -242,10 +252,15 @@ export default function OrdersPage() {
   }, [list])
 
   useEffect(() => {
-    if (isEdit || isDetail) {
+    const shouldFetchDetailFallback = (isEdit || isDetail)
+      && Boolean(selectedId)
+      && !(stateOrder?.id === selectedId)
+      && !list.some((order) => order.id === selectedId)
+
+    if (shouldFetchDetailFallback) {
       loadList({ page: 1, limit: 200 }).catch(() => setList([]))
     }
-  }, [isDetail, isEdit])
+  }, [isDetail, isEdit, list, selectedId, stateOrder?.id])
 
   useEffect(() => {
     setPage(1)
@@ -580,11 +595,11 @@ export default function OrdersPage() {
     payload.result_notes3 = ''
 
     if (payload.finance_company2_id && !payload.result_status2) {
-      await showAlert('Pilih hasil untuk Finance Company 2.')
+      await showAlert('Select a result for Finance Company 2.')
       return
     }
     if (!payload.finance_company2_id && payload.result_status2) {
-      await showAlert('Pilih Finance Company 2 sebelum mengisi hasil Finance 2.')
+      await showAlert('Select Finance Company 2 before filling Finance Result 2.')
       return
     }
     setLoading(true)
@@ -606,7 +621,7 @@ export default function OrdersPage() {
       setForm(defaultForm)
       navigate('/orders')
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Gagal menyimpan order'
+      const message = err?.response?.data?.error || err?.message || 'Failed to save order.'
       setError(message)
       await showAlert(message)
     } finally {
@@ -637,7 +652,7 @@ export default function OrdersPage() {
         to_date: filters.export_to || undefined,
       })
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Gagal menghapus order'
+      const message = err?.response?.data?.error || err?.message || 'Failed to delete order.'
       await showAlert(message)
     } finally {
       setLoading(false)

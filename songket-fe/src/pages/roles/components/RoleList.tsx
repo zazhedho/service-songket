@@ -42,18 +42,18 @@ export default function RoleList({
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Roles & Access</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/roles/create')}>Input Role</button>}
+        {canCreate && <button className="btn" onClick={() => navigate('/roles/create')}>Create Role</button>}
       </div>
 
       <div className="page">
         <div className="card">
           <div style={{ marginBottom: 10 }}>
             <label>Search Role</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari name/display name" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/display name" />
           </div>
 
-          <h3>Daftar Role</h3>
-          {!canList && <div className="alert">Tidak ada izin melihat role.</div>}
+          <h3>Role List</h3>
+          {!canList && <div className="alert">You do not have permission to view roles.</div>}
           {canList && (
             <>
               <table className="table">
@@ -97,7 +97,7 @@ export default function RoleList({
                   ))}
                   {roles.length === 0 && (
                     <tr>
-                      <td colSpan={3}>Belum ada role.</td>
+                      <td colSpan={3}>No roles found.</td>
                     </tr>
                   )}
                 </tbody>

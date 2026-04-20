@@ -14,11 +14,8 @@ import {
   listNetIncome,
   updateNetIncome,
 } from '../../services/netIncomeService'
-import {
-  fetchKabupaten,
-  fetchProvinces,
-} from '../../services/locationService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
 import JobDetail from './components/JobDetail'
@@ -187,8 +184,6 @@ export default function JobsPage() {
 
   const [items, setItems] = useState<CombinedItem[]>([])
   const [allItems, setAllItems] = useState<CombinedItem[]>([])
-  const [provinces, setProvinces] = useState<OptionItem[]>([])
-  const [kabupaten, setKabupaten] = useState<OptionItem[]>([])
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -202,17 +197,23 @@ export default function JobsPage() {
   const [detailLoading, setDetailLoading] = useState(false)
 
   const stateItem = (location.state as any)?.item || null
+  const isFormMode = isCreate || isEdit
+  const {
+    provinces,
+    regencies: kabupaten,
+  } = useLocationOptions({
+    enabled: isFormMode,
+    provinceCode: form.province_code,
+  })
 
   const load = async () => {
-    const [jobRes, netRes, provRes] = await Promise.all([
+    const [jobRes, netRes] = await Promise.all([
       listJobs({ page: 1, limit: 1000 }).catch(() => ({ data: { data: [] } } as any)),
       listNetIncome({ page: 1, limit: 1000 }).catch(() => ({ data: { data: [] } } as any)),
-      fetchProvinces().catch(() => ({ data: { data: [] } } as any)),
     ])
 
     const jobData = jobRes.data?.data || jobRes.data || []
     const netData = netRes.data?.data || netRes.data || []
-    const provData = provRes.data?.data || provRes.data || []
 
     const jobs: JobItem[] = Array.isArray(jobData) ? jobData : []
     const netItems: NetIncomeItem[] = Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : []
@@ -246,7 +247,6 @@ export default function JobsPage() {
 
     setAllItems(filtered)
     setItems(filtered.slice(offset, offset + limit))
-    setProvinces(Array.isArray(provData) ? provData : [])
     setTotalPages(nextTotalPages)
     setTotalData(filtered.length)
 
@@ -260,7 +260,6 @@ export default function JobsPage() {
       load().catch(() => {
         setItems([])
         setAllItems([])
-        setProvinces([])
       })
     }
   }, [canList, isDetail, isEdit, isList, limit, page, search])
@@ -317,22 +316,6 @@ export default function JobsPage() {
       setError('')
     }
   }, [isCreate, isEdit, selectedItem])
-
-  useEffect(() => {
-    if (!(isCreate || isEdit)) return
-
-    if (!form.province_code) {
-      setKabupaten([])
-      return
-    }
-
-    fetchKabupaten(form.province_code)
-      .then((res) => {
-        const data = res.data?.data || res.data || []
-        setKabupaten(Array.isArray(data) ? data : [])
-      })
-      .catch(() => setKabupaten([]))
-  }, [form.province_code, isCreate, isEdit])
 
   const addArea = () => {
     const province = provinces.find((item) => item.code === form.province_code)

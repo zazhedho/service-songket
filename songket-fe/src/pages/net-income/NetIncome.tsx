@@ -8,11 +8,8 @@ import {
   updateNetIncome,
 } from '../../services/netIncomeService'
 import { listJobs } from '../../services/jobService'
-import {
-  fetchKabupaten,
-  fetchProvinces,
-} from '../../services/locationService'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
 import NetIncomeDetail from './components/NetIncomeDetail'
@@ -154,8 +151,6 @@ export default function NetIncomePage() {
 
   const [items, setItems] = useState<NetIncomeItem[]>([])
   const [jobs, setJobs] = useState<JobItem[]>([])
-  const [provinces, setProvinces] = useState<OptionItem[]>([])
-  const [kabupaten, setKabupaten] = useState<OptionItem[]>([])
   const [fetchedItem, setFetchedItem] = useState<NetIncomeItem | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
@@ -167,21 +162,26 @@ export default function NetIncomePage() {
   const [totalData, setTotalData] = useState(0)
 
   const stateItem = (location.state as any)?.item || null
+  const isFormMode = isCreate || isEdit
+  const {
+    provinces,
+    regencies: kabupaten,
+  } = useLocationOptions({
+    enabled: isFormMode,
+    provinceCode: form.province_code,
+  })
 
   const load = async () => {
-    const [netRes, jobRes, provRes] = await Promise.all([
+    const [netRes, jobRes] = await Promise.all([
       listNetIncome({ page, limit, search: search || undefined }).catch(() => ({ data: { data: [] } } as any)),
       listJobs({ page: 1, limit: 500 }).catch(() => ({ data: { data: [] } } as any)),
-      fetchProvinces().catch(() => ({ data: { data: [] } } as any)),
     ])
 
     const netData = netRes.data?.data || netRes.data || []
     const jobData = jobRes.data?.data || jobRes.data || []
-    const provData = provRes.data?.data || provRes.data || []
 
     setItems(Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : [])
     setJobs(Array.isArray(jobData) ? jobData : [])
-    setProvinces(Array.isArray(provData) ? provData : [])
 
     setTotalPages(netRes.data?.total_pages || 1)
     setTotalData(netRes.data?.total_data || 0)
@@ -192,7 +192,6 @@ export default function NetIncomePage() {
     load().catch(() => {
       setItems([])
       setJobs([])
-      setProvinces([])
     })
   }, [limit, page, search])
 
@@ -205,7 +204,6 @@ export default function NetIncomePage() {
       load().catch(() => {
         setItems([])
         setJobs([])
-        setProvinces([])
       })
     }
   }, [canList, isEdit, isDetail, items.length])
@@ -248,32 +246,16 @@ export default function NetIncomePage() {
     }
   }, [isCreate, isEdit, jobs, form.job_id])
 
-  useEffect(() => {
-    if (!(isCreate || isEdit)) return
-
-    if (!form.province_code) {
-      setKabupaten([])
-      return
-    }
-
-    fetchKabupaten(form.province_code)
-      .then((res) => {
-        const data = res.data?.data || res.data || []
-        setKabupaten(Array.isArray(data) ? data : [])
-      })
-      .catch(() => setKabupaten([]))
-  }, [isCreate, isEdit, form.province_code])
-
   const addArea = () => {
     const province = provinces.find((item) => item.code === form.province_code)
     const regency = kabupaten.find((item) => item.code === form.regency_code)
 
     if (!province) {
-      setError('Provinsi wajib dipilih')
+      setError('Province must be selected.')
       return
     }
     if (!regency) {
-      setError('Kabupaten/Kota wajib dipilih')
+      setError('Regency / city must be selected.')
       return
     }
 
@@ -288,7 +270,7 @@ export default function NetIncomePage() {
       (item) => item.province_code === nextArea.province_code && item.regency_code === nextArea.regency_code,
     )
     if (exists) {
-      setError('Area yang dipilih sudah ada')
+      setError('The selected area already exists.')
       return
     }
 
@@ -315,15 +297,15 @@ export default function NetIncomePage() {
     const areas = normalizeAreaInput(form.selected_areas)
 
     if (!form.job_id) {
-      setError('Pekerjaan wajib dipilih')
+      setError('Job must be selected.')
       return
     }
     if (Number.isNaN(netIncome) || netIncome < 0) {
-      setError('Net income harus angka >= 0')
+      setError('Net income must be a number greater than or equal to 0.')
       return
     }
     if (areas.length === 0) {
-      setError('Area net income minimal 1')
+      setError('At least one net income area is required.')
       return
     }
 
@@ -348,7 +330,7 @@ export default function NetIncomePage() {
         (typeof rawError === 'string' && rawError.trim()) ||
         (rawError && typeof rawError === 'object' && typeof rawError.message === 'string' && rawError.message.trim()) ||
         (typeof err?.response?.data?.message === 'string' && err.response.data.message.trim()) ||
-        'Gagal menyimpan net income'
+        'Failed to save net income.'
       setError(message)
       await confirm({
         title: 'Save Failed',

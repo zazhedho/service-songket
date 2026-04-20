@@ -15,6 +15,7 @@ import {
 } from '../../services/locationService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { reverseGeocodedPlace } from '../../utils/geocoding'
 import DealerDetail from './components/DealerDetail'
 import CompanyDetail from './components/CompanyDetail'
 import DealerForm from './components/DealerForm'
@@ -345,14 +346,9 @@ export default function FinancePage() {
       let address = presetAddress || {}
 
       if (!displayAddress || Object.keys(address).length === 0 || !hasRegionAddressFields(address)) {
-        const reverseRes = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
-            String(lat),
-          )}&lon=${encodeURIComponent(String(lng))}&zoom=18&addressdetails=1`,
-        )
-        const reversePayload = await reverseRes.json()
-        displayAddress = String(reversePayload?.display_name || '').trim()
-        address = reversePayload?.address || {}
+        const reversePlace = await reverseGeocodedPlace(lat, lng)
+        displayAddress = String(reversePlace.formattedAddress || '').trim()
+        address = reversePlace.address || {}
       }
 
       if (seq !== dealerLocationReqRef.current) return
@@ -618,7 +614,7 @@ export default function FinancePage() {
       await reloadBusinessData()
       navigate(dealerBasePath)
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal menyimpan dealer')
+      await showAlert(err?.response?.data?.error || 'Failed to save dealer.')
     } finally {
       setSavingDealer(false)
     }
@@ -645,7 +641,7 @@ export default function FinancePage() {
       await reloadBusinessData()
       navigate(financeBasePath)
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal menyimpan finance company')
+      await showAlert(err?.response?.data?.error || 'Failed to save finance company.')
     } finally {
       setSavingFinance(false)
     }
@@ -665,7 +661,7 @@ export default function FinancePage() {
       await deleteDealer(id)
       await reloadBusinessData()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal menghapus dealer')
+      await showAlert(err?.response?.data?.error || 'Failed to delete dealer.')
     }
   }
 
@@ -683,7 +679,7 @@ export default function FinancePage() {
       await deleteFinanceCompany(id)
       await reloadBusinessData()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Gagal menghapus finance company')
+      await showAlert(err?.response?.data?.error || 'Failed to delete finance company.')
     }
   }
 
@@ -691,8 +687,8 @@ export default function FinancePage() {
     return (
       <div className="page">
         <div className="card">
-          <h3>Peta & Finance</h3>
-          <div className="alert">Tidak ada izin melihat finance.</div>
+          <h3>Map & Finance</h3>
+          <div className="alert">You do not have permission to view business data.</div>
         </div>
       </div>
     )

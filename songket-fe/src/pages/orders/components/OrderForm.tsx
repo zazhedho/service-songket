@@ -58,16 +58,16 @@ export default function OrderFormView({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Order In' : 'Input Order In'}</div>
-          <div style={{ color: '#64748b' }}>Form order dipisah dari tabel utama</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Order' : 'Create Order'}</div>
+          <div style={{ color: '#64748b' }}>Order form is separated from the main table</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/orders')}>Kembali ke Tabel</button>
+        <button className="btn-ghost" onClick={() => navigate('/orders')}>Back to Table</button>
       </div>
 
       <div className="page">
         <div className="card">
-          {isCreate && !canCreate && <div className="alert">Anda tidak punya izin membuat order.</div>}
-          {isEdit && !canUpdate && <div className="alert">Anda tidak punya izin mengubah order.</div>}
+          {isCreate && !canCreate && <div className="alert">You do not have permission to create orders.</div>}
+          {isEdit && !canUpdate && <div className="alert">You do not have permission to update orders.</div>}
           {error && <div className="alert" style={{ marginBottom: 10 }}>{error}</div>}
 
           <form
@@ -83,7 +83,7 @@ export default function OrderFormView({
                 required
                 disabled={role === 'dealer' && lookups?.dealers?.length === 1}
               >
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {lookups?.dealers?.map((dealer: any) => (
                   <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
                 ))}
@@ -91,12 +91,12 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Nomor Pooling</label>
+              <label>Pooling Number</label>
               <input value={form.pooling_number} onChange={(e) => set('pooling_number', e.target.value)} required />
             </div>
 
             <div>
-              <label>Waktu Pooling</label>
+              <label>Pooling Time</label>
               <input
                 type="datetime-local"
                 value={dayjs(form.pooling_at).format('YYYY-MM-DDTHH:mm')}
@@ -106,7 +106,7 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Waktu Hasil</label>
+              <label>Result Time</label>
               <input
                 type="datetime-local"
                 value={form.result_at ? dayjs(form.result_at).format('YYYY-MM-DDTHH:mm') : ''}
@@ -117,7 +117,7 @@ export default function OrderFormView({
             <div>
               <label>Finance Company 1</label>
               <select value={form.finance_company_id} onChange={(e) => set('finance_company_id', e.target.value)} required>
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {lookups?.finance_companies?.map((finance: any) => (
                   <option key={finance.id} value={finance.id}>{finance.name}</option>
                 ))}
@@ -125,23 +125,23 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Nama Konsumen</label>
+              <label>Consumer Name</label>
               <input value={form.consumer_name} onChange={(e) => set('consumer_name', e.target.value)} required />
             </div>
 
             <div>
-              <label>No HP</label>
+              <label>Phone Number</label>
               <input value={form.consumer_phone} onChange={(e) => set('consumer_phone', e.target.value)} required />
             </div>
 
             <div>
-              <label>Provinsi</label>
+              <label>Province</label>
               <select
                 value={form.province}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, province: e.target.value, regency: '', district: '' }))}
                 required
               >
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {provinces.map((prov: any) => (
                   <option key={prov.code} value={prov.code}>{prov.name}</option>
                 ))}
@@ -152,13 +152,13 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Kabupaten/Kota</label>
+              <label>Regency / City</label>
               <select
                 value={form.regency}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, regency: e.target.value, district: '' }))}
                 disabled={!form.province}
               >
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {kabupaten.map((kab: any) => (
                   <option key={kab.code} value={kab.code}>{kab.name}</option>
                 ))}
@@ -166,9 +166,9 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Kecamatan</label>
+              <label>District</label>
               <select value={form.district} onChange={(e) => set('district', e.target.value)} disabled={!form.regency}>
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {kecamatan.map((kec: any) => (
                   <option key={kec.code} value={kec.code}>{kec.name}</option>
                 ))}
@@ -176,19 +176,19 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Kelurahan</label>
-              <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Tulis kelurahan" />
+              <label>Village</label>
+              <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Enter village" />
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <label>Alamat</label>
+              <label>Address</label>
               <input value={form.address} onChange={(e) => set('address', e.target.value)} />
             </div>
 
             <div>
-              <label>Pekerjaan</label>
+              <label>Job</label>
               <select value={form.job_id} onChange={(e) => set('job_id', e.target.value)}>
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {lookups?.jobs?.map((job: any) => (
                   <option key={job.id} value={job.id}>{job.name}</option>
                 ))}
@@ -196,9 +196,9 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Tipe Motor</label>
+              <label>Motor Type</label>
               <select value={form.motor_type_id} onChange={(e) => set('motor_type_id', e.target.value)}>
-                <option value="">Pilih</option>
+                <option value="">Select</option>
                 {filteredMotorTypes.map((motor: any) => (
                   <option key={motor.id} value={motor.id}>
                     {motor.name} - OTR {motor.otr?.toLocaleString?.('id-ID')}
@@ -223,7 +223,7 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>DP Setor</label>
+              <label>DP Paid</label>
               <input
                 type="text"
                 value={formatRupiah(form.dp_paid)}
@@ -243,7 +243,7 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Angsuran</label>
+              <label>Installment</label>
               <input
                 type="text"
                 value={formatRupiah(form.installment)}
@@ -253,7 +253,7 @@ export default function OrderFormView({
             </div>
 
             <div>
-              <label>Hasil</label>
+              <label>Result</label>
               <select value={form.result_status} onChange={(e) => set('result_status', e.target.value)}>
                 <option value="approve">Approve</option>
                 <option value="pending">Pending</option>
@@ -262,13 +262,13 @@ export default function OrderFormView({
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <label>Keterangan Hasil</label>
+              <label>Result Notes</label>
               <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} />
             </div>
 
             {form.result_status === 'reject' && !showAttempt2 && poolingRowsCount >= 2 && (
               <div style={{ gridColumn: '1 / -1', color: '#64748b', fontSize: 12 }}>
-                Pooling number ini sudah memiliki 2 data, sehingga tidak bisa menambah finance attempt baru.
+                This pooling number already has 2 records, so no additional finance attempt can be added.
               </div>
             )}
 
@@ -277,14 +277,14 @@ export default function OrderFormView({
                 <div style={{ gridColumn: '1 / -1', marginTop: 4, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance Attempt 2</div>
                   <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
-                    Attempt 2 akan tampil ketika hasil attempt 1 adalah reject.
+                    Attempt 2 appears when attempt 1 result is reject.
                   </div>
                 </div>
 
                 <div>
                   <label>Finance Company 2</label>
                   <select value={form.finance_company2_id} onChange={(e) => set('finance_company2_id', e.target.value)}>
-                    <option value="">Pilih</option>
+                    <option value="">Select</option>
                     {lookups?.finance_companies?.map((finance: any) => (
                       <option key={finance.id} value={finance.id}>{finance.name}</option>
                     ))}
@@ -292,7 +292,7 @@ export default function OrderFormView({
                 </div>
 
                 <div>
-                  <label>Hasil Finance 2</label>
+                  <label>Finance 2 Result</label>
                   <select value={form.result_status2} onChange={(e) => set('result_status2', e.target.value)}>
                     <option value="">--</option>
                     <option value="approve">Approve</option>
@@ -302,7 +302,7 @@ export default function OrderFormView({
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label>Keterangan Finance 2</label>
+                  <label>Finance 2 Notes</label>
                   <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
                 </div>
               </>
@@ -318,7 +318,7 @@ export default function OrderFormView({
                   navigate('/orders')
                 }}
               >
-                Batal
+                Cancel
               </button>
             </div>
           </form>

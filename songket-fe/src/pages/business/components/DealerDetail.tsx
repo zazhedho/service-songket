@@ -28,7 +28,7 @@ export default function DealerDetail({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Dealer</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Dealer Details</div>
           <div style={{ color: '#64748b' }}>Dealer profile and location map</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -37,12 +37,12 @@ export default function DealerDetail({
               Edit Dealer
             </button>
           )}
-          <button className="btn-ghost" onClick={() => navigate(dealerBasePath)}>Kembali</button>
+          <button className="btn-ghost" onClick={() => navigate(dealerBasePath)}>Back</button>
         </div>
       </div>
 
       <div className="page">
-        {!selectedDealer && <div className="alert">Dealer tidak ditemukan.</div>}
+        {!selectedDealer && <div className="alert">Dealer not found.</div>}
         {selectedDealer && (
           <>
             <div className="card" style={{ maxWidth: 960 }}>

@@ -128,7 +128,7 @@ export default function RolesPage() {
 
   const permissionLabel = (id: string) => {
     const perm = permById[id]
-    if (!perm) return 'Permission tidak ditemukan'
+    if (!perm) return 'Permission not found'
     const base = perm.display_name || perm.name || 'Permission'
     return perm.action ? `${base} (${perm.action})` : base
   }
@@ -217,7 +217,7 @@ export default function RolesPage() {
       }
 
       if (!roleId && canAssignPerms && permissionPayload.length > 0) {
-        throw new Error('Role berhasil disimpan, tetapi ID role tidak ditemukan untuk menyimpan akses.')
+        throw new Error('Role saved successfully, but the role ID was not found for access assignment.')
       }
 
       if (roleId && canAssignPerms && permissionPayload.length > 0) {
@@ -232,10 +232,10 @@ export default function RolesPage() {
       setPermDraft([])
       navigate('/roles')
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Gagal menyimpan role'
+      const message = err?.response?.data?.error || err?.message || 'Failed to save role.'
 
       if (newlyCreated && roleId) {
-        const partialMessage = `Role berhasil dibuat, tetapi pengaturan akses gagal: ${message}`
+        const partialMessage = `Role was created, but permission assignment failed: ${message}`
         setError(partialMessage)
         await confirm({
           title: 'Partial Save',
@@ -264,7 +264,7 @@ export default function RolesPage() {
     if (!resources.length) {
       return (
         <div style={{ color: '#64748b', fontSize: 12 }}>
-          Permission belum tersedia.
+          No permissions available yet.
         </div>
       )
     }

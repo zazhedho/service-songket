@@ -12,11 +12,8 @@ import {
   deleteMotorType,
   updateMotorType,
 } from '../../services/motorTypeService'
-import {
-  fetchKabupaten,
-  fetchProvinces,
-} from '../../services/locationService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
 import InstallmentDetail from './components/InstallmentDetail'
@@ -137,15 +134,22 @@ export default function InstallmentsPage() {
   const [search, setSearch] = useState('')
   const [provinceFilter, setProvinceFilter] = useState('')
   const [regencyFilter, setRegencyFilter] = useState('')
-  const [provinces, setProvinces] = useState<OptionItem[]>([])
-  const [regencies, setRegencies] = useState<OptionItem[]>([])
-  const [filterRegencies, setFilterRegencies] = useState<OptionItem[]>([])
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
 
   const stateItem = (location.state as any)?.item || null
+  const isFormMode = isCreate || isEdit
+  const { provinces, regencies } = useLocationOptions({
+    enabled: isFormMode || isList || isDetail,
+    provinceCode: form.province_code,
+  })
+  const { regencies: filterRegencies } = useLocationOptions({
+    enabled: Boolean(provinceFilter),
+    loadProvinces: false,
+    provinceCode: provinceFilter,
+  })
 
   const load = async () => {
     const res = await listInstallments({
@@ -165,42 +169,10 @@ export default function InstallmentsPage() {
   }
 
   useEffect(() => {
-    fetchProvinces()
-      .then((res) => {
-        const data = res.data?.data || res.data || []
-        setProvinces(Array.isArray(data) ? data : [])
-      })
-      .catch(() => setProvinces([]))
-  }, [])
-
-  useEffect(() => {
     if (!provinceFilter) {
-      setFilterRegencies([])
       setRegencyFilter('')
-      return
     }
-
-    fetchKabupaten(provinceFilter)
-      .then((res) => {
-        const data = res.data?.data || res.data || []
-        setFilterRegencies(Array.isArray(data) ? data : [])
-      })
-      .catch(() => setFilterRegencies([]))
   }, [provinceFilter])
-
-  useEffect(() => {
-    if (!form.province_code || !(isCreate || isEdit)) {
-      setRegencies([])
-      return
-    }
-
-    fetchKabupaten(form.province_code)
-      .then((res) => {
-        const data = res.data?.data || res.data || []
-        setRegencies(Array.isArray(data) ? data : [])
-      })
-      .catch(() => setRegencies([]))
-  }, [form.province_code, isCreate, isEdit])
 
   useEffect(() => {
     if (canList || isEdit || isDetail) {
@@ -251,6 +223,12 @@ export default function InstallmentsPage() {
       setError('')
     }
   }, [isCreate, isEdit, selectedItem])
+
+  useEffect(() => {
+    if (!form.province_code && !form.regency_code && !form.regency_name) return
+    if (form.province_code) return
+    setForm((prev) => ({ ...prev, regency_code: '', regency_name: '' }))
+  }, [form.province_code, form.regency_code, form.regency_name])
 
   const updateProvince = (code: string) => {
     const province = provinces.find((item) => item.code === code)

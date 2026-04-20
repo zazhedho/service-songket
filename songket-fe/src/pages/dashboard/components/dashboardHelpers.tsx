@@ -169,7 +169,7 @@ export function PriceTrendChart({ labels, values, dates }: { labels: string[]; v
           </>
         )}
 
-        <text x={left} y={11} fontSize={11} fill="#0f172a" fontWeight={700}>Tren Harga Harian</text>
+        <text x={left} y={11} fontSize={11} fill="#0f172a" fontWeight={700}>Daily Price Trend</text>
       </svg>
     </div>
   )

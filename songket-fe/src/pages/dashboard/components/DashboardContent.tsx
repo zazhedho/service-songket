@@ -51,7 +51,7 @@ export default function DashboardContent({
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
         <KpiCard label="Total Order In" value={formatInteger(summary.total_orders)} note="Filtered data" />
-        <KpiCard label="Lead Time" value={`${summary.lead_time_avg_hours.toFixed(2)} jam`} note={`${summary.lead_time_avg_seconds.toFixed(0)} detik`} />
+        <KpiCard label="Lead Time" value={`${summary.lead_time_avg_hours.toFixed(2)} hours`} note={`${summary.lead_time_avg_seconds.toFixed(0)} seconds`} />
         <KpiCard label="Approval Rate" value={`${(summary.approval_rate * 100).toFixed(2)}%`} note={`${formatInteger(summary.approved_orders)} approved`} />
         <KpiCard
           label="Growth"
@@ -64,13 +64,13 @@ export default function DashboardContent({
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 12 }}>
         <div className="card">
           <h3>Daily Order In Trend</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Order in harian berdasarkan pooling date.</div>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Daily order-in trend based on pooling date.</div>
           <div style={{ marginTop: 10 }}>
             <BarLineChart
               labels={dailyDistributionTrend.labels}
               barValues={dailyDistributionTrend.values}
               barName="Order In"
-              xAxisLabel="Tanggal"
+              xAxisLabel="Date"
               tooltipDetails={dailyDistributionTrend.tooltipDetails}
               barColor="#f97316"
               barHoverColor="#ea580c"
@@ -81,7 +81,7 @@ export default function DashboardContent({
         <div className="card">
           <h3>Daily Finance Approve</h3>
           <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            Data approve/reject harian dari tabel order_finance_attempts (sesuai filter dashboard).
+            Daily approve/reject data from the order finance attempts table, based on the current dashboard filter.
           </div>
           <div style={{ marginTop: 10 }}>
             <BarLineChart
@@ -90,7 +90,7 @@ export default function DashboardContent({
               secondaryBarValues={dailyFinanceDecisionTrend.rejectValues}
               barName="Finance Approve"
               secondaryBarName="Finance Reject"
-              xAxisLabel="Tanggal"
+              xAxisLabel="Date"
               tooltipDetails={dailyFinanceDecisionTrend.tooltipDetails}
               tooltipExtraLines={dailyFinanceDecisionTrend.tooltipExtraLines}
               barColor="#3b82f6"
@@ -104,12 +104,12 @@ export default function DashboardContent({
 
       <div className="card">
         <h3>Order In Approve/Reject Summary</h3>
-        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Data perbandingan periode aktif vs periode sebelumnya</div>
+        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Comparison between the active period and the previous period.</div>
         <div style={{ marginTop: 10, overflowX: 'auto' }}>
           <table className="table responsive-stack">
             <thead>
               <tr>
-                <th>Periode</th>
+                <th>Period</th>
                 <th>Order In</th>
                 <th>Approve</th>
                 <th>Reject</th>
@@ -129,7 +129,7 @@ export default function DashboardContent({
                 const periodLabel = resolveSnapshotPeriodLabel(summary.analysis_applied || filtersApplied.analysis, row.row_type, idx)
                 return (
                   <tr key={`decision-row-${row.label}-${idx}`}>
-                    <td data-label="Periode" style={{ fontWeight: 700 }}>{periodLabel}</td>
+                    <td data-label="Period" style={{ fontWeight: 700 }}>{periodLabel}</td>
                     <td data-label="Order In" style={{ color: isGrowth ? colorBySign(row.order_in) : undefined }}>
                       {isGrowth ? formatGrowthPercent(row.order_in) : formatInteger(row.order_in)}
                     </td>
@@ -157,14 +157,14 @@ export default function DashboardContent({
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
-        <DonutCard title="Proporsi Pekerjaan" subtitle="Distribusi order in per pekerjaan" items={summary.job_proportion} />
-        <DonutCard title="Proporsi Produk" subtitle="Distribusi order in per produk" items={summary.product_proportion} />
-        <DonutCard title="Proporsi Finance Company" subtitle="Distribusi order in berdasarkan finance company" items={summary.finance_company_proportion} />
+        <DonutCard title="Job Proportion" subtitle="Order-in distribution by job" items={summary.job_proportion} />
+        <DonutCard title="Product Proportion" subtitle="Order-in distribution by product" items={summary.product_proportion} />
+        <DonutCard title="Finance Company Proportion" subtitle="Order-in distribution by finance company" items={summary.finance_company_proportion} />
       </div>
 
       <div className="card">
         <h3>Range DP</h3>
-        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Distribusi range DP: &lt;10% sampai &gt;=40%.</div>
+        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>DP range distribution from &lt;10% to &gt;=40%.</div>
         <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
           {summary.dp_range.map((item: any) => (
             <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr) 64px 64px', gap: 8, alignItems: 'center' }}>
@@ -189,7 +189,7 @@ export default function DashboardContent({
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
         <div className="card">
           <h3>Latest News</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Ringkasan berita terbaru (slideshow).</div>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Latest news summary slideshow.</div>
           <div style={{ marginTop: 10 }}>
             {latestCardsLoading && <div style={{ color: '#64748b', fontSize: 12 }}>Loading news...</div>}
             {!latestCardsLoading && latestNews.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No news data.</div>}
@@ -272,10 +272,10 @@ export default function DashboardContent({
         </div>
 
         <div className="card">
-          <h3>Harga Pangan Terbaru</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Update harga komoditas terbaru.</div>
+          <h3>Latest Commodity Prices</h3>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Latest commodity price updates.</div>
           <div style={{ marginTop: 8 }}>
-            <label>Grafik Komoditas</label>
+            <label>Commodity Chart</label>
             <select value={selectedTrendCommodity} onChange={(e) => setSelectedTrendCommodity(e.target.value)} disabled={trendCommodityOptions.length === 0}>
               {trendCommodityOptions.length === 0 && <option value="">No commodity</option>}
               {trendCommodityOptions.map((option) => (
@@ -286,16 +286,16 @@ export default function DashboardContent({
             </select>
           </div>
           <div style={{ marginTop: 10 }}>
-            <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Harga Pangan Harian" />
+            <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Daily Commodity Prices" />
           </div>
           <div style={{ marginTop: 10, overflowX: 'auto' }}>
             <table className="table dashboard-latest-prices-table">
               <thead>
                 <tr>
-                  <th>Komoditas</th>
-                  <th>Harga</th>
-                  <th>Satuan</th>
-                  <th>Tanggal</th>
+                  <th>Commodity</th>
+                  <th>Price</th>
+                  <th>Unit</th>
+                  <th>Date</th>
                 </tr>
               </thead>
               <tbody>

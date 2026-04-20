@@ -92,9 +92,9 @@ export default function OrderListView({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Form Order In</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Orders</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/orders/create')}>Input Order</button>}
+        {canCreate && <button className="btn" onClick={() => navigate('/orders/create')}>Create Order</button>}
       </div>
 
       <div className="page">
@@ -107,7 +107,7 @@ export default function OrderListView({
             <div>
               <label>Status</label>
               <select value={filters.status} onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))}>
-                <option value="">Semua</option>
+                <option value="">All</option>
                 <option value="approve">Approve</option>
                 <option value="pending">Pending</option>
                 <option value="reject">Reject</option>
@@ -145,15 +145,15 @@ export default function OrderListView({
 
         <div className="card">
           <h3>Order List</h3>
-          {!showTable && <div className="alert">Anda tidak punya izin melihat order.</div>}
+          {!showTable && <div className="alert">You do not have permission to view orders.</div>}
           {showTable && (
             <>
               <table className="table">
                 <thead>
                   <tr>
                     <th>Pooling</th>
-                    <th>Konsumen</th>
-                    <th>Lokasi</th>
+                    <th>Consumer</th>
+                    <th>Location</th>
                     <th>Finance</th>
                     <th>Status</th>
                     <th>Tenor</th>
@@ -170,12 +170,12 @@ export default function OrderListView({
                         <div>{lookupName(lookups?.finance_companies, getAttempt(order, 1)?.finance_company_id)}</div>
                         {getAttempt(order, 2)?.finance_company_id && (
                           <div style={{ color: '#64748b', fontSize: 12 }}>
-                            F2: {lookupName(lookups?.finance_companies, getAttempt(order, 2)?.finance_company_id)}
+                            FC2: {lookupName(lookups?.finance_companies, getAttempt(order, 2)?.finance_company_id)}
                           </div>
                         )}
                       </td>
                       <td><span className={`badge ${order.result_status}`}>{order.result_status}</span></td>
-                      <td>{order.tenor} bln</td>
+                      <td>{order.tenor} months</td>
                       <td className="action-cell">
                         <ActionMenu
                           items={[
@@ -204,7 +204,7 @@ export default function OrderListView({
                   ))}
                   {list.length === 0 && (
                     <tr>
-                      <td colSpan={7}>Belum ada order.</td>
+                      <td colSpan={7}>No orders yet.</td>
                     </tr>
                   )}
                 </tbody>

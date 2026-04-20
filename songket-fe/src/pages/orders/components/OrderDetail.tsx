@@ -68,8 +68,8 @@ export default function OrderDetailView({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Order</div>
-          <div style={{ color: '#64748b' }}>Lihat data lengkap order in</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Order Details</div>
+          <div style={{ color: '#64748b' }}>View complete order information</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canUpdate && selectedId && (
@@ -80,63 +80,63 @@ export default function OrderDetailView({
               Edit Order
             </button>
           )}
-          <button className="btn-ghost" onClick={() => navigate(backTo)}>Kembali</button>
+          <button className="btn-ghost" onClick={() => navigate(backTo)}>Back</button>
         </div>
       </div>
 
       <div className="page">
-        {!selectedOrder && <div className="alert">Order tidak ditemukan.</div>}
+        {!selectedOrder && <div className="alert">Order not found.</div>}
         {selectedOrder && (
           <div className="card">
             <div style={{ display: 'grid', gap: 12 }}>
               <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,340px),1fr))', gap: 12 }}>
                 <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Informasi Utama</h4>
+                  <h4 style={{ marginTop: 0 }}>Primary Information</h4>
                   <DetailTable
                     rows={[
                       { label: 'Pooling Number', value: selectedOrder.pooling_number || '-' },
-                      { label: 'Waktu Pooling', value: formatDate(selectedOrder.pooling_at) },
-                      { label: 'Waktu Hasil', value: formatDate(selectedOrder.result_at) },
+                      { label: 'Pooling Time', value: formatDate(selectedOrder.pooling_at) },
+                      { label: 'Result Time', value: formatDate(selectedOrder.result_at) },
                       { label: 'Dealer', value: lookupName(lookups?.dealers, selectedOrder.dealer_id) },
                       {
                         label: 'Status Order',
                         value: <span className={`badge ${selectedOrder.result_status || 'pending'}`}>{selectedOrder.result_status || '-'}</span>,
                       },
-                      { label: 'Catatan Order', value: selectedOrder.result_notes || '-' },
-                      { label: 'Dibuat', value: formatDate(selectedOrder.created_at) },
-                      { label: 'Update Terakhir', value: formatDate(selectedOrder.updated_at) },
+                      { label: 'Order Notes', value: selectedOrder.result_notes || '-' },
+                      { label: 'Created At', value: formatDate(selectedOrder.created_at) },
+                      { label: 'Last Updated', value: formatDate(selectedOrder.updated_at) },
                     ]}
                   />
                 </div>
 
                 <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Data Konsumen</h4>
+                  <h4 style={{ marginTop: 0 }}>Consumer Information</h4>
                   <DetailTable
                     rows={[
-                      { label: 'Nama', value: selectedOrder.consumer_name || '-' },
+                      { label: 'Name', value: selectedOrder.consumer_name || '-' },
                       { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
-                      { label: 'Provinsi', value: detailProvinceName },
-                      { label: 'Kabupaten/Kota', value: detailRegencyName },
-                      { label: 'Kecamatan', value: detailDistrictName },
-                      { label: 'Kelurahan', value: detailVillageName },
-                      { label: 'Alamat', value: selectedOrder.address || '-' },
-                      { label: 'Pekerjaan', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
+                      { label: 'Province', value: detailProvinceName },
+                      { label: 'Regency / City', value: detailRegencyName },
+                      { label: 'District', value: detailDistrictName },
+                      { label: 'Village', value: detailVillageName },
+                      { label: 'Address', value: selectedOrder.address || '-' },
+                      { label: 'Job', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
                     ]}
                   />
                 </div>
 
                 <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Kredit & Motor</h4>
+                  <h4 style={{ marginTop: 0 }}>Credit & Motor</h4>
                   <DetailTable
                     rows={[
-                      { label: 'Tipe Motor', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
+                      { label: 'Motor Type', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
                       { label: 'Brand/Model', value: [detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-' },
                       { label: 'OTR', value: formatRupiah(selectedOrder.otr || 0) },
-                      { label: 'Angsuran', value: formatRupiah(selectedOrder.installment || 0) },
+                      { label: 'Installment', value: formatRupiah(selectedOrder.installment || 0) },
                       { label: 'DP Gross', value: formatRupiah(selectedOrder.dp_gross || 0) },
-                      { label: 'DP Setor', value: formatRupiah(selectedOrder.dp_paid || 0) },
+                      { label: 'DP Paid', value: formatRupiah(selectedOrder.dp_paid || 0) },
                       { label: '%DP', value: `${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%` },
-                      { label: 'Tenor', value: `${selectedOrder.tenor || 0} bln` },
+                      { label: 'Tenor', value: `${selectedOrder.tenor || 0} months` },
                     ]}
                   />
                 </div>
@@ -160,14 +160,14 @@ export default function OrderDetailView({
                             label: 'Finance Company',
                             value: lookupName(lookups?.finance_companies, attempt?.finance_company_id),
                           },
-                          { label: 'Catatan', value: attempt?.notes || '-' },
-                          { label: 'Waktu Attempt', value: formatDate(attempt?.created_at) },
+                          { label: 'Notes', value: attempt?.notes || '-' },
+                          { label: 'Attempt Time', value: formatDate(attempt?.created_at) },
                         ]}
                       />
                     </div>
                   ))}
                   {detailAttempts.length === 0 && (
-                    <div style={{ color: '#64748b', fontSize: 13 }}>Belum ada data attempt finance.</div>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>No finance attempt data yet.</div>
                   )}
                 </div>
               </div>

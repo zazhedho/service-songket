@@ -24,14 +24,14 @@ export default function NewsDetail({
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Detail Berita</div>
-          <div style={{ color: '#64748b' }}>Informasi berita lengkap</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>News Details</div>
+          <div style={{ color: '#64748b' }}>Complete news information</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/news')}>Kembali</button>
+        <button className="btn-ghost" onClick={() => navigate('/news')}>Back</button>
       </div>
 
       <div className="page">
-        {!selectedDetail && <div className="alert">Detail berita tidak ditemukan.</div>}
+        {!selectedDetail && <div className="alert">News details not found.</div>}
         {selectedDetail && (
           <div className="card" style={{ maxWidth: 980 }}>
             <h3>{selectedDetail.judul || '-'}</h3>

@@ -167,7 +167,7 @@ export default function LoginPage() {
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Dashboard</div>
             <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>Daily Order In Trend</div>
             <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
-              Pantau pergerakan order in harian secara real-time lintas dealer.
+              Monitor daily order-in movement across dealers in real time.
             </div>
           </div>
           <div
@@ -182,7 +182,7 @@ export default function LoginPage() {
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Finance</div>
             <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>Approve vs Reject</div>
             <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
-              Analisis keputusan finance dan breakdown company dalam satu tampilan.
+              Review finance decisions and company breakdown in one view.
             </div>
           </div>
           <div
@@ -197,7 +197,7 @@ export default function LoginPage() {
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Analysis</div>
             <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>YTD Summary</div>
             <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
-              Bandingkan performa periode berjalan dengan periode sebelumnya.
+              Compare current-period performance with the previous period.
             </div>
           </div>
         </div>

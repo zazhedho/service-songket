@@ -167,7 +167,7 @@ export default function DashboardFilterPanel({
 
         {filtersInput.analysis === 'daily' && (
           <div>
-            <label>Tanggal</label>
+            <label>Date</label>
             <input type="date" value={filtersInput.date} onChange={(e) => setFiltersInput((prev) => ({ ...prev, date: e.target.value }))} />
           </div>
         )}
