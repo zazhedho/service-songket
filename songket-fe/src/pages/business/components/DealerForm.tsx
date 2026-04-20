@@ -11,8 +11,8 @@ type DealerFormProps = {
   dealerKabupaten: Option[]
   dealerKecamatan: Option[]
   handleDealerPlaceChanged: (place: any) => void
-  handleDealerProvince: (code: string) => Promise<void>
-  handleDealerRegency: (code: string) => Promise<void>
+  handleDealerProvince: (code: string) => void
+  handleDealerRegency: (code: string) => void
   isDealerEdit: boolean
   locatingDealerAddress: boolean
   navigate: (path: string, options?: any) => void

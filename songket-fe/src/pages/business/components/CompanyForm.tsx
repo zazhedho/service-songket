@@ -5,8 +5,8 @@ type CompanyFormProps = {
   financeForm: FinanceFormValues
   financeKabupaten: Option[]
   financeKecamatan: Option[]
-  handleFinanceProvince: (code: string) => Promise<void>
-  handleFinanceRegency: (code: string) => Promise<void>
+  handleFinanceProvince: (code: string) => void
+  handleFinanceRegency: (code: string) => void
   isCompanyEdit: boolean
   navigate: (path: string, options?: any) => void
   provinces: Option[]

@@ -1,7 +1,6 @@
 import { FormEvent } from 'react'
 import dayjs from 'dayjs'
 import { formatRupiah } from '../../../utils/currency'
-import { resolveOptionCode } from './orderHelpers'
 
 type OrderFormViewProps = {
   canCreate: boolean
@@ -145,9 +144,6 @@ export default function OrderFormView({
                 {provinces.map((prov: any) => (
                   <option key={prov.code} value={prov.code}>{prov.name}</option>
                 ))}
-                {form.province && !resolveOptionCode(provinces, form.province) && (
-                  <option value={form.province}>{form.province}</option>
-                )}
               </select>
             </div>
 

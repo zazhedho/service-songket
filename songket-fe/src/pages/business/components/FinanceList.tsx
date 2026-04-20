@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
 import { formatDealerLocationSummary } from './financeHelpers'
+import { summarizeLocation } from './financeReportHelpers'
 
 const FinanceDealerMap = lazy(() => import('./FinanceMap').then((module) => ({ default: module.FinanceDealerMap })))
 
@@ -278,7 +279,7 @@ export default function FinanceList({
                   {financeCompanies.map((company: any) => (
                     <tr key={company.id}>
                       <td>{company.name}</td>
-                      <td>{financeCompanyLocationNameMap[String(company.id)]?.regency || company.regency || '-'}</td>
+                      <td>{summarizeLocation([financeCompanyLocationNameMap[String(company.id)]?.regency])}</td>
                       <td>{company.phone || '-'}</td>
                       <td className="action-cell">
                         <ActionMenu

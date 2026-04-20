@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { summarizeLocation } from './financeReportHelpers'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -47,7 +48,7 @@ export function FinanceDealerMap({
         >
           <Popup>
             <strong>{dealer.name}</strong>
-            <div>{dealerLocationNameMap[String(dealer.id)]?.regency || dealer.regency || '-'}</div>
+            <div>{summarizeLocation([dealerLocationNameMap[String(dealer.id)]?.regency])}</div>
             <div>{dealer.phone || '-'}</div>
           </Popup>
         </Marker>

@@ -1,6 +1,6 @@
 import Pagination from '../../../components/common/Pagination'
 import { formatRupiah } from '../../../utils/currency'
-import { ReportDetailTable } from './financeReportHelpers'
+import { ReportDetailTable, summarizeLocation } from './financeReportHelpers'
 
 type FinanceReportDetailProps = {
   applyDetailOrderInFilters: () => void
@@ -69,13 +69,13 @@ export default function FinanceReportDetail({
   const financePairText = item ? `${item.finance_1_name || '-'} -> ${item.finance_2_name || '-'}` : '-'
   const modalLocationNamed = selectedOrderInRow ? locationNamesByOrderId[selectedOrderInRow.order_id] : null
   const modalLocationText = selectedOrderInRow
-    ? [
-        modalLocationNamed?.province || selectedOrderInRow.province || '-',
-        modalLocationNamed?.regency || selectedOrderInRow.regency || '-',
-        modalLocationNamed?.district || selectedOrderInRow.district || '-',
-        selectedOrderInRow.village || '-',
-        selectedOrderInRow.address || '-',
-      ].join(', ')
+    ? summarizeLocation([
+        modalLocationNamed?.province,
+        modalLocationNamed?.regency,
+        modalLocationNamed?.district,
+        selectedOrderInRow.village,
+        selectedOrderInRow.address,
+      ])
     : '-'
   const modalMotorOtrText = selectedOrderInRow
     ? `${selectedOrderInRow.motor_type_name || '-'} | ${formatRupiah(Number(selectedOrderInRow.otr || 0))}`
@@ -194,13 +194,13 @@ export default function FinanceReportDetail({
                     )}
                     {!detailOrderInLoading && detailOrderInRows.map((row) => {
                       const rowLocationNamed = locationNamesByOrderId[row.order_id]
-                      const rowLocationText = [
-                        rowLocationNamed?.province || row.province || '-',
-                        rowLocationNamed?.regency || row.regency || '-',
-                        rowLocationNamed?.district || row.district || '-',
-                        row.village || '-',
-                        row.address || '-',
-                      ].join(', ')
+                      const rowLocationText = summarizeLocation([
+                        rowLocationNamed?.province,
+                        rowLocationNamed?.regency,
+                        rowLocationNamed?.district,
+                        row.village,
+                        row.address,
+                      ])
                       const rowMotorOtrText = `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}`
 
                       return (

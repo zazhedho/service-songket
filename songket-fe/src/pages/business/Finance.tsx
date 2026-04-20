@@ -14,6 +14,7 @@ import {
   fetchProvinces,
 } from '../../services/locationService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { reverseGeocodedPlace } from '../../utils/geocoding'
 import DealerDetail from './components/DealerDetail'
@@ -123,12 +124,6 @@ export default function FinancePage() {
     selectedCompanyId: selectedId,
   })
 
-  const [provinces, setProvinces] = useState<Option[]>([])
-  const [dealerKabupaten, setDealerKabupaten] = useState<Option[]>([])
-  const [dealerKecamatan, setDealerKecamatan] = useState<Option[]>([])
-  const [financeKabupaten, setFinanceKabupaten] = useState<Option[]>([])
-  const [financeKecamatan, setFinanceKecamatan] = useState<Option[]>([])
-
   const [dealerForm, setDealerForm] = useState<DealerForm>(initialDealerForm)
   const [financeForm, setFinanceForm] = useState<FinanceForm>(initialFinanceForm)
   const [savingDealer, setSavingDealer] = useState(false)
@@ -138,17 +133,36 @@ export default function FinancePage() {
 
   const stateDealer = (location.state as any)?.dealer || null
   const stateCompany = (location.state as any)?.company || null
-
-  useEffect(() => {
-    if (!canView) {
-      setProvinces([])
-      return
-    }
-
-    fetchProvinces()
-      .then((res) => setProvinces(res.data.data || res.data || []))
-      .catch(() => setProvinces([]))
-  }, [canView])
+  const {
+    provinces,
+    setProvinces,
+  } = useLocationOptions({
+    enabled: canView,
+  })
+  const {
+    regencies: dealerKabupaten,
+    districts: dealerKecamatan,
+    setRegencies: setDealerKabupaten,
+    setDistricts: setDealerKecamatan,
+  } = useLocationOptions({
+    enabled: isDealerCreate || isDealerEdit,
+    loadProvinces: false,
+    provinceCode: dealerForm.province,
+    regencyCode: dealerForm.regency,
+    withDistricts: true,
+  })
+  const {
+    regencies: financeKabupaten,
+    districts: financeKecamatan,
+    setRegencies: setFinanceKabupaten,
+    setDistricts: setFinanceKecamatan,
+  } = useLocationOptions({
+    enabled: isCompanyCreate || isCompanyEdit,
+    loadProvinces: false,
+    provinceCode: financeForm.province,
+    regencyCode: financeForm.regency,
+    withDistricts: true,
+  })
 
   const selectedDealer = useMemo(() => {
     if (!selectedId) return null
@@ -367,68 +381,32 @@ export default function FinancePage() {
     void resolveDealerLocationFromMap(place.lat, place.lng, place.formattedAddress, place.address)
   }
 
-  const handleDealerProvince = async (code: string) => {
+  const handleDealerProvince = (code: string) => {
     setDealerForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
-    setDealerKecamatan([])
-
     if (!code) {
       setDealerKabupaten([])
-      return
-    }
-
-    try {
-      const res = await fetchKabupaten(code)
-      setDealerKabupaten(res.data.data || res.data || [])
-    } catch {
-      setDealerKabupaten([])
+      setDealerKecamatan([])
     }
   }
 
-  const handleDealerRegency = async (code: string) => {
+  const handleDealerRegency = (code: string) => {
     setDealerForm((prev) => ({ ...prev, regency: code, district: '' }))
-
-    if (!dealerForm.province || !code) {
-      setDealerKecamatan([])
-      return
-    }
-
-    try {
-      const res = await fetchKecamatan(dealerForm.province, code)
-      setDealerKecamatan(res.data.data || res.data || [])
-    } catch {
+    if (!code) {
       setDealerKecamatan([])
     }
   }
 
-  const handleFinanceProvince = async (code: string) => {
+  const handleFinanceProvince = (code: string) => {
     setFinanceForm((prev) => ({ ...prev, province: code, regency: '', district: '' }))
-    setFinanceKecamatan([])
-
     if (!code) {
       setFinanceKabupaten([])
-      return
-    }
-
-    try {
-      const res = await fetchKabupaten(code)
-      setFinanceKabupaten(res.data.data || res.data || [])
-    } catch {
-      setFinanceKabupaten([])
+      setFinanceKecamatan([])
     }
   }
 
-  const handleFinanceRegency = async (code: string) => {
+  const handleFinanceRegency = (code: string) => {
     setFinanceForm((prev) => ({ ...prev, regency: code, district: '' }))
-
-    if (!financeForm.province || !code) {
-      setFinanceKecamatan([])
-      return
-    }
-
-    try {
-      const res = await fetchKecamatan(financeForm.province, code)
-      setFinanceKecamatan(res.data.data || res.data || [])
-    } catch {
+    if (!code) {
       setFinanceKecamatan([])
     }
   }

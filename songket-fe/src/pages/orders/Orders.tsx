@@ -13,10 +13,10 @@ import {
 import {
   fetchKabupaten,
   fetchKecamatan,
-  fetchProvinces,
 } from '../../services/locationService'
 import { fetchLookups } from '../../services/lookupService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import OrderDetail from './components/OrderDetail'
 import OrderForm from './components/OrderForm'
@@ -82,14 +82,9 @@ export default function OrdersPage() {
   const [list, setList] = useState<any[]>([])
   const [form, setForm] = useState(defaultForm)
   const [lookups, setLookups] = useState<any>({})
-  const [provinces, setProvinces] = useState<any[]>([])
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [kabupaten, setKabupaten] = useState<any[]>([])
-  const [kecamatan, setKecamatan] = useState<any[]>([])
   const [kabupatenLookup, setKabupatenLookup] = useState<Record<string, string>>({})
   const [kecamatanLookup, setKecamatanLookup] = useState<Record<string, string>>({})
-  const [detailKabupaten, setDetailKabupaten] = useState<any[]>([])
-  const [detailKecamatan, setDetailKecamatan] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({ search: '', status: '', export_from: '', export_to: '' })
@@ -114,6 +109,16 @@ export default function OrdersPage() {
   const stateOrder = (location.state as any)?.order || null
   const stateBackTo = (location.state as any)?.back_to
   const backTo = typeof stateBackTo === 'string' && stateBackTo.trim() ? stateBackTo : '/orders'
+  const {
+    provinces,
+    regencies: kabupaten,
+    districts: kecamatan,
+  } = useLocationOptions({
+    enabled: true,
+    provinceCode: form.province,
+    regencyCode: form.regency,
+    withDistricts: true,
+  })
 
   const loadList = async (params?: Record<string, unknown>) => {
     const requestRaw = params || { page, limit }
@@ -134,15 +139,13 @@ export default function OrdersPage() {
   }
 
   const loadLookups = async () => {
-    const [lookupRes, provRes] = await Promise.all([fetchLookups(), fetchProvinces()])
+    const lookupRes = await fetchLookups()
     setLookups(lookupRes.data.data || lookupRes.data || {})
-    setProvinces(provRes.data.data || provRes.data || [])
   }
 
   useEffect(() => {
     loadLookups().catch(() => {
       setLookups({})
-      setProvinces([])
     })
   }, [])
 
@@ -452,6 +455,16 @@ export default function OrdersPage() {
   }, [form.dealer_id, lookups?.dealers])
   const detailProvinceCode = selectedOrder?.province || ''
   const detailRegencyCode = selectedOrder?.regency || ''
+  const {
+    regencies: detailKabupaten,
+    districts: detailKecamatan,
+  } = useLocationOptions({
+    enabled: isDetail,
+    loadProvinces: false,
+    provinceCode: detailProvinceCode,
+    regencyCode: detailRegencyCode,
+    withDistricts: true,
+  })
 
   const filteredMotorTypes = useMemo(() => {
     const rows = Array.isArray(lookups?.motor_types) ? lookups.motor_types : []
@@ -511,56 +524,11 @@ export default function OrdersPage() {
   }, [isCreate, isEdit, selectedOrder])
 
   useEffect(() => {
-    if (!isDetail || !detailProvinceCode) {
-      setDetailKabupaten([])
-      setDetailKecamatan([])
-      return
-    }
-
-    fetchKabupaten(detailProvinceCode)
-      .then((res) => {
-        setDetailKabupaten(res.data.data || res.data || [])
-        if (!detailRegencyCode) {
-          setDetailKecamatan([])
-          return
-        }
-        return fetchKecamatan(detailProvinceCode, detailRegencyCode)
-          .then((kecRes) => setDetailKecamatan(kecRes.data.data || kecRes.data || []))
-          .catch(() => setDetailKecamatan([]))
-      })
-      .catch(() => {
-        setDetailKabupaten([])
-        setDetailKecamatan([])
-      })
-  }, [detailProvinceCode, detailRegencyCode, isDetail])
-
-  useEffect(() => {
-    if (form.province) {
-      fetchKabupaten(form.province)
-        .then((res) => setKabupaten(res.data.data || res.data || []))
-        .catch(() => setKabupaten([]))
-    } else {
-      setKabupaten([])
-      setKecamatan([])
-    }
-  }, [form.province])
-
-  useEffect(() => {
     if (!provinces.length || !form.province) return
     const resolvedProvince = resolveOptionCode(provinces, form.province)
     if (!resolvedProvince || resolvedProvince === form.province) return
     setForm((prev) => ({ ...prev, province: resolvedProvince }))
   }, [form.province, provinces])
-
-  useEffect(() => {
-    if (form.province && form.regency) {
-      fetchKecamatan(form.province, form.regency)
-        .then((res) => setKecamatan(res.data.data || res.data || []))
-        .catch(() => setKecamatan([]))
-    } else {
-      setKecamatan([])
-    }
-  }, [form.province, form.regency])
 
   useEffect(() => {
     if (!form.motor_type_id) return

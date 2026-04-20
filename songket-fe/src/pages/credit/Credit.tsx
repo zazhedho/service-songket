@@ -89,6 +89,14 @@ type MotorOption = {
   motor_type_name: string
 }
 
+function looksLikeLocationCode(value?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  if (/^\d+$/.test(raw)) return true
+  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  return false
+}
+
 type MatrixDisplayRow = {
   area_key: string
   area_name: string
@@ -163,9 +171,10 @@ export default function CreditPage() {
     const map = new Map<string, AreaOption>()
     for (const area of areas) {
       if (!area?.area_key) continue
+      const areaNameRaw = String(area.regency_name || '').trim()
       map.set(area.area_key, {
         area_key: area.area_key,
-        area_name: area.regency_name || area.regency_code || '-',
+        area_name: areaNameRaw && !looksLikeLocationCode(areaNameRaw) ? areaNameRaw : '-',
         province_code: area.province_code,
         regency_code: area.regency_code,
       })
@@ -230,7 +239,8 @@ export default function CreditPage() {
     for (const area of areas) {
       if (selectedAreaKey && area.area_key !== selectedAreaKey) continue
 
-      const areaName = area.regency_name || area.regency_code || '-'
+      const areaNameRaw = String(area.regency_name || '').trim()
+      const areaName = areaNameRaw && !looksLikeLocationCode(areaNameRaw) ? areaNameRaw : '-'
       for (const matrixRow of area.matrix || []) {
         const jobID = String(matrixRow?.job_id || '').trim()
         if (selectedJobId && jobID !== selectedJobId) continue

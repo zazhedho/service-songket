@@ -110,6 +110,14 @@ export function resolveOptionNameValue(list: Option[] | undefined, value?: strin
   return found?.name || rawValue
 }
 
+function looksLikeLocationCode(value: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  if (/^\d+$/.test(raw)) return true
+  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  return false
+}
+
 export function findOptionCodeByValue(list: Option[] | undefined, value?: string) {
   const rawValue = String(value || '').trim()
   if (!rawValue) return ''
@@ -126,13 +134,17 @@ export function findOptionCodeByValue(list: Option[] | undefined, value?: string
 
 export function lookupOptionName(list: Option[] | undefined, code?: string) {
   const resolved = resolveOptionNameValue(list, code)
-  return resolved || '-'
+  if (!resolved) return '-'
+  return looksLikeLocationCode(resolved) ? '-' : resolved
 }
 
 export function formatDealerLocationSummary(dealer: any, names?: DealerLocationNames) {
   const normalizeValue = (value: unknown) => {
     const text = String(value || '').trim()
     if (!text || text === '-' || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
+      return ''
+    }
+    if (looksLikeLocationCode(text)) {
       return ''
     }
     return text

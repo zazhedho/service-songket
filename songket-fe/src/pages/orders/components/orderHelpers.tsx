@@ -1,6 +1,14 @@
 import { ReactNode } from 'react'
 import dayjs from 'dayjs'
 
+function looksLikeLocationCode(value: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  if (/^\d+$/.test(raw)) return true
+  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  return false
+}
+
 export function getAttempt(order: any, attemptNo: number) {
   const attempts = Array.isArray(order?.attempts) ? order.attempts : []
   return attempts.find((attempt: any) => Number(attempt?.attempt_no) === Number(attemptNo)) || null
@@ -22,7 +30,8 @@ export function lookupOptionName(list: any[] | undefined, code?: string) {
   const found =
     list?.find((item: any) => String(item?.code || item?.id || '').trim().toLowerCase() === normalized) ||
     list?.find((item: any) => String(item?.name || '').trim().toLowerCase() === normalized)
-  return found?.name || rawCode
+  if (found?.name) return found.name
+  return looksLikeLocationCode(rawCode) ? '-' : rawCode
 }
 
 export function resolveOptionCode(list: any[] | undefined, value?: string) {

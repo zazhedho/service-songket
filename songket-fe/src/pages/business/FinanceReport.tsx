@@ -8,10 +8,8 @@ import {
   listFinanceMigrationReport,
 } from '../../services/businessService'
 import {
-  fetchKabupaten,
-  fetchKecamatan,
-  fetchProvinces,
 } from '../../services/locationService'
+import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { usePermissions } from '../../hooks/usePermissions'
 import FinanceReportDetail from './components/FinanceReportDetail'
 import FinanceReportSummary from './components/FinanceReportSummary'
@@ -396,108 +394,18 @@ export default function FinanceReportPage() {
     }
     return rows
   }, [detailOrderInRows, detailRow, isDetail, rows])
+  const { locationNamesByKey } = useLocationNameResolver({
+    rows: sourceRows,
+    getKey: (row) => row.order_id,
+    getProvince: (row) => row.province,
+    getRegency: (row) => row.regency,
+    getDistrict: (row) => row.district,
+    normalize: normalizeText,
+  })
 
   useEffect(() => {
-    let mounted = true
-
-    const resolveLocationNames = async () => {
-      if (!sourceRows.length) {
-        if (mounted) setLocationNamesByOrderId({})
-        return
-      }
-
-      let provinceOptions: OptionItem[] = []
-      try {
-        const provRes = await fetchProvinces()
-        const raw = provRes.data?.data || provRes.data || []
-        provinceOptions = Array.isArray(raw) ? raw : []
-      } catch {
-        provinceOptions = []
-      }
-
-      const kabupatenCache: Record<string, OptionItem[]> = {}
-      const kecamatanCache: Record<string, OptionItem[]> = {}
-      const nextMap: Record<string, LocationNames> = {}
-      const provinceCodes = Array.from(
-        new Set(
-          sourceRows
-            .map((item) => normalizeText(item.province))
-            .filter(Boolean),
-        ),
-      )
-      const regencyPairs = Array.from(
-        new Set(
-          sourceRows
-            .map((item) => {
-              const provinceCode = normalizeText(item.province)
-              const regencyCode = normalizeText(item.regency)
-              if (!provinceCode || !regencyCode) return ''
-              return `${provinceCode}::${regencyCode}`
-            })
-            .filter(Boolean),
-        ),
-      )
-
-      await Promise.all(
-        provinceCodes.map(async (provinceCode) => {
-          try {
-            const kabRes = await fetchKabupaten(provinceCode)
-            const rawKab = kabRes.data?.data || kabRes.data || []
-            kabupatenCache[provinceCode] = Array.isArray(rawKab) ? rawKab : []
-          } catch {
-            kabupatenCache[provinceCode] = []
-          }
-        }),
-      )
-
-      await Promise.all(
-        regencyPairs.map(async (pair) => {
-          const [provinceCode, regencyCode] = pair.split('::')
-          try {
-            const kecRes = await fetchKecamatan(provinceCode, regencyCode)
-            const rawKec = kecRes.data?.data || kecRes.data || []
-            kecamatanCache[pair] = Array.isArray(rawKec) ? rawKec : []
-          } catch {
-            kecamatanCache[pair] = []
-          }
-        }),
-      )
-
-      for (const item of sourceRows) {
-        const provinceCode = normalizeText(item.province)
-        const regencyCode = normalizeText(item.regency)
-        const districtCode = normalizeText(item.district)
-
-        const provinceName = lookupOptionName(provinceOptions, provinceCode)
-
-        let regencyName = regencyCode || '-'
-        if (provinceCode) {
-          regencyName = lookupOptionName(kabupatenCache[provinceCode] || [], regencyCode)
-        }
-
-        let districtName = districtCode || '-'
-        if (provinceCode && regencyCode) {
-          const cacheKey = `${provinceCode}::${regencyCode}`
-          districtName = lookupOptionName(kecamatanCache[cacheKey] || [], districtCode)
-        }
-
-        nextMap[item.order_id] = {
-          province: provinceName,
-          regency: regencyName,
-          district: districtName,
-        }
-      }
-
-      if (mounted) {
-        setLocationNamesByOrderId(nextMap)
-      }
-    }
-
-    void resolveLocationNames()
-    return () => {
-      mounted = false
-    }
-  }, [sourceRows])
+    setLocationNamesByOrderId(locationNamesByKey)
+  }, [locationNamesByKey])
 
   const applyDetailOrderInFilters = () => {
     setDetailOrderInSearch(detailOrderInSearchInput)

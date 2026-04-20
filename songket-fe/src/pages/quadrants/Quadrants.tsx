@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { fetchQuadrantSummary } from '../../services/quadrantService'
-import { fetchKabupaten, fetchProvinces } from '../../services/locationService'
+import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import QuadrantContent from './components/QuadrantContent'
 import { buildAnalysisText, buildAxisTicks, clampPercent, formatAxisPercent, getOrderInGrowth, normalizeToken, pctChange, quadrantColor } from './components/quadrantHelpers'
 
@@ -50,12 +50,6 @@ export default function QuadrantsPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
-  const [provincesRaw, setProvincesRaw] = useState<any[]>([])
-  const [provinceNameMap, setProvinceNameMap] = useState<Record<string, string>>({})
-  const [provinceCodeMap, setProvinceCodeMap] = useState<Record<string, string>>({})
-  const [regencyNameMap, setRegencyNameMap] = useState<Record<string, string>>({})
-  const fetchedKabupatenRef = useRef<Set<string>>(new Set())
-
   const yearOptions = useMemo(() => {
     const years: string[] = []
     for (let year = currentYear + 1; year >= 2015; year -= 1) {
@@ -91,120 +85,13 @@ export default function QuadrantsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchProvinces()
-      .then((res) => {
-        const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
-        const nextNameMap: Record<string, string> = {}
-        const nextCodeMap: Record<string, string> = {}
-
-        rows.forEach((row: any) => {
-          const code = String(row?.code || row?.id || row?.name || '').trim()
-          const name = String(row?.name || row?.code || row?.id || '').trim()
-          if (!code || !name) return
-
-          const codeKey = normalizeToken(code)
-          const nameKey = normalizeToken(name)
-          nextNameMap[codeKey] = name
-          nextNameMap[nameKey] = name
-          nextCodeMap[codeKey] = code
-          nextCodeMap[nameKey] = code
-        })
-
-        setProvincesRaw(rows)
-        setProvinceNameMap(nextNameMap)
-        setProvinceCodeMap(nextCodeMap)
-      })
-      .catch(() => {
-        setProvincesRaw([])
-        setProvinceNameMap({})
-        setProvinceCodeMap({})
-      })
-  }, [])
-
-  useEffect(() => {
-    const uniqueProvinces = Array.from(
-      new Set(
-        items
-          .map((item) => String(item?.province || '').trim())
-          .filter(Boolean),
-      ),
-    )
-
-    uniqueProvinces.forEach((provinceRaw) => {
-      const provinceRawKey = normalizeToken(provinceRaw)
-      const mappedCode = String(provinceCodeMap[provinceRawKey] || provinceRaw).trim()
-      const mappedCodeKey = normalizeToken(mappedCode)
-      if (!mappedCodeKey || fetchedKabupatenRef.current.has(mappedCodeKey)) return
-
-      fetchedKabupatenRef.current.add(mappedCodeKey)
-
-      const provinceRow =
-        provincesRaw.find((row: any) => normalizeToken(row?.code || row?.id || row?.name) === mappedCodeKey) ||
-        provincesRaw.find((row: any) => normalizeToken(row?.name) === provinceRawKey)
-
-      const provinceAliases = [provinceRaw]
-      if (provinceRow) {
-        provinceAliases.push(String(provinceRow?.code || provinceRow?.id || '').trim())
-        provinceAliases.push(String(provinceRow?.name || '').trim())
-      }
-
-      fetchKabupaten(mappedCode)
-        .then((res) => {
-          const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
-          setRegencyNameMap((prev) => {
-            const next = { ...prev }
-            rows.forEach((row: any) => {
-              const regCode = String(row?.code || row?.id || row?.name || '').trim()
-              const regName = String(row?.name || row?.code || row?.id || '').trim()
-              if (!regCode || !regName) return
-
-              const regCodeKey = normalizeToken(regCode)
-              const regNameKey = normalizeToken(regName)
-
-              provinceAliases
-                .map((value) => normalizeToken(value))
-                .filter(Boolean)
-                .forEach((provinceKey) => {
-                  next[`${provinceKey}|${regCodeKey}`] = regName
-                  next[`${provinceKey}|${regNameKey}`] = regName
-                })
-            })
-            return next
-          })
-        })
-        .catch(() => {
-          fetchedKabupatenRef.current.delete(mappedCodeKey)
-        })
-    })
-  }, [items, provinceCodeMap, provincesRaw])
-
-  const displayProvince = (provinceValue?: string) => {
-    const raw = String(provinceValue || '').trim()
-    if (!raw) return '-'
-    return provinceNameMap[normalizeToken(raw)] || raw
-  }
-
-  const displayRegency = (provinceValue?: string, regencyValue?: string) => {
-    const regRaw = String(regencyValue || '').trim()
-    if (!regRaw) return '-'
-
-    const provinceRaw = String(provinceValue || '').trim()
-    const provinceName = displayProvince(provinceRaw)
-    const provinceCode = provinceCodeMap[normalizeToken(provinceRaw)] || provinceRaw
-
-    const lookupKeys = [provinceRaw, provinceName, provinceCode]
-      .map((value) => normalizeToken(value))
-      .filter(Boolean)
-    const regKey = normalizeToken(regRaw)
-
-    for (const key of lookupKeys) {
-      const found = regencyNameMap[`${key}|${regKey}`]
-      if (found) return found
-    }
-
-    return regRaw
-  }
+  const { displayProvince, displayRegency } = useLocationNameResolver({
+    rows: items,
+    getKey: (row) => `${row.job_id || row.job_name || ''}|${row.province}|${row.regency}`,
+    getProvince: (row) => row.province,
+    getRegency: (row) => row.regency,
+    normalize: normalizeToken,
+  })
 
   const provinceOptions = useMemo<OptionItem[]>(() => {
     const unique = Array.from(
@@ -218,7 +105,7 @@ export default function QuadrantsPage() {
     return unique
       .map((value) => ({ value, label: displayProvince(value) }))
       .sort((a, b) => a.label.localeCompare(b.label))
-  }, [items, provinceNameMap])
+  }, [items, displayProvince])
 
   const regencyOptions = useMemo<OptionItem[]>(() => {
     const unique = Array.from(
@@ -233,7 +120,7 @@ export default function QuadrantsPage() {
     return unique
       .map((value) => ({ value, label: displayRegency(filter.province, value) }))
       .sort((a, b) => a.label.localeCompare(b.label))
-  }, [items, filter.province, regencyNameMap, provinceNameMap, provinceCodeMap])
+  }, [items, filter.province, displayRegency])
 
   useEffect(() => {
     if (!filter.regency) return
@@ -253,7 +140,7 @@ export default function QuadrantsPage() {
       }
       return true
     })
-  }, [items, filter, provinceNameMap, provinceCodeMap, regencyNameMap])
+  }, [items, filter, displayProvince, displayRegency])
 
   const filtered = useMemo<QuadrantJobPoint[]>(() => {
     const map = new Map<string, {

@@ -142,11 +142,18 @@ function formatDate(value?: string) {
   return d.toLocaleString('en-US')
 }
 
+function looksLikeLocationCode(value?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  if (/^\d+$/.test(raw)) return true
+  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  return false
+}
+
 function areaLabel(area: NetIncomeArea) {
-  const province = area.province_name || area.province_code
-  const regency = area.regency_name || area.regency_code
-  if (province) return `${regency}`
-  return regency || '-'
+  const regencyName = String(area.regency_name || '').trim()
+  if (regencyName && !looksLikeLocationCode(regencyName)) return regencyName
+  return '-'
 }
 
 function errorMessage(err: any, fallback: string) {

@@ -67,9 +67,18 @@ export function normalizeText(value: unknown) {
   return String(value || '').trim()
 }
 
+function looksLikeLocationCode(value: string) {
+  const raw = normalizeText(value)
+  if (!raw) return false
+  if (/^\d+$/.test(raw)) return true
+  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  return false
+}
+
 export function summarizeLocation(parts: unknown[]) {
   const text = parts
     .map((part) => normalizeText(part))
+    .filter((part) => !looksLikeLocationCode(part))
     .filter(Boolean)
     .join(' / ')
   return text || '-'
@@ -207,7 +216,7 @@ export function lookupOptionName(options: Array<{ code: string; name: string }>,
   if (!needle) return '-'
   const found = options.find((opt) => normalizeText(opt.code) === needle)
   if (found) return normalizeText(found.name) || needle
-  return needle
+  return looksLikeLocationCode(needle) ? '-' : needle
 }
 
 export function statusBadge(status: string) {
