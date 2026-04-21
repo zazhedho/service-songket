@@ -1,8 +1,10 @@
 package serviceuser
 
 import (
+	"context"
 	"errors"
 	"regexp"
+	"service-songket/internal/authscope"
 	domainauth "service-songket/internal/domain/auth"
 	domainpermission "service-songket/internal/domain/permission"
 	domainuser "service-songket/internal/domain/user"
@@ -111,9 +113,10 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 	return data, nil
 }
 
-func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, creatorRole string) (domainuser.Users, error) {
+func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUser) (domainuser.Users, error) {
 	phone := utils.NormalizePhoneTo62(req.Phone)
 	email := utils.SanitizeEmail(req.Email)
+	scope := authscope.FromContext(ctx)
 
 	data, _ := s.UserRepo.GetByEmail(email)
 	if data.Id != "" {
@@ -141,15 +144,11 @@ func (s *ServiceUser) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, cr
 		roleName = defaultRegisterRoleName()
 	}
 
-	permissions, err := s.PermissionRepo.GetUserPermissions(creatorUserID)
-	if err != nil {
-		return domainuser.Users{}, err
-	}
-	if roleName != defaultRegisterRoleName() && !hasUserPermission(permissions, "users", "assign_role") {
+	if roleName != defaultRegisterRoleName() && !scope.Has("users", "assign_role") {
 		return domainuser.Users{}, errors.New("access denied: missing permission users:assign_role")
 	}
 
-	if roleName == utils.RoleSuperAdmin && creatorRole != utils.RoleSuperAdmin {
+	if roleName == utils.RoleSuperAdmin && scope.Role != utils.RoleSuperAdmin {
 		return domainuser.Users{}, errors.New("only superadmin can create superadmin users")
 	}
 
@@ -289,13 +288,14 @@ func (s *ServiceUser) GetUserByAuth(id string) (map[string]interface{}, error) {
 	}, nil
 }
 
-func (s *ServiceUser) GetAllUsers(params filter.BaseParams, currentUserRole string) ([]domainuser.Users, int64, error) {
+func (s *ServiceUser) GetAllUsers(ctx context.Context, params filter.BaseParams) ([]domainuser.Users, int64, error) {
 	users, total, err := s.UserRepo.GetAll(params)
 	if err != nil {
 		return nil, 0, err
 	}
+	scope := authscope.FromContext(ctx)
 
-	if currentUserRole != utils.RoleSuperAdmin {
+	if scope.Role != utils.RoleSuperAdmin {
 		filteredUsers := make([]domainuser.Users, 0)
 		for _, user := range users {
 			if user.Role != utils.RoleSuperAdmin {
@@ -309,13 +309,14 @@ func (s *ServiceUser) GetAllUsers(params filter.BaseParams, currentUserRole stri
 	return users, total, nil
 }
 
-func (s *ServiceUser) Update(id, currentUserID, currentUserRole string, req dto.UserUpdate) (domainuser.Users, error) {
+func (s *ServiceUser) Update(ctx context.Context, id string, req dto.UserUpdate) (domainuser.Users, error) {
 	data, err := s.UserRepo.GetByID(id)
 	if err != nil {
 		return domainuser.Users{}, err
 	}
+	scope := authscope.FromContext(ctx)
 
-	if data.Role == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
+	if data.Role == utils.RoleSuperAdmin && scope.Role != utils.RoleSuperAdmin {
 		return domainuser.Users{}, errors.New("cannot modify superadmin users")
 	}
 
@@ -345,16 +346,12 @@ func (s *ServiceUser) Update(id, currentUserID, currentUserRole string, req dto.
 	}
 
 	if strings.TrimSpace(req.Role) != "" {
-		permissions, err := s.PermissionRepo.GetUserPermissions(currentUserID)
-		if err != nil {
-			return domainuser.Users{}, err
-		}
-		if !hasUserPermission(permissions, "users", "assign_role") {
+		if !scope.Has("users", "assign_role") {
 			return domainuser.Users{}, errors.New("access denied: missing permission users:assign_role")
 		}
 
 		newRoleName := normalizeRoleName(req.Role)
-		if newRoleName == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
+		if newRoleName == utils.RoleSuperAdmin && scope.Role != utils.RoleSuperAdmin {
 			return domainuser.Users{}, errors.New("cannot assign superadmin role")
 		}
 

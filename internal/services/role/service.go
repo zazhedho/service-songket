@@ -1,8 +1,10 @@
 package servicerole
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"service-songket/internal/authscope"
 	domainpermission "service-songket/internal/domain/permission"
 	domainrole "service-songket/internal/domain/role"
 	"service-songket/internal/dto"
@@ -96,13 +98,14 @@ func (s *RoleService) GetByIDWithDetails(id string) (dto.RoleWithDetails, error)
 	}, nil
 }
 
-func (s *RoleService) GetAll(params filter.BaseParams, currentUserRole string) ([]domainrole.Role, int64, error) {
+func (s *RoleService) GetAll(ctx context.Context, params filter.BaseParams) ([]domainrole.Role, int64, error) {
 	roles, total, err := s.RoleRepo.GetAll(params)
 	if err != nil {
 		return nil, 0, err
 	}
+	scope := authscope.FromContext(ctx)
 
-	if currentUserRole != utils.RoleSuperAdmin {
+	if scope.Role != utils.RoleSuperAdmin {
 		filteredRoles := make([]domainrole.Role, 0)
 		for _, role := range roles {
 			if role.Name != utils.RoleSuperAdmin {
@@ -153,10 +156,11 @@ func (s *RoleService) Delete(id string) error {
 	return s.RoleRepo.Delete(id)
 }
 
-func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions, currentUserId, currentUserRole string) error {
+func (s *RoleService) AssignPermissions(ctx context.Context, roleId string, req dto.AssignPermissions) error {
 	if _, err := uuid.Parse(strings.TrimSpace(roleId)); err != nil {
 		return errors.New("invalid role ID")
 	}
+	scope := authscope.FromContext(ctx)
 
 	permissionIDs, err := sanitizeUUIDList("permission_ids", req.PermissionIds)
 	if err != nil {
@@ -169,14 +173,10 @@ func (s *RoleService) AssignPermissions(roleId string, req dto.AssignPermissions
 	}
 
 	if role.IsSystem {
-		permissions, err := s.PermissionRepo.GetUserPermissions(currentUserId)
-		if err != nil {
-			return err
-		}
-		if !hasPermission(permissions, "roles", "manage_system") {
+		if !scope.Has("roles", "manage_system") {
 			return errors.New("access denied: missing permission roles:manage_system")
 		}
-		if role.Name == utils.RoleSuperAdmin && currentUserRole != utils.RoleSuperAdmin {
+		if role.Name == utils.RoleSuperAdmin && scope.Role != utils.RoleSuperAdmin {
 			return errors.New("access denied: cannot modify superadmin role")
 		}
 	}

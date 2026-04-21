@@ -1,6 +1,7 @@
 package serviceorder
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/oviekshgya/shago-lib/excel"
 
+	"service-songket/internal/authscope"
 	domainlocation "service-songket/internal/domain/location"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
@@ -95,17 +97,21 @@ func validateOrderExportRequest(req dto.OrderExportRequest) error {
 	return nil
 }
 
-func canAccessOrderExport(job *domainorder.OrderExportJob) bool {
+func canAccessOrderExport(job *domainorder.OrderExportJob, scope authscope.Scope) bool {
 	if job == nil {
 		return false
 	}
-	return true
+	return scope.CanAccessOwner(job.CreatedBy)
 }
 
-func (s *Service) StartExport(req dto.OrderExportRequest, role, userID string) (domainorder.OrderExportJob, error) {
+func (s *Service) StartExport(ctx context.Context, req dto.OrderExportRequest) (domainorder.OrderExportJob, error) {
 	if err := validateOrderExportRequest(req); err != nil {
 		return domainorder.OrderExportJob{}, err
 	}
+	scope := authscope.FromContext(ctx)
+	userID := strings.TrimSpace(scope.UserID)
+	scopeUserID := strings.TrimSpace(scope.ScopedUserID("orders", "list_all"))
+	exportCtx := authscope.WithContext(context.Background(), authscope.New(scopeUserID, scope.Role, nil))
 
 	now := time.Now()
 	jobID := utils.CreateUUID()
@@ -123,11 +129,11 @@ func (s *Service) StartExport(req dto.OrderExportRequest, role, userID string) (
 		UpdatedAt:    now,
 	}
 	upsertOrderExportJob(job)
-	go s.runOrderExport(jobID, req, role, userID)
+	go s.runOrderExport(exportCtx, jobID, req)
 	return cloneOrderExportJob(job), nil
 }
 
-func (s *Service) runOrderExport(jobID string, req dto.OrderExportRequest, role, userID string) {
+func (s *Service) runOrderExport(ctx context.Context, jobID string, req dto.OrderExportRequest) {
 	mutateOrderExportJob(jobID, func(job *domainorder.OrderExportJob) {
 		job.Status = orderExportStatusRunning
 		job.Progress = 10
@@ -135,7 +141,7 @@ func (s *Service) runOrderExport(jobID string, req dto.OrderExportRequest, role,
 		job.Error = ""
 	})
 
-	orders, err := s.listOrdersForExport(req, role, userID)
+	orders, err := s.listOrdersForExport(ctx, req)
 	if err != nil {
 		mutateOrderExportJob(jobID, func(job *domainorder.OrderExportJob) {
 			job.Status = orderExportStatusFailed
@@ -195,31 +201,27 @@ func (s *Service) runOrderExport(jobID string, req dto.OrderExportRequest, role,
 	})
 }
 
-func (s *Service) listOrdersForExport(req dto.OrderExportRequest, role, userID string) ([]domainorder.Order, error) {
-	return s.repo.ListForExport(req, role, userID)
+func (s *Service) listOrdersForExport(ctx context.Context, req dto.OrderExportRequest) ([]domainorder.Order, error) {
+	return s.repo.ListForExport(ctx, req)
 }
 
-func (s *Service) GetExportJob(jobID, role, userID string) (domainorder.OrderExportJob, error) {
+func (s *Service) GetExportJob(ctx context.Context, jobID string) (domainorder.OrderExportJob, error) {
 	raw, exists := getOrderExportJobCopy(strings.TrimSpace(jobID))
 	if !exists {
 		return domainorder.OrderExportJob{}, domainorder.ErrOrderExportNotFound
 	}
-	_ = role
-	_ = userID
-	if !canAccessOrderExport(&raw) {
+	if !canAccessOrderExport(&raw, authscope.FromContext(ctx)) {
 		return domainorder.OrderExportJob{}, domainorder.ErrOrderExportForbidden
 	}
 	return raw, nil
 }
 
-func (s *Service) DownloadExport(jobID, role, userID string) (domainorder.OrderExportDownload, error) {
+func (s *Service) DownloadExport(ctx context.Context, jobID string) (domainorder.OrderExportDownload, error) {
 	raw, exists := getOrderExportJobCopy(strings.TrimSpace(jobID))
 	if !exists {
 		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportNotFound
 	}
-	_ = role
-	_ = userID
-	if !canAccessOrderExport(&raw) {
+	if !canAccessOrderExport(&raw, authscope.FromContext(ctx)) {
 		return domainorder.OrderExportDownload{}, domainorder.ErrOrderExportForbidden
 	}
 	if raw.Status != orderExportStatusCompleted || strings.TrimSpace(raw.FilePath) == "" {

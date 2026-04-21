@@ -1,9 +1,11 @@
 package repositoryfinance
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"service-songket/internal/authscope"
 	domainfinance "service-songket/internal/domain/finance"
 	domainfinancecompany "service-songket/internal/domain/financecompany"
 	domainorder "service-songket/internal/domain/order"
@@ -21,9 +23,21 @@ func NewFinanceRepo(db *gorm.DB) interfacefinance.RepoFinanceInterface {
 	return &repo{db: db}
 }
 
-func (r *repo) GetDealerMetricsBase(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (domainfinance.DealerMetricsBase, error) {
+func applyFinanceOrderScope(ctx context.Context, query *gorm.DB, alias, allAction string) *gorm.DB {
+	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("business", allAction)); ownerID != "" {
+		prefix := strings.TrimSpace(alias)
+		if prefix == "" {
+			prefix = "orders"
+		}
+		query = query.Where(fmt.Sprintf("%s.created_by = ?", prefix), ownerID)
+	}
+	return query
+}
+
+func (r *repo) GetDealerMetricsBase(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (domainfinance.DealerMetricsBase, error) {
 	baseOrders := func(tx *gorm.DB) *gorm.DB {
 		q := tx.Model(&domainorder.Order{}).Where("dealer_id = ?", dealerID)
+		q = applyFinanceOrderScope(ctx, q, "orders", "view_metrics_all")
 		if !dateRange.From.IsZero() {
 			q = q.Where("pooling_at >= ?", dateRange.From)
 		}
@@ -48,6 +62,7 @@ func (r *repo) GetDealerMetricsBase(dealerID string, financeCompanyID *string, d
 		Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
 		Where("o.dealer_id = ?", dealerID).
 		Where("order_finance_attempts.status = ?", "approve")
+	qApprove = applyFinanceOrderScope(ctx, qApprove, "o", "view_metrics_all")
 	if financeCompanyID != nil && *financeCompanyID != "" {
 		qApprove = qApprove.Where("order_finance_attempts.finance_company_id = ?", *financeCompanyID)
 	}
@@ -68,6 +83,7 @@ func (r *repo) GetDealerMetricsBase(dealerID string, financeCompanyID *string, d
 		Where("orders.dealer_id = ?", dealerID).
 		Where("a1.status = ?", "reject").
 		Where("a2.status = ?", "approve")
+	qRescue = applyFinanceOrderScope(ctx, qRescue, "orders", "view_metrics_all")
 	if financeCompanyID != nil && *financeCompanyID != "" {
 		qRescue = qRescue.Where("a2.finance_company_id = ?", *financeCompanyID)
 	}
@@ -90,7 +106,7 @@ func (r *repo) GetDealerMetricsBase(dealerID string, financeCompanyID *string, d
 	}, nil
 }
 
-func (r *repo) ListDealerFinanceCompanyMetrics(dealerID string, dateRange domainfinance.DateRange) ([]domainfinance.DealerFinanceCompanyMetricRow, error) {
+func (r *repo) ListDealerFinanceCompanyMetrics(ctx context.Context, dealerID string, dateRange domainfinance.DateRange) ([]domainfinance.DealerFinanceCompanyMetricRow, error) {
 	var financeCompanies []domainfinancecompany.FinanceCompany
 	if err := r.db.Find(&financeCompanies).Error; err != nil {
 		return nil, err
@@ -98,6 +114,7 @@ func (r *repo) ListDealerFinanceCompanyMetrics(dealerID string, dateRange domain
 
 	baseOrders := func(tx *gorm.DB) *gorm.DB {
 		q := tx.Model(&domainorder.Order{}).Where("dealer_id = ?", dealerID)
+		q = applyFinanceOrderScope(ctx, q, "orders", "view_metrics_all")
 		if !dateRange.From.IsZero() {
 			q = q.Where("pooling_at >= ?", dateRange.From)
 		}
@@ -131,6 +148,7 @@ func (r *repo) ListDealerFinanceCompanyMetrics(dealerID string, dateRange domain
 				Where("o.dealer_id = ?", dealerID).
 				Where("order_finance_attempts.attempt_no = ?", 1).
 				Where("order_finance_attempts.finance_company_id = ?", fc.Id)
+			q = applyFinanceOrderScope(ctx, q, "o", "view_metrics_all")
 			if !dateRange.From.IsZero() {
 				q = q.Where("o.pooling_at >= ?", dateRange.From)
 			}
@@ -163,6 +181,7 @@ func (r *repo) ListDealerFinanceCompanyMetrics(dealerID string, dateRange domain
 			Where("a1.status = ?", "reject").
 			Where("a2.status = ?", "approve").
 			Where("a2.finance_company_id = ?", fc.Id)
+		qRescueFc = applyFinanceOrderScope(ctx, qRescueFc, "orders", "view_metrics_all")
 		if !dateRange.From.IsZero() {
 			qRescueFc = qRescueFc.Where("orders.pooling_at >= ?", dateRange.From)
 		}
@@ -188,7 +207,7 @@ func (r *repo) ListDealerFinanceCompanyMetrics(dealerID string, dateRange domain
 	return rows, nil
 }
 
-func (r *repo) ListDealerFinanceApprovalGrouping(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalGroupingRow, error) {
+func (r *repo) ListDealerFinanceApprovalGrouping(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalGroupingRow, error) {
 	groupingBase := r.db.Model(&domainorder.OrderFinanceAttempt{}).
 		Joins("JOIN orders o ON o.id = order_finance_attempts.order_id").
 		Joins("JOIN order_finance_attempts a1 ON a1.order_id = order_finance_attempts.order_id AND a1.attempt_no = 1").
@@ -197,6 +216,7 @@ func (r *repo) ListDealerFinanceApprovalGrouping(dealerID string, financeCompany
 		Where("order_finance_attempts.attempt_no = ?", 2).
 		Where("a1.status = ?", "reject").
 		Where("LOWER(order_finance_attempts.status) IN ?", []string{"approve", "reject"})
+	groupingBase = applyFinanceOrderScope(ctx, groupingBase, "o", "view_metrics_all")
 
 	if financeCompanyID != nil && *financeCompanyID != "" {
 		groupingBase = groupingBase.Where("order_finance_attempts.finance_company_id = ?", *financeCompanyID)
@@ -224,7 +244,7 @@ func (r *repo) ListDealerFinanceApprovalGrouping(dealerID string, financeCompany
 	return rows, nil
 }
 
-func (r *repo) ListDealerFinanceApprovalTransitions(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalTransitionRow, error) {
+func (r *repo) ListDealerFinanceApprovalTransitions(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalTransitionRow, error) {
 	transitionBase := r.db.
 		Table("order_finance_attempts AS a2").
 		Joins("JOIN orders o ON o.id = a2.order_id").
@@ -235,6 +255,7 @@ func (r *repo) ListDealerFinanceApprovalTransitions(dealerID string, financeComp
 		Where("a2.attempt_no = ?", 2).
 		Where("LOWER(a1.status) = ?", "reject").
 		Where("LOWER(a2.status) IN ?", []string{"approve", "reject"})
+	transitionBase = applyFinanceOrderScope(ctx, transitionBase, "o", "view_metrics_all")
 
 	if financeCompanyID != nil && *financeCompanyID != "" {
 		transitionBase = transitionBase.Where("a2.finance_company_id = ?", *financeCompanyID)
@@ -275,6 +296,7 @@ func (r *repo) ListDealerFinanceApprovalTransitions(dealerID string, financeComp
 		Where("LOWER(o2.result_status) IN ?", []string{"approve", "reject"}).
 		Where("o1.created_at <= o2.created_at").
 		Where("NOT EXISTS (SELECT 1 FROM order_finance_attempts a2x WHERE a2x.order_id = o1.id AND a2x.attempt_no = 2)")
+	fallbackTransitionBase = applyFinanceOrderScope(ctx, fallbackTransitionBase, "o1", "view_metrics_all")
 	if financeCompanyID != nil && *financeCompanyID != "" {
 		fallbackTransitionBase = fallbackTransitionBase.Where("a2f.finance_company_id = ?", *financeCompanyID)
 	}
@@ -358,8 +380,8 @@ func (r *repo) ListDealerFinanceApprovalTransitions(dealerID string, financeComp
 	return rows, nil
 }
 
-func (r *repo) ListMigrationReport(params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
-	query := r.baseMigrationReportQuery(params, month, year)
+func (r *repo) ListMigrationReport(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+	query := r.baseMigrationReportQuery(ctx, params, month, year)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -448,8 +470,8 @@ func (r *repo) ListMigrationReport(params filter.BaseParams, month, year int) ([
 	return rows, total, nil
 }
 
-func (r *repo) ListMigrationReportGroupedByFinance2(params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
-	baseQuery := r.baseMigrationReportQuery(params, month, year)
+func (r *repo) ListMigrationReportGroupedByFinance2(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+	baseQuery := r.baseMigrationReportQuery(ctx, params, month, year)
 
 	finance2StatusExpr := "COALESCE(NULLIF(a2.status, ''), NULLIF(o2a1.status, ''), LOWER(NULLIF(o2.result_status, '')), '-')"
 	finance2CompanyExpr := "COALESCE(a2.finance_company_id::text, o2a1.finance_company_id::text)"
@@ -521,13 +543,13 @@ func (r *repo) ListMigrationReportGroupedByFinance2(params filter.BaseParams, mo
 	return rows, total, nil
 }
 
-func (r *repo) GetMigrationAnchorFinance2CompanyID(anchorOrderID string) (string, error) {
+func (r *repo) GetMigrationAnchorFinance2CompanyID(ctx context.Context, anchorOrderID string) (string, error) {
 	type financeMigrationOrderInAnchor struct {
 		Finance2CompanyID string `gorm:"column:finance_2_company_id"`
 	}
 
 	var anchor financeMigrationOrderInAnchor
-	if err := r.db.
+	query := r.db.
 		Table("orders o").
 		Joins(`
 			JOIN LATERAL (
@@ -578,8 +600,9 @@ func (r *repo) GetMigrationAnchorFinance2CompanyID(anchorOrderID string) (string
 		`).
 		Where("o.deleted_at IS NULL").
 		Where("o.id = ?", anchorOrderID).
-		Where("a1.status = ?", "reject").
-		Select(`
+		Where("a1.status = ?", "reject")
+	query = applyFinanceOrderScope(ctx, query, "o", "list_all")
+	if err := query.Select(`
 			COALESCE(a2.finance_company_id::text, o2a1.finance_company_id::text, '') AS finance_2_company_id
 		`).
 		Take(&anchor).Error; err != nil {
@@ -589,7 +612,7 @@ func (r *repo) GetMigrationAnchorFinance2CompanyID(anchorOrderID string) (string
 	return strings.TrimSpace(anchor.Finance2CompanyID), nil
 }
 
-func (r *repo) baseMigrationReportQuery(params filter.BaseParams, month, year int) *gorm.DB {
+func (r *repo) baseMigrationReportQuery(ctx context.Context, params filter.BaseParams, month, year int) *gorm.DB {
 	query := r.db.
 		Table("orders o").
 		Joins(`
@@ -684,6 +707,7 @@ func (r *repo) baseMigrationReportQuery(params filter.BaseParams, month, year in
 					)
 			)
 		`)
+	query = applyFinanceOrderScope(ctx, query, "o", "list_all")
 
 	if month > 0 {
 		query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", month)

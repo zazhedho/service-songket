@@ -1,6 +1,7 @@
 package servicefinance
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	domainfinance "service-songket/internal/domain/finance"
@@ -24,28 +25,28 @@ type financeRepoMock struct {
 	lastReportYear   int
 }
 
-func (m *financeRepoMock) GetDealerMetricsBase(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (domainfinance.DealerMetricsBase, error) {
+func (m *financeRepoMock) GetDealerMetricsBase(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (domainfinance.DealerMetricsBase, error) {
 	return m.base, nil
 }
-func (m *financeRepoMock) ListDealerFinanceCompanyMetrics(dealerID string, dateRange domainfinance.DateRange) ([]domainfinance.DealerFinanceCompanyMetricRow, error) {
+func (m *financeRepoMock) ListDealerFinanceCompanyMetrics(ctx context.Context, dealerID string, dateRange domainfinance.DateRange) ([]domainfinance.DealerFinanceCompanyMetricRow, error) {
 	return append([]domainfinance.DealerFinanceCompanyMetricRow{}, m.fcRows...), nil
 }
-func (m *financeRepoMock) ListDealerFinanceApprovalGrouping(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalGroupingRow, error) {
+func (m *financeRepoMock) ListDealerFinanceApprovalGrouping(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalGroupingRow, error) {
 	return append([]domainfinance.FinanceApprovalGroupingRow{}, m.groupingRows...), nil
 }
-func (m *financeRepoMock) ListDealerFinanceApprovalTransitions(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalTransitionRow, error) {
+func (m *financeRepoMock) ListDealerFinanceApprovalTransitions(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalTransitionRow, error) {
 	return append([]domainfinance.FinanceApprovalTransitionRow{}, m.transitionRows...), nil
 }
-func (m *financeRepoMock) ListMigrationReport(params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+func (m *financeRepoMock) ListMigrationReport(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
 	m.lastReportParams = params
 	m.lastReportMonth = month
 	m.lastReportYear = year
 	return append([]domainfinance.FinanceMigrationReportItem{}, m.reportRows...), m.reportTotal, nil
 }
-func (m *financeRepoMock) ListMigrationReportGroupedByFinance2(params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+func (m *financeRepoMock) ListMigrationReportGroupedByFinance2(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
 	return nil, 0, nil
 }
-func (m *financeRepoMock) GetMigrationAnchorFinance2CompanyID(anchorOrderID string) (string, error) {
+func (m *financeRepoMock) GetMigrationAnchorFinance2CompanyID(ctx context.Context, anchorOrderID string) (string, error) {
 	if m.anchorErr != nil {
 		return "", m.anchorErr
 	}
@@ -73,7 +74,7 @@ func TestDealerMetricsCalculatesRatesAndSortsGrouping(t *testing.T) {
 		},
 	}).(*Service)
 
-	result, err := service.DealerMetrics("dealer-1", nil, domainfinance.DateRange{})
+	result, err := service.DealerMetrics(context.Background(), "dealer-1", nil, domainfinance.DateRange{})
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -100,7 +101,7 @@ func TestDealerMetricsCalculatesRatesAndSortsGrouping(t *testing.T) {
 func TestListMigrationOrderInDetailReturnsEmptyWhenAnchorMissing(t *testing.T) {
 	service := NewFinanceService(&financeRepoMock{anchorErr: gorm.ErrRecordNotFound}).(*Service)
 
-	rows, total, err := service.ListMigrationOrderInDetail("order-1", filter.BaseParams{}, 4, 2026)
+	rows, total, err := service.ListMigrationOrderInDetail(context.Background(), "order-1", filter.BaseParams{}, 4, 2026)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -117,7 +118,7 @@ func TestListMigrationOrderInDetailForwardsAnchorFinance2AndOptionalFinance1Filt
 	}
 	service := NewFinanceService(repo).(*Service)
 
-	rows, total, err := service.ListMigrationOrderInDetail("order-1", filter.BaseParams{
+	rows, total, err := service.ListMigrationOrderInDetail(context.Background(), "order-1", filter.BaseParams{
 		Filters: map[string]interface{}{"finance_1_company_id": "fc-1"},
 	}, 4, 2026)
 	if err != nil {
@@ -136,7 +137,7 @@ func TestListMigrationOrderInDetailForwardsAnchorFinance2AndOptionalFinance1Filt
 
 func TestListMigrationOrderInDetailReturnsErrorOnUnexpectedAnchorLookupFailure(t *testing.T) {
 	service := NewFinanceService(&financeRepoMock{anchorErr: errors.New("db down")}).(*Service)
-	_, _, err := service.ListMigrationOrderInDetail("order-1", filter.BaseParams{}, 4, 2026)
+	_, _, err := service.ListMigrationOrderInDetail(context.Background(), "order-1", filter.BaseParams{}, 4, 2026)
 	if err == nil || err.Error() != "db down" {
 		t.Fatalf("expected db error, got %v", err)
 	}

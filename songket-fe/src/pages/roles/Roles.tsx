@@ -103,15 +103,8 @@ export default function RolesPage() {
   }, [roles, selectedId, stateRole])
 
   const isSystemRole = useMemo(() => {
-    const explicit = Boolean(roleDetail?.is_system || selectedRole?.is_system)
-    if (explicit) return true
-
-    const roleName = String(roleDetail?.name || selectedRole?.name || form.name || '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-    return ['superadmin', 'admin', 'dealer', 'main_dealer'].includes(roleName)
-  }, [roleDetail?.is_system, roleDetail?.name, selectedRole?.is_system, selectedRole?.name, form.name])
+    return Boolean(roleDetail?.is_system || selectedRole?.is_system)
+  }, [roleDetail?.is_system, selectedRole?.is_system])
 
   const sortedPerms = useMemo(
     () => [...perms].sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),

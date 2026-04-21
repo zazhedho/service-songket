@@ -1,16 +1,21 @@
 package repositoryorder
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"service-songket/internal/authscope"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
 
 	"gorm.io/gorm"
 )
 
-func applyDashboardScopeFilters(query *gorm.DB, req dto.DashboardSummaryQuery, role, userID, financeCompanyColumn string) *gorm.DB {
+func applyDashboardScopeFilters(ctx context.Context, query *gorm.DB, req dto.DashboardSummaryQuery, financeCompanyColumn string) *gorm.DB {
+	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
+		query = query.Where("o.created_by = ?", ownerID)
+	}
 	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
 		query = query.Where("o.dealer_id = ?", dealerID)
 	}
@@ -75,7 +80,7 @@ func applyDashboardPeriodFilters(query *gorm.DB, req dto.DashboardSummaryQuery) 
 	return query
 }
 
-func (r *repo) buildDashboardSummaryBaseQuery(req dto.DashboardSummaryQuery, role, userID string) *gorm.DB {
+func (r *repo) buildDashboardSummaryBaseQuery(ctx context.Context, req dto.DashboardSummaryQuery) *gorm.DB {
 	query := r.DB.
 		Table("orders o").
 		Select(`
@@ -93,11 +98,11 @@ func (r *repo) buildDashboardSummaryBaseQuery(req dto.DashboardSummaryQuery, rol
 		Joins("LEFT JOIN order_finance_attempts a1 ON a1.order_id = o.id AND a1.attempt_no = 1").
 		Joins("LEFT JOIN finance_companies fc1 ON fc1.id = a1.finance_company_id AND fc1.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL")
-	return applyDashboardScopeFilters(query, req, role, userID, "a1.finance_company_id")
+	return applyDashboardScopeFilters(ctx, query, req, "a1.finance_company_id")
 }
 
-func (r *repo) ListDashboardSummaryRows(req dto.DashboardSummaryQuery, role, userID string) ([]domainorder.DashboardSummaryRow, error) {
-	query := applyDashboardPeriodFilters(r.buildDashboardSummaryBaseQuery(req, role, userID), req)
+func (r *repo) ListDashboardSummaryRows(ctx context.Context, req dto.DashboardSummaryQuery) ([]domainorder.DashboardSummaryRow, error) {
+	query := applyDashboardPeriodFilters(r.buildDashboardSummaryBaseQuery(ctx, req), req)
 	rows := make([]domainorder.DashboardSummaryRow, 0)
 	if err := query.Order("o.pooling_at ASC").Scan(&rows).Error; err != nil {
 		return nil, err
@@ -105,7 +110,7 @@ func (r *repo) ListDashboardSummaryRows(req dto.DashboardSummaryQuery, role, use
 	return rows, nil
 }
 
-func (r *repo) ListDashboardFinanceDecisionDailyRows(req dto.DashboardSummaryQuery, role, userID string) ([]domainorder.DashboardFinanceDecisionDailyRow, error) {
+func (r *repo) ListDashboardFinanceDecisionDailyRows(ctx context.Context, req dto.DashboardSummaryQuery) ([]domainorder.DashboardFinanceDecisionDailyRow, error) {
 	query := r.DB.
 		Table("orders o").
 		Select(`
@@ -117,7 +122,7 @@ func (r *repo) ListDashboardFinanceDecisionDailyRows(req dto.DashboardSummaryQue
 		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	query = applyDashboardScopeFilters(query, req, role, userID, "oa.finance_company_id")
+	query = applyDashboardScopeFilters(ctx, query, req, "oa.finance_company_id")
 	query = applyDashboardPeriodFilters(query, req)
 
 	rows := make([]domainorder.DashboardFinanceDecisionDailyRow, 0)
@@ -127,7 +132,7 @@ func (r *repo) ListDashboardFinanceDecisionDailyRows(req dto.DashboardSummaryQue
 	return rows, nil
 }
 
-func (r *repo) ListDashboardFinanceDecisionByCompanyRows(req dto.DashboardSummaryQuery, role, userID string) ([]domainorder.DashboardFinanceDecisionByCompanyRow, error) {
+func (r *repo) ListDashboardFinanceDecisionByCompanyRows(ctx context.Context, req dto.DashboardSummaryQuery) ([]domainorder.DashboardFinanceDecisionByCompanyRow, error) {
 	query := r.DB.
 		Table("orders o").
 		Select(`
@@ -141,7 +146,7 @@ func (r *repo) ListDashboardFinanceDecisionByCompanyRows(req dto.DashboardSummar
 		Joins("LEFT JOIN finance_companies fc ON fc.id = oa.finance_company_id AND fc.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	query = applyDashboardScopeFilters(query, req, role, userID, "oa.finance_company_id")
+	query = applyDashboardScopeFilters(ctx, query, req, "oa.finance_company_id")
 	query = applyDashboardPeriodFilters(query, req)
 
 	rows := make([]domainorder.DashboardFinanceDecisionByCompanyRow, 0)
@@ -154,8 +159,8 @@ func (r *repo) ListDashboardFinanceDecisionByCompanyRows(req dto.DashboardSummar
 	return rows, nil
 }
 
-func (r *repo) CountDashboardOrders(req dto.DashboardSummaryQuery, role, userID string) (int64, error) {
-	query := applyDashboardPeriodFilters(r.buildDashboardSummaryBaseQuery(req, role, userID), req)
+func (r *repo) CountDashboardOrders(ctx context.Context, req dto.DashboardSummaryQuery) (int64, error) {
+	query := applyDashboardPeriodFilters(r.buildDashboardSummaryBaseQuery(ctx, req), req)
 	var total int64
 	if err := query.Distinct("o.id").Count(&total).Error; err != nil {
 		return 0, err
@@ -163,7 +168,7 @@ func (r *repo) CountDashboardOrders(req dto.DashboardSummaryQuery, role, userID 
 	return total, nil
 }
 
-func (r *repo) GetDashboardDecisionTotals(req dto.DashboardSummaryQuery, role, userID string) (domainorder.DashboardDecisionTotals, error) {
+func (r *repo) GetDashboardDecisionTotals(ctx context.Context, req dto.DashboardSummaryQuery) (domainorder.DashboardDecisionTotals, error) {
 	query := r.DB.
 		Table("orders o").
 		Select(`
@@ -174,7 +179,7 @@ func (r *repo) GetDashboardDecisionTotals(req dto.DashboardSummaryQuery, role, u
 		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL").
 		Where("LOWER(COALESCE(oa.status, '')) IN ?", []string{"approve", "reject"})
-	query = applyDashboardScopeFilters(query, req, role, userID, "oa.finance_company_id")
+	query = applyDashboardScopeFilters(ctx, query, req, "oa.finance_company_id")
 	query = applyDashboardPeriodFilters(query, req)
 
 	var totals domainorder.DashboardDecisionTotals

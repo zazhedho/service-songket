@@ -2,9 +2,11 @@ package handleruser
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"service-songket/internal/authscope"
 	domainuser "service-songket/internal/domain/user"
 	"service-songket/internal/dto"
 	interfaceuser "service-songket/internal/interfaces/user"
@@ -18,8 +20,7 @@ import (
 type userServiceMock struct {
 	updateCalled bool
 	updateID     string
-	currentUser  string
-	currentRole  string
+	updateCtx    context.Context
 	updateReq    dto.UserUpdate
 	updateResp   domainuser.Users
 	updateErr    error
@@ -28,7 +29,7 @@ type userServiceMock struct {
 func (m *userServiceMock) RegisterUser(req dto.UserRegister) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
-func (m *userServiceMock) AdminCreateUser(req dto.AdminCreateUser, creatorUserID, creatorRole string) (domainuser.Users, error) {
+func (m *userServiceMock) AdminCreateUser(ctx context.Context, req dto.AdminCreateUser) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
 func (m *userServiceMock) LoginUser(req dto.Login, logId string) (string, error) {
@@ -44,14 +45,13 @@ func (m *userServiceMock) GetUserByEmail(email string) (domainuser.Users, error)
 func (m *userServiceMock) GetUserByAuth(id string) (map[string]interface{}, error) {
 	return nil, nil
 }
-func (m *userServiceMock) GetAllUsers(params filter.BaseParams, currentUserRole string) ([]domainuser.Users, int64, error) {
+func (m *userServiceMock) GetAllUsers(ctx context.Context, params filter.BaseParams) ([]domainuser.Users, int64, error) {
 	return nil, 0, nil
 }
-func (m *userServiceMock) Update(id, currentUserID, currentUserRole string, req dto.UserUpdate) (domainuser.Users, error) {
+func (m *userServiceMock) Update(ctx context.Context, id string, req dto.UserUpdate) (domainuser.Users, error) {
 	m.updateCalled = true
 	m.updateID = id
-	m.currentUser = currentUserID
-	m.currentRole = currentUserRole
+	m.updateCtx = ctx
 	m.updateReq = req
 	if m.updateResp.Id == "" {
 		m.updateResp = domainuser.Users{Id: id, Role: req.Role}
@@ -89,6 +89,7 @@ func TestUpdateClearsRoleForSelfUpdate(t *testing.T) {
 		"user_id": "11111111-1111-1111-1111-111111111111",
 		"role":    utils.RoleDealer,
 	})
+	ctx.Request = ctx.Request.WithContext(authscope.WithContext(ctx.Request.Context(), authscope.New("11111111-1111-1111-1111-111111111111", utils.RoleDealer, nil)))
 
 	handler.Update(ctx)
 
@@ -125,6 +126,7 @@ func TestUpdateUserByIdDoesNotRequirePassword(t *testing.T) {
 		"user_id": "22222222-2222-2222-2222-222222222222",
 		"role":    utils.RoleAdmin,
 	})
+	ctx.Request = ctx.Request.WithContext(authscope.WithContext(ctx.Request.Context(), authscope.New("22222222-2222-2222-2222-222222222222", utils.RoleAdmin, []string{"users:assign_role"})))
 
 	handler.UpdateUserById(ctx)
 

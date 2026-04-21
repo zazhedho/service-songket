@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"service-songket/internal/authscope"
 	interfaceauth "service-songket/internal/interfaces/auth"
 	interfacepermission "service-songket/internal/interfaces/permission"
 	"service-songket/pkg/logger"
@@ -74,6 +75,11 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 		ctx.Set(utils.CtxKeyAuthData, dataJWT)
 		ctx.Set("token", tokenString)
 		ctx.Set("userId", utils.InterfaceString(dataJWT["user_id"]))
+		ctx.Request = ctx.Request.WithContext(authscope.WithContext(ctx.Request.Context(), authscope.New(
+			utils.InterfaceString(dataJWT["user_id"]),
+			utils.InterfaceString(dataJWT["role"]),
+			nil,
+		)))
 
 		ctx.Next()
 	}
@@ -125,12 +131,22 @@ func (m *Middleware) PermissionMiddleware(resource, action string) gin.HandlerFu
 		}
 
 		hasPermission := false
+		permissionKeys := make([]string, 0, len(permissions))
 		for _, perm := range permissions {
+			permissionKeys = append(permissionKeys, fmt.Sprintf("%s:%s", perm.Resource, perm.Action))
 			if perm.Resource == resource && perm.Action == action {
 				hasPermission = true
-				break
 			}
 		}
+
+		dataJWT["permissions"] = permissionKeys
+		ctx.Set(utils.CtxKeyAuthData, dataJWT)
+		ctx.Set("permissions", permissionKeys)
+		ctx.Request = ctx.Request.WithContext(authscope.WithContext(ctx.Request.Context(), authscope.New(
+			utils.InterfaceString(dataJWT["user_id"]),
+			utils.InterfaceString(dataJWT["role"]),
+			permissionKeys,
+		)))
 
 		if !hasPermission {
 			logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; User '%s' lacks required permissions", logPrefix, userId))

@@ -18,7 +18,6 @@ type OrderFormViewProps = {
   parseNumber: (value: string) => number
   poolingRowsCount: number
   provinces: any[]
-  role: string
   selectedMotor: any
   set: (key: string, value: any) => void
   setError: (value: string) => void
@@ -43,7 +42,6 @@ export default function OrderFormView({
   parseNumber,
   poolingRowsCount,
   provinces,
-  role,
   selectedMotor,
   set,
   setError,
@@ -80,7 +78,7 @@ export default function OrderFormView({
                 value={form.dealer_id}
                 onChange={(e) => set('dealer_id', e.target.value)}
                 required
-                disabled={role === 'dealer' && lookups?.dealers?.length === 1}
+                disabled={lookups?.dealers?.length === 1}
               >
                 <option value="">Select</option>
                 {lookups?.dealers?.map((dealer: any) => (

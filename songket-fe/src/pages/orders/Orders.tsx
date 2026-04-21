@@ -69,7 +69,7 @@ export default function OrdersPage() {
   const isEdit = mode === 'edit'
   const isDetail = mode === 'detail'
 
-  const { hasPermission, role } = usePermissions()
+  const { hasPermission } = usePermissions()
   const confirm = useConfirm()
 
   const canCreate = hasPermission('orders', 'create')
@@ -159,10 +159,10 @@ export default function OrdersPage() {
   }, [filters.search])
 
   useEffect(() => {
-    if (role === 'dealer' && lookups?.dealers?.length === 1 && isCreate) {
+    if (isCreate && lookups?.dealers?.length === 1) {
       setForm((prev) => ({ ...prev, dealer_id: lookups.dealers[0].id }))
     }
-  }, [isCreate, lookups.dealers, role])
+  }, [isCreate, lookups.dealers])
 
   useEffect(() => {
     if (isList && showTable) {
@@ -668,7 +668,6 @@ export default function OrdersPage() {
         parseNumber={parseNumber}
         poolingRowsCount={poolingRowsCount}
         provinces={provinces}
-        role={role}
         selectedMotor={selectedMotor}
         set={set}
         setError={setError}

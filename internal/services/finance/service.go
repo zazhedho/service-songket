@@ -1,6 +1,7 @@
 package servicefinance
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -20,23 +21,23 @@ func NewFinanceService(repo interfacefinance.RepoFinanceInterface) interfacefina
 	return &Service{repo: repo}
 }
 
-func (s *Service) DealerMetrics(dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (map[string]interface{}, error) {
-	base, err := s.repo.GetDealerMetricsBase(dealerID, financeCompanyID, dateRange)
+func (s *Service) DealerMetrics(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (map[string]interface{}, error) {
+	base, err := s.repo.GetDealerMetricsBase(ctx, dealerID, financeCompanyID, dateRange)
 	if err != nil {
 		return nil, err
 	}
 
-	fcRows, err := s.repo.ListDealerFinanceCompanyMetrics(dealerID, dateRange)
+	fcRows, err := s.repo.ListDealerFinanceCompanyMetrics(ctx, dealerID, dateRange)
 	if err != nil {
 		return nil, err
 	}
 
-	groupingRows, err := s.repo.ListDealerFinanceApprovalGrouping(dealerID, financeCompanyID, dateRange)
+	groupingRows, err := s.repo.ListDealerFinanceApprovalGrouping(ctx, dealerID, financeCompanyID, dateRange)
 	if err != nil {
 		return nil, err
 	}
 
-	transitionRows, err := s.repo.ListDealerFinanceApprovalTransitions(dealerID, financeCompanyID, dateRange)
+	transitionRows, err := s.repo.ListDealerFinanceApprovalTransitions(ctx, dealerID, financeCompanyID, dateRange)
 	if err != nil {
 		return nil, err
 	}
@@ -171,16 +172,16 @@ func (s *Service) DealerMetrics(dealerID string, financeCompanyID *string, dateR
 	}, nil
 }
 
-func (s *Service) ListMigrationReport(params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
-	return s.repo.ListMigrationReport(params, month, year)
+func (s *Service) ListMigrationReport(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+	return s.repo.ListMigrationReport(ctx, params, month, year)
 }
 
-func (s *Service) ListMigrationReportGroupedByFinance2(params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
-	return s.repo.ListMigrationReportGroupedByFinance2(params, month, year)
+func (s *Service) ListMigrationReportGroupedByFinance2(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+	return s.repo.ListMigrationReportGroupedByFinance2(ctx, params, month, year)
 }
 
-func (s *Service) ListMigrationOrderInDetail(anchorOrderID string, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
-	finance2CompanyID, err := s.repo.GetMigrationAnchorFinance2CompanyID(anchorOrderID)
+func (s *Service) ListMigrationOrderInDetail(ctx context.Context, anchorOrderID string, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
+	finance2CompanyID, err := s.repo.GetMigrationAnchorFinance2CompanyID(ctx, anchorOrderID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return []domainfinance.FinanceMigrationReportItem{}, 0, nil
@@ -204,5 +205,5 @@ func (s *Service) ListMigrationOrderInDetail(anchorOrderID string, params filter
 	}
 	reportParams.Filters = reportFilters
 
-	return s.repo.ListMigrationReport(reportParams, month, year)
+	return s.repo.ListMigrationReport(ctx, reportParams, month, year)
 }

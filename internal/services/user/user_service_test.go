@@ -1,7 +1,9 @@
 package serviceuser
 
 import (
+	"context"
 	"errors"
+	"service-songket/internal/authscope"
 	domainauth "service-songket/internal/domain/auth"
 	domainpermission "service-songket/internal/domain/permission"
 	domainrole "service-songket/internal/domain/role"
@@ -190,13 +192,13 @@ func TestAdminCreateUserRequiresAssignRoleForNonDefaultRole(t *testing.T) {
 		PermissionRepo: &permissionRepoMock{},
 	}
 
-	_, err := service.AdminCreateUser(dto.AdminCreateUser{
+	_, err := service.AdminCreateUser(authscope.WithContext(context.Background(), authscope.New("creator-1", utils.RoleAdmin, nil)), dto.AdminCreateUser{
 		Name:     "Jane Doe",
 		Email:    "jane@example.com",
 		Phone:    "08123456789",
 		Password: "Password1!",
 		Role:     utils.RoleAdmin,
-	}, "creator-1", utils.RoleAdmin)
+	})
 	if err == nil || err.Error() != "access denied: missing permission users:assign_role" {
 		t.Fatalf("expected assign_role access error, got %v", err)
 	}
@@ -218,7 +220,7 @@ func TestUpdateAllowsNonRoleChangesWithoutAssignRole(t *testing.T) {
 		PermissionRepo: &permissionRepoMock{},
 	}
 
-	user, err := service.Update("user-1", "editor-1", utils.RoleAdmin, dto.UserUpdate{
+	user, err := service.Update(authscope.WithContext(context.Background(), authscope.New("editor-1", utils.RoleAdmin, nil)), "user-1", dto.UserUpdate{
 		Name:  "Jane Doe",
 		Email: " Jane.New@Example.COM ",
 		Phone: "0812 3456 789",
@@ -250,7 +252,7 @@ func TestUpdateRequiresAssignRolePermissionWhenChangingRole(t *testing.T) {
 		PermissionRepo: &permissionRepoMock{},
 	}
 
-	_, err := service.Update("user-1", "editor-1", utils.RoleAdmin, dto.UserUpdate{Role: utils.RoleAdmin})
+	_, err := service.Update(authscope.WithContext(context.Background(), authscope.New("editor-1", utils.RoleAdmin, nil)), "user-1", dto.UserUpdate{Role: utils.RoleAdmin})
 	if err == nil || err.Error() != "access denied: missing permission users:assign_role" {
 		t.Fatalf("expected assign_role access error, got %v", err)
 	}
@@ -276,7 +278,7 @@ func TestUpdateWithAssignRolePermissionCanChangeRoleAndOtherFields(t *testing.T)
 		},
 	}
 
-	user, err := service.Update("user-1", "editor-1", utils.RoleAdmin, dto.UserUpdate{
+	user, err := service.Update(authscope.WithContext(context.Background(), authscope.New("editor-1", utils.RoleAdmin, []string{"users:assign_role"})), "user-1", dto.UserUpdate{
 		Name:     "Jane Admin",
 		Email:    "ADMIN@Example.COM",
 		Phone:    "0812-0000-0000",

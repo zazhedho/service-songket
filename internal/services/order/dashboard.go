@@ -1,6 +1,7 @@
 package serviceorder
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -262,7 +263,7 @@ func computeRate(numerator, denominator int64) float64 {
 	return float64(numerator) / float64(denominator)
 }
 
-func (s *Service) computeDashboardPeriodTotals(req dto.DashboardSummaryQuery, role, userID string, from, to time.Time) (dashboardPeriodTotals, error) {
+func (s *Service) computeDashboardPeriodTotals(ctx context.Context, req dto.DashboardSummaryQuery, from, to time.Time) (dashboardPeriodTotals, error) {
 	rangeReq := req
 	rangeReq.Analysis = "custom"
 	rangeReq.Month = 0
@@ -272,11 +273,11 @@ func (s *Service) computeDashboardPeriodTotals(req dto.DashboardSummaryQuery, ro
 	rangeReq.To = to.Format("2006-01-02")
 
 	var totals dashboardPeriodTotals
-	orderCount, err := s.repo.CountDashboardOrders(rangeReq, role, userID)
+	orderCount, err := s.repo.CountDashboardOrders(ctx, rangeReq)
 	if err != nil {
 		return dashboardPeriodTotals{}, err
 	}
-	decisionTotals, err := s.repo.GetDashboardDecisionTotals(rangeReq, role, userID)
+	decisionTotals, err := s.repo.GetDashboardDecisionTotals(ctx, rangeReq)
 	if err != nil {
 		return dashboardPeriodTotals{}, err
 	}
@@ -287,6 +288,6 @@ func (s *Service) computeDashboardPeriodTotals(req dto.DashboardSummaryQuery, ro
 	return totals, nil
 }
 
-func (s *Service) DashboardSummary(req dto.DashboardSummaryQuery, role, userID string) (map[string]interface{}, error) {
-	return s.buildDashboardSummaryResponse(req, role, userID)
+func (s *Service) DashboardSummary(ctx context.Context, req dto.DashboardSummaryQuery) (map[string]interface{}, error) {
+	return s.buildDashboardSummaryResponse(ctx, req)
 }

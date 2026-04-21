@@ -1,6 +1,7 @@
 package serviceorder
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,8 +11,8 @@ import (
 	"service-songket/utils"
 )
 
-func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, role, userID string) (map[string]interface{}, error) {
-	rows, err := s.repo.ListDashboardSummaryRows(req, role, userID)
+func (s *Service) buildDashboardSummaryResponse(ctx context.Context, req dto.DashboardSummaryQuery) (map[string]interface{}, error) {
+	rows, err := s.repo.ListDashboardSummaryRows(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +31,7 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 	chartReq.From = periodWindow.CurrentFrom.Format("2006-01-02")
 	chartReq.To = periodWindow.CurrentTo.Format("2006-01-02")
 
-	chartRows, err := s.repo.ListDashboardSummaryRows(chartReq, role, userID)
+	chartRows, err := s.repo.ListDashboardSummaryRows(ctx, chartReq)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +134,7 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		leadAvgSeconds = leadTotalSeconds / float64(leadCount)
 	}
 
-	financeApproveRows, err := s.repo.ListDashboardFinanceDecisionDailyRows(req, role, userID)
+	financeApproveRows, err := s.repo.ListDashboardFinanceDecisionDailyRows(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +150,7 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		}
 	}
 
-	financeApproveChartRows, err := s.repo.ListDashboardFinanceDecisionDailyRows(chartReq, role, userID)
+	financeApproveChartRows, err := s.repo.ListDashboardFinanceDecisionDailyRows(ctx, chartReq)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +163,7 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		dailyFinanceRejectCounterChart[dateKey] += item.RejectTotal
 	}
 
-	financeDecisionByCompanyRows, err := s.repo.ListDashboardFinanceDecisionByCompanyRows(chartReq, role, userID)
+	financeDecisionByCompanyRows, err := s.repo.ListDashboardFinanceDecisionByCompanyRows(ctx, chartReq)
 	if err != nil {
 		return nil, err
 	}
@@ -330,11 +331,11 @@ func (s *Service) buildDashboardSummaryResponse(req dto.DashboardSummaryQuery, r
 		dpSeries = append(dpSeries, map[string]interface{}{"label": label, "total": total, "percent": percent})
 	}
 
-	currentPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.CurrentFrom, periodWindow.CurrentTo)
+	currentPeriodTotals, err := s.computeDashboardPeriodTotals(ctx, req, periodWindow.CurrentFrom, periodWindow.CurrentTo)
 	if err != nil {
 		return nil, err
 	}
-	previousPeriodTotals, err := s.computeDashboardPeriodTotals(req, role, userID, periodWindow.PreviousFrom, periodWindow.PreviousTo)
+	previousPeriodTotals, err := s.computeDashboardPeriodTotals(ctx, req, periodWindow.PreviousFrom, periodWindow.PreviousTo)
 	if err != nil {
 		return nil, err
 	}

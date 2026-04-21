@@ -1,10 +1,12 @@
 package serviceorder
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"service-songket/internal/authscope"
 	domainmotor "service-songket/internal/domain/motor"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
@@ -38,7 +40,8 @@ func NewOrderService(
 	}
 }
 
-func (s *Service) Create(req dto.CreateOrderRequest, createdBy string, role string) (domainorder.Order, error) {
+func (s *Service) Create(ctx context.Context, req dto.CreateOrderRequest) (domainorder.Order, error) {
+	scope := authscope.FromContext(ctx)
 	poolingAt, err := parseTimeRequired(req.PoolingAt)
 	if err != nil {
 		return domainorder.Order{}, err
@@ -113,7 +116,7 @@ func (s *Service) Create(req dto.CreateOrderRequest, createdBy string, role stri
 		Tenor:         req.Tenor,
 		ResultStatus:  strings.ToLower(req.ResultStatus),
 		ResultNotes:   req.ResultNotes,
-		CreatedBy:     createdBy,
+		CreatedBy:     scope.UserID,
 	}
 
 	if err := s.repo.Transaction(func(tx interfaceorder.RepoOrderTxInterface) error {
@@ -174,11 +177,11 @@ func (s *Service) Create(req dto.CreateOrderRequest, createdBy string, role stri
 	return order, nil
 }
 
-func (s *Service) List(params filter.BaseParams, role, userID string) ([]domainorder.Order, int64, error) {
-	return s.repo.GetAll(params, "")
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domainorder.Order, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
-func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID string) (domainorder.Order, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.UpdateOrderRequest) (domainorder.Order, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domainorder.Order{}, err
@@ -216,6 +219,11 @@ func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID str
 	order, err := s.repo.GetByIDWithAttempts(normalizedID)
 	if err != nil {
 		return domainorder.Order{}, err
+	}
+	scope := authscope.FromContext(ctx)
+	scopedUserID := scope.ScopedUserID("orders", "update_all")
+	if strings.TrimSpace(scopedUserID) != "" && !scope.CanAccessOwner(order.CreatedBy) {
+		return domainorder.Order{}, fmt.Errorf("you are not allowed to update this order")
 	}
 	previousPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
 	var selectedMotor *domainmotor.MotorType
@@ -449,9 +457,15 @@ func (s *Service) Update(id string, req dto.UpdateOrderRequest, role, userID str
 	return order, nil
 }
 
-func (s *Service) Delete(id string, role, userID string) error {
-	if _, err := s.repo.GetByID(id); err != nil {
+func (s *Service) Delete(ctx context.Context, id string) error {
+	order, err := s.repo.GetByID(id)
+	if err != nil {
 		return err
+	}
+	scope := authscope.FromContext(ctx)
+	scopedUserID := scope.ScopedUserID("orders", "delete_all")
+	if strings.TrimSpace(scopedUserID) != "" && !scope.CanAccessOwner(order.CreatedBy) {
+		return fmt.Errorf("you are not allowed to delete this order")
 	}
 
 	return s.repo.Delete(id)

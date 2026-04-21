@@ -37,11 +37,7 @@ func (h *OrderHandler) Create(ctx *gin.Context) {
 		return
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	data, err := h.Service.Create(req, userID, role)
+	data, err := h.Service.Create(ctx.Request.Context(), req)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -114,11 +110,7 @@ func (h *OrderHandler) GetAll(ctx *gin.Context) {
 		delete(params.Filters, "to_date")
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	data, total, err := h.Service.List(params, role, userID)
+	data, total, err := h.Service.List(ctx.Request.Context(), params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -141,11 +133,7 @@ func (h *OrderHandler) DashboardOrders(ctx *gin.Context) {
 	}
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"dealer_id", "finance_company_id", "status"})
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	data, total, err := h.Service.List(params, role, userID)
+	data, total, err := h.Service.List(ctx.Request.Context(), params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -296,11 +284,7 @@ func (h *OrderHandler) DashboardSummary(ctx *gin.Context) {
 		}
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	data, err := h.Service.DashboardSummary(req, role, userID)
+	data, err := h.Service.DashboardSummary(ctx.Request.Context(), req)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -327,11 +311,7 @@ func (h *OrderHandler) Update(ctx *gin.Context) {
 		return
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	data, err := h.Service.Update(id, req, role, userID)
+	data, err := h.Service.Update(ctx.Request.Context(), id, req)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -353,11 +333,7 @@ func (h *OrderHandler) Delete(ctx *gin.Context) {
 		return
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	if err := h.Service.Delete(id, role, userID); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), id); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusBadRequest, res)
@@ -378,11 +354,7 @@ func (h *OrderHandler) StartExport(ctx *gin.Context) {
 		return
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	job, err := h.Service.StartExport(req, role, userID)
+	job, err := h.Service.StartExport(ctx.Request.Context(), req)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -404,11 +376,7 @@ func (h *OrderHandler) GetExportStatus(ctx *gin.Context) {
 		return
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	job, err := h.Service.GetExportJob(jobID, role, userID)
+	job, err := h.Service.GetExportJob(ctx.Request.Context(), jobID)
 	if err != nil {
 		switch {
 		case errors.Is(err, domainorder.ErrOrderExportNotFound):
@@ -441,11 +409,7 @@ func (h *OrderHandler) DownloadExport(ctx *gin.Context) {
 		return
 	}
 
-	auth := utils.GetAuthData(ctx)
-	userID := utils.InterfaceString(auth["user_id"])
-	role := utils.InterfaceString(auth["role"])
-
-	file, err := h.Service.DownloadExport(jobID, role, userID)
+	file, err := h.Service.DownloadExport(ctx.Request.Context(), jobID)
 	if err != nil {
 		switch {
 		case errors.Is(err, domainorder.ErrOrderExportNotFound):

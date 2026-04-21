@@ -1,6 +1,9 @@
 package serviceorder
 
 import (
+	"context"
+	"service-songket/internal/authscope"
+	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
 	"testing"
 	"time"
@@ -39,5 +42,36 @@ func TestResolveDashboardPeriodWindowForCustomRange(t *testing.T) {
 	}
 	if window.PreviousFrom.Format("2006-01-02") != "2026-03-22" || window.PreviousTo.Format("2006-01-02") != "2026-03-31" {
 		t.Fatalf("expected previous comparison range to be derived, got %+v", window)
+	}
+}
+
+func TestCanAccessOrderExportRequiresCreatorForNonSuperadmin(t *testing.T) {
+	job := domainorder.OrderExportJob{CreatedBy: "user-1"}
+	if canAccessOrderExport(&job, authscope.New("user-2", "dealer", nil)) {
+		t.Fatal("expected non creator to be denied")
+	}
+	if !canAccessOrderExport(&job, authscope.New("user-1", "dealer", nil)) {
+		t.Fatal("expected creator to be allowed")
+	}
+}
+
+func TestCanAccessOrderExportAllowsSuperadminBypass(t *testing.T) {
+	job := domainorder.OrderExportJob{CreatedBy: "user-1"}
+	if !canAccessOrderExport(&job, authscope.New("user-2", "superadmin", nil)) {
+		t.Fatal("expected superadmin bypass to be allowed")
+	}
+}
+
+func TestStartExportUsesScopeUserForDataAndOwnerForJob(t *testing.T) {
+	service := &Service{}
+	job, err := service.StartExport(
+		authscope.WithContext(context.Background(), authscope.New("user-1", "dealer", []string{"orders:list", "orders:list_all"})),
+		dto.OrderExportRequest{FromDate: "2026-04-01", ToDate: "2026-04-10"},
+	)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if job.CreatedBy != "user-1" {
+		t.Fatalf("expected export job owner to remain user-1, got %q", job.CreatedBy)
 	}
 }

@@ -30,7 +30,6 @@ export default function LoginPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const role = 'dealer'
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -64,7 +63,7 @@ export default function LoginPage() {
           return
         }
 
-        await register({ name, email, phone, password, role })
+        await register({ name, email, phone, password })
         setIsRegister(false)
         setPassword('')
         setConfirmPassword('')
@@ -80,7 +79,7 @@ export default function LoginPage() {
           const backendRole = me.data?.data?.role || me.data?.role
           if (backendRole) setRoleStore(backendRole)
         } catch {
-          setRoleStore(role)
+          setRoleStore('')
         }
 
         navigate('/dashboard')

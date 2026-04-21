@@ -57,9 +57,9 @@ func (h *FinanceHandler) FinanceMigrationReport(ctx *gin.Context) {
 	var data []domainfinance.FinanceMigrationReportItem
 	var total int64
 	if _, hasOrderIDFilter := params.Filters["order_id"]; hasOrderIDFilter {
-		data, total, err = h.Service.ListMigrationReport(params, month, year)
+		data, total, err = h.Service.ListMigrationReport(ctx.Request.Context(), params, month, year)
 	} else {
-		data, total, err = h.Service.ListMigrationReportGroupedByFinance2(params, month, year)
+		data, total, err = h.Service.ListMigrationReportGroupedByFinance2(ctx.Request.Context(), params, month, year)
 	}
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
@@ -92,7 +92,7 @@ func (h *FinanceHandler) FinanceMigrationOrderInDetail(ctx *gin.Context) {
 		return
 	}
 
-	data, total, err := h.Service.ListMigrationOrderInDetail(orderID, params, month, year)
+	data, total, err := h.Service.ListMigrationOrderInDetail(ctx.Request.Context(), orderID, params, month, year)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
 		res.Error = err.Error()
@@ -131,7 +131,7 @@ func (h *FinanceHandler) DealerMetrics(ctx *gin.Context) {
 		}
 	}
 
-	data, err := h.Service.DealerMetrics(id, fcPtr, dateRange)
+	data, err := h.Service.DealerMetrics(ctx.Request.Context(), id, fcPtr, dateRange)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
 		res.Error = err.Error()

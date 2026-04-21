@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"service-songket/infrastructure/database"
+	"service-songket/internal/authscope"
 	"service-songket/internal/dto"
 	interfaceuser "service-songket/internal/interfaces/user"
 	sessionRepo "service-songket/internal/repositories/session"
@@ -89,17 +90,7 @@ func (h *HandlerUser) AdminCreateUser(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	// Get creator's role from auth data
-	authData := utils.GetAuthData(ctx)
-	if authData == nil {
-		res := response.Response(http.StatusUnauthorized, "Unauthorized", logId, nil)
-		ctx.JSON(http.StatusUnauthorized, res)
-		return
-	}
-	creatorRole := authData["role"].(string)
-	creatorUserID := utils.InterfaceString(authData["user_id"])
-
-	data, err := h.Service.AdminCreateUser(req, creatorUserID, creatorRole)
+	data, err := h.Service.AdminCreateUser(ctx.Request.Context(), req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AdminCreateUser; Error: %+v", logPrefix, err))
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "already exists") {
@@ -317,13 +308,10 @@ func (h *HandlerUser) GetAllUsers(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][GetAllUsers]"
 
-	authData := utils.GetAuthData(ctx)
-	currentUserRole := utils.InterfaceString(authData["role"])
-
 	params, _ := filter.GetBaseParams(ctx, "updated_at", "desc", 10)
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"role"})
 
-	users, totalData, err := h.Service.GetAllUsers(params, currentUserRole)
+	users, totalData, err := h.Service.GetAllUsers(ctx.Request.Context(), params)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; GetAllUsers; ERROR: %+v;", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
@@ -339,11 +327,9 @@ func (h *HandlerUser) GetAllUsers(ctx *gin.Context) {
 
 func (h *HandlerUser) Update(ctx *gin.Context) {
 	var req dto.UserUpdate
-	authData := utils.GetAuthData(ctx)
-	userId := utils.InterfaceString(authData["user_id"])
-	role := utils.InterfaceString(authData["role"])
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][Update]"
+	scope := authscope.FromContext(ctx.Request.Context())
 
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
@@ -357,7 +343,7 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 	// Self-profile update must not change role.
 	req.Role = ""
 
-	data, err := h.Service.Update(userId, userId, role, req)
+	data, err := h.Service.Update(ctx.Request.Context(), scope.UserID, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -380,9 +366,6 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 
 func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 	var req dto.UserUpdate
-	authData := utils.GetAuthData(ctx)
-	currentUserID := utils.InterfaceString(authData["user_id"])
-	role := utils.InterfaceString(authData["role"])
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][UpdateUserById]"
 
@@ -401,7 +384,7 @@ func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.Update(id, currentUserID, role, req)
+	data, err := h.Service.Update(ctx.Request.Context(), id, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {

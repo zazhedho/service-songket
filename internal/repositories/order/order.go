@@ -1,9 +1,11 @@
 package repositoryorder
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"service-songket/internal/authscope"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
 	interfaceorder "service-songket/internal/interfaces/order"
@@ -40,11 +42,11 @@ func (r *repo) GetByIDWithAttempts(id string) (domainorder.Order, error) {
 	return ret, nil
 }
 
-func (r *repo) GetAll(params filter.BaseParams, createdBy string) ([]domainorder.Order, int64, error) {
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainorder.Order, int64, error) {
 	query := r.DB.Model(&domainorder.Order{}).Preload("MotorType").Preload("Job").Preload("Attempts")
 
-	if strings.TrimSpace(createdBy) != "" {
-		query = query.Where("created_by = ?", createdBy)
+	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
+		query = query.Where("created_by = ?", ownerID)
 	}
 	if v, ok := params.Filters["dealer_id"]; ok {
 		query = query.Where("dealer_id = ?", v)
@@ -105,7 +107,7 @@ func (r *repo) GetAll(params filter.BaseParams, createdBy string) ([]domainorder
 	return orders, total, nil
 }
 
-func (r *repo) ListForExport(req dto.OrderExportRequest, role, userID string) ([]domainorder.Order, error) {
+func (r *repo) ListForExport(ctx context.Context, req dto.OrderExportRequest) ([]domainorder.Order, error) {
 	query := r.DB.
 		Model(&domainorder.Order{}).
 		Preload("Dealer").
@@ -115,8 +117,8 @@ func (r *repo) ListForExport(req dto.OrderExportRequest, role, userID string) ([
 			return db.Order("attempt_no ASC").Preload("FinanceCompany")
 		})
 
-	if role == "dealer" {
-		query = query.Where("created_by = ?", strings.TrimSpace(userID))
+	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
+		query = query.Where("orders.created_by = ?", ownerID)
 	}
 	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
 		query = query.Where("dealer_id = ?", dealerID)

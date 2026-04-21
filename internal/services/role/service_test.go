@@ -1,7 +1,9 @@
 package servicerole
 
 import (
+	"context"
 	"errors"
+	"service-songket/internal/authscope"
 	domainmenu "service-songket/internal/domain/menu"
 	domainpermission "service-songket/internal/domain/permission"
 	domainrole "service-songket/internal/domain/role"
@@ -103,9 +105,9 @@ func TestAssignPermissionsRequiresManageSystemPermissionForSystemRole(t *testing
 		MenuRepo:       &menuRepoMock{},
 	}
 
-	err := service.AssignPermissions("11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
+	err := service.AssignPermissions(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleAdmin, nil)), "11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
 		PermissionIds: []string{"22222222-2222-2222-2222-222222222222"},
-	}, "user-1", utils.RoleAdmin)
+	})
 	if err == nil || err.Error() != "access denied: missing permission roles:manage_system" {
 		t.Fatalf("expected manage_system access error, got %v", err)
 	}
@@ -122,9 +124,9 @@ func TestAssignPermissionsRejectsSuperadminRoleForNonSuperadmin(t *testing.T) {
 		MenuRepo: &menuRepoMock{},
 	}
 
-	err := service.AssignPermissions("11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
+	err := service.AssignPermissions(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleAdmin, []string{"roles:manage_system"})), "11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
 		PermissionIds: []string{"22222222-2222-2222-2222-222222222222"},
-	}, "user-1", utils.RoleAdmin)
+	})
 	if err == nil || err.Error() != "access denied: cannot modify superadmin role" {
 		t.Fatalf("expected superadmin protection error, got %v", err)
 	}
@@ -145,9 +147,9 @@ func TestAssignPermissionsAllowsSystemRoleWhenPermissionPresent(t *testing.T) {
 		MenuRepo: &menuRepoMock{},
 	}
 
-	err := service.AssignPermissions("11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
+	err := service.AssignPermissions(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleAdmin, []string{"roles:manage_system"})), "11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
 		PermissionIds: []string{"22222222-2222-2222-2222-222222222222"},
-	}, "user-1", utils.RoleAdmin)
+	})
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
