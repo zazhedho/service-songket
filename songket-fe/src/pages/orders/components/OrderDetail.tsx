@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { DetailTable, formatDate, getAttempt, lookupName, lookupOptionName } from './orderHelpers'
+import { DetailTable, formatDate, getAttempt, lookupDisplayName, lookupName, lookupOptionName } from './orderHelpers'
 import { formatRupiah } from '../../../utils/currency'
 
 type OrderDetailViewProps = {
@@ -63,6 +63,12 @@ export default function OrderDetailView({
   const detailRegencyName = lookupOptionName(detailKabupaten, selectedOrder?.regency)
   const detailDistrictName = lookupOptionName(detailKecamatan, selectedOrder?.district)
   const detailVillageName = selectedOrder?.village || '-'
+  const financeName = (attempt: any) =>
+    lookupDisplayName(
+      lookups?.finance_companies,
+      attempt?.finance_company_id,
+      attempt?.finance_company?.name,
+    )
 
   return (
     <div>
@@ -158,7 +164,7 @@ export default function OrderDetailView({
                         rows={[
                           {
                             label: 'Finance Company',
-                            value: lookupName(lookups?.finance_companies, attempt?.finance_company_id),
+                            value: financeName(attempt),
                           },
                           { label: 'Notes', value: attempt?.notes || '-' },
                           { label: 'Attempt Time', value: formatDate(attempt?.created_at) },

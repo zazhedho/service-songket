@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { listMenus, updateMenu } from '../../services/menuService'
 import { normalizeIconName } from '../../components/common/AppIcon'
 import { useAlert } from '../../components/common/ConfirmDialog'
-import { MENUS_UPDATED_EVENT } from '../../constants/events'
 import { usePermissions } from '../../hooks/usePermissions'
 import MenuDetail from './components/MenuDetail'
 import MenuForm from './components/MenuForm'
@@ -154,7 +153,6 @@ export default function MenusPage() {
         parent_id: parentId || null,
       }
       if (isEdit && selectedId) await updateMenu(selectedId, body)
-      window.dispatchEvent(new Event(MENUS_UPDATED_EVENT))
       if (canList) {
         await load().catch(() => undefined)
       }

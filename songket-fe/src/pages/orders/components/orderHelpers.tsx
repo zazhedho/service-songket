@@ -23,6 +23,14 @@ export function lookupName(list: any[] | undefined, id: string) {
   return list?.find((item) => item.id === id)?.name || id
 }
 
+export function lookupDisplayName(list: any[] | undefined, id?: string, embeddedName?: string) {
+  const name = String(embeddedName || '').trim()
+  if (name) return name
+  const rawID = String(id || '').trim()
+  if (!rawID) return '-'
+  return list?.find((item) => item.id === rawID)?.name || '-'
+}
+
 export function lookupOptionName(list: any[] | undefined, code?: string) {
   if (!code) return '-'
   const rawCode = String(code).trim()

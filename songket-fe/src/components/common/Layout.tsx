@@ -5,7 +5,6 @@ import { AppIcon, inferIconName, menuPathWithoutQuery } from './AppIcon'
 import { useConfirm } from './ConfirmDialog'
 import { useAuth } from '../../store'
 import { translateUiText } from '../../utils/uiText'
-import { MENUS_UPDATED_EVENT } from '../../constants/events'
 
 type MenuItem = {
   id: string
@@ -75,27 +74,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void fetchMenus()
-  }, [fetchMenus])
-
-  useEffect(() => {
-    const handleFocus = () => {
-      void fetchMenus()
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [fetchMenus])
-
-  useEffect(() => {
-    const handleMenusUpdated = () => {
-      void fetchMenus()
-    }
-
-    window.addEventListener(MENUS_UPDATED_EVENT, handleMenusUpdated)
-    return () => {
-      window.removeEventListener(MENUS_UPDATED_EVENT, handleMenusUpdated)
-    }
   }, [fetchMenus])
 
   useEffect(() => {

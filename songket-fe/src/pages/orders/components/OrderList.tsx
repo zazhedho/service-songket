@@ -1,6 +1,7 @@
+import { useMemo } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
-import { getAttempt, lookupName, lookupOptionName, normalizeCode } from './orderHelpers'
+import { getAttempt, lookupDisplayName, lookupOptionName, normalizeCode } from './orderHelpers'
 
 type OrderListViewProps = {
   canCreate: boolean
@@ -36,6 +37,53 @@ type OrderListViewProps = {
   totalPages: number
 }
 
+type OrderListRow = {
+  financeCompany1Name: string
+  financeCompany2Name: string
+  id: string
+  locationLabel: string
+  order: any
+  showFinanceCompany2: boolean
+  status: string
+}
+
+function financeName(financeCompanies: any[] | undefined, attempt: any) {
+  return lookupDisplayName(
+    financeCompanies,
+    attempt?.finance_company_id,
+    attempt?.finance_company?.name,
+  )
+}
+
+function orderLocationLabel(
+  order: any,
+  provinces: any[],
+  kabupatenLookup: Record<string, string>,
+  kecamatanLookup: Record<string, string>,
+) {
+  const provinceCode = String(order?.province || '').trim()
+  const regencyCode = String(order?.regency || '').trim()
+  const districtCode = String(order?.district || '').trim()
+
+  const provinceName = lookupOptionName(provinces, provinceCode)
+  const provinceKey = normalizeCode(provinceCode)
+  const regencyKey = normalizeCode(regencyCode)
+  const districtKey = normalizeCode(districtCode)
+
+  const regencyName = regencyCode
+    ? kabupatenLookup[`${provinceKey}|${regencyKey}`] || regencyCode
+    : '-'
+  const districtName = districtCode
+    ? kecamatanLookup[`${provinceKey}|${regencyKey}|${districtKey}`] || districtCode
+    : '-'
+
+  return (
+    [districtName, regencyName, provinceName]
+      .filter((item) => String(item || '').trim() && item !== '-')
+      .join(', ') || '-'
+  )
+}
+
 export default function OrderListView({
   canCreate,
   canDelete,
@@ -63,30 +111,26 @@ export default function OrderListView({
   totalPages,
 }: OrderListViewProps) {
   const exportJobTone = exportJob?.status === 'failed' ? 'error' : exportJob?.status === 'downloaded' ? 'success' : 'info'
+  const financeCompanies = lookups?.finance_companies
 
-  const orderLocationLabel = (order: any) => {
-    const provinceCode = String(order?.province || '').trim()
-    const regencyCode = String(order?.regency || '').trim()
-    const districtCode = String(order?.district || '').trim()
+  const rows = useMemo<OrderListRow[]>(
+    () =>
+      list.map((order) => {
+        const firstAttempt = getAttempt(order, 1)
+        const secondAttempt = getAttempt(order, 2)
 
-    const provinceName = lookupOptionName(provinces, provinceCode)
-    const provinceKey = normalizeCode(provinceCode)
-    const regencyKey = normalizeCode(regencyCode)
-    const districtKey = normalizeCode(districtCode)
-
-    const regencyName = regencyCode
-      ? kabupatenLookup[`${provinceKey}|${regencyKey}`] || regencyCode
-      : '-'
-    const districtName = districtCode
-      ? kecamatanLookup[`${provinceKey}|${regencyKey}|${districtKey}`] || districtCode
-      : '-'
-
-    return (
-      [districtName, regencyName, provinceName]
-        .filter((item) => String(item || '').trim() && item !== '-')
-        .join(', ') || '-'
-    )
-  }
+        return {
+          financeCompany1Name: financeName(financeCompanies, firstAttempt),
+          financeCompany2Name: financeName(financeCompanies, secondAttempt),
+          id: String(order?.id || ''),
+          locationLabel: orderLocationLabel(order, provinces, kabupatenLookup, kecamatanLookup),
+          order,
+          showFinanceCompany2: Boolean(secondAttempt?.finance_company_id),
+          status: String(order?.result_status || ''),
+        }
+      }),
+    [financeCompanies, kabupatenLookup, kecamatanLookup, list, provinces],
+  )
 
   return (
     <div>
@@ -161,39 +205,39 @@ export default function OrderListView({
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((order) => (
-                    <tr key={order.id}>
-                      <td>{order.pooling_number}</td>
-                      <td>{order.consumer_name}</td>
-                      <td>{orderLocationLabel(order)}</td>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.order.pooling_number}</td>
+                      <td>{row.order.consumer_name}</td>
+                      <td>{row.locationLabel}</td>
                       <td>
-                        <div>{lookupName(lookups?.finance_companies, getAttempt(order, 1)?.finance_company_id)}</div>
-                        {getAttempt(order, 2)?.finance_company_id && (
+                        <div>{row.financeCompany1Name}</div>
+                        {row.showFinanceCompany2 && (
                           <div style={{ color: '#64748b', fontSize: 12 }}>
-                            FC2: {lookupName(lookups?.finance_companies, getAttempt(order, 2)?.finance_company_id)}
+                            FC2: {row.financeCompany2Name}
                           </div>
                         )}
                       </td>
-                      <td><span className={`badge ${order.result_status}`}>{order.result_status}</span></td>
-                      <td>{order.tenor} months</td>
+                      <td><span className={`badge ${row.status}`}>{row.status}</span></td>
+                      <td>{row.order.tenor} months</td>
                       <td className="action-cell">
                         <ActionMenu
                           items={[
                             {
                               key: 'view',
                               label: 'View',
-                              onClick: () => navigate(`/orders/${order.id}`, { state: { order } }),
+                              onClick: () => navigate(`/orders/${row.id}`, { state: { order: row.order } }),
                             },
                             {
                               key: 'edit',
                               label: 'Edit',
-                              onClick: () => navigate(`/orders/${order.id}/edit`, { state: { order } }),
+                              onClick: () => navigate(`/orders/${row.id}/edit`, { state: { order: row.order } }),
                               hidden: !canUpdate,
                             },
                             {
                               key: 'delete',
                               label: 'Delete',
-                              onClick: () => void onRemove(order.id),
+                              onClick: () => void onRemove(row.id),
                               hidden: !canDelete,
                               danger: true,
                             },

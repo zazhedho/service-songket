@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
@@ -18,10 +18,11 @@ import { fetchLookups } from '../../services/lookupService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
-import OrderDetail from './components/OrderDetail'
-import OrderForm from './components/OrderForm'
 import OrderList from './components/OrderList'
 import { getAttempt, lookupOptionName, normalizeCode, resolveOptionCode } from './components/orderHelpers'
+
+const OrderDetail = lazy(() => import('./components/OrderDetail'))
+const OrderForm = lazy(() => import('./components/OrderForm'))
 
 const defaultForm = {
   pooling_number: '',
@@ -54,6 +55,14 @@ function parseMode(pathname: string) {
   if (pathname.endsWith('/edit')) return 'edit'
   if (/\/orders\/[^/]+$/.test(pathname)) return 'detail'
   return 'list'
+}
+
+function OrderModeLoader() {
+  return (
+    <div className="page">
+      <div className="card">Loading order view...</div>
+    </div>
+  )
 }
 
 export default function OrdersPage() {
@@ -105,6 +114,7 @@ export default function OrdersPage() {
   const fetchedKecamatanRef = useRef<Set<string>>(new Set())
   const exportPollRef = useRef<number | null>(null)
   const exportDownloadLockRef = useRef(false)
+  const lookupsLoadedRef = useRef(false)
 
   const stateOrder = (location.state as any)?.order || null
   const stateBackTo = (location.state as any)?.back_to
@@ -139,15 +149,19 @@ export default function OrdersPage() {
   }
 
   const loadLookups = async () => {
+    if (lookupsLoadedRef.current) return
     const lookupRes = await fetchLookups()
     setLookups(lookupRes.data.data || lookupRes.data || {})
+    lookupsLoadedRef.current = true
   }
 
   useEffect(() => {
+    if (isList) return
     loadLookups().catch(() => {
+      lookupsLoadedRef.current = false
       setLookups({})
     })
-  }, [])
+  }, [isList])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -636,45 +650,49 @@ export default function OrdersPage() {
 
   if (isDetail) {
     return (
-      <OrderDetail
-        backTo={backTo}
-        canUpdate={canUpdate}
-        detailKabupaten={detailKabupaten}
-        detailKecamatan={detailKecamatan}
-        lookups={lookups}
-        navigate={navigate}
-        provinces={provinces}
-        selectedId={selectedId}
-        selectedOrder={selectedOrder}
-      />
+      <Suspense fallback={<OrderModeLoader />}>
+        <OrderDetail
+          backTo={backTo}
+          canUpdate={canUpdate}
+          detailKabupaten={detailKabupaten}
+          detailKecamatan={detailKecamatan}
+          lookups={lookups}
+          navigate={navigate}
+          provinces={provinces}
+          selectedId={selectedId}
+          selectedOrder={selectedOrder}
+        />
+      </Suspense>
     )
   }
 
   if (isCreate || isEdit) {
     return (
-      <OrderForm
-        canCreate={canCreate}
-        canUpdate={canUpdate}
-        error={error}
-        filteredMotorTypes={filteredMotorTypes}
-        form={form}
-        isCreate={isCreate}
-        isEdit={isEdit}
-        kabupaten={kabupaten}
-        kecamatan={kecamatan}
-        loading={loading}
-        lookups={lookups}
-        navigate={navigate}
-        parseNumber={parseNumber}
-        poolingRowsCount={poolingRowsCount}
-        provinces={provinces}
-        selectedMotor={selectedMotor}
-        set={set}
-        setError={setError}
-        setForm={setForm}
-        showAttempt2={showAttempt2}
-        submit={submit}
-      />
+      <Suspense fallback={<OrderModeLoader />}>
+        <OrderForm
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          error={error}
+          filteredMotorTypes={filteredMotorTypes}
+          form={form}
+          isCreate={isCreate}
+          isEdit={isEdit}
+          kabupaten={kabupaten}
+          kecamatan={kecamatan}
+          loading={loading}
+          lookups={lookups}
+          navigate={navigate}
+          parseNumber={parseNumber}
+          poolingRowsCount={poolingRowsCount}
+          provinces={provinces}
+          selectedMotor={selectedMotor}
+          set={set}
+          setError={setError}
+          setForm={setForm}
+          showAttempt2={showAttempt2}
+          submit={submit}
+        />
+      </Suspense>
     )
   }
 

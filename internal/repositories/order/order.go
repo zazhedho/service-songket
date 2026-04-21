@@ -43,7 +43,14 @@ func (r *repo) GetByIDWithAttempts(id string) (domainorder.Order, error) {
 }
 
 func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainorder.Order, int64, error) {
-	query := r.DB.Model(&domainorder.Order{}).Preload("MotorType").Preload("Job").Preload("Attempts")
+	query := r.DB.
+		Model(&domainorder.Order{}).
+		Preload("MotorType").
+		Preload("Job").
+		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("attempt_no ASC")
+		}).
+		Preload("Attempts.FinanceCompany")
 
 	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
 		query = query.Where("created_by = ?", ownerID)
