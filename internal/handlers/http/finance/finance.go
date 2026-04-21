@@ -71,6 +71,33 @@ func (h *FinanceHandler) FinanceMigrationReport(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+func (h *FinanceHandler) FinanceMigrationReportSummary(ctx *gin.Context) {
+	logID := utils.GenerateLogId(ctx)
+	params, err := filter.GetBaseParams(ctx, "pooling_at", "desc", 20)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"dealer_id", "finance_1_company_id", "finance_2_company_id"})
+	month, year, ok := parseFinanceMonthYear(ctx, logID)
+	if !ok {
+		return
+	}
+
+	data, err := h.Service.GetMigrationSummary(ctx.Request.Context(), params, month, year)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logID, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 func (h *FinanceHandler) FinanceMigrationOrderInDetail(ctx *gin.Context) {
 	logID := utils.GenerateLogId(ctx)
 	orderID, err := utils.ValidateUUID(ctx, logID)
@@ -104,6 +131,39 @@ func (h *FinanceHandler) FinanceMigrationOrderInDetail(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
+func (h *FinanceHandler) FinanceMigrationOrderInSummary(ctx *gin.Context) {
+	logID := utils.GenerateLogId(ctx)
+	orderID, err := utils.ValidateUUID(ctx, logID)
+	if err != nil {
+		return
+	}
+
+	params, err := filter.GetBaseParams(ctx, "pooling_at", "desc", 10)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	params.Filters = filter.WhitelistStringFilter(params.Filters, []string{"finance_1_company_id"})
+
+	month, year, ok := parseFinanceMonthYear(ctx, logID)
+	if !ok {
+		return
+	}
+
+	data, err := h.Service.GetMigrationOrderInSummary(ctx.Request.Context(), orderID, params, month, year)
+	if err != nil {
+		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusInternalServerError, res)
+		return
+	}
+
+	res := response.Response(http.StatusOK, "success", logID, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
 func (h *FinanceHandler) DealerMetrics(ctx *gin.Context) {
 	logID := utils.GenerateLogId(ctx)
 	id := ctx.Param("id")
@@ -119,6 +179,57 @@ func (h *FinanceHandler) DealerMetrics(ctx *gin.Context) {
 	if fc != "" {
 		fcPtr = &fc
 	}
+	dateRange := parseFinanceDateRange(ctx)
+
+	data, err := h.Service.DealerMetrics(ctx.Request.Context(), id, fcPtr, dateRange)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logID, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *FinanceHandler) AllDealerMetrics(ctx *gin.Context) {
+	logID := utils.GenerateLogId(ctx)
+	dateRange := parseFinanceDateRange(ctx)
+
+	data, err := h.Service.DealerMetrics(ctx.Request.Context(), "", nil, dateRange)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logID, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *FinanceHandler) FinanceCompanyMetrics(ctx *gin.Context) {
+	logID := utils.GenerateLogId(ctx)
+	id := ctx.Param("id")
+	if id == "" {
+		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logID, nil)
+		res.Error = "id is required"
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+
+	dateRange := parseFinanceDateRange(ctx)
+	data, err := h.Service.FinanceCompanyMetrics(ctx.Request.Context(), id, dateRange)
+	if err != nil {
+		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
+		res.Error = err.Error()
+		ctx.JSON(http.StatusBadRequest, res)
+		return
+	}
+	res := response.Response(http.StatusOK, "success", logID, data)
+	ctx.JSON(http.StatusOK, res)
+}
+
+func parseFinanceDateRange(ctx *gin.Context) domainfinance.DateRange {
 	dateRange := domainfinance.DateRange{}
 	if from := ctx.Query("from"); from != "" {
 		if t, err := time.Parse("2006-01-02", from); err == nil {
@@ -130,16 +241,7 @@ func (h *FinanceHandler) DealerMetrics(ctx *gin.Context) {
 			dateRange.To = t
 		}
 	}
-
-	data, err := h.Service.DealerMetrics(ctx.Request.Context(), id, fcPtr, dateRange)
-	if err != nil {
-		res := response.Response(http.StatusBadRequest, messages.MsgFail, logID, nil)
-		res.Error = err.Error()
-		ctx.JSON(http.StatusBadRequest, res)
-		return
-	}
-	res := response.Response(http.StatusOK, "success", logID, data)
-	ctx.JSON(http.StatusOK, res)
+	return dateRange
 }
 
 func parseFinanceMonthYear(ctx *gin.Context, logID uuid.UUID) (int, int, bool) {

@@ -336,14 +336,8 @@ export default function FinanceReportSummary({
                   <tbody>
                     {dealerMetricRows.map((item) => {
                       const total = toSafeNumber(item.total_orders)
-                      const approvedRaw = toSafeNumber(item.approved_count)
-                      const rejectedRaw = toSafeNumber(item.rejected_count)
-                      const approved = approvedRaw > 0 || rejectedRaw > 0
-                        ? approvedRaw
-                        : Math.max(0, Math.min(total, Math.round(toSafeNumber(item.approval_rate) * total)))
-                      const rejected = approvedRaw > 0 || rejectedRaw > 0
-                        ? rejectedRaw
-                        : Math.max(0, total - approved)
+                      const approved = toSafeNumber(item.approved_count)
+                      const rejected = toSafeNumber(item.rejected_count)
 
                       return (
                         <tr key={`dealer-metric-${item.finance_company_id}`}>

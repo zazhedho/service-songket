@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   createDealer,
@@ -17,10 +17,6 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { reverseGeocodedPlace } from '../../utils/geocoding'
-import DealerDetail from './components/DealerDetail'
-import CompanyDetail from './components/CompanyDetail'
-import DealerForm from './components/DealerForm'
-import CompanyForm from './components/CompanyForm'
 import FinanceList from './components/FinanceList'
 import {
   type DealerForm as DealerFormState,
@@ -43,6 +39,19 @@ import {
 } from './components/financeHelpers'
 import { useFinanceData } from './hooks/useFinanceData'
 import { useFinanceLocationMetadata } from './hooks/useFinanceLocationMetadata'
+
+const DealerDetail = lazy(() => import('./components/DealerDetail'))
+const CompanyDetail = lazy(() => import('./components/CompanyDetail'))
+const DealerForm = lazy(() => import('./components/DealerForm'))
+const CompanyForm = lazy(() => import('./components/CompanyForm'))
+
+function FinanceModeLoader() {
+  return (
+    <div className="page">
+      <div className="card">Loading finance view...</div>
+    </div>
+  )
+}
 
 export default function FinancePage() {
   const showAlert = useAlert()
@@ -674,78 +683,86 @@ export default function FinancePage() {
 
   if (isDealerDetail) {
     return (
-      <DealerDetail
-        canUpdate={canUpdate}
-        dealerBasePath={dealerBasePath}
-        navigate={navigate}
-        selectedDealer={selectedDealer}
-        selectedDealerDistrictName={selectedDealerDistrictName}
-        selectedDealerProvinceName={selectedDealerProvinceName}
-        selectedDealerRegencyName={selectedDealerRegencyName}
-        selectedId={selectedId}
-      />
+      <Suspense fallback={<FinanceModeLoader />}>
+        <DealerDetail
+          canUpdate={canUpdate}
+          dealerBasePath={dealerBasePath}
+          navigate={navigate}
+          selectedDealer={selectedDealer}
+          selectedDealerDistrictName={selectedDealerDistrictName}
+          selectedDealerProvinceName={selectedDealerProvinceName}
+          selectedDealerRegencyName={selectedDealerRegencyName}
+          selectedId={selectedId}
+        />
+      </Suspense>
     )
   }
 
   if (isCompanyDetail) {
     return (
-      <CompanyDetail
-        canUpdate={canUpdate}
-        companySummary={companySummary}
-        companySummaryLoading={companySummaryLoading}
-        dealers={dealers}
-        financeBasePath={financeBasePath}
-        navigate={navigate}
-        selectedCompany={selectedCompany}
-        selectedCompanyDistrictName={selectedCompanyDistrictName}
-        selectedCompanyProvinceName={selectedCompanyProvinceName}
-        selectedCompanyRegencyName={selectedCompanyRegencyName}
-        selectedId={selectedId}
-      />
+      <Suspense fallback={<FinanceModeLoader />}>
+        <CompanyDetail
+          canUpdate={canUpdate}
+          companySummary={companySummary}
+          companySummaryLoading={companySummaryLoading}
+          dealers={dealers}
+          financeBasePath={financeBasePath}
+          navigate={navigate}
+          selectedCompany={selectedCompany}
+          selectedCompanyDistrictName={selectedCompanyDistrictName}
+          selectedCompanyProvinceName={selectedCompanyProvinceName}
+          selectedCompanyRegencyName={selectedCompanyRegencyName}
+          selectedId={selectedId}
+        />
+      </Suspense>
     )
   }
 
   if (isDealerCreate || isDealerEdit) {
     return (
-      <DealerForm
-        dealerBasePath={dealerBasePath}
-        dealerForm={dealerForm}
-        dealerFormCenter={dealerFormCenter}
-        dealerFormLat={dealerFormLat}
-        dealerFormLng={dealerFormLng}
-        dealerFormZoom={dealerFormZoom}
-        dealerKabupaten={dealerKabupaten}
-        dealerKecamatan={dealerKecamatan}
-        handleDealerPlaceChanged={handleDealerPlaceChanged}
-        handleDealerProvince={handleDealerProvince}
-        handleDealerRegency={handleDealerRegency}
-        isDealerEdit={isDealerEdit}
-        locatingDealerAddress={locatingDealerAddress}
-        navigate={navigate}
-        provinces={provinces}
-        savingDealer={savingDealer}
-        setDealerForm={setDealerForm}
-        submitDealer={submitDealer}
-      />
+      <Suspense fallback={<FinanceModeLoader />}>
+        <DealerForm
+          dealerBasePath={dealerBasePath}
+          dealerForm={dealerForm}
+          dealerFormCenter={dealerFormCenter}
+          dealerFormLat={dealerFormLat}
+          dealerFormLng={dealerFormLng}
+          dealerFormZoom={dealerFormZoom}
+          dealerKabupaten={dealerKabupaten}
+          dealerKecamatan={dealerKecamatan}
+          handleDealerPlaceChanged={handleDealerPlaceChanged}
+          handleDealerProvince={handleDealerProvince}
+          handleDealerRegency={handleDealerRegency}
+          isDealerEdit={isDealerEdit}
+          locatingDealerAddress={locatingDealerAddress}
+          navigate={navigate}
+          provinces={provinces}
+          savingDealer={savingDealer}
+          setDealerForm={setDealerForm}
+          submitDealer={submitDealer}
+        />
+      </Suspense>
     )
   }
 
   if (isCompanyCreate || isCompanyEdit) {
     return (
-      <CompanyForm
-        financeBasePath={financeBasePath}
-        financeForm={financeForm}
-        financeKabupaten={financeKabupaten}
-        financeKecamatan={financeKecamatan}
-        handleFinanceProvince={handleFinanceProvince}
-        handleFinanceRegency={handleFinanceRegency}
-        isCompanyEdit={isCompanyEdit}
-        navigate={navigate}
-        provinces={provinces}
-        savingFinance={savingFinance}
-        setFinanceForm={setFinanceForm}
-        submitFinance={submitFinance}
-      />
+      <Suspense fallback={<FinanceModeLoader />}>
+        <CompanyForm
+          financeBasePath={financeBasePath}
+          financeForm={financeForm}
+          financeKabupaten={financeKabupaten}
+          financeKecamatan={financeKecamatan}
+          handleFinanceProvince={handleFinanceProvince}
+          handleFinanceRegency={handleFinanceRegency}
+          isCompanyEdit={isCompanyEdit}
+          navigate={navigate}
+          provinces={provinces}
+          savingFinance={savingFinance}
+          setFinanceForm={setFinanceForm}
+          submitFinance={submitFinance}
+        />
+      </Suspense>
     )
   }
 

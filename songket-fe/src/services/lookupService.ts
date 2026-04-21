@@ -1,6 +1,19 @@
 import api from './api'
+import {
+  buildRequestCacheKey,
+  createRequestCacheStore,
+  withAuthScopedRequestCache,
+} from './requestCache'
 
-export const fetchLookups = () => api.get('/api/lookups')
+const lookupsCache = createRequestCacheStore<any>()
+
+export const fetchLookups = () =>
+  withAuthScopedRequestCache(
+    lookupsCache,
+    buildRequestCacheKey('lookups'),
+    () => api.get('/api/lookups'),
+    5 * 60 * 1000,
+  )
 
 const lookupService = {
   fetchLookups,

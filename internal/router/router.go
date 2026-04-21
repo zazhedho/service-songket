@@ -392,9 +392,13 @@ func (r *Routes) FinanceRoutes() {
 	{
 		finance.GET("/dealers", mdw.PermissionMiddleware("business", "list"), dealerHandler.GetAll)
 		finance.GET("/companies", mdw.PermissionMiddleware("business", "list"), financeCompanyHandler.GetAll)
+		finance.GET("/report/migrations/summary", mdw.PermissionMiddleware("business", "list"), financeHandler.FinanceMigrationReportSummary)
+		finance.GET("/report/migrations/:id/order-ins/summary", mdw.PermissionMiddleware("business", "list"), financeHandler.FinanceMigrationOrderInSummary)
 		finance.GET("/report/migrations", mdw.PermissionMiddleware("business", "list"), financeHandler.FinanceMigrationReport)
 		finance.GET("/report/migrations/:id/order-ins", mdw.PermissionMiddleware("business", "list"), financeHandler.FinanceMigrationOrderInDetail)
+		finance.GET("/dealers/metrics", mdw.PermissionMiddleware("business", "view_metrics"), financeHandler.AllDealerMetrics)
 		finance.GET("/dealers/:id/metrics", mdw.PermissionMiddleware("business", "view_metrics"), financeHandler.DealerMetrics)
+		finance.GET("/companies/:id/metrics", mdw.PermissionMiddleware("business", "view_metrics"), financeHandler.FinanceCompanyMetrics)
 		finance.POST("/dealers", mdw.PermissionMiddleware("business", "create"), dealerHandler.Create)
 		finance.PUT("/dealers/:id", mdw.PermissionMiddleware("business", "update"), dealerHandler.Update)
 		finance.DELETE("/dealers/:id", mdw.PermissionMiddleware("business", "delete"), dealerHandler.Delete)

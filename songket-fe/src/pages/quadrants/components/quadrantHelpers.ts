@@ -76,11 +76,3 @@ export function buildAnalysisText(item: {
 
   return `Order In ${currentTotal.toLocaleString('id-ID')} unit (${referenceMonth}) vs ${previousTotal.toLocaleString('id-ID')} unit (${referencePrevMonth}), growth ${growthText}, credit capability ${Number(item.credit_capability || 0).toFixed(2)}%.`
 }
-
-export function pctChange(current: number, previous: number) {
-  if (previous === 0) {
-    if (current === 0) return 0
-    return 100
-  }
-  return ((current - previous) / previous) * 100
-}

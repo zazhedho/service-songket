@@ -24,6 +24,42 @@ type DealerFinanceCompanyMetricRow struct {
 	RescueApprovedFc2  int64    `json:"rescue_approved_fc2"`
 }
 
+type FinanceCompanyDealerMetricRow struct {
+	DealerID           string   `gorm:"column:dealer_id" json:"dealer_id"`
+	DealerName         string   `gorm:"column:dealer_name" json:"dealer_name"`
+	TotalOrders        int64    `gorm:"column:total_orders" json:"total_orders"`
+	ApprovedCount      int64    `gorm:"column:approved_count" json:"approved_count"`
+	RejectedCount      int64    `gorm:"column:rejected_count" json:"rejected_count"`
+	LeadTimeSecondsAvg *float64 `gorm:"column:lead_time_seconds_avg" json:"lead_time_seconds_avg"`
+	RescueApprovedFc2  int64    `gorm:"column:rescue_approved_fc2" json:"rescue_approved_fc2"`
+}
+
+type FinanceMigrationSummary struct {
+	TotalRows       int64   `gorm:"column:total_rows" json:"total_rows"`
+	TotalDataSum    int64   `gorm:"column:total_data_sum" json:"total_data_sum"`
+	TotalApproveSum int64   `gorm:"column:total_approve_sum" json:"total_approve_sum"`
+	TotalRejectSum  int64   `gorm:"column:total_reject_sum" json:"total_reject_sum"`
+	ApprovalRate    float64 `gorm:"-" json:"approval_rate"`
+}
+
+type SummaryBucket struct {
+	Label string `gorm:"column:label" json:"label"`
+	Total int64  `gorm:"column:total" json:"total"`
+}
+
+type FinanceMigrationDetailSummary struct {
+	TotalOrders           int64           `gorm:"column:total_orders" json:"total_orders"`
+	TotalDealers          int64           `gorm:"column:total_dealers" json:"total_dealers"`
+	DealerCoveragePercent float64         `gorm:"-" json:"dealer_coverage_percent"`
+	ApprovedCount         int64           `gorm:"column:approved_count" json:"approved_count"`
+	RejectedCount         int64           `gorm:"column:rejected_count" json:"rejected_count"`
+	ApprovalRate          float64         `gorm:"-" json:"approval_rate"`
+	LeadAvgSeconds        *float64        `gorm:"column:lead_avg_seconds" json:"lead_avg_seconds"`
+	RescueFc2             int64           `gorm:"column:rescue_fc2" json:"rescue_fc2"`
+	DealerTotals          []SummaryBucket `gorm:"-" json:"dealer_totals"`
+	MotorTypeTotals       []SummaryBucket `gorm:"-" json:"motor_type_totals"`
+}
+
 type FinanceApprovalGroupingRow struct {
 	FinanceCompanyID   string `gorm:"column:finance_company_id" json:"finance_company_id"`
 	FinanceCompanyName string `gorm:"column:finance_company_name" json:"finance_company_name"`

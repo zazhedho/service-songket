@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchQuadrantSummary } from '../../services/quadrantService'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import QuadrantContent from './components/QuadrantContent'
-import { buildAnalysisText, buildAxisTicks, clampPercent, formatAxisPercent, getOrderInGrowth, normalizeToken, pctChange, quadrantColor } from './components/quadrantHelpers'
+import { buildAnalysisText, buildAxisTicks, clampPercent, formatAxisPercent, getOrderInGrowth, normalizeToken, quadrantColor } from './components/quadrantHelpers'
 
 type QuadrantItem = {
   job_id?: string
@@ -20,17 +20,19 @@ type QuadrantItem = {
   quadrant: number
 }
 
-type QuadrantJobPoint = {
+type QuadrantPoint = {
   id: string
   job_id: string
   job_name: string
+  province: string
+  regency: string
+  area_label: string
   total_orders: number
   order_in_growth_percent: number
   order_in_current_total: number
   order_in_previous_total: number
   credit_capability: number
   quadrant: number
-  area_count: number
   reference_month?: string
   reference_prev_month?: string
 }
@@ -146,78 +148,32 @@ export default function QuadrantsPage() {
     })
   }, [items, filter, displayProvince, displayRegency])
 
-  const filtered = useMemo<QuadrantJobPoint[]>(() => {
-    const map = new Map<string, {
-      job_id: string
-      job_name: string
-      current_total: number
-      previous_total: number
-      capability_weighted_sum: number
-      weight_total: number
-      area_keys: Set<string>
-      reference_month?: string
-      reference_prev_month?: string
-    }>()
-
-    for (const row of filteredAreaRows) {
+  const filtered = useMemo<QuadrantPoint[]>(() => {
+    const result = filteredAreaRows.map((row, index) => {
+      const province = String(row.province || '').trim()
+      const regency = String(row.regency || '').trim()
+      const provinceLabel = displayProvince(province)
+      const regencyLabel = displayRegency(province, regency)
+      const areaLabel = [regencyLabel, provinceLabel].filter((item) => item && item !== '-').join(', ') || '-'
       const jobID = String(row.job_id || '').trim()
-      const jobName = String(row.job_name || row.job_id || '').trim()
-      if (!jobID && !jobName) continue
+      const jobName = String(row.job_name || row.job_id || '-').trim() || '-'
 
-      const key = (jobID || jobName).toLowerCase()
-      const currentTotal = Number(row.order_in_current_total ?? row.total_orders ?? 0)
-      const previousTotal = Number(row.order_in_previous_total ?? 0)
-      const capability = Number(row.credit_capability || 0)
-      const weight = Math.max(currentTotal + previousTotal, 1)
-      const areaKey = `${String(row.province || '').trim().toLowerCase()}|${String(row.regency || '').trim().toLowerCase()}`
-
-      if (!map.has(key)) {
-        map.set(key, {
-          job_id: jobID,
-          job_name: jobName || jobID,
-          current_total: 0,
-          previous_total: 0,
-          capability_weighted_sum: 0,
-          weight_total: 0,
-          area_keys: new Set<string>(),
-          reference_month: row.reference_month,
-          reference_prev_month: row.reference_prev_month,
-        })
+      return {
+        id: `${jobID || jobName}|${province}|${regency}|${index}`,
+        job_id: jobID,
+        job_name: jobName,
+        province,
+        regency,
+        area_label: areaLabel,
+        total_orders: Number(row.total_orders || 0),
+        order_in_growth_percent: Number(row.order_in_growth_percent ?? row.order_in_percent ?? 0),
+        order_in_current_total: Number(row.order_in_current_total ?? row.total_orders ?? 0),
+        order_in_previous_total: Number(row.order_in_previous_total ?? 0),
+        credit_capability: Number(row.credit_capability || 0),
+        quadrant: Number(row.quadrant || 0),
+        reference_month: row.reference_month,
+        reference_prev_month: row.reference_prev_month,
       }
-      const entry = map.get(key)!
-      entry.current_total += currentTotal
-      entry.previous_total += previousTotal
-      entry.capability_weighted_sum += capability * weight
-      entry.weight_total += weight
-      if (areaKey !== '|') entry.area_keys.add(areaKey)
-      if (!entry.reference_month && row.reference_month) entry.reference_month = row.reference_month
-      if (!entry.reference_prev_month && row.reference_prev_month) entry.reference_prev_month = row.reference_prev_month
-    }
-
-    const result: QuadrantJobPoint[] = []
-    map.forEach((entry, key) => {
-      const capability = entry.weight_total > 0 ? entry.capability_weighted_sum / entry.weight_total : 0
-      const growth = pctChange(entry.current_total, entry.previous_total)
-      let quadrant = 2
-      if (growth >= 0 && capability >= 35) quadrant = 3
-      else if (growth >= 0 && capability < 35) quadrant = 1
-      else if (growth < 0 && capability >= 35) quadrant = 4
-      else quadrant = 2
-
-      result.push({
-        id: key,
-        job_id: entry.job_id,
-        job_name: entry.job_name || entry.job_id || '-',
-        total_orders: entry.current_total,
-        order_in_growth_percent: growth,
-        order_in_current_total: entry.current_total,
-        order_in_previous_total: entry.previous_total,
-        credit_capability: capability,
-        quadrant,
-        area_count: entry.area_keys.size,
-        reference_month: entry.reference_month,
-        reference_prev_month: entry.reference_prev_month,
-      })
     })
 
     result.sort((a, b) => {
@@ -226,7 +182,7 @@ export default function QuadrantsPage() {
       return a.job_name.localeCompare(b.job_name)
     })
     return result
-  }, [filteredAreaRows])
+  }, [displayProvince, displayRegency, filteredAreaRows])
 
   useEffect(() => {
     setPage(1)
@@ -305,7 +261,7 @@ export default function QuadrantsPage() {
         jobName: item.job_name || item.job_id || '-',
         totalOrders: Number(item.order_in_current_total ?? item.total_orders ?? 0),
         previousOrders: Number(item.order_in_previous_total ?? 0),
-        areaCount: Number(item.area_count || 0),
+        areaLabel: item.area_label,
         x,
         y,
         quadrant: item.quadrant,

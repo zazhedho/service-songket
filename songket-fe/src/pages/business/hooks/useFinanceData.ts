@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchDealerMetrics,
   fetchDealers,
+  fetchFinanceCompanyMetrics,
   fetchFinanceCompanies,
 } from '../../../services/businessService'
 import { fetchLookups } from '../../../services/lookupService'
-import type { CompanyDealerRow, CompanySummary } from '../components/financeHelpers'
+import type { CompanySummary } from '../components/financeHelpers'
 
 type UseFinanceDataParams = {
   canView: boolean
@@ -175,64 +176,22 @@ export function useFinanceData({
   }, [dealers, selectedDealerId])
 
   useEffect(() => {
-    if (!isCompanyDetail || !selectedCompanyId || dealers.length === 0) {
+    if (!isCompanyDetail || !selectedCompanyId) {
       setCompanySummary(null)
       return
     }
 
     setCompanySummaryLoading(true)
-    Promise.all(
-      dealers.map(async (dealer) => {
-        try {
-          const res = await fetchDealerMetrics(dealer.id)
-          const data = res.data.data || res.data || {}
-          const rows = Array.isArray(data.finance_companies) ? data.finance_companies : []
-          const row = rows.find((fc: any) => fc.finance_company_id === selectedCompanyId)
-          if (!row) return null
-
-          return {
-            dealer_id: dealer.id,
-            dealer_name: dealer.name || '-',
-            total_orders: Number(row.total_orders || 0),
-            approval_rate: Number(row.approval_rate || 0),
-            lead_time_seconds_avg:
-              row.lead_time_seconds_avg == null ? null : Number(row.lead_time_seconds_avg),
-            rescue_approved_fc2: Number(row.rescue_approved_fc2 || 0),
-          } as CompanyDealerRow
-        } catch {
-          return null
-        }
-      }),
-    )
-      .then((results) => {
-        const rows = results.filter((item): item is CompanyDealerRow => item !== null)
-
-        const totalOrders = rows.reduce((sum, item) => sum + item.total_orders, 0)
-        const approvedCount = rows.reduce((sum, item) => sum + item.approval_rate * item.total_orders, 0)
-        const rescueCount = rows.reduce((sum, item) => sum + item.rescue_approved_fc2, 0)
-
-        let leadWeight = 0
-        let leadTotal = 0
-        rows.forEach((item) => {
-          if (item.lead_time_seconds_avg != null && item.total_orders > 0) {
-            leadWeight += item.lead_time_seconds_avg * item.total_orders
-            leadTotal += item.total_orders
-          }
-        })
-
-        const summary: CompanySummary = {
-          total_orders: totalOrders,
-          approval_rate: totalOrders > 0 ? approvedCount / totalOrders : 0,
-          lead_time_seconds_avg: leadTotal > 0 ? leadWeight / leadTotal : null,
-          rescue_approved_fc2: rescueCount,
-          active_dealers: rows.filter((item) => item.total_orders > 0).length,
-          dealer_rows: rows.sort((a, b) => b.total_orders - a.total_orders),
-        }
-
-        setCompanySummary(summary)
+    fetchFinanceCompanyMetrics(selectedCompanyId)
+      .then((res) => {
+        const payload = (res.data.data || res.data || null) as CompanySummary | null
+        setCompanySummary(payload)
+      })
+      .catch(() => {
+        setCompanySummary(null)
       })
       .finally(() => setCompanySummaryLoading(false))
-  }, [dealers, isCompanyDetail, selectedCompanyId])
+  }, [isCompanyDetail, selectedCompanyId])
 
   const dealerPoints = useMemo(() => {
     return dealers
@@ -277,6 +236,13 @@ export function useFinanceData({
       .filter((item) => item.finance_1_company_id && item.finance_2_company_id)
   }, [metrics?.finance_approval_transitions])
 
+  const financeApprovalTransitionSummaryRows = useMemo(() => {
+    const rows = Array.isArray(metrics?.finance_approval_transition_summary)
+      ? metrics.finance_approval_transition_summary
+      : []
+    return rows
+  }, [metrics?.finance_approval_transition_summary])
+
   const transitionFromFinanceOptions = useMemo(() => {
     const map = new Map<string, string>()
     financeApprovalTransitionRows.forEach((item: any) => {
@@ -319,17 +285,20 @@ export function useFinanceData({
   }, [dealerTransitionLimit, dealerTransitionPage, filteredTransitionRows])
 
   const selectedTransitionSummary = useMemo(() => {
-    const total = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.total_data || 0), 0)
-    const approved = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.approved_count || 0), 0)
-    const rejected = filteredTransitionRows.reduce((sum, item: any) => sum + Number(item?.rejected_count || 0), 0)
+    const summary = financeApprovalTransitionSummaryRows.find(
+      (item: any) => String(item?.finance_1_company_id || '') === selectedTransitionFromFinanceID,
+    )
+    const total = Number(summary?.total_data || 0)
+    const approved = Number(summary?.approved_count || 0)
+    const rejected = Number(summary?.rejected_count || 0)
 
     return {
       total,
       approved,
       rejected,
-      approvalRate: total > 0 ? approved / total : 0,
+      approvalRate: Number(summary?.approval_rate || 0),
     }
-  }, [filteredTransitionRows])
+  }, [financeApprovalTransitionSummaryRows, selectedTransitionFromFinanceID])
 
   useEffect(() => {
     setDealerFinancePage(1)

@@ -4,7 +4,6 @@ import { ReportDetailTable, summarizeLocation } from './financeReportHelpers'
 
 type FinanceReportDetailProps = {
   applyDetailOrderInFilters: () => void
-  buildDetailFinanceSummary: (rows: any[]) => any
   buildDonutGradient: (rows: any[]) => string
   buildDonutSlices: (rows: any[], maxSlices?: number) => any[]
   detailFinanceSummary: any
@@ -36,7 +35,6 @@ type FinanceReportDetailProps = {
 
 export default function FinanceReportDetail({
   applyDetailOrderInFilters,
-  buildDetailFinanceSummary,
   buildDonutGradient,
   buildDonutSlices,
   detailFinanceSummary,
@@ -80,7 +78,18 @@ export default function FinanceReportDetail({
   const modalMotorOtrText = selectedOrderInRow
     ? `${selectedOrderInRow.motor_type_name || '-'} | ${formatRupiah(Number(selectedOrderInRow.otr || 0))}`
     : '-'
-  const computedDetailSummary = detailFinanceSummary || buildDetailFinanceSummary(detailOrderInRows)
+  const computedDetailSummary = detailFinanceSummary || {
+    totalOrders: 0,
+    totalDealers: 0,
+    dealerCoveragePercent: 0,
+    approvedCount: 0,
+    rejectedCount: 0,
+    approvalRate: 0,
+    leadAvgSeconds: null,
+    rescueFc2: 0,
+    dealerTotals: [],
+    motorTypeTotals: [],
+  }
   const dealerDonutSlices = buildDonutSlices(computedDetailSummary?.dealerTotals || [], 6)
   const motorTypeDonutSlices = buildDonutSlices(computedDetailSummary?.motorTypeTotals || [], 6)
   const dealerDonutGradient = buildDonutGradient(dealerDonutSlices)

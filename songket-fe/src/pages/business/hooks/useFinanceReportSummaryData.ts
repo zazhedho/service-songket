@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  fetchAllDealerMetrics,
   fetchDealerMetrics,
   fetchDealers,
   fetchFinanceCompanies,
+  getFinanceMigrationReportSummary,
   listFinanceMigrationReport,
 } from '../../../services/businessService'
 import {
@@ -28,6 +30,14 @@ type CacheEntry<T> = {
 let masterDataCache: CacheEntry<MasterDataCacheValue> | null = null
 const dealerMetricsCache = new Map<string, CacheEntry<DealerMetricPayload>>()
 const dealerMetricsInflight = new Map<string, Promise<DealerMetricPayload>>()
+
+const emptyMigrationSummary = {
+  totalRows: 0,
+  totalDataSum: 0,
+  totalApproveSum: 0,
+  totalRejectSum: 0,
+  approvalRate: 0,
+}
 
 type FinanceMigrationRow = {
   order_id: string
@@ -129,6 +139,7 @@ export function useFinanceReportSummaryData({
   const [dealerMetrics, setDealerMetrics] = useState<DealerMetricPayload | null>(null)
   const [dealerMetricsLoading, setDealerMetricsLoading] = useState(false)
   const [dealerMetricsError, setDealerMetricsError] = useState('')
+  const [migrationSummary, setMigrationSummary] = useState(emptyMigrationSummary)
 
   const yearOptions = useMemo(() => {
     const now = new Date().getFullYear()
@@ -162,21 +173,6 @@ export function useFinanceReportSummaryData({
     const totals = dealerMetricRows.map((item) => toSafeNumber(item.total_orders))
     return Math.max(1, ...totals)
   }, [dealerMetricRows])
-
-  const migrationSummary = useMemo(() => {
-    const totalRows = rows.length
-    const totalDataSum = rows.reduce((sum, row) => sum + toSafeNumber(row.transition_total_data), 0)
-    const totalApproveSum = rows.reduce((sum, row) => sum + toSafeNumber(row.total_approve_finance_2), 0)
-    const totalRejectSum = rows.reduce((sum, row) => sum + toSafeNumber(row.total_reject_finance_2), 0)
-    const approvalRate = totalDataSum > 0 ? (totalApproveSum / totalDataSum) * 100 : 0
-    return {
-      totalRows,
-      totalDataSum,
-      totalApproveSum,
-      totalRejectSum,
-      approvalRate,
-    }
-  }, [rows])
 
   const dealerPoints = useMemo<DealerMapPoint[]>(() => {
     return dealerRows
@@ -253,17 +249,27 @@ export function useFinanceReportSummaryData({
       if (Object.keys(filters).length > 0) params.filters = filters
 
       const res = await listFinanceMigrationReport(params)
+      const summaryRes = await getFinanceMigrationReportSummary(params)
       const payload = res?.data || {}
       const data = payload?.data || []
+      const summaryPayload = summaryRes?.data?.data || summaryRes?.data || {}
 
       setRows(Array.isArray(data) ? data : [])
       setTotalPages(Number(payload?.total_pages || 1))
       setTotalData(Number(payload?.total_data || 0))
       setPage(Number(payload?.current_page || page))
+      setMigrationSummary({
+        totalRows: toSafeNumber(summaryPayload?.total_rows),
+        totalDataSum: toSafeNumber(summaryPayload?.total_data_sum),
+        totalApproveSum: toSafeNumber(summaryPayload?.total_approve_sum),
+        totalRejectSum: toSafeNumber(summaryPayload?.total_reject_sum),
+        approvalRate: toSafeNumber(summaryPayload?.approval_rate),
+      })
     } catch (err: any) {
       setRows([])
       setTotalPages(1)
       setTotalData(0)
+      setMigrationSummary(emptyMigrationSummary)
       setError(err?.response?.data?.error || 'Failed to load finance migration report.')
     } finally {
       setLoading(false)
@@ -378,7 +384,6 @@ export function useFinanceReportSummaryData({
         activeDealerId: activeDealerId || '',
         from: dealerMetricRange?.from || '',
         to: dealerMetricRange?.to || '',
-        dealerCount: dealerRows.length,
       })
       const now = Date.now()
       const cached = dealerMetricsCache.get(cacheKey)
@@ -391,8 +396,10 @@ export function useFinanceReportSummaryData({
       }
 
       const request = (async () => {
-      if (activeDealerId) {
-        const res = await fetchDealerMetrics(activeDealerId, metricsParams)
+        const res = activeDealerId
+          ? await fetchDealerMetrics(activeDealerId, metricsParams)
+          : await fetchAllDealerMetrics(metricsParams)
+
         return ((res?.data?.data || res?.data || null) as DealerMetricPayload | null) || {
           total_orders: 0,
           approval_rate: 0,
@@ -400,111 +407,6 @@ export function useFinanceReportSummaryData({
           rescue_approved_fc2: 0,
           finance_companies: [],
         }
-      }
-
-      const dealerIds = dealerRows.map((item) => normalizeText(item.id)).filter(Boolean)
-      if (dealerIds.length === 0) {
-        return {
-          total_orders: 0,
-          approval_rate: 0,
-          lead_time_seconds_avg: 0,
-          rescue_approved_fc2: 0,
-          finance_companies: [],
-        } as DealerMetricPayload
-      }
-
-      const settled = await Promise.allSettled(dealerIds.map((dealerId) => fetchDealerMetrics(dealerId, metricsParams)))
-      const companyMap = new Map<
-      string,
-      {
-        finance_company_id: string
-        finance_company_name: string
-        total_orders: number
-        approved_count: number
-        rejected_count: number
-        rescue_approved_fc2: number
-        lead_weight_sum: number
-        lead_weight_count: number
-      }
-      >()
-
-      let totalOrders = 0
-      let totalApproved = 0
-      let totalRescue = 0
-      let leadWeightSum = 0
-      let leadWeightCount = 0
-
-      settled.forEach((result) => {
-        if (result.status !== 'fulfilled') return
-        const payload = (result.value?.data?.data || result.value?.data || null) as DealerMetricPayload | null
-        const metricRows = Array.isArray(payload?.finance_companies) ? payload?.finance_companies : []
-
-        metricRows.forEach((item) => {
-          const financeCompanyID = normalizeText(item?.finance_company_id) || normalizeText(item?.finance_company_name) || 'unknown'
-          const financeCompanyName = normalizeText(item?.finance_company_name) || '-'
-          const total = toSafeNumber(item?.total_orders)
-          const approvedRaw = toSafeNumber(item?.approved_count)
-          const rejectedRaw = toSafeNumber(item?.rejected_count)
-          const approved = approvedRaw > 0 || rejectedRaw > 0
-            ? approvedRaw
-            : Math.max(0, Math.min(total, Math.round(toSafeNumber(item?.approval_rate) * total)))
-          const rejected = approvedRaw > 0 || rejectedRaw > 0
-            ? rejectedRaw
-            : Math.max(0, total - approved)
-          const rescue = toSafeNumber(item?.rescue_approved_fc2)
-          const lead = Number(item?.lead_time_seconds_avg)
-
-          const current = companyMap.get(financeCompanyID) || {
-            finance_company_id: financeCompanyID,
-            finance_company_name: financeCompanyName,
-            total_orders: 0,
-            approved_count: 0,
-            rejected_count: 0,
-            rescue_approved_fc2: 0,
-            lead_weight_sum: 0,
-            lead_weight_count: 0,
-          }
-
-          current.total_orders += total
-          current.approved_count += approved
-          current.rejected_count += rejected
-          current.rescue_approved_fc2 += rescue
-          if (Number.isFinite(lead) && total > 0) {
-            current.lead_weight_sum += lead * total
-            current.lead_weight_count += total
-          }
-          companyMap.set(financeCompanyID, current)
-
-          totalOrders += total
-          totalApproved += approved
-          totalRescue += rescue
-          if (Number.isFinite(lead) && total > 0) {
-            leadWeightSum += lead * total
-            leadWeightCount += total
-          }
-        })
-      })
-
-      const financeCompanies: DealerFinanceMetric[] = Array.from(companyMap.values())
-        .map((item) => ({
-          finance_company_id: item.finance_company_id,
-          finance_company_name: item.finance_company_name,
-          total_orders: item.total_orders,
-          approved_count: item.approved_count,
-          rejected_count: item.rejected_count,
-          approval_rate: item.total_orders > 0 ? item.approved_count / item.total_orders : 0,
-          lead_time_seconds_avg: item.lead_weight_count > 0 ? item.lead_weight_sum / item.lead_weight_count : null,
-          rescue_approved_fc2: item.rescue_approved_fc2,
-        }))
-        .sort((a, b) => toSafeNumber(b.total_orders) - toSafeNumber(a.total_orders))
-
-      return {
-        total_orders: totalOrders,
-        approval_rate: totalOrders > 0 ? totalApproved / totalOrders : 0,
-        lead_time_seconds_avg: leadWeightCount > 0 ? leadWeightSum / leadWeightCount : 0,
-        rescue_approved_fc2: totalRescue,
-        finance_companies: financeCompanies,
-      } as DealerMetricPayload
       })()
       dealerMetricsInflight.set(cacheKey, request)
 
@@ -537,7 +439,7 @@ export function useFinanceReportSummaryData({
     return () => {
       cancelled = true
     }
-  }, [activeDealerId, canList, dealerMetricRange, dealerRows, isDetail])
+  }, [activeDealerId, canList, dealerMetricRange, isDetail])
 
   const applyFilters = () => {
     setDealer(dealerInput)

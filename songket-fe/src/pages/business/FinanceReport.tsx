@@ -4,6 +4,7 @@ import {
   fetchDealerMetrics,
   fetchDealers,
   fetchFinanceCompanies,
+  getFinanceMigrationOrderInSummary,
   listFinanceMigrationOrderInDetail,
   listFinanceMigrationReport,
 } from '../../services/businessService'
@@ -15,7 +16,6 @@ import FinanceReportDetail from './components/FinanceReportDetail'
 import FinanceReportSummary from './components/FinanceReportSummary'
 import { useFinanceReportSummaryData } from './hooks/useFinanceReportSummaryData'
 import {
-  buildDetailFinanceSummary,
   buildDonutGradient,
   buildDonutSlices,
   formatCoordinate,
@@ -334,38 +334,30 @@ export default function FinanceReportPage() {
     setDetailFinanceSummaryError('')
 
     const loadSummary = async () => {
-      const limitPerPage = 200
-      const maxPages = 120
-      const collected: FinanceMigrationRow[] = []
-      let nextPage = 1
-      let totalPagesRemote = 1
-
-      while (nextPage <= totalPagesRemote && nextPage <= maxPages) {
-        const params: Record<string, unknown> = {
-          page: nextPage,
-          limit: limitPerPage,
-          order_by: 'pooling_at',
-          order_direction: 'desc',
-        }
-        if (stateContext?.month) params.month = Number(stateContext.month)
-        if (stateContext?.year) params.year = Number(stateContext.year)
-        if (stateContext?.finance1) params.filters = { finance_1_company_id: stateContext.finance1 }
-        if (detailOrderInSearch.trim()) params.search = detailOrderInSearch.trim()
-
-        const res = await listFinanceMigrationOrderInDetail(selectedId, params)
-        const payload = res?.data || {}
-        const data = Array.isArray(payload?.data) ? (payload.data as FinanceMigrationRow[]) : []
-        totalPagesRemote = Number(payload?.total_pages || totalPagesRemote)
-        collected.push(...data)
-        nextPage += 1
+      const params: Record<string, unknown> = {
+        order_by: 'pooling_at',
+        order_direction: 'desc',
       }
+      if (stateContext?.month) params.month = Number(stateContext.month)
+      if (stateContext?.year) params.year = Number(stateContext.year)
+      if (stateContext?.finance1) params.filters = { finance_1_company_id: stateContext.finance1 }
+      if (detailOrderInSearch.trim()) params.search = detailOrderInSearch.trim()
 
+      const res = await getFinanceMigrationOrderInSummary(selectedId, params)
+      const payload = res?.data?.data || res?.data || {}
       if (!mounted) return
-      setDetailFinanceSummary(buildDetailFinanceSummary(collected))
-
-      if (nextPage <= totalPagesRemote) {
-        setDetailFinanceSummaryError('Summary is partial due to data volume limit.')
-      }
+      setDetailFinanceSummary({
+        totalOrders: toSafeNumber(payload?.total_orders),
+        totalDealers: toSafeNumber(payload?.total_dealers),
+        dealerCoveragePercent: toSafeNumber(payload?.dealer_coverage_percent),
+        approvedCount: toSafeNumber(payload?.approved_count),
+        rejectedCount: toSafeNumber(payload?.rejected_count),
+        approvalRate: toSafeNumber(payload?.approval_rate),
+        leadAvgSeconds: payload?.lead_avg_seconds == null ? null : toSafeNumber(payload?.lead_avg_seconds),
+        rescueFc2: toSafeNumber(payload?.rescue_fc2),
+        dealerTotals: Array.isArray(payload?.dealer_totals) ? payload.dealer_totals : [],
+        motorTypeTotals: Array.isArray(payload?.motor_type_totals) ? payload.motor_type_totals : [],
+      })
     }
 
     loadSummary()
@@ -435,7 +427,6 @@ export default function FinanceReportPage() {
     return (
       <FinanceReportDetail
         applyDetailOrderInFilters={applyDetailOrderInFilters}
-        buildDetailFinanceSummary={buildDetailFinanceSummary}
         buildDonutGradient={buildDonutGradient}
         buildDonutSlices={buildDonutSlices}
         detailFinanceSummary={detailFinanceSummary}

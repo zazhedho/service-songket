@@ -1,5 +1,7 @@
-import DealerLeafletSearchMap from '../../../components/maps/DealerLeafletSearchMap'
+import { Suspense, lazy } from 'react'
 import type { DealerForm as DealerFormValues, Option } from './financeHelpers'
+
+const DealerLeafletSearchMap = lazy(() => import('../../../components/maps/DealerLeafletSearchMap'))
 
 type DealerFormProps = {
   dealerBasePath: string
@@ -152,13 +154,15 @@ export default function DealerForm({
                   Suggestion dropdown, map movement, and autofill are available in this Leaflet map.
                 </div>
 
-                <DealerLeafletSearchMap
-                  center={dealerFormCenter}
-                  zoom={dealerFormZoom}
-                  lat={dealerFormLat}
-                  lng={dealerFormLng}
-                  onPick={handleDealerPlaceChanged}
-                />
+                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                  <DealerLeafletSearchMap
+                    center={dealerFormCenter}
+                    zoom={dealerFormZoom}
+                    lat={dealerFormLat}
+                    lng={dealerFormLng}
+                    onPick={handleDealerPlaceChanged}
+                  />
+                </Suspense>
               </div>
             </div>
 

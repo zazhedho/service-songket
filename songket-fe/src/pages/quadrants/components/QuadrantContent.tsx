@@ -63,7 +63,7 @@ export default function QuadrantContent({
       <div className="card">
         <h3>Quadrant Flow</h3>
         <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-          Job-based points (aggregated by selected area filter). Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
+          Backend-computed job and area points. Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 12 }}>
@@ -215,7 +215,7 @@ export default function QuadrantContent({
                   {`Order In Growth: ${activePoint.orderInGrowthPercent >= 0 ? '+' : ''}${activePoint.orderInGrowthPercent.toFixed(2)}%`}
                 </text>
                 <text x={tooltip.x + 10} y={tooltip.y + 72} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
-                  {`Coverage Area: ${Number(activePoint.areaCount || 0)}`}
+                  {`Area: ${activePoint.areaLabel || '-'}`}
                 </text>
               </g>
             )}
@@ -229,7 +229,7 @@ export default function QuadrantContent({
           <thead>
             <tr>
               <th>Job</th>
-              <th>Coverage Area</th>
+              <th>Area</th>
               <th>Total Order In</th>
               <th>Order In Growth %</th>
               <th>Credit Capability %</th>
@@ -241,7 +241,7 @@ export default function QuadrantContent({
             {paged.map((row, idx) => (
               <tr key={`${row.job_id || row.job_name}-${idx}`}>
                 <td>{row.job_name || '-'}</td>
-                <td>{Number(row.area_count || 0)}</td>
+                <td>{row.area_label || '-'}</td>
                 <td>{Number(row.order_in_current_total ?? row.total_orders ?? 0).toLocaleString('id-ID')}</td>
                 <td>{`${getOrderInGrowth(row) >= 0 ? '+' : ''}${getOrderInGrowth(row).toFixed(2)}%`}</td>
                 <td>{row.credit_capability.toFixed(2)}%</td>

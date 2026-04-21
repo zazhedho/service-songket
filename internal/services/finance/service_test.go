@@ -31,6 +31,9 @@ func (m *financeRepoMock) GetDealerMetricsBase(ctx context.Context, dealerID str
 func (m *financeRepoMock) ListDealerFinanceCompanyMetrics(ctx context.Context, dealerID string, dateRange domainfinance.DateRange) ([]domainfinance.DealerFinanceCompanyMetricRow, error) {
 	return append([]domainfinance.DealerFinanceCompanyMetricRow{}, m.fcRows...), nil
 }
+func (m *financeRepoMock) ListFinanceCompanyDealerMetrics(ctx context.Context, financeCompanyID string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceCompanyDealerMetricRow, error) {
+	return nil, nil
+}
 func (m *financeRepoMock) ListDealerFinanceApprovalGrouping(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) ([]domainfinance.FinanceApprovalGroupingRow, error) {
 	return append([]domainfinance.FinanceApprovalGroupingRow{}, m.groupingRows...), nil
 }
@@ -45,6 +48,12 @@ func (m *financeRepoMock) ListMigrationReport(ctx context.Context, params filter
 }
 func (m *financeRepoMock) ListMigrationReportGroupedByFinance2(ctx context.Context, params filter.BaseParams, month, year int) ([]domainfinance.FinanceMigrationReportItem, int64, error) {
 	return nil, 0, nil
+}
+func (m *financeRepoMock) GetMigrationSummary(ctx context.Context, params filter.BaseParams, month, year int) (domainfinance.FinanceMigrationSummary, error) {
+	return domainfinance.FinanceMigrationSummary{}, nil
+}
+func (m *financeRepoMock) GetMigrationOrderInSummary(ctx context.Context, params filter.BaseParams, month, year int) (domainfinance.FinanceMigrationDetailSummary, error) {
+	return domainfinance.FinanceMigrationDetailSummary{}, nil
 }
 func (m *financeRepoMock) GetMigrationAnchorFinance2CompanyID(ctx context.Context, anchorOrderID string) (string, error) {
 	if m.anchorErr != nil {

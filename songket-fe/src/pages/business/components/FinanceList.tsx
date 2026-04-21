@@ -367,14 +367,8 @@ export default function FinanceList({
                       <tbody>
                         {dealerFinanceRows.map((fc: any) => {
                           const total = Number(fc?.total_orders || 0)
-                          const approvedRaw = fc?.approved_count
-                          const rejectedRaw = fc?.rejected_count
-                          const approved = Number.isFinite(Number(approvedRaw))
-                            ? Number(approvedRaw)
-                            : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
-                          const rejected = Number.isFinite(Number(rejectedRaw))
-                            ? Number(rejectedRaw)
-                            : Math.max(0, total - approved)
+                          const approved = Number(fc?.approved_count || 0)
+                          const rejected = Number(fc?.rejected_count || 0)
                           return (
                             <tr key={fc.finance_company_id}>
                               <td>{fc.finance_company_name}</td>
@@ -413,14 +407,8 @@ export default function FinanceList({
                     {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
                     {financeMetricRows.map((fc: any) => {
                       const total = Number(fc?.total_orders || 0)
-                      const approvedRaw = fc?.approved_count
-                      const rejectedRaw = fc?.rejected_count
-                      const approved = Number.isFinite(Number(approvedRaw))
-                        ? Number(approvedRaw)
-                        : Math.max(0, Math.min(total, Math.round(Number(fc?.approval_rate || 0) * total)))
-                      const rejected = Number.isFinite(Number(rejectedRaw))
-                        ? Number(rejectedRaw)
-                        : Math.max(0, total - approved)
+                      const approved = Number(fc?.approved_count || 0)
+                      const rejected = Number(fc?.rejected_count || 0)
                       const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
                       return (
                         <div key={`chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
