@@ -26,26 +26,26 @@ type userRepoMock struct {
 	phoneErr  error
 }
 
-func (m *userRepoMock) Store(data domainuser.Users) error {
+func (m *userRepoMock) Store(ctx context.Context, data domainuser.Users) error {
 	m.user = data
 	return nil
 }
 
-func (m *userRepoMock) GetByEmail(email string) (domainuser.Users, error) {
+func (m *userRepoMock) GetByEmail(ctx context.Context, email string) (domainuser.Users, error) {
 	if m.emailErr != nil {
 		return domainuser.Users{}, m.emailErr
 	}
 	return m.emailUser, nil
 }
 
-func (m *userRepoMock) GetByPhone(phone string) (domainuser.Users, error) {
+func (m *userRepoMock) GetByPhone(ctx context.Context, phone string) (domainuser.Users, error) {
 	if m.phoneErr != nil {
 		return domainuser.Users{}, m.phoneErr
 	}
 	return m.phoneUser, nil
 }
 
-func (m *userRepoMock) GetByID(id string) (domainuser.Users, error) {
+func (m *userRepoMock) GetByID(ctx context.Context, id string) (domainuser.Users, error) {
 	if m.usersByID != nil {
 		user, ok := m.usersByID[id]
 		if !ok {
@@ -56,22 +56,22 @@ func (m *userRepoMock) GetByID(id string) (domainuser.Users, error) {
 	return m.user, nil
 }
 
-func (m *userRepoMock) GetAll(params filter.BaseParams) ([]domainuser.Users, int64, error) {
+func (m *userRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainuser.Users, int64, error) {
 	return nil, 0, nil
 }
 
-func (m *userRepoMock) Update(data domainuser.Users) error {
+func (m *userRepoMock) Update(ctx context.Context, data domainuser.Users) error {
 	m.updated = data
 	m.user = data
 	return nil
 }
 
-func (m *userRepoMock) Delete(id string) error { return nil }
+func (m *userRepoMock) Delete(ctx context.Context, id string) error { return nil }
 
 type authRepoMock struct{}
 
-func (m *authRepoMock) Store(data domainauth.Blacklist) error { return nil }
-func (m *authRepoMock) GetByToken(token string) (domainauth.Blacklist, error) {
+func (m *authRepoMock) Store(ctx context.Context, data domainauth.Blacklist) error { return nil }
+func (m *authRepoMock) GetByToken(ctx context.Context, token string) (domainauth.Blacklist, error) {
 	return domainauth.Blacklist{}, nil
 }
 func (m *authRepoMock) ExistsByToken(token string) (bool, error) { return false, nil }
@@ -80,29 +80,31 @@ type roleRepoMock struct {
 	roles map[string]domainrole.Role
 }
 
-func (m *roleRepoMock) Store(data domainrole.Role) error { return nil }
-func (m *roleRepoMock) GetByID(id string) (domainrole.Role, error) {
+func (m *roleRepoMock) Store(ctx context.Context, data domainrole.Role) error { return nil }
+func (m *roleRepoMock) GetByID(ctx context.Context, id string) (domainrole.Role, error) {
 	return domainrole.Role{}, errors.New("not implemented")
 }
-func (m *roleRepoMock) GetByName(name string) (domainrole.Role, error) {
+func (m *roleRepoMock) GetByName(ctx context.Context, name string) (domainrole.Role, error) {
 	role, ok := m.roles[name]
 	if !ok {
 		return domainrole.Role{}, errors.New("not found")
 	}
 	return role, nil
 }
-func (m *roleRepoMock) GetAll(params filter.BaseParams) ([]domainrole.Role, int64, error) {
+func (m *roleRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainrole.Role, int64, error) {
 	return nil, 0, nil
 }
-func (m *roleRepoMock) Update(data domainrole.Role) error { return nil }
-func (m *roleRepoMock) Delete(id string) error            { return nil }
-func (m *roleRepoMock) AssignPermissions(roleId string, permissionIds []string) error {
+func (m *roleRepoMock) Update(ctx context.Context, data domainrole.Role) error { return nil }
+func (m *roleRepoMock) Delete(ctx context.Context, id string) error            { return nil }
+func (m *roleRepoMock) AssignPermissions(ctx context.Context, roleId string, permissionIds []string) error {
 	return nil
 }
-func (m *roleRepoMock) RemovePermissions(roleId string, permissionIds []string) error {
+func (m *roleRepoMock) RemovePermissions(ctx context.Context, roleId string, permissionIds []string) error {
 	return nil
 }
-func (m *roleRepoMock) GetRolePermissions(roleId string) ([]string, error) { return nil, nil }
+func (m *roleRepoMock) GetRolePermissions(ctx context.Context, roleId string) ([]string, error) {
+	return nil, nil
+}
 
 type permissionRepoMock struct {
 	userPermissions []domainpermission.Permission
@@ -112,35 +114,41 @@ type permissionRepoMock struct {
 	}
 }
 
-func (m *permissionRepoMock) Store(data domainpermission.Permission) error { return nil }
-func (m *permissionRepoMock) GetByID(id string) (domainpermission.Permission, error) {
+func (m *permissionRepoMock) Store(ctx context.Context, data domainpermission.Permission) error {
+	return nil
+}
+func (m *permissionRepoMock) GetByID(ctx context.Context, id string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, errors.New("not implemented")
 }
-func (m *permissionRepoMock) GetByName(name string) (domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetByName(ctx context.Context, name string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, errors.New("not implemented")
 }
-func (m *permissionRepoMock) GetAll(params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
+func (m *permissionRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
 	return nil, 0, nil
 }
-func (m *permissionRepoMock) Update(data domainpermission.Permission) error { return nil }
-func (m *permissionRepoMock) Delete(id string) error                        { return nil }
-func (m *permissionRepoMock) GetByResource(resource string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) Update(ctx context.Context, data domainpermission.Permission) error {
+	return nil
+}
+func (m *permissionRepoMock) Delete(ctx context.Context, id string) error { return nil }
+func (m *permissionRepoMock) GetByResource(ctx context.Context, resource string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionRepoMock) GetUserPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetUserPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	return append([]domainpermission.Permission{}, m.userPermissions...), nil
 }
-func (m *permissionRepoMock) GetUserDirectPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetUserDirectPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionRepoMock) SetUserPermissions(userId string, permissionIDs []string) error {
+func (m *permissionRepoMock) SetUserPermissions(ctx context.Context, userId string, permissionIDs []string) error {
 	m.setCalls = append(m.setCalls, struct {
 		userID        string
 		permissionIDs []string
 	}{userID: userId, permissionIDs: append([]string{}, permissionIDs...)})
 	return nil
 }
-func (m *permissionRepoMock) ListUserPermissionIDs(userId string) ([]string, error) { return nil, nil }
+func (m *permissionRepoMock) ListUserPermissionIDs(ctx context.Context, userId string) ([]string, error) {
+	return nil, nil
+}
 
 func TestRegisterUserDefaultsToDealerAndSanitizesFields(t *testing.T) {
 	service := &ServiceUser{
@@ -152,7 +160,7 @@ func TestRegisterUserDefaultsToDealerAndSanitizesFields(t *testing.T) {
 		PermissionRepo: &permissionRepoMock{},
 	}
 
-	user, err := service.RegisterUser(dto.UserRegister{
+	user, err := service.RegisterUser(context.Background(), dto.UserRegister{
 		Name:     "jane doe",
 		Email:    " Jane.Doe@Example.COM ",
 		Phone:    "0812-3456-789",

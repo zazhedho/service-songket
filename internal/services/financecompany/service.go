@@ -1,6 +1,7 @@
 package servicefinancecompany
 
 import (
+	"context"
 	"strings"
 
 	domainfinancecompany "service-songket/internal/domain/financecompany"
@@ -19,11 +20,11 @@ func NewFinanceCompanyService(repo interfacefinancecompany.RepoFinanceCompanyInt
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domainfinancecompany.FinanceCompany, int64, error) {
-	return s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domainfinancecompany.FinanceCompany, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
-func (s *Service) Create(req dto.FinanceCompanyRequest) (domainfinancecompany.FinanceCompany, error) {
+func (s *Service) Create(ctx context.Context, req dto.FinanceCompanyRequest) (domainfinancecompany.FinanceCompany, error) {
 	fc := domainfinancecompany.FinanceCompany{
 		Id:       utils.CreateUUID(),
 		Name:     strings.TrimSpace(req.Name),
@@ -34,19 +35,19 @@ func (s *Service) Create(req dto.FinanceCompanyRequest) (domainfinancecompany.Fi
 		Address:  strings.TrimSpace(req.Address),
 		Phone:    strings.TrimSpace(req.Phone),
 	}
-	if err := s.repo.Store(fc); err != nil {
+	if err := s.repo.Store(ctx, fc); err != nil {
 		return domainfinancecompany.FinanceCompany{}, err
 	}
 	return fc, nil
 }
 
-func (s *Service) Update(id string, req dto.FinanceCompanyRequest) (domainfinancecompany.FinanceCompany, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.FinanceCompanyRequest) (domainfinancecompany.FinanceCompany, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domainfinancecompany.FinanceCompany{}, err
 	}
 
-	fc, err := s.repo.GetByID(normalizedID)
+	fc, err := s.repo.GetByID(ctx, normalizedID)
 	if err != nil {
 		return domainfinancecompany.FinanceCompany{}, err
 	}
@@ -59,12 +60,12 @@ func (s *Service) Update(id string, req dto.FinanceCompanyRequest) (domainfinanc
 	fc.Address = strings.TrimSpace(req.Address)
 	fc.Phone = strings.TrimSpace(req.Phone)
 
-	if err := s.repo.Update(fc); err != nil {
+	if err := s.repo.Update(ctx, fc); err != nil {
 		return domainfinancecompany.FinanceCompany{}, err
 	}
 	return fc, nil
 }
 
-func (s *Service) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *Service) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }

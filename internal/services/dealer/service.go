@@ -1,6 +1,7 @@
 package servicedealer
 
 import (
+	"context"
 	"strings"
 
 	domaindealer "service-songket/internal/domain/dealer"
@@ -19,11 +20,11 @@ func NewDealerService(repo interfacedealer.RepoDealerInterface) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domaindealer.Dealer, int64, error) {
-	return s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domaindealer.Dealer, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
-func (s *Service) Create(req dto.DealerRequest) (domaindealer.Dealer, error) {
+func (s *Service) Create(ctx context.Context, req dto.DealerRequest) (domaindealer.Dealer, error) {
 	dealer := domaindealer.Dealer{
 		Id:        utils.CreateUUID(),
 		Name:      strings.TrimSpace(req.Name),
@@ -36,19 +37,19 @@ func (s *Service) Create(req dto.DealerRequest) (domaindealer.Dealer, error) {
 		Latitude:  req.Latitude,
 		Longitude: req.Longitude,
 	}
-	if err := s.repo.Store(dealer); err != nil {
+	if err := s.repo.Store(ctx, dealer); err != nil {
 		return domaindealer.Dealer{}, err
 	}
 	return dealer, nil
 }
 
-func (s *Service) Update(id string, req dto.DealerRequest) (domaindealer.Dealer, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.DealerRequest) (domaindealer.Dealer, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domaindealer.Dealer{}, err
 	}
 
-	dealer, err := s.repo.GetByID(normalizedID)
+	dealer, err := s.repo.GetByID(ctx, normalizedID)
 	if err != nil {
 		return domaindealer.Dealer{}, err
 	}
@@ -63,12 +64,12 @@ func (s *Service) Update(id string, req dto.DealerRequest) (domaindealer.Dealer,
 	dealer.Latitude = req.Latitude
 	dealer.Longitude = req.Longitude
 
-	if err := s.repo.Update(dealer); err != nil {
+	if err := s.repo.Update(ctx, dealer); err != nil {
 		return domaindealer.Dealer{}, err
 	}
 	return dealer, nil
 }
 
-func (s *Service) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *Service) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }

@@ -1,6 +1,7 @@
 package repositorymotor
 
 import (
+	"context"
 	"strings"
 
 	domaininstallment "service-songket/internal/domain/installment"
@@ -21,8 +22,8 @@ func NewMotorRepo(db *gorm.DB) interfacemotor.RepoMotorInterface {
 	return &repo{GenericRepository: repositorygeneric.New[domainmotor.MotorType](db)}
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domainmotor.MotorType, int64, error) {
-	return r.GenericRepository.GetAll(params, repositorygeneric.QueryOptions{
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainmotor.MotorType, int64, error) {
+	return r.GenericRepository.GetAll(ctx, params, repositorygeneric.QueryOptions{
 		Search: repositorygeneric.BuildSearchFunc(
 			"name",
 			"brand",
@@ -50,9 +51,9 @@ func (r *repo) GetAll(params filter.BaseParams) ([]domainmotor.MotorType, int64,
 	})
 }
 
-func (r *repo) GetByUniqueKey(name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error) {
+func (r *repo) GetByUniqueKey(ctx context.Context, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error) {
 	var ret domainmotor.MotorType
-	err := r.DB.
+	err := r.DB.WithContext(ctx).
 		Where(
 			"LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?",
 			strings.TrimSpace(name),
@@ -66,9 +67,9 @@ func (r *repo) GetByUniqueKey(name, brand, model, variantType, provinceCode, reg
 	return ret, err
 }
 
-func (r *repo) GetDuplicateForUpdate(id, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error) {
+func (r *repo) GetDuplicateForUpdate(ctx context.Context, id, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error) {
 	var ret domainmotor.MotorType
-	err := r.DB.
+	err := r.DB.WithContext(ctx).
 		Where(
 			"id <> ? AND LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?",
 			id,
@@ -83,14 +84,14 @@ func (r *repo) GetDuplicateForUpdate(id, name, brand, model, variantType, provin
 	return ret, err
 }
 
-func (r *repo) CountOrdersByMotorType(id string) (int64, error) {
+func (r *repo) CountOrdersByMotorType(ctx context.Context, id string) (int64, error) {
 	var count int64
-	err := r.DB.Model(&domainorder.Order{}).Where("motor_type_id = ?", id).Count(&count).Error
+	err := r.DB.WithContext(ctx).Model(&domainorder.Order{}).Where("motor_type_id = ?", id).Count(&count).Error
 	return count, err
 }
 
-func (r *repo) CountInstallmentsByMotorType(id string) (int64, error) {
+func (r *repo) CountInstallmentsByMotorType(ctx context.Context, id string) (int64, error) {
 	var count int64
-	err := r.DB.Model(&domaininstallment.Installment{}).Where("motor_type_id = ?", id).Count(&count).Error
+	err := r.DB.WithContext(ctx).Model(&domaininstallment.Installment{}).Where("motor_type_id = ?", id).Count(&count).Error
 	return count, err
 }

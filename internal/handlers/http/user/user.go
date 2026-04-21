@@ -54,7 +54,8 @@ func (h *HandlerUser) Register(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.RegisterUser(req)
+	reqCtx := ctx.Request.Context()
+	data, err := h.Service.RegisterUser(reqCtx, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.RegisterUser; Error: %+v", logPrefix, err))
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -138,7 +139,8 @@ func (h *HandlerUser) Login(ctx *gin.Context) {
 		}
 	}
 
-	token, err := h.Service.LoginUser(req, logId.String())
+	reqCtx := ctx.Request.Context()
+	token, err := h.Service.LoginUser(reqCtx, req, logId.String())
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.LoginUser; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) || err.Error() == messages.ErrHashPassword {
@@ -174,7 +176,7 @@ func (h *HandlerUser) Login(ctx *gin.Context) {
 
 	// Create session if Redis is available
 	if redisClient := database.GetRedisClient(); redisClient != nil {
-		user, errUser := h.Service.GetUserByEmail(req.Email)
+		user, errUser := h.Service.GetUserByEmail(reqCtx, req.Email)
 		if errUser == nil {
 			sRepo := sessionRepo.NewSessionRepository(redisClient)
 			sSvc := sessionSvc.NewSessionService(sRepo)
@@ -234,7 +236,7 @@ func (h *HandlerUser) Logout(ctx *gin.Context) {
 		}
 	}
 
-	if err := h.Service.LogoutUser(token.(string)); err != nil {
+	if err := h.Service.LogoutUser(ctx.Request.Context(), token.(string)); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.LogoutUser; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -256,7 +258,7 @@ func (h *HandlerUser) GetUserById(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.GetUserById(id)
+	data, err := h.Service.GetUserById(ctx.Request.Context(), id)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetUserByID; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -283,7 +285,7 @@ func (h *HandlerUser) GetUserByAuth(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][GetUserByAuth]"
 
-	data, err := h.Service.GetUserByAuth(userId)
+	data, err := h.Service.GetUserByAuth(ctx.Request.Context(), userId)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetUserByAuth; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -421,7 +423,7 @@ func (h *HandlerUser) ChangePassword(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.ChangePassword(userId, req)
+	data, err := h.Service.ChangePassword(ctx.Request.Context(), userId, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.ChangePassword; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -462,7 +464,7 @@ func (h *HandlerUser) ForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	token, err := h.Service.ForgotPassword(req)
+	token, err := h.Service.ForgotPassword(ctx.Request.Context(), req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.ForgotPassword; ERROR: %s;", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
@@ -490,7 +492,7 @@ func (h *HandlerUser) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.ResetPassword(req); err != nil {
+	if err := h.Service.ResetPassword(ctx.Request.Context(), req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.ResetPassword; ERROR: %s;", logPrefix, err))
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -508,7 +510,7 @@ func (h *HandlerUser) Delete(ctx *gin.Context) {
 	authData := utils.GetAuthData(ctx)
 	userId := utils.InterfaceString(authData["user_id"])
 
-	if err := h.Service.Delete(userId); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), userId); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logId, nil)
@@ -537,7 +539,7 @@ func (h *HandlerUser) DeleteUserById(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.Delete(id); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logId, nil)

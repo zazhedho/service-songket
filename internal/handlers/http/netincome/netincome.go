@@ -23,6 +23,7 @@ func NewNetIncomeHandler(service interfacenetincome.ServiceNetIncomeInterface) *
 
 func (h *NetIncomeHandler) GetAll(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	params, err := filter.GetBaseParams(ctx, "created_at", "desc", 20)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -33,7 +34,7 @@ func (h *NetIncomeHandler) GetAll(ctx *gin.Context) {
 
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"job_id"})
 
-	data, total, err := h.Service.List(params)
+	data, total, err := h.Service.List(reqCtx, params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -47,6 +48,7 @@ func (h *NetIncomeHandler) GetAll(ctx *gin.Context) {
 
 func (h *NetIncomeHandler) GetByID(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	id := ctx.Param("id")
 	if id == "" {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -55,7 +57,7 @@ func (h *NetIncomeHandler) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.GetByID(id)
+	data, err := h.Service.GetByID(reqCtx, id)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -69,6 +71,7 @@ func (h *NetIncomeHandler) GetByID(ctx *gin.Context) {
 
 func (h *NetIncomeHandler) Create(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	var req dto.NetIncomeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -77,7 +80,7 @@ func (h *NetIncomeHandler) Create(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Create(req)
+	data, err := h.Service.Create(reqCtx, req)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -91,6 +94,7 @@ func (h *NetIncomeHandler) Create(ctx *gin.Context) {
 
 func (h *NetIncomeHandler) Update(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	id, err := utils.ValidateUUID(ctx, logId)
 	if err != nil {
 		return
@@ -104,7 +108,7 @@ func (h *NetIncomeHandler) Update(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Update(id, req)
+	data, err := h.Service.Update(reqCtx, id, req)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -118,6 +122,7 @@ func (h *NetIncomeHandler) Update(ctx *gin.Context) {
 
 func (h *NetIncomeHandler) Delete(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	id := ctx.Param("id")
 	if id == "" {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -126,7 +131,7 @@ func (h *NetIncomeHandler) Delete(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.Delete(id); err != nil {
+	if err := h.Service.Delete(reqCtx, id); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusBadRequest, res)

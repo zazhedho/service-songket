@@ -5,9 +5,57 @@ import (
 	"service-songket/internal/authscope"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
+	interfaceorder "service-songket/internal/interfaces/order"
+	"service-songket/pkg/filter"
 	"testing"
 	"time"
 )
+
+type exportRepoStub struct{}
+
+func (exportRepoStub) GetByID(id string) (domainorder.Order, error) {
+	return domainorder.Order{}, nil
+}
+
+func (exportRepoStub) GetByIDWithAttempts(id string) (domainorder.Order, error) {
+	return domainorder.Order{}, nil
+}
+
+func (exportRepoStub) GetAll(ctx context.Context, params filter.BaseParams) ([]domainorder.Order, int64, error) {
+	return nil, 0, nil
+}
+
+func (exportRepoStub) ListForExport(ctx context.Context, req dto.OrderExportRequest) ([]domainorder.Order, error) {
+	return []domainorder.Order{}, nil
+}
+
+func (exportRepoStub) ListDashboardSummaryRows(ctx context.Context, req dto.DashboardSummaryQuery) ([]domainorder.DashboardSummaryRow, error) {
+	return nil, nil
+}
+
+func (exportRepoStub) ListDashboardFinanceDecisionDailyRows(ctx context.Context, req dto.DashboardSummaryQuery) ([]domainorder.DashboardFinanceDecisionDailyRow, error) {
+	return nil, nil
+}
+
+func (exportRepoStub) ListDashboardFinanceDecisionByCompanyRows(ctx context.Context, req dto.DashboardSummaryQuery) ([]domainorder.DashboardFinanceDecisionByCompanyRow, error) {
+	return nil, nil
+}
+
+func (exportRepoStub) CountDashboardOrders(ctx context.Context, req dto.DashboardSummaryQuery) (int64, error) {
+	return 0, nil
+}
+
+func (exportRepoStub) GetDashboardDecisionTotals(ctx context.Context, req dto.DashboardSummaryQuery) (domainorder.DashboardDecisionTotals, error) {
+	return domainorder.DashboardDecisionTotals{}, nil
+}
+
+func (exportRepoStub) Delete(id string) error {
+	return nil
+}
+
+func (exportRepoStub) Transaction(fn func(tx interfaceorder.RepoOrderTxInterface) error) error {
+	return nil
+}
 
 func TestValidateOrderExportRequestRejectsInvalidDateRange(t *testing.T) {
 	err := validateOrderExportRequest(dto.OrderExportRequest{
@@ -63,7 +111,7 @@ func TestCanAccessOrderExportAllowsSuperadminBypass(t *testing.T) {
 }
 
 func TestStartExportUsesScopeUserForDataAndOwnerForJob(t *testing.T) {
-	service := &Service{}
+	service := &Service{repo: exportRepoStub{}}
 	job, err := service.StartExport(
 		authscope.WithContext(context.Background(), authscope.New("user-1", "dealer", []string{"orders:list", "orders:list_all"})),
 		dto.OrderExportRequest{FromDate: "2026-04-01", ToDate: "2026-04-10"},

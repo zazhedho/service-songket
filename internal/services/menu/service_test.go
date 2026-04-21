@@ -1,6 +1,7 @@
 package servicemenu
 
 import (
+	"context"
 	domainmenu "service-songket/internal/domain/menu"
 	domainpermission "service-songket/internal/domain/permission"
 	"service-songket/internal/dto"
@@ -12,22 +13,22 @@ type menuRepoMock struct {
 	activeMenus []domainmenu.MenuItem
 }
 
-func (m *menuRepoMock) Store(data domainmenu.MenuItem) error { return nil }
-func (m *menuRepoMock) GetByID(id string) (domainmenu.MenuItem, error) {
+func (m *menuRepoMock) Store(ctx context.Context, data domainmenu.MenuItem) error { return nil }
+func (m *menuRepoMock) GetByID(ctx context.Context, id string) (domainmenu.MenuItem, error) {
 	return domainmenu.MenuItem{}, nil
 }
-func (m *menuRepoMock) GetByName(name string) (domainmenu.MenuItem, error) {
+func (m *menuRepoMock) GetByName(ctx context.Context, name string) (domainmenu.MenuItem, error) {
 	return domainmenu.MenuItem{}, nil
 }
-func (m *menuRepoMock) GetAll(params filter.BaseParams) ([]domainmenu.MenuItem, int64, error) {
+func (m *menuRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainmenu.MenuItem, int64, error) {
 	return nil, 0, nil
 }
-func (m *menuRepoMock) Update(data domainmenu.MenuItem) error { return nil }
-func (m *menuRepoMock) Delete(id string) error                { return nil }
-func (m *menuRepoMock) GetActiveMenus() ([]domainmenu.MenuItem, error) {
+func (m *menuRepoMock) Update(ctx context.Context, data domainmenu.MenuItem) error { return nil }
+func (m *menuRepoMock) Delete(ctx context.Context, id string) error                { return nil }
+func (m *menuRepoMock) GetActiveMenus(ctx context.Context) ([]domainmenu.MenuItem, error) {
 	return append([]domainmenu.MenuItem{}, m.activeMenus...), nil
 }
-func (m *menuRepoMock) GetUserMenus(userId string) ([]domainmenu.MenuItem, error) {
+func (m *menuRepoMock) GetUserMenus(ctx context.Context, userId string) ([]domainmenu.MenuItem, error) {
 	return nil, nil
 }
 
@@ -36,32 +37,38 @@ type permissionRepoMock struct {
 	requestedUserID string
 }
 
-func (m *permissionRepoMock) Store(data domainpermission.Permission) error { return nil }
-func (m *permissionRepoMock) GetByID(id string) (domainpermission.Permission, error) {
+func (m *permissionRepoMock) Store(ctx context.Context, data domainpermission.Permission) error {
+	return nil
+}
+func (m *permissionRepoMock) GetByID(ctx context.Context, id string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, nil
 }
-func (m *permissionRepoMock) GetByName(name string) (domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetByName(ctx context.Context, name string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, nil
 }
-func (m *permissionRepoMock) GetAll(params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
+func (m *permissionRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
 	return nil, 0, nil
 }
-func (m *permissionRepoMock) Update(data domainpermission.Permission) error { return nil }
-func (m *permissionRepoMock) Delete(id string) error                        { return nil }
-func (m *permissionRepoMock) GetByResource(resource string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) Update(ctx context.Context, data domainpermission.Permission) error {
+	return nil
+}
+func (m *permissionRepoMock) Delete(ctx context.Context, id string) error { return nil }
+func (m *permissionRepoMock) GetByResource(ctx context.Context, resource string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionRepoMock) GetUserPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetUserPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	m.requestedUserID = userId
 	return append([]domainpermission.Permission{}, m.userPermissions...), nil
 }
-func (m *permissionRepoMock) GetUserDirectPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetUserDirectPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionRepoMock) SetUserPermissions(userId string, permissionIDs []string) error {
+func (m *permissionRepoMock) SetUserPermissions(ctx context.Context, userId string, permissionIDs []string) error {
 	return nil
 }
-func (m *permissionRepoMock) ListUserPermissionIDs(userId string) ([]string, error) { return nil, nil }
+func (m *permissionRepoMock) ListUserPermissionIDs(ctx context.Context, userId string) ([]string, error) {
+	return nil, nil
+}
 
 func TestGetUserMenusResolvesMenusFromPermissions(t *testing.T) {
 	parentID := "dashboard"
@@ -81,7 +88,7 @@ func TestGetUserMenusResolvesMenusFromPermissions(t *testing.T) {
 	}
 
 	service := NewMenuService(repoMenu, repoPermission)
-	menus, err := service.GetUserMenus("user-1")
+	menus, err := service.GetUserMenus(context.Background(), "user-1")
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -113,7 +120,7 @@ func TestNormalizeOptionalParentIDAcceptsEmptyString(t *testing.T) {
 
 func TestMenuServiceUpdateRejectsInvalidParentID(t *testing.T) {
 	service := NewMenuService(&menuRepoMock{}, &permissionRepoMock{})
-	_, err := service.Update("menu-1", dto.MenuUpdate{ParentId: ptr("not-a-uuid")})
+	_, err := service.Update(context.Background(), "menu-1", dto.MenuUpdate{ParentId: ptr("not-a-uuid")})
 	if err == nil || err.Error() != "parent_id must be a valid UUID" {
 		t.Fatalf("expected invalid parent_id error, got %v", err)
 	}

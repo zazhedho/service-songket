@@ -1,6 +1,7 @@
 package repositoryinstallment
 
 import (
+	"context"
 	domaininstallment "service-songket/internal/domain/installment"
 	interfaceinstallment "service-songket/internal/interfaces/installment"
 	repositorygeneric "service-songket/internal/repositories/generic"
@@ -17,8 +18,8 @@ func NewInstallmentRepo(db *gorm.DB) interfaceinstallment.RepoInstallmentInterfa
 	return &repo{GenericRepository: repositorygeneric.New[domaininstallment.Installment](db)}
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domaininstallment.Installment, int64, error) {
-	query := r.DB.Model(&domaininstallment.Installment{}).
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domaininstallment.Installment, int64, error) {
+	query := r.DB.WithContext(ctx).Model(&domaininstallment.Installment{}).
 		Joins("LEFT JOIN motor_types ON motor_types.id = installments.motor_type_id")
 
 	if v, ok := params.Filters["motor_type_id"]; ok {
@@ -58,18 +59,18 @@ func (r *repo) GetAll(params filter.BaseParams) ([]domaininstallment.Installment
 	return rows, total, nil
 }
 
-func (r *repo) GetByMotorTypeID(motorTypeID string) (domaininstallment.Installment, error) {
-	return r.GetOneByField("motor_type_id", motorTypeID)
+func (r *repo) GetByMotorTypeID(ctx context.Context, motorTypeID string) (domaininstallment.Installment, error) {
+	return r.GetOneByField(ctx, "motor_type_id", motorTypeID)
 }
 
-func (r *repo) GetDuplicateForUpdate(id, motorTypeID string) (domaininstallment.Installment, error) {
+func (r *repo) GetDuplicateForUpdate(ctx context.Context, id, motorTypeID string) (domaininstallment.Installment, error) {
 	var ret domaininstallment.Installment
-	err := r.DB.Where("id <> ? AND motor_type_id = ?", id, motorTypeID).First(&ret).Error
+	err := r.DB.WithContext(ctx).Where("id <> ? AND motor_type_id = ?", id, motorTypeID).First(&ret).Error
 	return ret, err
 }
 
-func (r *repo) GetByIDWithMotorType(id string) (domaininstallment.Installment, error) {
+func (r *repo) GetByIDWithMotorType(ctx context.Context, id string) (domaininstallment.Installment, error) {
 	var ret domaininstallment.Installment
-	err := r.DB.Preload("MotorType").Where("id = ?", id).First(&ret).Error
+	err := r.DB.WithContext(ctx).Preload("MotorType").Where("id = ?", id).First(&ret).Error
 	return ret, err
 }

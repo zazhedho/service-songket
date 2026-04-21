@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,8 +16,8 @@ import (
 
 type authRepoMock struct{}
 
-func (m *authRepoMock) Store(data domainauth.Blacklist) error { return nil }
-func (m *authRepoMock) GetByToken(token string) (domainauth.Blacklist, error) {
+func (m *authRepoMock) Store(ctx context.Context, data domainauth.Blacklist) error { return nil }
+func (m *authRepoMock) GetByToken(ctx context.Context, token string) (domainauth.Blacklist, error) {
 	return domainauth.Blacklist{}, nil
 }
 
@@ -26,35 +27,41 @@ type permissionRepoMock struct {
 	requestedUserID string
 }
 
-func (m *permissionRepoMock) Store(data domainpermission.Permission) error { return nil }
-func (m *permissionRepoMock) GetByID(id string) (domainpermission.Permission, error) {
+func (m *permissionRepoMock) Store(ctx context.Context, data domainpermission.Permission) error {
+	return nil
+}
+func (m *permissionRepoMock) GetByID(ctx context.Context, id string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, errors.New("not implemented")
 }
-func (m *permissionRepoMock) GetByName(name string) (domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetByName(ctx context.Context, name string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, errors.New("not implemented")
 }
-func (m *permissionRepoMock) GetAll(params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
+func (m *permissionRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
 	return nil, 0, nil
 }
-func (m *permissionRepoMock) Update(data domainpermission.Permission) error { return nil }
-func (m *permissionRepoMock) Delete(id string) error                        { return nil }
-func (m *permissionRepoMock) GetByResource(resource string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) Update(ctx context.Context, data domainpermission.Permission) error {
+	return nil
+}
+func (m *permissionRepoMock) Delete(ctx context.Context, id string) error { return nil }
+func (m *permissionRepoMock) GetByResource(ctx context.Context, resource string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionRepoMock) GetUserPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetUserPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	m.requestedUserID = userId
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
 	return append([]domainpermission.Permission{}, m.userPermissions...), nil
 }
-func (m *permissionRepoMock) GetUserDirectPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionRepoMock) GetUserDirectPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionRepoMock) SetUserPermissions(userId string, permissionIDs []string) error {
+func (m *permissionRepoMock) SetUserPermissions(ctx context.Context, userId string, permissionIDs []string) error {
 	return nil
 }
-func (m *permissionRepoMock) ListUserPermissionIDs(userId string) ([]string, error) { return nil, nil }
+func (m *permissionRepoMock) ListUserPermissionIDs(ctx context.Context, userId string) ([]string, error) {
+	return nil, nil
+}
 
 func withAuthData(data map[string]interface{}) gin.HandlerFunc {
 	return func(ctx *gin.Context) {

@@ -1,6 +1,7 @@
 package servicenetincome
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,8 +23,8 @@ func NewNetIncomeService(repo interfacenetincome.RepoNetIncomeInterface, jobRepo
 	return &Service{repo: repo, jobRepo: jobRepo}
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domainnetincome.NetIncomeItem, int64, error) {
-	rows, total, err := s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domainnetincome.NetIncomeItem, int64, error) {
+	rows, total, err := s.repo.GetAll(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -46,8 +47,8 @@ func (s *Service) List(params filter.BaseParams) ([]domainnetincome.NetIncomeIte
 	return items, total, nil
 }
 
-func (s *Service) GetByID(id string) (domainnetincome.NetIncomeItem, error) {
-	row, err := s.repo.GetByID(id)
+func (s *Service) GetByID(ctx context.Context, id string) (domainnetincome.NetIncomeItem, error) {
+	row, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, err
 	}
@@ -66,7 +67,7 @@ func (s *Service) GetByID(id string) (domainnetincome.NetIncomeItem, error) {
 	}, nil
 }
 
-func (s *Service) Create(req dto.NetIncomeRequest) (domainnetincome.NetIncomeItem, error) {
+func (s *Service) Create(ctx context.Context, req dto.NetIncomeRequest) (domainnetincome.NetIncomeItem, error) {
 	if req.NetIncome < 0 {
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("net_income must be greater than or equal to 0")
 	}
@@ -76,7 +77,7 @@ func (s *Service) Create(req dto.NetIncomeRequest) (domainnetincome.NetIncomeIte
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one valid province and regency")
 	}
 
-	job, err := s.jobRepo.GetByID(req.JobID)
+	job, err := s.jobRepo.GetByID(ctx, req.JobID)
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("job not found")
 	}
@@ -87,7 +88,7 @@ func (s *Service) Create(req dto.NetIncomeRequest) (domainnetincome.NetIncomeIte
 		NetIncome:     req.NetIncome,
 		AreaNetIncome: sharedsvc.EncodeAreaNetIncome(areas),
 	}
-	if err := s.repo.Store(row); err != nil {
+	if err := s.repo.Store(ctx, row); err != nil {
 		return domainnetincome.NetIncomeItem{}, err
 	}
 
@@ -102,7 +103,7 @@ func (s *Service) Create(req dto.NetIncomeRequest) (domainnetincome.NetIncomeIte
 	}, nil
 }
 
-func (s *Service) Update(id string, req dto.NetIncomeRequest) (domainnetincome.NetIncomeItem, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.NetIncomeRequest) (domainnetincome.NetIncomeItem, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, err
@@ -113,7 +114,7 @@ func (s *Service) Update(id string, req dto.NetIncomeRequest) (domainnetincome.N
 		return domainnetincome.NetIncomeItem{}, err
 	}
 
-	row, err := s.repo.GetByID(normalizedID)
+	row, err := s.repo.GetByID(ctx, normalizedID)
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, err
 	}
@@ -127,7 +128,7 @@ func (s *Service) Update(id string, req dto.NetIncomeRequest) (domainnetincome.N
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("area_net_income must contain at least one valid province and regency")
 	}
 
-	job, err := s.jobRepo.GetByID(normalizedJobID)
+	job, err := s.jobRepo.GetByID(ctx, normalizedJobID)
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("job not found")
 	}
@@ -135,7 +136,7 @@ func (s *Service) Update(id string, req dto.NetIncomeRequest) (domainnetincome.N
 	row.JobID = normalizedJobID
 	row.NetIncome = req.NetIncome
 	row.AreaNetIncome = sharedsvc.EncodeAreaNetIncome(areas)
-	if err := s.repo.Update(row); err != nil {
+	if err := s.repo.Update(ctx, row); err != nil {
 		return domainnetincome.NetIncomeItem{}, err
 	}
 
@@ -150,6 +151,6 @@ func (s *Service) Update(id string, req dto.NetIncomeRequest) (domainnetincome.N
 	}, nil
 }
 
-func (s *Service) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *Service) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }

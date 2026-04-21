@@ -38,8 +38,8 @@ func NewRoleService(
 	}
 }
 
-func (s *RoleService) Create(req dto.RoleCreate) (domainrole.Role, error) {
-	existing, _ := s.RoleRepo.GetByName(req.Name)
+func (s *RoleService) Create(ctx context.Context, req dto.RoleCreate) (domainrole.Role, error) {
+	existing, _ := s.RoleRepo.GetByName(ctx, req.Name)
 	if existing.Id != "" {
 		return domainrole.Role{}, errors.New("role with this name already exists")
 	}
@@ -53,29 +53,29 @@ func (s *RoleService) Create(req dto.RoleCreate) (domainrole.Role, error) {
 		CreatedAt:   time.Now(),
 	}
 
-	if err := s.RoleRepo.Store(data); err != nil {
+	if err := s.RoleRepo.Store(ctx, data); err != nil {
 		return domainrole.Role{}, err
 	}
 
 	return data, nil
 }
 
-func (s *RoleService) GetByID(id string) (domainrole.Role, error) {
-	return s.RoleRepo.GetByID(id)
+func (s *RoleService) GetByID(ctx context.Context, id string) (domainrole.Role, error) {
+	return s.RoleRepo.GetByID(ctx, id)
 }
 
-func (s *RoleService) GetByIDWithDetails(id string) (dto.RoleWithDetails, error) {
-	role, err := s.RoleRepo.GetByID(id)
+func (s *RoleService) GetByIDWithDetails(ctx context.Context, id string) (dto.RoleWithDetails, error) {
+	role, err := s.RoleRepo.GetByID(ctx, id)
 	if err != nil {
 		return dto.RoleWithDetails{}, err
 	}
 
-	permissionIds, err := s.RoleRepo.GetRolePermissions(id)
+	permissionIds, err := s.RoleRepo.GetRolePermissions(ctx, id)
 	if err != nil {
 		return dto.RoleWithDetails{}, err
 	}
 
-	menuIds, err := s.deriveMenuIDsFromPermissions(permissionIds)
+	menuIds, err := s.deriveMenuIDsFromPermissions(ctx, permissionIds)
 	if err != nil {
 		return dto.RoleWithDetails{}, err
 	}
@@ -99,7 +99,7 @@ func (s *RoleService) GetByIDWithDetails(id string) (dto.RoleWithDetails, error)
 }
 
 func (s *RoleService) GetAll(ctx context.Context, params filter.BaseParams) ([]domainrole.Role, int64, error) {
-	roles, total, err := s.RoleRepo.GetAll(params)
+	roles, total, err := s.RoleRepo.GetAll(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -119,8 +119,8 @@ func (s *RoleService) GetAll(ctx context.Context, params filter.BaseParams) ([]d
 	return roles, total, nil
 }
 
-func (s *RoleService) Update(id string, req dto.RoleUpdate) (domainrole.Role, error) {
-	role, err := s.RoleRepo.GetByID(id)
+func (s *RoleService) Update(ctx context.Context, id string, req dto.RoleUpdate) (domainrole.Role, error) {
+	role, err := s.RoleRepo.GetByID(ctx, id)
 	if err != nil {
 		return domainrole.Role{}, err
 	}
@@ -136,15 +136,15 @@ func (s *RoleService) Update(id string, req dto.RoleUpdate) (domainrole.Role, er
 	now := time.Now()
 	role.UpdatedAt = &now
 
-	if err := s.RoleRepo.Update(role); err != nil {
+	if err := s.RoleRepo.Update(ctx, role); err != nil {
 		return domainrole.Role{}, err
 	}
 
 	return role, nil
 }
 
-func (s *RoleService) Delete(id string) error {
-	role, err := s.RoleRepo.GetByID(id)
+func (s *RoleService) Delete(ctx context.Context, id string) error {
+	role, err := s.RoleRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (s *RoleService) Delete(id string) error {
 		return errors.New("cannot delete system roles")
 	}
 
-	return s.RoleRepo.Delete(id)
+	return s.RoleRepo.Delete(ctx, id)
 }
 
 func (s *RoleService) AssignPermissions(ctx context.Context, roleId string, req dto.AssignPermissions) error {
@@ -167,7 +167,7 @@ func (s *RoleService) AssignPermissions(ctx context.Context, roleId string, req 
 		return err
 	}
 
-	role, err := s.RoleRepo.GetByID(roleId)
+	role, err := s.RoleRepo.GetByID(ctx, roleId)
 	if err != nil {
 		return err
 	}
@@ -182,12 +182,12 @@ func (s *RoleService) AssignPermissions(ctx context.Context, roleId string, req 
 	}
 
 	for _, permId := range permissionIDs {
-		if _, err := s.PermissionRepo.GetByID(permId); err != nil {
+		if _, err := s.PermissionRepo.GetByID(ctx, permId); err != nil {
 			return errors.New("invalid permission ID: " + permId)
 		}
 	}
 
-	return s.RoleRepo.AssignPermissions(roleId, permissionIDs)
+	return s.RoleRepo.AssignPermissions(ctx, roleId, permissionIDs)
 }
 
 func sanitizeUUIDList(fieldName string, values []string) ([]string, error) {
@@ -218,15 +218,15 @@ func sanitizeUUIDList(fieldName string, values []string) ([]string, error) {
 	return out, nil
 }
 
-func (s *RoleService) GetRolePermissions(roleId string) ([]string, error) {
-	return s.RoleRepo.GetRolePermissions(roleId)
+func (s *RoleService) GetRolePermissions(ctx context.Context, roleId string) ([]string, error) {
+	return s.RoleRepo.GetRolePermissions(ctx, roleId)
 }
 
-func (s *RoleService) deriveMenuIDsFromPermissions(permissionIds []string) ([]string, error) {
+func (s *RoleService) deriveMenuIDsFromPermissions(ctx context.Context, permissionIds []string) ([]string, error) {
 	resources := make([]string, 0, len(permissionIds))
 
 	for _, permissionId := range permissionIds {
-		permission, err := s.PermissionRepo.GetByID(permissionId)
+		permission, err := s.PermissionRepo.GetByID(ctx, permissionId)
 		if err != nil {
 			return nil, err
 		}
@@ -236,7 +236,7 @@ func (s *RoleService) deriveMenuIDsFromPermissions(permissionIds []string) ([]st
 		resources = append(resources, permission.Resource)
 	}
 
-	activeMenus, err := s.MenuRepo.GetActiveMenus()
+	activeMenus, err := s.MenuRepo.GetActiveMenus(ctx)
 	if err != nil {
 		return nil, err
 	}

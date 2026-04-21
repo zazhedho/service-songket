@@ -25,6 +25,7 @@ func NewQuadrantHandler(service interfacequadrant.ServiceQuadrantInterface) *Qua
 
 func (h *QuadrantHandler) Summary(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	year := 0
 	month := 0
 
@@ -55,7 +56,7 @@ func (h *QuadrantHandler) Summary(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Summary(year, month)
+	data, err := h.Service.Summary(reqCtx, year, month)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -69,6 +70,7 @@ func (h *QuadrantHandler) Summary(ctx *gin.Context) {
 
 func (h *QuadrantHandler) Recompute(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	var req dto.QuadrantComputeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -77,7 +79,7 @@ func (h *QuadrantHandler) Recompute(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Recompute(req)
+	data, err := h.Service.Recompute(reqCtx, req)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -91,6 +93,7 @@ func (h *QuadrantHandler) Recompute(ctx *gin.Context) {
 
 func (h *QuadrantHandler) GetAll(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	params, err := filter.GetBaseParams(ctx, "computed_at", "desc", 20)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -101,7 +104,7 @@ func (h *QuadrantHandler) GetAll(ctx *gin.Context) {
 
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"job_id", "regency", "quadrant", "credit_score"})
 
-	data, total, err := h.Service.List(params)
+	data, total, err := h.Service.List(reqCtx, params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()

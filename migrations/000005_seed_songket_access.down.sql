@@ -72,6 +72,7 @@ WHERE name IN (
     'view_business_metrics',
     'view_metrics_all_business',
     'list_credit',
+    'list_all_credit',
     'upsert_credit',
     'list_quadrants',
     'recompute_quadrants',

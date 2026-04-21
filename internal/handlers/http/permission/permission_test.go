@@ -1,6 +1,7 @@
 package handlerpermission
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	domainpermission "service-songket/internal/domain/permission"
@@ -19,35 +20,35 @@ type permissionServiceMock struct {
 	getUserPermissionsErr    error
 }
 
-func (m *permissionServiceMock) Create(req dto.PermissionCreate) (domainpermission.Permission, error) {
+func (m *permissionServiceMock) Create(ctx context.Context, req dto.PermissionCreate) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, nil
 }
-func (m *permissionServiceMock) GetByID(id string) (domainpermission.Permission, error) {
+func (m *permissionServiceMock) GetByID(ctx context.Context, id string) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, nil
 }
-func (m *permissionServiceMock) GetAll(params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
+func (m *permissionServiceMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
 	return nil, 0, nil
 }
-func (m *permissionServiceMock) GetByResource(resource string) ([]domainpermission.Permission, error) {
+func (m *permissionServiceMock) GetByResource(ctx context.Context, resource string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionServiceMock) GetUserPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionServiceMock) GetUserPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	m.getUserPermissionsUserID = userId
 	return m.getUserPermissionsResp, m.getUserPermissionsErr
 }
-func (m *permissionServiceMock) GetUserDirectPermissions(userId string) ([]domainpermission.Permission, error) {
+func (m *permissionServiceMock) GetUserDirectPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
 	return nil, nil
 }
-func (m *permissionServiceMock) SetUserPermissions(userId string, permissionIDs []string) error {
+func (m *permissionServiceMock) SetUserPermissions(ctx context.Context, userId string, permissionIDs []string) error {
 	return nil
 }
-func (m *permissionServiceMock) ListUserPermissionIDs(userId string) ([]string, error) {
+func (m *permissionServiceMock) ListUserPermissionIDs(ctx context.Context, userId string) ([]string, error) {
 	return nil, nil
 }
-func (m *permissionServiceMock) Update(id string, req dto.PermissionUpdate) (domainpermission.Permission, error) {
+func (m *permissionServiceMock) Update(ctx context.Context, id string, req dto.PermissionUpdate) (domainpermission.Permission, error) {
 	return domainpermission.Permission{}, nil
 }
-func (m *permissionServiceMock) Delete(id string) error { return nil }
+func (m *permissionServiceMock) Delete(ctx context.Context, id string) error { return nil }
 
 var _ interfacepermission.ServicePermissionInterface = (*permissionServiceMock)(nil)
 

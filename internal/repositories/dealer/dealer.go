@@ -1,6 +1,7 @@
 package repositorydealer
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -27,8 +28,8 @@ func NewDealerRepo(db *gorm.DB) interfacedealer.RepoDealerInterface {
 	}
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domaindealer.Dealer, int64, error) {
-	query := r.DB.Model(&domaindealer.Dealer{})
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domaindealer.Dealer, int64, error) {
+	query := r.DB.WithContext(ctx).Model(&domaindealer.Dealer{})
 
 	if v, ok := params.Filters["province"]; ok {
 		provinces, _ := r.locationRepo.ListProvinceCache()

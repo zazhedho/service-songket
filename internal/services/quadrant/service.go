@@ -1,6 +1,7 @@
 package servicequadrant
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -24,11 +25,11 @@ func NewQuadrantService(repo interfacequadrant.RepoQuadrantInterface, creditServ
 	return &Service{repo: repo, creditService: creditService}
 }
 
-func (s *Service) Summary(selectedYear, selectedMonth int) ([]domainquadrant.QuadrantFlowSummary, error) {
+func (s *Service) Summary(ctx context.Context, selectedYear, selectedMonth int) ([]domainquadrant.QuadrantFlowSummary, error) {
 	const orderGrowthThresholdPct = 0.0
 	const creditThresholdPct = 35.0
 
-	orderRows, err := s.repo.ListMonthlyOrderAggregates()
+	orderRows, err := s.repo.ListMonthlyOrderAggregates(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +134,7 @@ func (s *Service) Summary(selectedYear, selectedMonth int) ([]domainquadrant.Qua
 		}
 	}
 
-	worksheetRaw, err := s.creditService.Worksheet("", "", "", "", "", "")
+	worksheetRaw, err := s.creditService.Worksheet(ctx, "", "", "", "", "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +258,7 @@ func (s *Service) Summary(selectedYear, selectedMonth int) ([]domainquadrant.Qua
 	return results, nil
 }
 
-func (s *Service) Recompute(req dto.QuadrantComputeRequest) ([]domainquadrant.QuadrantResult, error) {
+func (s *Service) Recompute(ctx context.Context, req dto.QuadrantComputeRequest) ([]domainquadrant.QuadrantResult, error) {
 	orderThreshold := req.OrderThreshold
 	scoreThreshold := req.ScoreThreshold
 
@@ -274,7 +275,7 @@ func (s *Service) Recompute(req dto.QuadrantComputeRequest) ([]domainquadrant.Qu
 		}
 	}
 
-	rows, err := s.repo.ListOrderCounts(fromTime, toTime)
+	rows, err := s.repo.ListOrderCounts(ctx, fromTime, toTime)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +286,7 @@ func (s *Service) Recompute(req dto.QuadrantComputeRequest) ([]domainquadrant.Qu
 		orderCountMap[key] = row.Total
 	}
 
-	capabilities, err := s.repo.ListCreditCapabilities()
+	capabilities, err := s.repo.ListCreditCapabilities(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -305,15 +306,15 @@ func (s *Service) Recompute(req dto.QuadrantComputeRequest) ([]domainquadrant.Qu
 		})
 	}
 
-	if err := s.repo.ReplaceAll(results); err != nil {
+	if err := s.repo.ReplaceAll(ctx, results); err != nil {
 		return nil, err
 	}
 
 	return results, nil
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domainquadrant.QuadrantResult, int64, error) {
-	return s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domainquadrant.QuadrantResult, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
 func computeQuadrant(orderCount int64, score float64, orderThreshold int, scoreThreshold float64) int {

@@ -1,6 +1,7 @@
 package servicemenu
 
 import (
+	"context"
 	"fmt"
 	domainmenu "service-songket/internal/domain/menu"
 	"service-songket/internal/dto"
@@ -26,25 +27,25 @@ func NewMenuService(menuRepo interfacemenu.RepoMenuInterface, permissionRepo int
 	}
 }
 
-func (s *MenuService) GetByID(id string) (domainmenu.MenuItem, error) {
-	return s.MenuRepo.GetByID(id)
+func (s *MenuService) GetByID(ctx context.Context, id string) (domainmenu.MenuItem, error) {
+	return s.MenuRepo.GetByID(ctx, id)
 }
 
-func (s *MenuService) GetAll(params filter.BaseParams) ([]domainmenu.MenuItem, int64, error) {
-	return s.MenuRepo.GetAll(params)
+func (s *MenuService) GetAll(ctx context.Context, params filter.BaseParams) ([]domainmenu.MenuItem, int64, error) {
+	return s.MenuRepo.GetAll(ctx, params)
 }
 
-func (s *MenuService) GetActiveMenus() ([]domainmenu.MenuItem, error) {
-	return s.MenuRepo.GetActiveMenus()
+func (s *MenuService) GetActiveMenus(ctx context.Context) ([]domainmenu.MenuItem, error) {
+	return s.MenuRepo.GetActiveMenus(ctx)
 }
 
-func (s *MenuService) GetUserMenus(userId string) ([]domainmenu.MenuItem, error) {
-	activeMenus, err := s.MenuRepo.GetActiveMenus()
+func (s *MenuService) GetUserMenus(ctx context.Context, userId string) ([]domainmenu.MenuItem, error) {
+	activeMenus, err := s.MenuRepo.GetActiveMenus(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	permissions, err := s.PermissionRepo.GetUserPermissions(userId)
+	permissions, err := s.PermissionRepo.GetUserPermissions(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +61,8 @@ func (s *MenuService) GetUserMenus(userId string) ([]domainmenu.MenuItem, error)
 	return serviceshared.ResolveAccessibleMenus(activeMenus, resources), nil
 }
 
-func (s *MenuService) Update(id string, req dto.MenuUpdate) (domainmenu.MenuItem, error) {
-	menu, err := s.MenuRepo.GetByID(id)
+func (s *MenuService) Update(ctx context.Context, id string, req dto.MenuUpdate) (domainmenu.MenuItem, error) {
+	menu, err := s.MenuRepo.GetByID(ctx, id)
 	if err != nil {
 		return domainmenu.MenuItem{}, err
 	}
@@ -91,7 +92,7 @@ func (s *MenuService) Update(id string, req dto.MenuUpdate) (domainmenu.MenuItem
 	now := time.Now()
 	menu.UpdatedAt = &now
 
-	if err := s.MenuRepo.Update(menu); err != nil {
+	if err := s.MenuRepo.Update(ctx, menu); err != nil {
 		return domainmenu.MenuItem{}, err
 	}
 

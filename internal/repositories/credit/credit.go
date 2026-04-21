@@ -1,10 +1,12 @@
 package repositorycredit
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"service-songket/internal/authscope"
 	domaincredit "service-songket/internal/domain/credit"
 	domainorder "service-songket/internal/domain/order"
 	interfacecredit "service-songket/internal/interfaces/credit"
@@ -26,16 +28,16 @@ func NewCreditRepo(db *gorm.DB) interfacecredit.RepoCreditInterface {
 	}
 }
 
-func (r *repo) GetByRegencyAndJob(regency, jobID string) (domaincredit.CreditCapability, error) {
+func (r *repo) GetByRegencyAndJob(ctx context.Context, regency, jobID string) (domaincredit.CreditCapability, error) {
 	var ret domaincredit.CreditCapability
-	if err := r.db.Where("regency = ? AND job_id = ?", regency, jobID).First(&ret).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("regency = ? AND job_id = ?", regency, jobID).First(&ret).Error; err != nil {
 		return domaincredit.CreditCapability{}, err
 	}
 	return ret, nil
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domaincredit.CreditCapability, int64, error) {
-	query := r.db.Model(&domaincredit.CreditCapability{}).
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domaincredit.CreditCapability, int64, error) {
+	query := r.db.WithContext(ctx).Model(&domaincredit.CreditCapability{}).
 		Joins("LEFT JOIN jobs ON jobs.id = credit_capabilities.job_id")
 
 	if v, ok := params.Filters["job_id"]; ok {
@@ -85,9 +87,22 @@ func (r *repo) GetAll(params filter.BaseParams) ([]domaincredit.CreditCapability
 	return data, total, nil
 }
 
-func (r *repo) ListSummaryRows() ([]interfacecredit.CreditSummaryRow, error) {
+func applyCreditOrderScope(ctx context.Context, query *gorm.DB, alias string) *gorm.DB {
+	scopedUserID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("credit", "list_all"))
+	if scopedUserID == "" {
+		return query
+	}
+
+	column := "created_by"
+	if strings.TrimSpace(alias) != "" {
+		column = strings.TrimSpace(alias) + ".created_by"
+	}
+	return query.Where(column+" = ?", scopedUserID)
+}
+
+func (r *repo) ListSummaryRows(ctx context.Context) ([]interfacecredit.CreditSummaryRow, error) {
 	rows := make([]interfacecredit.CreditSummaryRow, 0)
-	if err := r.db.
+	query := r.db.
 		Table("orders").
 		Select(`
 			COALESCE(province,'') AS province,
@@ -98,17 +113,17 @@ func (r *repo) ListSummaryRows() ([]interfacecredit.CreditSummaryRow, error) {
 			SUM(CASE WHEN result_status = 'approve' THEN 1 ELSE 0 END) AS approve,
 			SUM(CASE WHEN result_status = 'reject' THEN 1 ELSE 0 END) AS reject,
 			SUM(CASE WHEN result_status = 'pending' THEN 1 ELSE 0 END) AS pending
-		`).
-		Group("province, regency, district, village").
-		Scan(&rows).Error; err != nil {
+		`)
+	query = applyCreditOrderScope(ctx, query, "")
+	if err := query.Group("province, regency, district, village").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
 }
 
-func (r *repo) ListJobIncomeRows(jobID string) ([]interfacecredit.CreditJobIncomeRow, error) {
+func (r *repo) ListJobIncomeRows(ctx context.Context, jobID string) ([]interfacecredit.CreditJobIncomeRow, error) {
 	rows := make([]interfacecredit.CreditJobIncomeRow, 0)
-	query := r.db.
+	query := r.db.WithContext(ctx).
 		Table("job_net_incomes").
 		Select(`
 			job_net_incomes.job_id,
@@ -127,9 +142,9 @@ func (r *repo) ListJobIncomeRows(jobID string) ([]interfacecredit.CreditJobIncom
 	return rows, nil
 }
 
-func (r *repo) ListMotorRows(motorTypeID string) ([]interfacecredit.CreditMotorRow, error) {
+func (r *repo) ListMotorRows(ctx context.Context, motorTypeID string) ([]interfacecredit.CreditMotorRow, error) {
 	rows := make([]interfacecredit.CreditMotorRow, 0)
-	query := r.db.
+	query := r.db.WithContext(ctx).
 		Table("motor_types").
 		Select(`
 			motor_types.id AS motor_type_id,
@@ -151,7 +166,7 @@ func (r *repo) ListMotorRows(motorTypeID string) ([]interfacecredit.CreditMotorR
 	return rows, nil
 }
 
-func (r *repo) ListOrderRangeRows(jobID, motorTypeID string, fromTime, toTime *time.Time) ([]interfacecredit.CreditOrderRangeRow, error) {
+func (r *repo) ListOrderRangeRows(ctx context.Context, jobID, motorTypeID string, fromTime, toTime *time.Time) ([]interfacecredit.CreditOrderRangeRow, error) {
 	rows := make([]interfacecredit.CreditOrderRangeRow, 0)
 
 	hasInstallment := r.HasOrderInstallmentColumn("installment")
@@ -188,6 +203,7 @@ func (r *repo) ListOrderRangeRows(jobID, motorTypeID string, fromTime, toTime *t
 		`).
 		Joins("LEFT JOIN installments inst ON inst.motor_type_id = o.motor_type_id AND inst.deleted_at IS NULL").
 		Where("o.deleted_at IS NULL")
+	query = applyCreditOrderScope(ctx, query, "o")
 
 	if strings.TrimSpace(jobID) != "" {
 		query = query.Where("o.job_id = ?", jobID)

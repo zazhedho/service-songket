@@ -1,6 +1,7 @@
 package serviceinstallment
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -23,15 +24,15 @@ func NewInstallmentService(repo interfaceinstallment.RepoInstallmentInterface, m
 	return &Service{repo: repo, motorRepo: motorRepo}
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domaininstallment.Installment, int64, error) {
-	return s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domaininstallment.Installment, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
-func (s *Service) GetByID(id string) (domaininstallment.Installment, error) {
-	return s.repo.GetByIDWithMotorType(id)
+func (s *Service) GetByID(ctx context.Context, id string) (domaininstallment.Installment, error) {
+	return s.repo.GetByIDWithMotorType(ctx, id)
 }
 
-func (s *Service) Create(req dto.InstallmentRequest) (domaininstallment.Installment, error) {
+func (s *Service) Create(ctx context.Context, req dto.InstallmentRequest) (domaininstallment.Installment, error) {
 	motorTypeID := strings.TrimSpace(req.MotorTypeID)
 	if motorTypeID == "" {
 		return domaininstallment.Installment{}, fmt.Errorf("motor_type_id is required")
@@ -40,11 +41,11 @@ func (s *Service) Create(req dto.InstallmentRequest) (domaininstallment.Installm
 		return domaininstallment.Installment{}, fmt.Errorf("amount must be greater than or equal to 0")
 	}
 
-	if _, err := s.motorRepo.GetByID(motorTypeID); err != nil {
+	if _, err := s.motorRepo.GetByID(ctx, motorTypeID); err != nil {
 		return domaininstallment.Installment{}, fmt.Errorf("motor type not found")
 	}
 
-	_, err := s.repo.GetByMotorTypeID(motorTypeID)
+	_, err := s.repo.GetByMotorTypeID(ctx, motorTypeID)
 	if err == nil {
 		return domaininstallment.Installment{}, fmt.Errorf("installment for selected motor type already exists")
 	}
@@ -57,22 +58,22 @@ func (s *Service) Create(req dto.InstallmentRequest) (domaininstallment.Installm
 		MotorTypeID: motorTypeID,
 		Amount:      req.Amount,
 	}
-	if err := s.repo.Store(row); err != nil {
+	if err := s.repo.Store(ctx, row); err != nil {
 		if sharedsvc.IsUniqueViolationError(err) {
 			return domaininstallment.Installment{}, fmt.Errorf("installment for selected motor type already exists")
 		}
 		return domaininstallment.Installment{}, err
 	}
-	return s.repo.GetByIDWithMotorType(row.Id)
+	return s.repo.GetByIDWithMotorType(ctx, row.Id)
 }
 
-func (s *Service) Update(id string, req dto.InstallmentRequest) (domaininstallment.Installment, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.InstallmentRequest) (domaininstallment.Installment, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domaininstallment.Installment{}, err
 	}
 
-	row, err := s.repo.GetByID(normalizedID)
+	row, err := s.repo.GetByID(ctx, normalizedID)
 	if err != nil {
 		return domaininstallment.Installment{}, err
 	}
@@ -85,11 +86,11 @@ func (s *Service) Update(id string, req dto.InstallmentRequest) (domaininstallme
 		return domaininstallment.Installment{}, fmt.Errorf("amount must be greater than or equal to 0")
 	}
 
-	if _, err := s.motorRepo.GetByID(motorTypeID); err != nil {
+	if _, err := s.motorRepo.GetByID(ctx, motorTypeID); err != nil {
 		return domaininstallment.Installment{}, fmt.Errorf("motor type not found")
 	}
 
-	_, err = s.repo.GetDuplicateForUpdate(normalizedID, motorTypeID)
+	_, err = s.repo.GetDuplicateForUpdate(ctx, normalizedID, motorTypeID)
 	if err == nil {
 		return domaininstallment.Installment{}, fmt.Errorf("installment for selected motor type already exists")
 	}
@@ -99,15 +100,15 @@ func (s *Service) Update(id string, req dto.InstallmentRequest) (domaininstallme
 
 	row.MotorTypeID = motorTypeID
 	row.Amount = req.Amount
-	if err := s.repo.Update(row); err != nil {
+	if err := s.repo.Update(ctx, row); err != nil {
 		if sharedsvc.IsUniqueViolationError(err) {
 			return domaininstallment.Installment{}, fmt.Errorf("installment for selected motor type already exists")
 		}
 		return domaininstallment.Installment{}, err
 	}
-	return s.repo.GetByIDWithMotorType(row.Id)
+	return s.repo.GetByIDWithMotorType(ctx, row.Id)
 }
 
-func (s *Service) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *Service) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }

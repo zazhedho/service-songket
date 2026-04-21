@@ -65,16 +65,16 @@ func ValidatePasswordStrength(password string) error {
 	return nil
 }
 
-func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, error) {
+func (s *ServiceUser) RegisterUser(ctx context.Context, req dto.UserRegister) (domainuser.Users, error) {
 	phone := utils.NormalizePhoneTo62(req.Phone)
 	email := utils.SanitizeEmail(req.Email)
 
-	data, _ := s.UserRepo.GetByEmail(email)
+	data, _ := s.UserRepo.GetByEmail(ctx, email)
 	if data.Id != "" {
 		return domainuser.Users{}, errors.New("email already exists")
 	}
 
-	phoneData, _ := s.UserRepo.GetByPhone(phone)
+	phoneData, _ := s.UserRepo.GetByPhone(ctx, phone)
 	if phoneData.Id != "" {
 		return domainuser.Users{}, errors.New("phone number already exists")
 	}
@@ -84,7 +84,7 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 	}
 
 	roleName := defaultRegisterRoleName()
-	roleEntity, err := s.RoleRepo.GetByName(roleName)
+	roleEntity, err := s.RoleRepo.GetByName(ctx, roleName)
 	if err != nil || roleEntity.Id == "" {
 		return domainuser.Users{}, errors.New("invalid role: " + roleName)
 	}
@@ -106,7 +106,7 @@ func (s *ServiceUser) RegisterUser(req dto.UserRegister) (domainuser.Users, erro
 		CreatedAt: time.Now(),
 	}
 
-	if err = s.UserRepo.Store(data); err != nil {
+	if err = s.UserRepo.Store(ctx, data); err != nil {
 		return domainuser.Users{}, err
 	}
 
@@ -118,13 +118,13 @@ func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUs
 	email := utils.SanitizeEmail(req.Email)
 	scope := authscope.FromContext(ctx)
 
-	data, _ := s.UserRepo.GetByEmail(email)
+	data, _ := s.UserRepo.GetByEmail(ctx, email)
 	if data.Id != "" {
 		return domainuser.Users{}, errors.New("email already exists")
 	}
 
 	if phone != "" {
-		phoneData, _ := s.UserRepo.GetByPhone(phone)
+		phoneData, _ := s.UserRepo.GetByPhone(ctx, phone)
 		if phoneData.Id != "" {
 			return domainuser.Users{}, errors.New("phone number already exists")
 		}
@@ -153,7 +153,7 @@ func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUs
 	}
 
 	var roleId *string
-	roleEntity, err := s.RoleRepo.GetByName(roleName)
+	roleEntity, err := s.RoleRepo.GetByName(ctx, roleName)
 	if err == nil && roleEntity.Id != "" {
 		roleId = &roleEntity.Id
 	} else {
@@ -171,13 +171,13 @@ func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUs
 		CreatedAt: time.Now(),
 	}
 
-	if err = s.UserRepo.Store(data); err != nil {
+	if err = s.UserRepo.Store(ctx, data); err != nil {
 		return domainuser.Users{}, err
 	}
 
 	// Apply user-specific permissions if provided
 	if len(req.PermissionIDs) > 0 {
-		if err := s.PermissionRepo.SetUserPermissions(data.Id, req.PermissionIDs); err != nil {
+		if err := s.PermissionRepo.SetUserPermissions(ctx, data.Id, req.PermissionIDs); err != nil {
 			return domainuser.Users{}, err
 		}
 	}
@@ -185,10 +185,10 @@ func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUs
 	return data, nil
 }
 
-func (s *ServiceUser) LoginUser(req dto.Login, logId string) (string, error) {
+func (s *ServiceUser) LoginUser(ctx context.Context, req dto.Login, logId string) (string, error) {
 	email := utils.SanitizeEmail(req.Email)
 
-	data, err := s.UserRepo.GetByEmail(email)
+	data, err := s.UserRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return "", err
 	}
@@ -205,14 +205,14 @@ func (s *ServiceUser) LoginUser(req dto.Login, logId string) (string, error) {
 	return token, nil
 }
 
-func (s *ServiceUser) LogoutUser(token string) error {
+func (s *ServiceUser) LogoutUser(ctx context.Context, token string) error {
 	blacklist := domainauth.Blacklist{
 		ID:        utils.CreateUUID(),
 		Token:     token,
 		CreatedAt: time.Now(),
 	}
 
-	err := s.BlacklistRepo.Store(blacklist)
+	err := s.BlacklistRepo.Store(ctx, blacklist)
 	if err != nil {
 		return err
 	}
@@ -243,21 +243,21 @@ func hasUserPermission(permissions []domainpermission.Permission, resource, acti
 	return false
 }
 
-func (s *ServiceUser) GetUserById(id string) (domainuser.Users, error) {
-	return s.UserRepo.GetByID(id)
+func (s *ServiceUser) GetUserById(ctx context.Context, id string) (domainuser.Users, error) {
+	return s.UserRepo.GetByID(ctx, id)
 }
 
-func (s *ServiceUser) GetUserByEmail(email string) (domainuser.Users, error) {
-	return s.UserRepo.GetByEmail(utils.SanitizeEmail(email))
+func (s *ServiceUser) GetUserByEmail(ctx context.Context, email string) (domainuser.Users, error) {
+	return s.UserRepo.GetByEmail(ctx, utils.SanitizeEmail(email))
 }
 
-func (s *ServiceUser) GetUserByAuth(id string) (map[string]interface{}, error) {
-	user, err := s.UserRepo.GetByID(id)
+func (s *ServiceUser) GetUserByAuth(ctx context.Context, id string) (map[string]interface{}, error) {
+	user, err := s.UserRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	permissions, err := s.PermissionRepo.GetUserPermissions(user.Id)
+	permissions, err := s.PermissionRepo.GetUserPermissions(ctx, user.Id)
 	if err != nil {
 		return map[string]interface{}{
 			"id":          user.Id,
@@ -289,7 +289,7 @@ func (s *ServiceUser) GetUserByAuth(id string) (map[string]interface{}, error) {
 }
 
 func (s *ServiceUser) GetAllUsers(ctx context.Context, params filter.BaseParams) ([]domainuser.Users, int64, error) {
-	users, total, err := s.UserRepo.GetAll(params)
+	users, total, err := s.UserRepo.GetAll(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -310,7 +310,7 @@ func (s *ServiceUser) GetAllUsers(ctx context.Context, params filter.BaseParams)
 }
 
 func (s *ServiceUser) Update(ctx context.Context, id string, req dto.UserUpdate) (domainuser.Users, error) {
-	data, err := s.UserRepo.GetByID(id)
+	data, err := s.UserRepo.GetByID(ctx, id)
 	if err != nil {
 		return domainuser.Users{}, err
 	}
@@ -355,7 +355,7 @@ func (s *ServiceUser) Update(ctx context.Context, id string, req dto.UserUpdate)
 			return domainuser.Users{}, errors.New("cannot assign superadmin role")
 		}
 
-		roleEntity, err := s.RoleRepo.GetByName(newRoleName)
+		roleEntity, err := s.RoleRepo.GetByName(ctx, newRoleName)
 		if err != nil || roleEntity.Id == "" {
 			return domainuser.Users{}, errors.New("invalid role: " + newRoleName)
 		}
@@ -364,14 +364,14 @@ func (s *ServiceUser) Update(ctx context.Context, id string, req dto.UserUpdate)
 		data.RoleId = &roleEntity.Id
 	}
 
-	if err = s.UserRepo.Update(data); err != nil {
+	if err = s.UserRepo.Update(ctx, data); err != nil {
 		return domainuser.Users{}, err
 	}
 
 	return data, nil
 }
 
-func (s *ServiceUser) ChangePassword(id string, req dto.ChangePassword) (domainuser.Users, error) {
+func (s *ServiceUser) ChangePassword(ctx context.Context, id string, req dto.ChangePassword) (domainuser.Users, error) {
 	if req.CurrentPassword == req.NewPassword {
 		return domainuser.Users{}, errors.New("new password must be different from current password")
 	}
@@ -380,7 +380,7 @@ func (s *ServiceUser) ChangePassword(id string, req dto.ChangePassword) (domainu
 		return domainuser.Users{}, err
 	}
 
-	data, err := s.UserRepo.GetByID(id)
+	data, err := s.UserRepo.GetByID(ctx, id)
 	if err != nil {
 		return domainuser.Users{}, err
 	}
@@ -396,15 +396,15 @@ func (s *ServiceUser) ChangePassword(id string, req dto.ChangePassword) (domainu
 
 	data.Password = string(hashedPwd)
 
-	if err = s.UserRepo.Update(data); err != nil {
+	if err = s.UserRepo.Update(ctx, data); err != nil {
 		return domainuser.Users{}, err
 	}
 
 	return data, nil
 }
 
-func (s *ServiceUser) ForgotPassword(req dto.ForgotPasswordRequest) (string, error) {
-	data, err := s.UserRepo.GetByEmail(utils.SanitizeEmail(req.Email))
+func (s *ServiceUser) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) (string, error) {
+	data, err := s.UserRepo.GetByEmail(ctx, utils.SanitizeEmail(req.Email))
 	if err != nil {
 		return "", nil
 	}
@@ -417,7 +417,7 @@ func (s *ServiceUser) ForgotPassword(req dto.ForgotPasswordRequest) (string, err
 	return token, nil
 }
 
-func (s *ServiceUser) ResetPassword(req dto.ResetPasswordRequest) error {
+func (s *ServiceUser) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
 	if err := ValidatePasswordStrength(req.NewPassword); err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func (s *ServiceUser) ResetPassword(req dto.ResetPasswordRequest) error {
 
 	userId := claims["user_id"].(string)
 
-	data, err := s.UserRepo.GetByID(userId)
+	data, err := s.UserRepo.GetByID(ctx, userId)
 	if err != nil {
 		return errors.New("user not found")
 	}
@@ -441,17 +441,17 @@ func (s *ServiceUser) ResetPassword(req dto.ResetPasswordRequest) error {
 
 	data.Password = string(hashedPwd)
 
-	if err = s.UserRepo.Update(data); err != nil {
+	if err = s.UserRepo.Update(ctx, data); err != nil {
 		return err
 	}
 
-	_ = s.LogoutUser(req.Token)
+	_ = s.LogoutUser(ctx, req.Token)
 
 	return nil
 }
 
-func (s *ServiceUser) Delete(id string) error {
-	return s.UserRepo.Delete(id)
+func (s *ServiceUser) Delete(ctx context.Context, id string) error {
+	return s.UserRepo.Delete(ctx, id)
 }
 
 var _ interfaceuser.ServiceUserInterface = (*ServiceUser)(nil)

@@ -1,6 +1,7 @@
 package servicejob
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -20,8 +21,8 @@ func NewJobService(repo interfacejob.RepoJobInterface) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domainjob.JobItem, int64, error) {
-	jobs, total, err := s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domainjob.JobItem, int64, error) {
+	jobs, total, err := s.repo.GetAll(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -38,8 +39,8 @@ func (s *Service) List(params filter.BaseParams) ([]domainjob.JobItem, int64, er
 	return items, total, nil
 }
 
-func (s *Service) GetByID(id string) (domainjob.JobItem, error) {
-	job, err := s.repo.GetByID(id)
+func (s *Service) GetByID(ctx context.Context, id string) (domainjob.JobItem, error) {
+	job, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return domainjob.JobItem{}, err
 	}
@@ -51,7 +52,7 @@ func (s *Service) GetByID(id string) (domainjob.JobItem, error) {
 	}, nil
 }
 
-func (s *Service) Create(req dto.JobRequest) (domainjob.JobItem, error) {
+func (s *Service) Create(ctx context.Context, req dto.JobRequest) (domainjob.JobItem, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return domainjob.JobItem{}, fmt.Errorf("name is required")
@@ -61,7 +62,7 @@ func (s *Service) Create(req dto.JobRequest) (domainjob.JobItem, error) {
 		Id:   utils.CreateUUID(),
 		Name: name,
 	}
-	if err := s.repo.Store(job); err != nil {
+	if err := s.repo.Store(ctx, job); err != nil {
 		return domainjob.JobItem{}, err
 	}
 
@@ -73,13 +74,13 @@ func (s *Service) Create(req dto.JobRequest) (domainjob.JobItem, error) {
 	}, nil
 }
 
-func (s *Service) Update(id string, req dto.JobRequest) (domainjob.JobItem, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.JobRequest) (domainjob.JobItem, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domainjob.JobItem{}, err
 	}
 
-	job, err := s.repo.GetByID(normalizedID)
+	job, err := s.repo.GetByID(ctx, normalizedID)
 	if err != nil {
 		return domainjob.JobItem{}, err
 	}
@@ -90,7 +91,7 @@ func (s *Service) Update(id string, req dto.JobRequest) (domainjob.JobItem, erro
 	}
 
 	job.Name = name
-	if err := s.repo.Update(job); err != nil {
+	if err := s.repo.Update(ctx, job); err != nil {
 		return domainjob.JobItem{}, err
 	}
 
@@ -102,6 +103,6 @@ func (s *Service) Update(id string, req dto.JobRequest) (domainjob.JobItem, erro
 	}, nil
 }
 
-func (s *Service) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *Service) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }

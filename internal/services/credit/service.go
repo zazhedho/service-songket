@@ -1,6 +1,7 @@
 package servicecredit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -27,13 +28,13 @@ func NewCreditService(repo interfacecredit.RepoCreditInterface, jobRepo interfac
 	return &Service{repo: repo, jobRepo: jobRepo}
 }
 
-func (s *Service) Upsert(req dto.CreditCapabilityRequest) (domaincredit.CreditCapability, error) {
+func (s *Service) Upsert(ctx context.Context, req dto.CreditCapabilityRequest) (domaincredit.CreditCapability, error) {
 	normalizedJobID, err := sharedsvc.NormalizeRequiredUUID(req.JobID, "job_id")
 	if err != nil {
 		return domaincredit.CreditCapability{}, err
 	}
 
-	if _, err := s.jobRepo.GetByID(normalizedJobID); err != nil {
+	if _, err := s.jobRepo.GetByID(ctx, normalizedJobID); err != nil {
 		return domaincredit.CreditCapability{}, fmt.Errorf("job not found")
 	}
 
@@ -43,7 +44,7 @@ func (s *Service) Upsert(req dto.CreditCapabilityRequest) (domaincredit.CreditCa
 	village := strings.TrimSpace(req.Village)
 	address := strings.TrimSpace(req.Address)
 
-	row, err := s.repo.GetByRegencyAndJob(regency, normalizedJobID)
+	row, err := s.repo.GetByRegencyAndJob(ctx, regency, normalizedJobID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		row = domaincredit.CreditCapability{
 			Id:       utils.CreateUUID(),
@@ -55,7 +56,7 @@ func (s *Service) Upsert(req dto.CreditCapabilityRequest) (domaincredit.CreditCa
 			JobID:    normalizedJobID,
 			Score:    req.Score,
 		}
-		if err := s.repo.Store(row); err != nil {
+		if err := s.repo.Store(ctx, row); err != nil {
 			return domaincredit.CreditCapability{}, err
 		}
 		return row, nil
@@ -70,22 +71,22 @@ func (s *Service) Upsert(req dto.CreditCapabilityRequest) (domaincredit.CreditCa
 	row.Village = village
 	row.Address = address
 	row.Score = req.Score
-	if err := s.repo.Update(row); err != nil {
+	if err := s.repo.Update(ctx, row); err != nil {
 		return domaincredit.CreditCapability{}, err
 	}
 	return row, nil
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domaincredit.CreditCapability, int64, error) {
-	return s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domaincredit.CreditCapability, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
-func (s *Service) Summary(orderThreshold int64) ([]domaincredit.CreditSummary, error) {
+func (s *Service) Summary(ctx context.Context, orderThreshold int64) ([]domaincredit.CreditSummary, error) {
 	if orderThreshold <= 0 {
 		orderThreshold = 5
 	}
 
-	rows, err := s.repo.ListSummaryRows()
+	rows, err := s.repo.ListSummaryRows(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +125,7 @@ func (s *Service) Summary(orderThreshold int64) ([]domaincredit.CreditSummary, e
 	return summaries, nil
 }
 
-func (s *Service) Worksheet(provinceCode, regencyCode, jobID, motorTypeID, fromDate, toDate string) (map[string]interface{}, error) {
+func (s *Service) Worksheet(ctx context.Context, provinceCode, regencyCode, jobID, motorTypeID, fromDate, toDate string) (map[string]interface{}, error) {
 	type worksheetAreaAggregate struct {
 		AreaKey      string
 		ProvinceCode string
@@ -265,7 +266,7 @@ func (s *Service) Worksheet(provinceCode, regencyCode, jobID, motorTypeID, fromD
 		return area
 	}
 
-	jobRows, err := s.repo.ListJobIncomeRows(jobFilter)
+	jobRows, err := s.repo.ListJobIncomeRows(ctx, jobFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +319,7 @@ func (s *Service) Worksheet(provinceCode, regencyCode, jobID, motorTypeID, fromD
 		}
 	}
 
-	motorRows, err := s.repo.ListMotorRows(motorFilter)
+	motorRows, err := s.repo.ListMotorRows(ctx, motorFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -559,7 +560,7 @@ func (s *Service) Worksheet(provinceCode, regencyCode, jobID, motorTypeID, fromD
 	if !toTime.IsZero() {
 		toPtr = &toTime
 	}
-	orderRangeRows, err := s.repo.ListOrderRangeRows(jobFilter, motorFilter, fromPtr, toPtr)
+	orderRangeRows, err := s.repo.ListOrderRangeRows(ctx, jobFilter, motorFilter, fromPtr, toPtr)
 	if err != nil {
 		return nil, err
 	}

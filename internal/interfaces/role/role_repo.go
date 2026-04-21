@@ -1,19 +1,17 @@
 package interfacerole
 
 import (
+	"context"
 	domainrole "service-songket/internal/domain/role"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type RepoRoleInterface interface {
-	Store(m domainrole.Role) error
-	GetByID(id string) (domainrole.Role, error)
-	GetByName(name string) (domainrole.Role, error)
-	GetAll(params filter.BaseParams) ([]domainrole.Role, int64, error)
-	Update(m domainrole.Role) error
-	Delete(id string) error
+	interfacegeneric.GenericRepository[domainrole.Role]
 
-	AssignPermissions(roleId string, permissionIds []string) error
-	RemovePermissions(roleId string, permissionIds []string) error
-	GetRolePermissions(roleId string) ([]string, error)
+	GetByName(ctx context.Context, name string) (domainrole.Role, error)
+
+	AssignPermissions(ctx context.Context, roleId string, permissionIds []string) error
+	RemovePermissions(ctx context.Context, roleId string, permissionIds []string) error
+	GetRolePermissions(ctx context.Context, roleId string) ([]string, error)
 }

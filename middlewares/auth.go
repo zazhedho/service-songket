@@ -55,7 +55,7 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 		}
 		logPrefix += fmt.Sprintf("[%s][%s]", utils.InterfaceString(dataJWT["jti"]), utils.InterfaceString(dataJWT["user_id"]))
 
-		_, err = m.BlacklistRepo.GetByToken(tokenString)
+		_, err = m.BlacklistRepo.GetByToken(ctx.Request.Context(), tokenString)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; blacklistRepo.GetByToken; Error: %+v", logPrefix, err))
 			res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
@@ -121,7 +121,7 @@ func (m *Middleware) PermissionMiddleware(resource, action string) gin.HandlerFu
 		}
 
 		userId := utils.InterfaceString(dataJWT["user_id"])
-		permissions, err := m.PermissionRepo.GetUserPermissions(userId)
+		permissions, err := m.PermissionRepo.GetUserPermissions(ctx.Request.Context(), userId)
 		if err != nil {
 			logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Failed to get user permissions: %s", logPrefix, err.Error()))
 			res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)

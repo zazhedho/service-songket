@@ -1,11 +1,12 @@
 package interfacequadrant
 
 import (
+	"context"
 	"time"
 
 	domaincredit "service-songket/internal/domain/credit"
 	domainquadrant "service-songket/internal/domain/quadrant"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type QuadrantMonthlyOrderAggregate struct {
@@ -25,9 +26,10 @@ type QuadrantOrderCountRow struct {
 }
 
 type RepoQuadrantInterface interface {
-	GetAll(params filter.BaseParams) ([]domainquadrant.QuadrantResult, int64, error)
-	ListMonthlyOrderAggregates() ([]QuadrantMonthlyOrderAggregate, error)
-	ListOrderCounts(fromTime, toTime *time.Time) ([]QuadrantOrderCountRow, error)
-	ListCreditCapabilities() ([]domaincredit.CreditCapability, error)
-	ReplaceAll(results []domainquadrant.QuadrantResult) error
+	interfacegeneric.GenericRepository[domainquadrant.QuadrantResult]
+
+	ListMonthlyOrderAggregates(ctx context.Context) ([]QuadrantMonthlyOrderAggregate, error)
+	ListOrderCounts(ctx context.Context, fromTime, toTime *time.Time) ([]QuadrantOrderCountRow, error)
+	ListCreditCapabilities(ctx context.Context) ([]domaincredit.CreditCapability, error)
+	ReplaceAll(ctx context.Context, results []domainquadrant.QuadrantResult) error
 }

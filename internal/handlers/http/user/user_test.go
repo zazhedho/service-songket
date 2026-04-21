@@ -26,23 +26,23 @@ type userServiceMock struct {
 	updateErr    error
 }
 
-func (m *userServiceMock) RegisterUser(req dto.UserRegister) (domainuser.Users, error) {
+func (m *userServiceMock) RegisterUser(ctx context.Context, req dto.UserRegister) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
 func (m *userServiceMock) AdminCreateUser(ctx context.Context, req dto.AdminCreateUser) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
-func (m *userServiceMock) LoginUser(req dto.Login, logId string) (string, error) {
+func (m *userServiceMock) LoginUser(ctx context.Context, req dto.Login, logId string) (string, error) {
 	return "", nil
 }
-func (m *userServiceMock) LogoutUser(token string) error { return nil }
-func (m *userServiceMock) GetUserById(id string) (domainuser.Users, error) {
+func (m *userServiceMock) LogoutUser(ctx context.Context, token string) error { return nil }
+func (m *userServiceMock) GetUserById(ctx context.Context, id string) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
-func (m *userServiceMock) GetUserByEmail(email string) (domainuser.Users, error) {
+func (m *userServiceMock) GetUserByEmail(ctx context.Context, email string) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
-func (m *userServiceMock) GetUserByAuth(id string) (map[string]interface{}, error) {
+func (m *userServiceMock) GetUserByAuth(ctx context.Context, id string) (map[string]interface{}, error) {
 	return nil, nil
 }
 func (m *userServiceMock) GetAllUsers(ctx context.Context, params filter.BaseParams) ([]domainuser.Users, int64, error) {
@@ -58,14 +58,16 @@ func (m *userServiceMock) Update(ctx context.Context, id string, req dto.UserUpd
 	}
 	return m.updateResp, m.updateErr
 }
-func (m *userServiceMock) ChangePassword(id string, req dto.ChangePassword) (domainuser.Users, error) {
+func (m *userServiceMock) ChangePassword(ctx context.Context, id string, req dto.ChangePassword) (domainuser.Users, error) {
 	return domainuser.Users{}, nil
 }
-func (m *userServiceMock) ForgotPassword(req dto.ForgotPasswordRequest) (string, error) {
+func (m *userServiceMock) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) (string, error) {
 	return "", nil
 }
-func (m *userServiceMock) ResetPassword(req dto.ResetPasswordRequest) error { return nil }
-func (m *userServiceMock) Delete(id string) error                           { return nil }
+func (m *userServiceMock) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
+	return nil
+}
+func (m *userServiceMock) Delete(ctx context.Context, id string) error { return nil }
 
 var _ interfaceuser.ServiceUserInterface = (*userServiceMock)(nil)
 

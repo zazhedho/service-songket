@@ -24,6 +24,7 @@ func NewCreditHandler(service interfacecredit.ServiceCreditInterface) *CreditHan
 
 func (h *CreditHandler) Upsert(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	var req dto.CreditCapabilityRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -32,7 +33,7 @@ func (h *CreditHandler) Upsert(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Upsert(req)
+	data, err := h.Service.Upsert(reqCtx, req)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -46,6 +47,7 @@ func (h *CreditHandler) Upsert(ctx *gin.Context) {
 
 func (h *CreditHandler) GetAll(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
+	reqCtx := ctx.Request.Context()
 	params, err := filter.GetBaseParams(ctx, "updated_at", "desc", 20)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -56,7 +58,7 @@ func (h *CreditHandler) GetAll(ctx *gin.Context) {
 
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"job_id", "province", "regency", "district"})
 
-	data, total, err := h.Service.List(params)
+	data, total, err := h.Service.List(reqCtx, params)
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -77,7 +79,7 @@ func (h *CreditHandler) Worksheet(ctx *gin.Context) {
 	from := strings.TrimSpace(ctx.Query("from"))
 	to := strings.TrimSpace(ctx.Query("to"))
 
-	data, err := h.Service.Worksheet(province, regency, jobID, motorTypeID, from, to)
+	data, err := h.Service.Worksheet(ctx.Request.Context(), province, regency, jobID, motorTypeID, from, to)
 	if err != nil {
 		status := http.StatusInternalServerError
 		errMsg := strings.ToLower(err.Error())
@@ -100,7 +102,7 @@ func (h *CreditHandler) Worksheet(ctx *gin.Context) {
 func (h *CreditHandler) Summary(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	threshold := utils.GetEnv("CREDIT_ORDER_THRESHOLD", 5).(int)
-	data, err := h.Service.Summary(int64(threshold))
+	data, err := h.Service.Summary(ctx.Request.Context(), int64(threshold))
 	if err != nil {
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()

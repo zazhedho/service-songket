@@ -1,19 +1,16 @@
 package interfacemotor
 
 import (
+	"context"
 	domainmotor "service-songket/internal/domain/motor"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type RepoMotorInterface interface {
-	Store(data domainmotor.MotorType) error
-	GetByID(id string) (domainmotor.MotorType, error)
-	GetAll(params filter.BaseParams) ([]domainmotor.MotorType, int64, error)
-	Update(data domainmotor.MotorType) error
-	Delete(id string) error
+	interfacegeneric.GenericRepository[domainmotor.MotorType]
 
-	GetByUniqueKey(name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error)
-	GetDuplicateForUpdate(id, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error)
-	CountOrdersByMotorType(id string) (int64, error)
-	CountInstallmentsByMotorType(id string) (int64, error)
+	GetByUniqueKey(ctx context.Context, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error)
+	GetDuplicateForUpdate(ctx context.Context, id, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error)
+	CountOrdersByMotorType(ctx context.Context, id string) (int64, error)
+	CountInstallmentsByMotorType(ctx context.Context, id string) (int64, error)
 }

@@ -1,12 +1,13 @@
 package interfacecredit
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/datatypes"
 
 	domaincredit "service-songket/internal/domain/credit"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type CreditSummaryRow struct {
@@ -46,14 +47,12 @@ type CreditOrderRangeRow struct {
 }
 
 type RepoCreditInterface interface {
-	Store(data domaincredit.CreditCapability) error
-	GetByID(id string) (domaincredit.CreditCapability, error)
-	GetByRegencyAndJob(regency, jobID string) (domaincredit.CreditCapability, error)
-	GetAll(params filter.BaseParams) ([]domaincredit.CreditCapability, int64, error)
-	Update(data domaincredit.CreditCapability) error
-	ListSummaryRows() ([]CreditSummaryRow, error)
-	ListJobIncomeRows(jobID string) ([]CreditJobIncomeRow, error)
-	ListMotorRows(motorTypeID string) ([]CreditMotorRow, error)
-	ListOrderRangeRows(jobID, motorTypeID string, fromTime, toTime *time.Time) ([]CreditOrderRangeRow, error)
+	interfacegeneric.GenericRepository[domaincredit.CreditCapability]
+
+	GetByRegencyAndJob(ctx context.Context, regency, jobID string) (domaincredit.CreditCapability, error)
+	ListSummaryRows(ctx context.Context) ([]CreditSummaryRow, error)
+	ListJobIncomeRows(ctx context.Context, jobID string) ([]CreditJobIncomeRow, error)
+	ListMotorRows(ctx context.Context, motorTypeID string) ([]CreditMotorRow, error)
+	ListOrderRangeRows(ctx context.Context, jobID, motorTypeID string, fromTime, toTime *time.Time) ([]CreditOrderRangeRow, error)
 	HasOrderInstallmentColumn(column string) bool
 }

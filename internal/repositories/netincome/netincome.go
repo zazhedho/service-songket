@@ -1,6 +1,7 @@
 package repositorynetincome
 
 import (
+	"context"
 	"strings"
 
 	domainnetincome "service-songket/internal/domain/netincome"
@@ -19,8 +20,8 @@ func NewNetIncomeRepo(db *gorm.DB) interfacenetincome.RepoNetIncomeInterface {
 	return &repo{GenericRepository: repositorygeneric.New[domainnetincome.NetIncome](db)}
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domainnetincome.NetIncome, int64, error) {
-	query := r.DB.Model(&domainnetincome.NetIncome{}).
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainnetincome.NetIncome, int64, error) {
+	query := r.DB.WithContext(ctx).Model(&domainnetincome.NetIncome{}).
 		Joins("LEFT JOIN jobs ON jobs.id = job_net_incomes.job_id")
 
 	if v, ok := params.Filters["job_id"]; ok {

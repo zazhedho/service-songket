@@ -53,6 +53,7 @@ WITH permission_data(name, display_name, resource, action) AS (
         ('view_metrics_all_business', 'View All Business Metrics', 'business', 'view_metrics_all'),
 
         ('list_credit', 'List Credit Capability', 'credit', 'list'),
+        ('list_all_credit', 'List All Credit Analytics', 'credit', 'list_all'),
         ('upsert_credit', 'Create Or Update Credit Capability', 'credit', 'upsert'),
 
         ('list_quadrants', 'List Quadrants', 'quadrants', 'list'),

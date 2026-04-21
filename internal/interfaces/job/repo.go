@@ -1,16 +1,13 @@
 package interfacejob
 
 import (
+	"context"
 	domainjob "service-songket/internal/domain/job"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type RepoJobInterface interface {
-	Store(data domainjob.Job) error
-	GetByID(id string) (domainjob.Job, error)
-	GetAll(params filter.BaseParams) ([]domainjob.Job, int64, error)
-	Update(data domainjob.Job) error
-	Delete(id string) error
+	interfacegeneric.GenericRepository[domainjob.Job]
 
-	Exists(id string) (bool, error)
+	Exists(ctx context.Context, id string) (bool, error)
 }

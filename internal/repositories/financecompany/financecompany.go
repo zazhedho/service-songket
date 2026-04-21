@@ -1,6 +1,7 @@
 package repositoryfinancecompany
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -27,8 +28,8 @@ func NewFinanceCompanyRepo(db *gorm.DB) interfacefinancecompany.RepoFinanceCompa
 	}
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domainfinancecompany.FinanceCompany, int64, error) {
-	query := r.DB.Model(&domainfinancecompany.FinanceCompany{})
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainfinancecompany.FinanceCompany, int64, error) {
+	query := r.DB.WithContext(ctx).Model(&domainfinancecompany.FinanceCompany{})
 
 	if v, ok := params.Filters["province"]; ok {
 		provinces, _ := r.locationRepo.ListProvinceCache()

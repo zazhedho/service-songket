@@ -66,12 +66,12 @@ func (s *Service) Create(ctx context.Context, req dto.CreateOrderRequest) (domai
 		return domainorder.Order{}, fmt.Errorf("dealer_id is required")
 	}
 
-	dealer, err := s.dealerRepo.GetByID(dealerID)
+	dealer, err := s.dealerRepo.GetByID(ctx, dealerID)
 	if err != nil {
 		return domainorder.Order{}, fmt.Errorf("dealer not found")
 	}
 
-	motor, err := s.motorRepo.GetByID(req.MotorTypeID)
+	motor, err := s.motorRepo.GetByID(ctx, req.MotorTypeID)
 	if err != nil {
 		return domainorder.Order{}, fmt.Errorf("motor type not found")
 	}
@@ -280,7 +280,7 @@ func (s *Service) Update(ctx context.Context, id string, req dto.UpdateOrderRequ
 	}
 	if motorTypeID != nil {
 		order.MotorTypeID = *motorTypeID
-		motor, err := s.motorRepo.GetByID(order.MotorTypeID)
+		motor, err := s.motorRepo.GetByID(ctx, order.MotorTypeID)
 		if err != nil {
 			return domainorder.Order{}, fmt.Errorf("motor type not found")
 		}
@@ -316,7 +316,7 @@ func (s *Service) Update(ctx context.Context, id string, req dto.UpdateOrderRequ
 
 	if order.MotorTypeID != "" {
 		if selectedMotor == nil {
-			motor, err := s.motorRepo.GetByID(order.MotorTypeID)
+			motor, err := s.motorRepo.GetByID(ctx, order.MotorTypeID)
 			if err != nil {
 				return domainorder.Order{}, fmt.Errorf("motor type not found")
 			}
@@ -326,7 +326,7 @@ func (s *Service) Update(ctx context.Context, id string, req dto.UpdateOrderRequ
 			}
 		}
 
-		dealer, err := s.dealerRepo.GetByID(order.DealerID)
+		dealer, err := s.dealerRepo.GetByID(ctx, order.DealerID)
 		if err != nil {
 			return domainorder.Order{}, fmt.Errorf("dealer not found")
 		}

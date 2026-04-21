@@ -39,7 +39,7 @@ func (h *RoleHandler) Create(ctx *gin.Context) {
 
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.Create(req)
+	data, err := h.Service.Create(ctx.Request.Context(), req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Create; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, err.Error(), logId, nil)
@@ -61,7 +61,7 @@ func (h *RoleHandler) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.GetByIDWithDetails(id)
+	data, err := h.Service.GetByIDWithDetails(ctx.Request.Context(), id)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetByIDWithDetails; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusNotFound, "Role not found", logId, nil)
@@ -121,7 +121,7 @@ func (h *RoleHandler) Update(ctx *gin.Context) {
 
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.Update(id, req)
+	data, err := h.Service.Update(ctx.Request.Context(), id, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; Error: %+v", logPrefix, err))
 		statusCode := http.StatusInternalServerError
@@ -153,7 +153,7 @@ func (h *RoleHandler) Delete(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.Delete(id); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, err.Error(), logId, nil)
 		res.Error = err.Error()

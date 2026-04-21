@@ -1,6 +1,7 @@
 package repositoryquadrant
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -27,8 +28,8 @@ func NewQuadrantRepo(db *gorm.DB) interfacequadrant.RepoQuadrantInterface {
 	}
 }
 
-func (r *repo) GetAll(params filter.BaseParams) ([]domainquadrant.QuadrantResult, int64, error) {
-	query := r.db.Model(&domainquadrant.QuadrantResult{}).
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainquadrant.QuadrantResult, int64, error) {
+	query := r.db.WithContext(ctx).Model(&domainquadrant.QuadrantResult{}).
 		Joins("LEFT JOIN jobs ON jobs.id = quadrants.job_id")
 
 	if v, ok := params.Filters["job_id"]; ok {
@@ -72,9 +73,9 @@ func (r *repo) GetAll(params filter.BaseParams) ([]domainquadrant.QuadrantResult
 	return data, total, nil
 }
 
-func (r *repo) ListMonthlyOrderAggregates() ([]interfacequadrant.QuadrantMonthlyOrderAggregate, error) {
+func (r *repo) ListMonthlyOrderAggregates(ctx context.Context) ([]interfacequadrant.QuadrantMonthlyOrderAggregate, error) {
 	rows := make([]interfacequadrant.QuadrantMonthlyOrderAggregate, 0)
-	if err := r.db.
+	if err := r.db.WithContext(ctx).
 		Table("orders o").
 		Select(`
 			COALESCE(NULLIF(TRIM(o.province), ''), '') AS province,
@@ -103,9 +104,9 @@ func (r *repo) ListMonthlyOrderAggregates() ([]interfacequadrant.QuadrantMonthly
 	return rows, nil
 }
 
-func (r *repo) ListOrderCounts(fromTime, toTime *time.Time) ([]interfacequadrant.QuadrantOrderCountRow, error) {
+func (r *repo) ListOrderCounts(ctx context.Context, fromTime, toTime *time.Time) ([]interfacequadrant.QuadrantOrderCountRow, error) {
 	rows := make([]interfacequadrant.QuadrantOrderCountRow, 0)
-	query := r.db.Model(&domainorder.Order{})
+	query := r.db.WithContext(ctx).Model(&domainorder.Order{})
 	if fromTime != nil && !fromTime.IsZero() {
 		query = query.Where("pooling_at >= ?", *fromTime)
 	}
@@ -118,16 +119,16 @@ func (r *repo) ListOrderCounts(fromTime, toTime *time.Time) ([]interfacequadrant
 	return rows, nil
 }
 
-func (r *repo) ListCreditCapabilities() ([]domaincredit.CreditCapability, error) {
+func (r *repo) ListCreditCapabilities(ctx context.Context) ([]domaincredit.CreditCapability, error) {
 	rows := make([]domaincredit.CreditCapability, 0)
-	if err := r.db.Find(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
 }
 
-func (r *repo) ReplaceAll(results []domainquadrant.QuadrantResult) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *repo) ReplaceAll(ctx context.Context, results []domainquadrant.QuadrantResult) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("1=1").Delete(&domainquadrant.QuadrantResult{}).Error; err != nil {
 			return err
 		}

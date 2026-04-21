@@ -1,6 +1,7 @@
 package servicemotor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -21,15 +22,15 @@ func NewMotorService(repo interfacemotor.RepoMotorInterface) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(params filter.BaseParams) ([]domainmotor.MotorType, int64, error) {
-	return s.repo.GetAll(params)
+func (s *Service) List(ctx context.Context, params filter.BaseParams) ([]domainmotor.MotorType, int64, error) {
+	return s.repo.GetAll(ctx, params)
 }
 
-func (s *Service) GetByID(id string) (domainmotor.MotorType, error) {
-	return s.repo.GetByID(id)
+func (s *Service) GetByID(ctx context.Context, id string) (domainmotor.MotorType, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) Create(req dto.MotorTypeRequest) (domainmotor.MotorType, error) {
+func (s *Service) Create(ctx context.Context, req dto.MotorTypeRequest) (domainmotor.MotorType, error) {
 	name := strings.TrimSpace(req.Name)
 	brand := strings.TrimSpace(req.Brand)
 	model := strings.TrimSpace(req.Model)
@@ -49,7 +50,7 @@ func (s *Service) Create(req dto.MotorTypeRequest) (domainmotor.MotorType, error
 		return domainmotor.MotorType{}, fmt.Errorf("otr must be greater than or equal to 0")
 	}
 
-	_, err := s.repo.GetByUniqueKey(name, brand, model, variantType, provinceCode, regencyCode)
+	_, err := s.repo.GetByUniqueKey(ctx, name, brand, model, variantType, provinceCode, regencyCode)
 	if err == nil {
 		return domainmotor.MotorType{}, fmt.Errorf("motor type already exists for selected area")
 	}
@@ -69,7 +70,7 @@ func (s *Service) Create(req dto.MotorTypeRequest) (domainmotor.MotorType, error
 		RegencyCode:  regencyCode,
 		RegencyName:  regencyName,
 	}
-	if err := s.repo.Store(row); err != nil {
+	if err := s.repo.Store(ctx, row); err != nil {
 		if sharedsvc.IsUniqueViolationError(err) {
 			return domainmotor.MotorType{}, fmt.Errorf("motor type already exists for selected area")
 		}
@@ -78,13 +79,13 @@ func (s *Service) Create(req dto.MotorTypeRequest) (domainmotor.MotorType, error
 	return row, nil
 }
 
-func (s *Service) Update(id string, req dto.MotorTypeRequest) (domainmotor.MotorType, error) {
+func (s *Service) Update(ctx context.Context, id string, req dto.MotorTypeRequest) (domainmotor.MotorType, error) {
 	normalizedID, err := sharedsvc.NormalizeRequiredUUID(id, "id")
 	if err != nil {
 		return domainmotor.MotorType{}, err
 	}
 
-	row, err := s.repo.GetByID(normalizedID)
+	row, err := s.repo.GetByID(ctx, normalizedID)
 	if err != nil {
 		return domainmotor.MotorType{}, err
 	}
@@ -108,7 +109,7 @@ func (s *Service) Update(id string, req dto.MotorTypeRequest) (domainmotor.Motor
 		return domainmotor.MotorType{}, fmt.Errorf("otr must be greater than or equal to 0")
 	}
 
-	_, err = s.repo.GetDuplicateForUpdate(normalizedID, name, brand, model, variantType, provinceCode, regencyCode)
+	_, err = s.repo.GetDuplicateForUpdate(ctx, normalizedID, name, brand, model, variantType, provinceCode, regencyCode)
 	if err == nil {
 		return domainmotor.MotorType{}, fmt.Errorf("motor type already exists for selected area")
 	}
@@ -125,7 +126,7 @@ func (s *Service) Update(id string, req dto.MotorTypeRequest) (domainmotor.Motor
 	row.ProvinceName = provinceName
 	row.RegencyCode = regencyCode
 	row.RegencyName = regencyName
-	if err := s.repo.Update(row); err != nil {
+	if err := s.repo.Update(ctx, row); err != nil {
 		if sharedsvc.IsUniqueViolationError(err) {
 			return domainmotor.MotorType{}, fmt.Errorf("motor type already exists for selected area")
 		}
@@ -134,8 +135,8 @@ func (s *Service) Update(id string, req dto.MotorTypeRequest) (domainmotor.Motor
 	return row, nil
 }
 
-func (s *Service) Delete(id string) error {
-	orderCount, err := s.repo.CountOrdersByMotorType(id)
+func (s *Service) Delete(ctx context.Context, id string) error {
+	orderCount, err := s.repo.CountOrdersByMotorType(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -143,7 +144,7 @@ func (s *Service) Delete(id string) error {
 		return fmt.Errorf("motor type is already used by order data")
 	}
 
-	installmentCount, err := s.repo.CountInstallmentsByMotorType(id)
+	installmentCount, err := s.repo.CountInstallmentsByMotorType(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -151,5 +152,5 @@ func (s *Service) Delete(id string) error {
 		return fmt.Errorf("motor type is already used by installment data")
 	}
 
-	return s.repo.Delete(id)
+	return s.repo.Delete(ctx, id)
 }
