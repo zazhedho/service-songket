@@ -31,6 +31,11 @@ const dealerMetricsInflight = new Map<string, Promise<DealerMetricPayload>>()
 
 type FinanceMigrationRow = {
   order_id: string
+  province?: string
+  regency?: string
+  district?: string
+  village?: string
+  address?: string
   transition_total_data?: number
   total_approve_finance_2?: number
   total_reject_finance_2?: number
@@ -587,7 +592,9 @@ export function useFinanceReportSummaryData({
     setDealerInput,
     setFinance1,
     setFinance1Input,
+    setError,
     setLimit,
+    setLoading,
     setMonth,
     setMonthInput,
     setPage,

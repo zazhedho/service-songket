@@ -47,6 +47,7 @@ type FinanceListProps = {
   selectedDealerName: string
   setDealerFinanceLimit: React.Dispatch<React.SetStateAction<number>>
   setDealerFinancePage: React.Dispatch<React.SetStateAction<number>>
+  setDealerLimit: React.Dispatch<React.SetStateAction<number>>
   setDealerPage: React.Dispatch<React.SetStateAction<number>>
   setDealerProvinceFilter: React.Dispatch<React.SetStateAction<string>>
   setDealerSearch: React.Dispatch<React.SetStateAction<string>>
@@ -98,6 +99,7 @@ export default function FinanceList({
   selectedDealerName,
   setDealerFinanceLimit,
   setDealerFinancePage,
+  setDealerLimit,
   setDealerPage,
   setDealerProvinceFilter,
   setDealerSearch,

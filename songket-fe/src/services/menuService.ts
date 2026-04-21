@@ -1,6 +1,7 @@
 import api from './api'
+import type { AxiosResponse } from 'axios'
 
-type MenuResponse = Awaited<ReturnType<typeof api.get>>
+type MenuResponse = AxiosResponse<any>
 
 let myMenusCacheToken = ''
 let myMenusCacheResponse: MenuResponse | null = null

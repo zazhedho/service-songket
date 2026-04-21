@@ -1,8 +1,12 @@
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { getMe } from '../../services/authService'
 import { getMyPermissions } from '../../services/permissionService'
+
+let hydratedSessionToken = ''
+let hydratingSessionToken = ''
+let hydrationPromise: Promise<void> | null = null
 
 export default function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuth((s) => s.token)
@@ -10,49 +14,72 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   const setPermissions = useAuth((s) => s.setPermissions)
   const logout = useAuth((s) => s.logout)
   const navigate = useNavigate()
-  const location = useLocation()
-  const [loading, setLoading] = useState(false)
-  const refreshingRef = useRef(false)
-  const hydratedRef = useRef(false)
+  const [loading, setLoading] = useState(() => Boolean(token && hydratedSessionToken !== token))
 
-  const refreshSession = useCallback(async () => {
-    if (!token || refreshingRef.current) return
-    refreshingRef.current = true
-    const shouldShowLoading = !hydratedRef.current
-    if (shouldShowLoading) setLoading(true)
-    try {
+  const hydrateSession = useCallback(async () => {
+    if (!token || hydratedSessionToken === token) return
+
+    if (hydrationPromise && hydratingSessionToken === token) {
+      return hydrationPromise
+    }
+
+    hydratingSessionToken = token
+    hydrationPromise = (async () => {
       const [meRes, permRes] = await Promise.all([getMe(), getMyPermissions()])
       const resolvedRole = meRes.data?.data?.role || meRes.data?.role || null
       if (resolvedRole) setRole(resolvedRole)
+
       const nextPerms = (permRes.data?.data || permRes.data || [])
         .map((permission: any) => String(permission?.name || '').trim())
         .filter(Boolean)
       setPermissions(nextPerms)
-    } catch {
-      logout()
-      navigate('/login', { replace: true })
-    } finally {
-      hydratedRef.current = true
-      refreshingRef.current = false
-      if (shouldShowLoading) setLoading(false)
-    }
-  }, [logout, navigate, setPermissions, setRole, token])
+
+      hydratedSessionToken = token
+    })().finally(() => {
+      if (hydratingSessionToken === token) {
+        hydratingSessionToken = ''
+        hydrationPromise = null
+      }
+    })
+
+    return hydrationPromise
+  }, [setPermissions, setRole, token])
 
   useEffect(() => {
-    if (!token) return
-    void refreshSession()
-  }, [location.pathname, refreshSession, token])
+    let mounted = true
 
-  useEffect(() => {
-    if (!token) return
-    const handleFocus = () => {
-      void refreshSession()
+    if (!token) {
+      if (mounted) setLoading(false)
+      return () => {
+        mounted = false
+      }
     }
-    window.addEventListener('focus', handleFocus)
+
+    if (hydratedSessionToken === token) {
+      setLoading(false)
+      return () => {
+        mounted = false
+      }
+    }
+
+    setLoading(true)
+    hydrateSession()
+      .catch(() => {
+        if (!mounted) return
+        hydratedSessionToken = ''
+        hydratingSessionToken = ''
+        hydrationPromise = null
+        logout()
+        navigate('/login', { replace: true })
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
     return () => {
-      window.removeEventListener('focus', handleFocus)
+      mounted = false
     }
-  }, [refreshSession, token])
+  }, [hydrateSession, logout, navigate, token])
 
   if (!token) return <Navigate to="/login" replace />
   if (loading) return null

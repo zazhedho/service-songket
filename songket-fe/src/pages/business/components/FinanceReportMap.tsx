@@ -9,6 +9,10 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 })
 
+const LeafletMapContainer = MapContainer as any
+const LeafletMarker = Marker as any
+const LeafletTileLayer = TileLayer as any
+
 function ReportMapFly({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap()
 
@@ -41,14 +45,14 @@ export default function FinanceReportDealerMap({
   truncateTableText,
 }: FinanceReportDealerMapProps) {
   return (
-    <MapContainer center={dealerMapCenter} zoom={dealerMapZoom} scrollWheelZoom={false}>
-      <TileLayer
+    <LeafletMapContainer center={dealerMapCenter} zoom={dealerMapZoom} scrollWheelZoom={false}>
+      <LeafletTileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <ReportMapFly center={dealerMapCenter} zoom={dealerMapZoom} />
       {dealerPoints.map((dealerItem) => (
-        <Marker
+        <LeafletMarker
           key={`business-map-${dealerItem.id}`}
           position={[dealerItem._lat, dealerItem._lng]}
           icon={markerIcon}
@@ -75,8 +79,8 @@ export default function FinanceReportDealerMap({
               </div>
             )}
           </Popup>
-        </Marker>
+        </LeafletMarker>
       ))}
-    </MapContainer>
+    </LeafletMapContainer>
   )
 }

@@ -10,6 +10,10 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 })
 
+const LeafletMapContainer = MapContainer as any
+const LeafletMarker = Marker as any
+const LeafletTileLayer = TileLayer as any
+
 function MapFly({ center }: { center: [number, number] }) {
   const map = useMap()
 
@@ -36,11 +40,11 @@ export function FinanceDealerMap({
   setSelectedDealerId,
 }: FinanceDealerMapProps) {
   return (
-    <MapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
+    <LeafletMapContainer center={center as any} zoom={8} style={{ height: 360, borderRadius: 12 }} scrollWheelZoom={false}>
       <MapFly center={center as any} />
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+      <LeafletTileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
       {dealerPoints.map((dealer: any) => (
-        <Marker
+        <LeafletMarker
           key={dealer.id}
           position={[dealer._lat, dealer._lng]}
           icon={markerIcon}
@@ -51,9 +55,9 @@ export function FinanceDealerMap({
             <div>{summarizeLocation([dealerLocationNameMap[String(dealer.id)]?.regency])}</div>
             <div>{dealer.phone || '-'}</div>
           </Popup>
-        </Marker>
+        </LeafletMarker>
       ))}
-    </MapContainer>
+    </LeafletMapContainer>
   )
 }
 
@@ -65,16 +69,16 @@ type DealerLocationMapProps = {
 
 export function DealerLocationMap({ lat, lng, name }: DealerLocationMapProps) {
   return (
-    <MapContainer
+    <LeafletMapContainer
       center={[lat, lng]}
       zoom={11}
       style={{ height: 300, borderRadius: 12 }}
       scrollWheelZoom={false}
     >
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-      <Marker position={[lat, lng]} icon={markerIcon}>
+      <LeafletTileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+      <LeafletMarker position={[lat, lng]} icon={markerIcon}>
         <Popup>{name}</Popup>
-      </Marker>
-    </MapContainer>
+      </LeafletMarker>
+    </LeafletMapContainer>
   )
 }

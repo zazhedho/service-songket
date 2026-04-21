@@ -23,7 +23,7 @@ import DealerForm from './components/DealerForm'
 import CompanyForm from './components/CompanyForm'
 import FinanceList from './components/FinanceList'
 import {
-  type DealerForm,
+  type DealerForm as DealerFormState,
   type FinanceForm,
   type Option,
   INDONESIA_CENTER,
@@ -124,7 +124,7 @@ export default function FinancePage() {
     selectedCompanyId: selectedId,
   })
 
-  const [dealerForm, setDealerForm] = useState<DealerForm>(initialDealerForm)
+  const [dealerForm, setDealerForm] = useState<DealerFormState>(initialDealerForm)
   const [financeForm, setFinanceForm] = useState<FinanceForm>(initialFinanceForm)
   const [savingDealer, setSavingDealer] = useState(false)
   const [savingFinance, setSavingFinance] = useState(false)
@@ -422,7 +422,7 @@ export default function FinancePage() {
     }
 
     if (isDealerEdit && selectedDealer) {
-      const raw: DealerForm = {
+      const raw: DealerFormState = {
         name: selectedDealer.name || '',
         province: selectedDealer.province || '',
         regency: selectedDealer.regency || '',
@@ -814,6 +814,7 @@ export default function FinancePage() {
         selectedDealerName={selectedDealerName}
         setDealerFinanceLimit={setDealerFinanceLimit}
         setDealerFinancePage={setDealerFinancePage}
+        setDealerLimit={setDealerLimit}
         setDealerPage={setDealerPage}
         setDealerProvinceFilter={setDealerProvinceFilter}
         setDealerSearch={setDealerSearch}

@@ -12,6 +12,10 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 })
 
+const LeafletMapContainer = MapContainer as any
+const LeafletMarker = Marker as any
+const LeafletTileLayer = TileLayer as any
+
 export type DealerLeafletPlace = GeocodedPlace
 
 type DealerLeafletSearchMapProps = {
@@ -315,7 +319,7 @@ export default function DealerLeafletSearchMap({
         </div>
       )}
 
-      <MapContainer center={centerPoint} zoom={zoom} style={{ height: 320 }} scrollWheelZoom={false}>
+      <LeafletMapContainer center={centerPoint} zoom={zoom} style={{ height: 320 }} scrollWheelZoom={false}>
         <MapFly center={centerPoint} />
         <LeafletMapBridge
           onReady={(map) => {
@@ -325,10 +329,10 @@ export default function DealerLeafletSearchMap({
             void handleMapClick(nextLat, nextLng)
           }}
         />
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+        <LeafletTileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
 
         {markers.map((place) => (
-          <Marker
+          <LeafletMarker
             key={place.id}
             position={[place.lat, place.lng]}
             icon={markerIcon}
@@ -345,9 +349,9 @@ export default function DealerLeafletSearchMap({
             }}
           >
             <Popup>{place.formattedAddress || place.name || 'Selected Location'}</Popup>
-          </Marker>
+          </LeafletMarker>
         ))}
-      </MapContainer>
+      </LeafletMapContainer>
     </div>
   )
 }

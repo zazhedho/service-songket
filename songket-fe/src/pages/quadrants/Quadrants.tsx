@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchQuadrantSummary } from '../../services/quadrantService'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import QuadrantContent from './components/QuadrantContent'
@@ -85,11 +85,15 @@ export default function QuadrantsPage() {
     }
   }, [])
 
+  const getLocationKey = useCallback((row: QuadrantItem) => `${row.job_id || row.job_name || ''}|${row.province}|${row.regency}`, [])
+  const getProvinceValue = useCallback((row: QuadrantItem) => row.province, [])
+  const getRegencyValue = useCallback((row: QuadrantItem) => row.regency, [])
+
   const { displayProvince, displayRegency } = useLocationNameResolver({
     rows: items,
-    getKey: (row) => `${row.job_id || row.job_name || ''}|${row.province}|${row.regency}`,
-    getProvince: (row) => row.province,
-    getRegency: (row) => row.regency,
+    getKey: getLocationKey,
+    getProvince: getProvinceValue,
+    getRegency: getRegencyValue,
     normalize: normalizeToken,
   })
 
@@ -329,7 +333,7 @@ export default function QuadrantsPage() {
       bottom,
       points,
     }
-  }, [filtered, isMobile, provinceNameMap, provinceCodeMap, regencyNameMap])
+  }, [filtered, isMobile])
 
   const activePoint = useMemo(
     () => chart.points.find((point) => point.id === activePointId) || null,
