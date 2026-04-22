@@ -112,7 +112,7 @@ export default function MotorTypesPage() {
   const stateItem = (location.state as any)?.motorType || null
   const isFormMode = isCreate || isEdit
   const { provinces, regencies } = useLocationOptions({
-    enabled: isFormMode || isList || isDetail,
+    enabled: isFormMode || isList,
     provinceCode: form.province_code,
   })
   const { regencies: filterRegencies } = useLocationOptions({
@@ -144,10 +144,10 @@ export default function MotorTypesPage() {
   }, [provinceFilter])
 
   useEffect(() => {
-    if (canList || isEdit || isDetail) {
-      load().catch(() => setItems([]))
-    }
-  }, [canList, isEdit, isDetail, isList, limit, page, search, provinceFilter, regencyFilter])
+    if (!canList || !isList) return
+
+    load().catch(() => setItems([]))
+  }, [canList, isList, limit, page, search, provinceFilter, regencyFilter])
 
   useEffect(() => {
     setPage(1)
@@ -159,14 +159,15 @@ export default function MotorTypesPage() {
   }, [items, selectedId, stateItem, fetchedItem])
 
   useEffect(() => {
-    if (!selectedId || selectedItem) return
+    if (!(isEdit || isDetail) || !selectedId || selectedItem) return
+
     getMotorType(selectedId)
       .then((res) => {
         const data = res.data?.data || res.data
         setFetchedItem(data || null)
       })
       .catch(() => setFetchedItem(null))
-  }, [selectedId, selectedItem])
+  }, [isDetail, isEdit, selectedId, selectedItem])
 
   useEffect(() => {
     if (isCreate) {

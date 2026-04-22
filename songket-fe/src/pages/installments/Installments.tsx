@@ -142,7 +142,7 @@ export default function InstallmentsPage() {
   const stateItem = (location.state as any)?.item || null
   const isFormMode = isCreate || isEdit
   const { provinces, regencies } = useLocationOptions({
-    enabled: isFormMode || isList || isDetail,
+    enabled: isFormMode || isList,
     provinceCode: form.province_code,
   })
   const { regencies: filterRegencies } = useLocationOptions({
@@ -175,10 +175,10 @@ export default function InstallmentsPage() {
   }, [provinceFilter])
 
   useEffect(() => {
-    if (canList || isEdit || isDetail) {
-      load().catch(() => setItems([]))
-    }
-  }, [canList, isDetail, isEdit, isList, limit, page, provinceFilter, regencyFilter, search])
+    if (!canList || !isList) return
+
+    load().catch(() => setItems([]))
+  }, [canList, isList, limit, page, provinceFilter, regencyFilter, search])
 
   useEffect(() => {
     setPage(1)
@@ -190,7 +190,7 @@ export default function InstallmentsPage() {
   }, [fetchedItem, items, selectedId, stateItem])
 
   useEffect(() => {
-    if (!selectedId || selectedItem) return
+    if (!(isEdit || isDetail) || !selectedId || selectedItem) return
 
     getInstallment(selectedId)
       .then((res) => {
@@ -198,7 +198,7 @@ export default function InstallmentsPage() {
         setFetchedItem(data || null)
       })
       .catch(() => setFetchedItem(null))
-  }, [selectedId, selectedItem])
+  }, [isDetail, isEdit, selectedId, selectedItem])
 
   useEffect(() => {
     if (isCreate) {

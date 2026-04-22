@@ -82,16 +82,20 @@ export default function RolesPage() {
   }
 
   useEffect(() => {
-    if (canList || isEdit || isDetail) {
-      load().catch(() => {
-        setRoles([])
-      })
-    }
+    if (!canList || !isList) return
+
+    load().catch(() => {
+      setRoles([])
+    })
+  }, [canList, isList, limit, page, search])
+
+  useEffect(() => {
+    if (!(canAssignPerms || isDetail || isEdit || isCreate)) return
 
     listPermissions({ page: 1, limit: 500 })
       .then((res: any) => setPerms(res.data.data || res.data || []))
       .catch(() => setPerms([]))
-  }, [canList, isCreate, isDetail, isEdit, isList, limit, page, search])
+  }, [canAssignPerms, isCreate, isDetail, isEdit])
 
   useEffect(() => {
     setPage(1)
@@ -99,8 +103,8 @@ export default function RolesPage() {
 
   const selectedRole = useMemo(() => {
     if (!selectedId) return null
-    return roles.find((r) => r.id === selectedId) || (stateRole?.id === selectedId ? stateRole : null)
-  }, [roles, selectedId, stateRole])
+    return roles.find((r) => r.id === selectedId) || (stateRole?.id === selectedId ? stateRole : null) || roleDetail
+  }, [roleDetail, roles, selectedId, stateRole])
 
   const isSystemRole = useMemo(() => {
     return Boolean(roleDetail?.is_system || selectedRole?.is_system)
