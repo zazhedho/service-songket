@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchCreditWorksheet } from '../../services/creditService'
+import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { usePermissions } from '../../hooks/usePermissions'
 import CreditFilters from './components/CreditFilters'
 import CreditMatrix from './components/CreditMatrix'
@@ -93,13 +94,21 @@ function looksLikeLocationCode(value?: string) {
   const raw = String(value || '').trim()
   if (!raw) return false
   if (/^\d+$/.test(raw)) return true
-  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  if (!/\s/.test(raw) && /^[A-Z0-9._-]+$/.test(raw) && /[0-9._-]/.test(raw)) return true
   return false
+}
+
+function humanizeLocationValue(value?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return '-'
+  return looksLikeLocationCode(raw) ? '-' : raw
 }
 
 type MatrixDisplayRow = {
   area_key: string
   area_name: string
+  area_regency: string
+  area_province: string
   job_id: string
   job_name: string
   motor_type_id: string
@@ -143,6 +152,45 @@ export default function CreditPage() {
   const motorsMaster = useMemo(() => worksheet.motor_types_master || [], [worksheet])
   const installmentRanges = useMemo(() => worksheet.installment_range || [], [worksheet])
   const dpRanges = useMemo(() => worksheet.dp_range || [], [worksheet])
+  const { locationNamesByKey } = useLocationNameResolver({
+    rows: areas,
+    getKey: (row) => String(row?.area_key || '').trim(),
+    getProvince: (row) => String(row?.province_code || row?.province_name || '').trim(),
+    getRegency: (row) => String(row?.regency_code || row?.regency_name || '').trim(),
+  })
+
+  const areaLabelByKey = useMemo(() => {
+    const next: Record<string, string> = {}
+
+    for (const area of areas) {
+      const key = String(area?.area_key || '').trim()
+      if (!key) continue
+
+      const resolved = locationNamesByKey[key]
+      const regency = String(resolved?.regency || '').trim() || humanizeLocationValue(area?.regency_name || area?.regency_code)
+      const province = String(resolved?.province || '').trim() || humanizeLocationValue(area?.province_name || area?.province_code)
+      next[key] = [regency, province].filter((value) => value && value !== '-').join(', ') || '-'
+    }
+
+    return next
+  }, [areas, locationNamesByKey])
+
+  const areaPartsByKey = useMemo(() => {
+    const next: Record<string, { regency: string; province: string }> = {}
+
+    for (const area of areas) {
+      const key = String(area?.area_key || '').trim()
+      if (!key) continue
+
+      const resolved = locationNamesByKey[key]
+      next[key] = {
+        regency: String(resolved?.regency || '').trim() || humanizeLocationValue(area?.regency_name || area?.regency_code),
+        province: String(resolved?.province || '').trim() || humanizeLocationValue(area?.province_name || area?.province_code),
+      }
+    }
+
+    return next
+  }, [areas, locationNamesByKey])
 
   const jobOptions = useMemo(() => {
     const map = new Map<string, JobOption>()
@@ -171,16 +219,15 @@ export default function CreditPage() {
     const map = new Map<string, AreaOption>()
     for (const area of areas) {
       if (!area?.area_key) continue
-      const areaNameRaw = String(area.regency_name || '').trim()
       map.set(area.area_key, {
         area_key: area.area_key,
-        area_name: areaNameRaw && !looksLikeLocationCode(areaNameRaw) ? areaNameRaw : '-',
+        area_name: areaLabelByKey[area.area_key] || '-',
         province_code: area.province_code,
         regency_code: area.regency_code,
       })
     }
     return Array.from(map.values()).sort((a, b) => a.area_name.localeCompare(b.area_name))
-  }, [areas])
+  }, [areaLabelByKey, areas])
 
   const motorOptions = useMemo(() => {
     const map = new Map<string, MotorOption>()
@@ -239,8 +286,8 @@ export default function CreditPage() {
     for (const area of areas) {
       if (selectedAreaKey && area.area_key !== selectedAreaKey) continue
 
-      const areaNameRaw = String(area.regency_name || '').trim()
-      const areaName = areaNameRaw && !looksLikeLocationCode(areaNameRaw) ? areaNameRaw : '-'
+      const areaName = areaLabelByKey[area.area_key] || '-'
+      const areaParts = areaPartsByKey[area.area_key] || { regency: '-', province: '-' }
       for (const matrixRow of area.matrix || []) {
         const jobID = String(matrixRow?.job_id || '').trim()
         if (selectedJobId && jobID !== selectedJobId) continue
@@ -253,6 +300,8 @@ export default function CreditPage() {
           out.push({
             area_key: area.area_key,
             area_name: areaName,
+            area_regency: areaParts.regency || '-',
+            area_province: areaParts.province || '-',
             job_id: jobID,
             job_name: matrixRow?.job_name || jobID || '-',
             motor_type_id: motorID,
@@ -269,7 +318,7 @@ export default function CreditPage() {
       return a.motor_type_name.localeCompare(b.motor_type_name)
     })
     return out
-  }, [areas, selectedAreaKey, selectedJobId, selectedMotorTypeId])
+  }, [areaLabelByKey, areaPartsByKey, areas, selectedAreaKey, selectedJobId, selectedMotorTypeId])
 
   const matrixPagination = useMemo(() => paginate(filteredRows, page, limit), [filteredRows, page, limit])
   useEffect(() => setPage(matrixPagination.safePage), [matrixPagination.safePage])

@@ -1,3 +1,5 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
+
 type CreditFiltersProps = {
   areaOptions: any[]
   jobOptions: any[]
@@ -29,6 +31,21 @@ export default function CreditFilters({
   timeFrom,
   timeTo,
 }: CreditFiltersProps) {
+  const jobSelectOptions = [{ value: '', label: 'All Jobs' }, ...jobOptions.map((job: any) => ({
+    value: String(job.job_id || ''),
+    label: String(job.job_name || job.job_id || '-'),
+  }))]
+
+  const areaSelectOptions = [{ value: '', label: 'All Areas' }, ...areaOptions.map((area: any) => ({
+    value: String(area.area_key || ''),
+    label: String(area.area_name || area.area_key || '-'),
+  }))]
+
+  const motorSelectOptions = [{ value: '', label: 'All Motor Types' }, ...motorOptions.map((motor: any) => ({
+    value: String(motor.motor_type_id || ''),
+    label: String(motor.motor_type_name || motor.motor_type_id || '-'),
+  }))]
+
   return (
     <div className="filter-panel">
       <div className="filter-panel-head">
@@ -41,38 +58,41 @@ export default function CreditFilters({
       <div className="filter-grid">
         <div className="filter-field">
           <label htmlFor="credit-job-select">Job</label>
-          <select id="credit-job-select" value={selectedJobId} onChange={(e) => setSelectedJobId(e.target.value)}>
-            <option value="">All Jobs</option>
-            {jobOptions.map((job: any) => (
-              <option key={job.job_id} value={job.job_id}>
-                {job.job_name}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            id="credit-job-select"
+            value={selectedJobId}
+            options={jobSelectOptions}
+            onChange={setSelectedJobId}
+            placeholder="All Jobs"
+            searchPlaceholder="Search job..."
+            emptyMessage="Job not found."
+          />
         </div>
 
         <div className="filter-field">
           <label htmlFor="credit-area-select">Area</label>
-          <select id="credit-area-select" value={selectedAreaKey} onChange={(e) => setSelectedAreaKey(e.target.value)}>
-            <option value="">All Areas</option>
-            {areaOptions.map((area: any) => (
-              <option key={area.area_key} value={area.area_key}>
-                {area.area_name}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            id="credit-area-select"
+            value={selectedAreaKey}
+            options={areaSelectOptions}
+            onChange={setSelectedAreaKey}
+            placeholder="All Areas"
+            searchPlaceholder="Search area..."
+            emptyMessage="Area not found."
+          />
         </div>
 
         <div className="filter-field">
           <label htmlFor="credit-motor-select">Motor Type</label>
-          <select id="credit-motor-select" value={selectedMotorTypeId} onChange={(e) => setSelectedMotorTypeId(e.target.value)}>
-            <option value="">All Motor Types</option>
-            {motorOptions.map((motor: any) => (
-              <option key={motor.motor_type_id} value={motor.motor_type_id}>
-                {motor.motor_type_name}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            id="credit-motor-select"
+            value={selectedMotorTypeId}
+            options={motorSelectOptions}
+            onChange={setSelectedMotorTypeId}
+            placeholder="All Motor Types"
+            searchPlaceholder="Search motor type..."
+            emptyMessage="Motor type not found."
+          />
         </div>
 
         <div className="filter-field">

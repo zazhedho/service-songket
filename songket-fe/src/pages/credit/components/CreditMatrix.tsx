@@ -48,7 +48,14 @@ export default function CreditMatrix({
               const style = row.cell ? rateCellStyle(row.cell.capability_rate) : undefined
               return (
                 <tr key={`${row.area_key}-${row.job_id || 'all'}-${row.motor_type_id || 'empty'}-${idx}`}>
-                  <td>{row.area_name}</td>
+                  <td>
+                    <div style={{ minWidth: 180 }}>
+                      <div style={{ fontWeight: 600 }}>{row.area_regency || row.area_name || '-'}</div>
+                      {row.area_province && row.area_province !== '-' && (
+                        <div style={{ color: '#64748b', fontSize: 12 }}>{row.area_province}</div>
+                      )}
+                    </div>
+                  </td>
                   <td>{row.job_name || '-'}</td>
                   <td>{row.motor_type_name}</td>
                   <td style={style}>{row.cell ? formatPercent(row.cell.capability_rate) : '-'}</td>
