@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"service-songket/internal/authscope"
 	domainorder "service-songket/internal/domain/order"
@@ -13,6 +14,24 @@ import (
 
 	"gorm.io/gorm"
 )
+
+const dateOnlyLayout = "2006-01-02"
+
+func parseDateStart(dateValue string) (time.Time, bool) {
+	parsed, err := time.Parse(dateOnlyLayout, strings.TrimSpace(dateValue))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func parseDateEndExclusive(dateValue string) (time.Time, bool) {
+	start, ok := parseDateStart(dateValue)
+	if !ok {
+		return time.Time{}, false
+	}
+	return start.AddDate(0, 0, 1), true
+}
 
 type repo struct {
 	DB *gorm.DB
@@ -68,27 +87,31 @@ func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainor
 	if v, ok := params.Filters["from_date"]; ok {
 		fromDate := strings.TrimSpace(fmt.Sprint(v))
 		if fromDate != "" {
-			query = query.Where(
-				`(
-					DATE(orders.created_at) >= ?
-					OR DATE(orders.pooling_at) >= ?
-				)`,
-				fromDate,
-				fromDate,
-			)
+			if fromStart, ok := parseDateStart(fromDate); ok {
+				query = query.Where(
+					`(
+						orders.created_at >= ?
+						OR orders.pooling_at >= ?
+					)`,
+					fromStart,
+					fromStart,
+				)
+			}
 		}
 	}
 	if v, ok := params.Filters["to_date"]; ok {
 		toDate := strings.TrimSpace(fmt.Sprint(v))
 		if toDate != "" {
-			query = query.Where(
-				`(
-					DATE(orders.created_at) <= ?
-					OR DATE(orders.pooling_at) <= ?
-				)`,
-				toDate,
-				toDate,
-			)
+			if toEndExclusive, ok := parseDateEndExclusive(toDate); ok {
+				query = query.Where(
+					`(
+						orders.created_at < ?
+						OR orders.pooling_at < ?
+					)`,
+					toEndExclusive,
+					toEndExclusive,
+				)
+			}
 		}
 	}
 
@@ -144,14 +167,37 @@ func (r *repo) ListForExport(ctx context.Context, req dto.OrderExportRequest) ([
 
 	fromDate := strings.TrimSpace(req.FromDate)
 	toDate := strings.TrimSpace(req.ToDate)
-	query = query.Where(
-		`(
-			(DATE(orders.created_at) >= ? AND DATE(orders.created_at) <= ?)
-			OR
-			(DATE(orders.pooling_at) >= ? AND DATE(orders.pooling_at) <= ?)
-		)`,
-		fromDate, toDate, fromDate, toDate,
-	)
+	fromStart, hasFrom := parseDateStart(fromDate)
+	toEndExclusive, hasTo := parseDateEndExclusive(toDate)
+	switch {
+	case hasFrom && hasTo:
+		query = query.Where(
+			`(
+				(orders.created_at >= ? AND orders.created_at < ?)
+				OR
+				(orders.pooling_at >= ? AND orders.pooling_at < ?)
+			)`,
+			fromStart, toEndExclusive, fromStart, toEndExclusive,
+		)
+	case hasFrom:
+		query = query.Where(
+			`(
+				orders.created_at >= ?
+				OR orders.pooling_at >= ?
+			)`,
+			fromStart,
+			fromStart,
+		)
+	case hasTo:
+		query = query.Where(
+			`(
+				orders.created_at < ?
+				OR orders.pooling_at < ?
+			)`,
+			toEndExclusive,
+			toEndExclusive,
+		)
+	}
 
 	if !r.DB.Migrator().HasColumn(&domainorder.Order{}, "installment") {
 		query = query.Select(`
