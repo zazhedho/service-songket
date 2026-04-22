@@ -36,6 +36,8 @@ function Guarded({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  const location = useLocation()
+
   return (
     <Shell>
       <Suspense fallback={<RouteLoader />}>
@@ -96,10 +98,10 @@ export default function App() {
 
           <Route path="/credit" element={<Guarded><CreditPage /></Guarded>} />
           <Route path="/quadrants" element={<Guarded><QuadrantsPage /></Guarded>} />
-          <Route path="/jobs" element={<Guarded><JobsPage /></Guarded>} />
-          <Route path="/jobs/create" element={<Guarded><JobsPage /></Guarded>} />
-          <Route path="/jobs/:id" element={<Guarded><JobsPage /></Guarded>} />
-          <Route path="/jobs/:id/edit" element={<Guarded><JobsPage /></Guarded>} />
+          <Route path="/jobs" element={<Guarded key={`jobs:${location.pathname}`}><JobsPage key={`jobs-page:${location.pathname}`} /></Guarded>} />
+          <Route path="/jobs/create" element={<Guarded key={`jobs:${location.pathname}`}><JobsPage key={`jobs-page:${location.pathname}`} /></Guarded>} />
+          <Route path="/jobs/:id" element={<Guarded key={`jobs:${location.pathname}`}><JobsPage key={`jobs-page:${location.pathname}`} /></Guarded>} />
+          <Route path="/jobs/:id/edit" element={<Guarded key={`jobs:${location.pathname}`}><JobsPage key={`jobs-page:${location.pathname}`} /></Guarded>} />
           <Route path="/net-income" element={<Guarded><Navigate to="/jobs" replace /></Guarded>} />
           <Route path="/net-income/create" element={<Guarded><Navigate to="/jobs/create" replace /></Guarded>} />
           <Route path="/net-income/:id" element={<Guarded><Navigate to="/jobs" replace /></Guarded>} />

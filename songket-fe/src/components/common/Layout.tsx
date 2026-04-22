@@ -87,14 +87,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     const applyResponsiveTableLabels = (tables: Iterable<HTMLTableElement>) => {
       Array.from(tables).forEach((table) => {
-        const parent = table.parentElement
-        if (!parent || (!parent.classList.contains('table-responsive') && !parent.classList.contains('table-scroll'))) {
-          const wrapper = document.createElement('div')
-          wrapper.className = 'table-responsive'
-          table.parentNode?.insertBefore(wrapper, table)
-          wrapper.appendChild(table)
-        }
-
         const headerCells = Array.from(table.querySelectorAll(':scope > thead > tr > th')) as HTMLTableCellElement[]
         const headerLabels = headerCells.map((cell) => cell.textContent?.trim() || '')
         const hasBodyTh = table.querySelector(':scope > tbody > tr > th') !== null

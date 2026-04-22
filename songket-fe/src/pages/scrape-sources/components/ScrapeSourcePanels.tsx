@@ -21,14 +21,25 @@ export default function ScrapeSourcePanels({
 
   return (
     <>
-      <div className="card">
-        <h3>Manual Scrape</h3>
-        <label>URL list (comma-separated, empty uses active defaults)</label>
-        <input value={customUrls} onChange={(e) => setCustomUrls(e.target.value)} placeholder="https://..." />
-        <div style={{ marginTop: 8 }}>
-          <button className="btn" onClick={() => void runScrape()} disabled={loading || !canScrape}>
-            {loading ? 'Scraping...' : 'Run Scrape'}
-          </button>
+      <div className="filter-panel">
+        <div className="filter-panel-head">
+          <div>
+            <div className="filter-panel-title">Manual Scrape</div>
+            <div className="filter-panel-subtitle">Masukkan URL spesifik bila perlu. Kosongkan untuk memakai source aktif yang sudah tersimpan.</div>
+          </div>
+        </div>
+
+        <div className="filter-grid mobile-filter-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto' }}>
+          <div className="filter-field">
+            <label>URL list (comma-separated, empty uses active defaults)</label>
+            <input value={customUrls} onChange={(e) => setCustomUrls(e.target.value)} placeholder="https://..." />
+          </div>
+
+          <div className="filter-actions">
+            <button className="btn" onClick={() => void runScrape()} disabled={loading || !canScrape}>
+              {loading ? 'Scraping...' : 'Run Scrape'}
+            </button>
+          </div>
         </div>
       </div>
 

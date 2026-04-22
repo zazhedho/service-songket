@@ -93,6 +93,12 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   }, [hasHydratedSessionData, hydrateSession, logout, navigate, token])
 
   if (!token) return <Navigate to="/login" replace />
-  if (loading) return null
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="card">Loading...</div>
+      </div>
+    )
+  }
   return <>{children}</>
 }

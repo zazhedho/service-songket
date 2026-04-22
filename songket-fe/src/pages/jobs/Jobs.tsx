@@ -10,7 +10,6 @@ import {
 import {
   createNetIncome,
   deleteNetIncome,
-  getNetIncome,
   listNetIncome,
   updateNetIncome,
 } from '../../services/netIncomeService'
@@ -59,6 +58,21 @@ type CombinedItem = {
   area_net_income: NetIncomeArea[]
   created_at?: string
   updated_at?: string
+}
+
+function normalizeCombinedItem(rawJob?: any, rawNetIncome?: any): CombinedItem | null {
+  const jobId = String(rawNetIncome?.job_id || rawJob?.job_id || rawJob?.id || '').trim()
+  if (!jobId) return null
+
+  return {
+    job_id: jobId,
+    net_income_id: String(rawNetIncome?.id || rawJob?.net_income_id || '').trim(),
+    name: String(rawJob?.name || rawNetIncome?.job_name || rawJob?.job_name || '').trim(),
+    net_income: Number(rawNetIncome?.net_income ?? rawJob?.net_income ?? 0),
+    area_net_income: normalizeAreaInput(rawNetIncome?.area_net_income ?? rawJob?.area_net_income),
+    created_at: rawNetIncome?.created_at || rawJob?.created_at,
+    updated_at: rawNetIncome?.updated_at || rawJob?.updated_at,
+  }
 }
 
 const emptyForm = {
@@ -199,9 +213,8 @@ export default function JobsPage() {
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
-  const [detailJob, setDetailJob] = useState<any>(null)
-  const [detailNetIncome, setDetailNetIncome] = useState<any>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [fetchedItem, setFetchedItem] = useState<CombinedItem | null>(null)
 
   const stateItem = (location.state as any)?.item || null
   const isFormMode = isCreate || isEdit
@@ -263,13 +276,13 @@ export default function JobsPage() {
   }
 
   useEffect(() => {
-    if (canList || isEdit || isDetail) {
-      load().catch(() => {
-        setItems([])
-        setAllItems([])
-      })
-    }
-  }, [canList, isDetail, isEdit, isList, limit, page, search])
+    if (!canList || !isList) return
+
+    load().catch(() => {
+      setItems([])
+      setAllItems([])
+    })
+  }, [canList, isList, limit, page, search])
 
   useEffect(() => {
     setPage(1)
@@ -277,33 +290,33 @@ export default function JobsPage() {
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
+    const normalizedStateItem = stateItem?.job_id === selectedId ? normalizeCombinedItem(stateItem) : null
     return (
       allItems.find((item) => item.job_id === selectedId) ||
-      (stateItem?.job_id === selectedId ? stateItem : null)
+      normalizedStateItem ||
+      (fetchedItem?.job_id === selectedId ? fetchedItem : null)
     )
-  }, [allItems, selectedId, stateItem])
+  }, [allItems, fetchedItem, selectedId, stateItem])
 
   useEffect(() => {
-    if (!isDetail || !selectedItem?.job_id) {
-      setDetailJob(null)
-      setDetailNetIncome(null)
-      setDetailLoading(false)
-      return
-    }
+    if (!(isDetail || isEdit) || !selectedId || selectedItem) return
 
     setDetailLoading(true)
+
     Promise.all([
-      getJob(selectedItem.job_id).catch(() => null),
-      selectedItem.net_income_id ? getNetIncome(selectedItem.net_income_id).catch(() => null) : Promise.resolve(null),
+      getJob(selectedId).catch(() => null),
+      listNetIncome({ page: 1, limit: 1000 }).catch(() => null),
     ])
       .then(([jobRes, netRes]) => {
         const jobData = jobRes?.data?.data || jobRes?.data || null
-        const netData = netRes?.data?.data || netRes?.data || null
-        setDetailJob(jobData)
-        setDetailNetIncome(netData)
+        const netData = netRes?.data?.data || netRes?.data || []
+        const netItems = Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : []
+        const matchedNetIncome = netItems.find((item) => item.job_id === selectedId) || null
+        setFetchedItem(normalizeCombinedItem(jobData, matchedNetIncome))
       })
+      .catch(() => setFetchedItem(null))
       .finally(() => setDetailLoading(false))
-  }, [isDetail, selectedItem?.job_id, selectedItem?.net_income_id])
+  }, [isDetail, isEdit, selectedId, selectedItem])
 
   useEffect(() => {
     if (isCreate) {
@@ -463,11 +476,11 @@ export default function JobsPage() {
     }
   }
 
-  const detailAreaRows = normalizeAreaInput(detailNetIncome?.area_net_income ?? selectedItem?.area_net_income)
-  const detailJobName = detailJob?.name || selectedItem?.name || '-'
-  const detailNetIncomeValue = Number(detailNetIncome?.net_income ?? selectedItem?.net_income ?? 0)
-  const detailCreatedAt = formatDate(detailNetIncome?.created_at || detailJob?.created_at || selectedItem?.created_at)
-  const detailUpdatedAt = formatDate(detailNetIncome?.updated_at || detailJob?.updated_at || selectedItem?.updated_at)
+  const detailAreaRows = normalizeAreaInput(selectedItem?.area_net_income)
+  const detailJobName = selectedItem?.name || '-'
+  const detailNetIncomeValue = Number(selectedItem?.net_income ?? 0)
+  const detailCreatedAt = formatDate(selectedItem?.created_at)
+  const detailUpdatedAt = formatDate(selectedItem?.updated_at)
 
   if (isDetail) {
     return (
