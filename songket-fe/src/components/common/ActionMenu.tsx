@@ -53,10 +53,17 @@ export default function ActionMenu({ items, label = 'Options', emptyLabel = '-' 
         className="btn-ghost action-menu-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={label}
+        title={label}
         onClick={() => setOpen((prev) => !prev)}
       >
-        {label}
-        <span className="action-menu-caret">▾</span>
+        <span className="action-menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="currentColor" focusable="false">
+            <circle cx="10" cy="4" r="1.8" />
+            <circle cx="10" cy="10" r="1.8" />
+            <circle cx="10" cy="16" r="1.8" />
+          </svg>
+        </span>
       </button>
 
       {open && (

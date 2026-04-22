@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type JobListProps = {
   areaLabel: (area: any) => string
@@ -62,41 +63,35 @@ export default function JobList({
           {!canList && <div className="alert">No permission to view data.</div>}
           {canList && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Job Name</th>
-                    <th>Net Income</th>
-                    <th>Area Coverage</th>
-                    <th>Updated</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.job_id}>
-                      <td>{item.name || '-'}</td>
-                      <td>{formatRupiah(Number(item.net_income || 0))}</td>
-                      <td>{item.area_net_income.length ? item.area_net_income.map((area: any) => areaLabel(area)).join(', ') : '-'}</td>
-                      <td>{formatDate(item.updated_at)}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            { key: 'view', label: 'View', onClick: () => navigate(`/jobs/${item.job_id}`, { state: { item } }) },
-                            { key: 'edit', label: 'Edit', onClick: () => navigate(`/jobs/${item.job_id}/edit`, { state: { item } }), hidden: !canUpdate },
-                            { key: 'delete', label: 'Delete', onClick: () => void remove(item), hidden: !canDelete, danger: true },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={5}>No data available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={items}
+                keyField="job_id"
+                onRowClick={(item) => navigate(`/jobs/${item.job_id}`, { state: { item } })}
+                emptyMessage="No data available."
+                columns={[
+                  { header: 'Job Name', accessor: (item) => item.name || '-' },
+                  { header: 'Net Income', accessor: (item) => formatRupiah(Number(item.net_income || 0)) },
+                  {
+                    header: 'Area Coverage',
+                    accessor: (item) => item.area_net_income.length ? item.area_net_income.map((area: any) => areaLabel(area)).join(', ') : '-',
+                  },
+                  { header: 'Updated', accessor: (item) => formatDate(item.updated_at) },
+                  {
+                    header: 'Action',
+                    accessor: (item) => (
+                      <ActionMenu
+                        items={[
+                          { key: 'view', label: 'View', onClick: () => navigate(`/jobs/${item.job_id}`, { state: { item } }) },
+                          { key: 'edit', label: 'Edit', onClick: () => navigate(`/jobs/${item.job_id}/edit`, { state: { item } }), hidden: !canUpdate },
+                          { key: 'delete', label: 'Delete', onClick: () => void remove(item), hidden: !canDelete, danger: true },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

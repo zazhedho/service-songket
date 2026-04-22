@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type UserListProps = {
   canCreate: boolean
@@ -58,54 +59,49 @@ export default function UserList({
           {!canList && <div className="alert">You do not have permission to view data.</div>}
           {canList && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td><span className="badge pending">{user.role}</span></td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/users/${user.id}`, { state: { user } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/users/${user.id}/edit`, { state: { user } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void onRemove(user.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>No users found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={users}
+                keyField="id"
+                onRowClick={(user) => navigate(`/users/${user.id}`, { state: { user } })}
+                emptyMessage="No users found."
+                columns={[
+                  { header: 'Name', accessor: 'name' },
+                  { header: 'Email', accessor: 'email' },
+                  {
+                    header: 'Role',
+                    accessor: (user) => <span className="badge pending">{user.role}</span>,
+                  },
+                  {
+                    header: 'Action',
+                    accessor: (user) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/users/${user.id}`, { state: { user } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/users/${user.id}/edit`, { state: { user } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void onRemove(user.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

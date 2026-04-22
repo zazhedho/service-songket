@@ -1,4 +1,5 @@
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type ScrapeResult = {
   id: string
@@ -68,34 +69,28 @@ export default function PriceScrapeResults({
         <div className="muted">No results found for this job.</div>
       ) : (
         <>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Select</th>
-                <th>Commodity</th>
-                <th>Price</th>
-                <th>Source</th>
-                <th>Scraped At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((result) => (
-                <tr key={result.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedResultIds.includes(result.id)}
-                      onChange={() => toggleResult(result.id)}
-                    />
-                  </td>
-                  <td>{result.commodity_name}</td>
-                  <td>{formatRupiah(result.price)} {result.unit ? `/ ${result.unit}` : ''}</td>
-                  <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{result.source_url}</td>
-                  <td>{new Date(result.scraped_at).toLocaleString('en-GB')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table
+            data={results}
+            keyField="id"
+            onRowClick={(result) => toggleResult(result.id)}
+            columns={[
+              {
+                header: 'Select',
+                accessor: (result) => (
+                  <input
+                    type="checkbox"
+                    checked={selectedResultIds.includes(result.id)}
+                    onChange={() => toggleResult(result.id)}
+                  />
+                ),
+                ignoreRowClick: true,
+              },
+              { header: 'Commodity', accessor: 'commodity_name' },
+              { header: 'Price', accessor: (result) => `${formatRupiah(result.price)}${result.unit ? ` / ${result.unit}` : ''}` },
+              { header: 'Source', accessor: 'source_url', style: { maxWidth: 220, wordBreak: 'break-word' } },
+              { header: 'Scraped At', accessor: (result) => new Date(result.scraped_at).toLocaleString('en-GB') },
+            ]}
+          />
 
           <Pagination
             page={resultPage}

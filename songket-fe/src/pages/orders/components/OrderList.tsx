@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 import type { ResolvedLocationNames } from '../../../hooks/useLocationNameResolver'
 import { getAttempt, lookupDisplayName } from './orderHelpers'
 
@@ -171,67 +172,64 @@ export default function OrderListView({
           {!showTable && <div className="alert">You do not have permission to view orders.</div>}
           {showTable && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Pooling</th>
-                    <th>Consumer</th>
-                    <th>Location</th>
-                    <th>Finance</th>
-                    <th>Status</th>
-                    <th>Tenor</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.order.pooling_number}</td>
-                      <td>{row.order.consumer_name}</td>
-                      <td>{row.locationLabel}</td>
-                      <td>
+              <Table
+                data={rows}
+                keyField="id"
+                onRowClick={(row) => navigate(`/orders/${row.id}`, { state: { order: row.order } })}
+                emptyMessage="No orders yet."
+                columns={[
+                  { header: 'Pooling', accessor: (row) => row.order.pooling_number },
+                  { header: 'Consumer', accessor: (row) => row.order.consumer_name },
+                  { header: 'Location', accessor: 'locationLabel' },
+                  {
+                    header: 'Finance',
+                    accessor: (row) => (
+                      <>
                         <div>{row.financeCompany1Name}</div>
                         {row.showFinanceCompany2 && (
                           <div style={{ color: '#64748b', fontSize: 12 }}>
                             FC2: {row.financeCompany2Name}
                           </div>
                         )}
-                      </td>
-                      <td><span className={`badge ${row.status}`}>{row.status}</span></td>
-                      <td>{row.order.tenor} months</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/orders/${row.id}`, { state: { order: row.order } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/orders/${row.id}/edit`, { state: { order: row.order } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void onRemove(row.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {list.length === 0 && (
-                    <tr>
-                      <td colSpan={7}>No orders yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                      </>
+                    ),
+                  },
+                  {
+                    header: 'Status',
+                    accessor: (row) => <span className={`badge ${row.status}`}>{row.status}</span>,
+                  },
+                  { header: 'Tenor', accessor: (row) => `${row.order.tenor} months` },
+                  {
+                    header: 'Action',
+                    accessor: (row) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/orders/${row.id}`, { state: { order: row.order } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/orders/${row.id}/edit`, { state: { order: row.order } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void onRemove(row.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type MotorTypeListProps = {
   canCreate: boolean
@@ -96,58 +97,48 @@ export default function MotorTypeList({
           {(!canList || !canView) && <div className="alert">No permission to view motor type data.</div>}
           {canList && canView && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>Brand / Model</th>
-                    <th>Type</th>
-                    <th>OTR</th>
-                    <th>Area</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item: any) => (
-                    <tr key={item.id}>
-                      <td>{item.name || '-'}</td>
-                      <td>{[item.brand, item.model].filter(Boolean).join(' / ') || '-'}</td>
-                      <td>{item.type || '-'}</td>
-                      <td>{formatRupiah(item.otr || 0)}</td>
-                      <td>{[item.regency_name, item.province_name].filter(Boolean).join(', ') || '-'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/motor-types/${item.id}`, { state: { motorType: item } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/motor-types/${item.id}/edit`, { state: { motorType: item } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(item.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={6}>No motor type data yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={items}
+                keyField="id"
+                onRowClick={(item: any) => navigate(`/motor-types/${item.id}`, { state: { motorType: item } })}
+                emptyMessage="No motor type data yet."
+                columns={[
+                  { header: 'Type', accessor: (item: any) => item.name || '-' },
+                  { header: 'Brand / Model', accessor: (item: any) => [item.brand, item.model].filter(Boolean).join(' / ') || '-' },
+                  { header: 'Type', accessor: (item: any) => item.type || '-' },
+                  { header: 'OTR', accessor: (item: any) => formatRupiah(item.otr || 0) },
+                  { header: 'Area', accessor: (item: any) => [item.regency_name, item.province_name].filter(Boolean).join(', ') || '-' },
+                  {
+                    header: 'Action',
+                    accessor: (item: any) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/motor-types/${item.id}`, { state: { motorType: item } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/motor-types/${item.id}/edit`, { state: { motorType: item } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(item.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

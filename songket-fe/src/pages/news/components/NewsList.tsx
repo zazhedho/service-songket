@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 import { shortText, toDetailRow } from './newsHelpers'
 
 type NewsListProps = {
@@ -63,66 +64,67 @@ export default function NewsList({
         <div className="page">
           <div className="card">
             <h3>News List</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Content</th>
-                  <th>Created At</th>
-                  <th>Source</th>
-                  <th>Link</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const detailRow = toDetailRow(item)
-                  return (
-                    <tr key={item.id || item.url}>
-                      <td style={{ maxWidth: 320 }}>{item.title || '-'}</td>
-                      <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(item.content || '', 180)}</td>
-                      <td>
-                        {(item.published_at || item.created_at)
-                          ? dayjs(item.published_at || item.created_at).format('DD MMM YYYY HH:mm')
-                          : '-'}
-                      </td>
-                      <td>{item.source_name || item.source?.name || detailRow.sumber || '-'}</td>
-                      <td>
-                        <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Open Link</a>
-                      </td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view-detail',
-                              label: 'View Detail',
-                              onClick: () => navigate(`/news/${item.id}`, { state: { detail: detailRow } }),
+            <Table
+              data={items}
+              keyField={(item) => String(item.id || item.url)}
+              onRowClick={(item) => navigate(`/news/${item.id}`, { state: { detail: toDetailRow(item) } })}
+              emptyMessage="No saved news yet."
+              columns={[
+                { header: 'Title', accessor: (item) => item.title || '-', style: { maxWidth: 320 } },
+                { header: 'Content', accessor: (item) => shortText(item.content || '', 180), style: { maxWidth: 360, wordBreak: 'break-word' } },
+                {
+                  header: 'Created At',
+                  accessor: (item) => (item.published_at || item.created_at)
+                    ? dayjs(item.published_at || item.created_at).format('DD MMM YYYY HH:mm')
+                    : '-',
+                },
+                {
+                  header: 'Source',
+                  accessor: (item) => {
+                    const detailRow = toDetailRow(item)
+                    return item.source_name || item.source?.name || detailRow.sumber || '-'
+                  },
+                },
+                {
+                  header: 'Link',
+                  accessor: (item) => (
+                    <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Open Link</a>
+                  ),
+                  ignoreRowClick: true,
+                },
+                {
+                  header: 'Action',
+                  accessor: (item) => {
+                    const detailRow = toDetailRow(item)
+                    return (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view-detail',
+                            label: 'View Detail',
+                            onClick: () => navigate(`/news/${item.id}`, { state: { detail: detailRow } }),
+                          },
+                          {
+                            key: 'delete',
+                            label: !!deleting[String(item.id)] ? 'Deleting...' : 'Delete',
+                            onClick: () => {
+                              const id = String(item.id || '')
+                              if (!id) return
+                              setConfirmDeleteId(id)
                             },
-                            {
-                              key: 'delete',
-                              label: !!deleting[String(item.id)] ? 'Deleting...' : 'Delete',
-                              onClick: () => {
-                                const id = String(item.id || '')
-                                if (!id) return
-                                setConfirmDeleteId(id)
-                              },
-                              hidden: !canDelete,
-                              disabled: !item.id || !!deleting[String(item.id)],
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan={6}>No saved news yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                            hidden: !canDelete,
+                            disabled: !item.id || !!deleting[String(item.id)],
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    )
+                  },
+                  className: 'action-cell',
+                  ignoreRowClick: true,
+                },
+              ]}
+            />
 
             <Pagination
               page={page}

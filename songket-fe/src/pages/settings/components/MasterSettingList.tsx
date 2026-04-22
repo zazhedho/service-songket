@@ -1,5 +1,6 @@
 import Can from '../../../components/common/Can'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type MasterSettingListProps = {
   activeTab: 'settings' | 'history'
@@ -61,24 +62,20 @@ export default function MasterSettingList({
           <h3>Master Settings Table</h3>
           <button className="btn-ghost" onClick={() => void onRefresh()} disabled={loading}>Refresh</button>
         </div>
-        <table className="table" style={{ marginTop: 10 }}>
-          <thead>
-            <tr>
-              <th>Setting</th>
-              <th>Status</th>
-              <th>Interval</th>
-              <th>Updated</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedSettings.map((row) => (
-              <tr key={row.key}>
-                <td>{row.label}</td>
-                <td>{row.status}</td>
-                <td>{row.interval}</td>
-                <td>{row.updatedAt}</td>
-                <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Table
+          className="table-list"
+          style={{ marginTop: 10 }}
+          data={paginatedSettings}
+          keyField="key"
+          columns={[
+            { header: 'Setting', accessor: 'label' },
+            { header: 'Status', accessor: 'status' },
+            { header: 'Interval', accessor: 'interval' },
+            { header: 'Updated', accessor: 'updatedAt' },
+            {
+              header: 'Action',
+              accessor: (row) => (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {row.exists ? (
                     <>
                       <Can resource="master_settings" action="update">
@@ -93,11 +90,13 @@ export default function MasterSettingList({
                       <button className="btn-ghost" onClick={() => navigate(`/master-settings/form?action=create&option=${row.key}`)}>Create</button>
                     </Can>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              ),
+              className: 'action-cell',
+              ignoreRowClick: true,
+            },
+          ]}
+        />
 
         <Pagination
           page={settingsPage}

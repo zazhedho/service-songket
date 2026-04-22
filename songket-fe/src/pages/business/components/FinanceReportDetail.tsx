@@ -1,4 +1,5 @@
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 import { formatRupiah } from '../../../utils/currency'
 import { ReportDetailTable, summarizeLocation } from './financeReportHelpers'
 
@@ -174,75 +175,55 @@ export default function FinanceReportDetail({
               {detailOrderInError && <div className="alert" style={{ marginTop: 10 }}>{detailOrderInError}</div>}
 
               <div style={{ overflowX: 'auto' }}>
-                <table className="table" style={{ minWidth: 1280 }}>
-                  <thead>
-                    <tr>
-                      <th>Pooling Number</th>
-                      <th>Pooling Date</th>
-                      <th>Dealer</th>
-                      <th>Consumer</th>
-                      <th>Location</th>
-                      <th>Motor / OTR</th>
-                      <th>Status 1</th>
-                      <th>Keterangan Finance 1</th>
-                      <th>Status 2</th>
-                      <th>Keterangan Finance 2</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailOrderInLoading && (
-                      <tr>
-                        <td colSpan={11}>Loading order in data...</td>
-                      </tr>
-                    )}
-                    {!detailOrderInLoading && detailOrderInRows.length === 0 && (
-                      <tr>
-                        <td colSpan={11}>No order in data found for this migration.</td>
-                      </tr>
-                    )}
-                    {!detailOrderInLoading && detailOrderInRows.map((row) => {
-                      const rowLocationNamed = locationNamesByOrderId[row.order_id]
-                      const rowLocationText = summarizeLocation([
-                        rowLocationNamed?.province,
-                        rowLocationNamed?.regency,
-                        rowLocationNamed?.district,
+                <Table
+                  data={detailOrderInRows}
+                  keyField={(row) => `detail-order-in-${row.order_id}`}
+                  style={{ minWidth: 1280 }}
+                  isLoading={detailOrderInLoading}
+                  loadingMessage="Loading order in data..."
+                  emptyMessage="No order in data found for this migration."
+                  onRowClick={(row) => setSelectedOrderInRow(row)}
+                  columns={[
+                    { header: 'Pooling Number', accessor: (row) => row.pooling_number || '-' },
+                    { header: 'Pooling Date', accessor: (row) => formatDateTime(row.pooling_at) },
+                    { header: 'Dealer', accessor: (row) => row.dealer_name || '-' },
+                    { header: 'Consumer', accessor: (row) => row.consumer_name || '-' },
+                    {
+                      header: 'Location',
+                      accessor: (row) => summarizeLocation([
+                        locationNamesByOrderId[row.order_id]?.province,
+                        locationNamesByOrderId[row.order_id]?.regency,
+                        locationNamesByOrderId[row.order_id]?.district,
                         row.village,
                         row.address,
-                      ])
-                      const rowMotorOtrText = `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}`
-
-                      return (
-                        <tr key={`detail-order-in-${row.order_id}`}>
-                          <td>{row.pooling_number || '-'}</td>
-                          <td>{formatDateTime(row.pooling_at)}</td>
-                          <td>{row.dealer_name || '-'}</td>
-                          <td>{row.consumer_name || '-'}</td>
-                          <td>{rowLocationText}</td>
-                          <td>{rowMotorOtrText}</td>
-                          <td>{statusBadge(row.finance_1_status || '')}</td>
-                          <td title={row.finance_1_notes || '-'}>{truncateTableText(row.finance_1_notes || '-')}</td>
-                          <td>{statusBadge(row.finance_2_status || '')}</td>
-                          <td title={row.finance_2_notes || '-'}>{truncateTableText(row.finance_2_notes || '-')}</td>
-                          <td className="action-cell">
-                            <button
-                              type="button"
-                              className="btn-ghost"
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
-                              onClick={() => setSelectedOrderInRow(row)}
-                            >
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                              </svg>
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                      ]),
+                    },
+                    { header: 'Motor / OTR', accessor: (row) => `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}` },
+                    { header: 'Status 1', accessor: (row) => statusBadge(row.finance_1_status || '') },
+                    { header: 'Keterangan Finance 1', accessor: (row) => truncateTableText(row.finance_1_notes || '-') },
+                    { header: 'Status 2', accessor: (row) => statusBadge(row.finance_2_status || '') },
+                    { header: 'Keterangan Finance 2', accessor: (row) => truncateTableText(row.finance_2_notes || '-') },
+                    {
+                      header: 'Action',
+                      accessor: (row) => (
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+                          onClick={() => setSelectedOrderInRow(row)}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                          </svg>
+                          View
+                        </button>
+                      ),
+                      className: 'action-cell',
+                      ignoreRowClick: true,
+                    },
+                  ]}
+                />
               </div>
               <Pagination
                 page={detailOrderInPage}

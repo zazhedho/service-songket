@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 const FinanceReportDealerMap = lazy(() => import('./FinanceReportMap'))
 
@@ -447,67 +448,60 @@ export default function FinanceReportSummary({
           {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
           <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
-            <table className="table" style={{ minWidth: 1180, tableLayout: 'fixed' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 56 }}>No</th>
-                  <th style={{ width: 170 }}>Finance 2 Name</th>
-                  <th style={{ width: 190 }}>Last Approve Status Finance 2</th>
-                  <th style={{ width: 120 }}>Total Data</th>
-                  <th style={{ width: 150 }}>Total Data Reject</th>
-                  <th style={{ width: 150 }}>Total Data Approve</th>
-                  <th style={{ width: 170 }}>Finance 1 Name</th>
-                  <th style={{ width: 120 }}>Status Finance 1</th>
-                  <th style={{ width: 100 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!loading && rows.length === 0 && (
-                  <tr>
-                    <td colSpan={9}>No finance migration data.</td>
-                  </tr>
-                )}
-                {rows.map((item, idx) => {
-                  const rowNumber = (page - 1) * limit + idx + 1
-
-                  return (
-                    <tr key={`${item.order_id}-${idx}`}>
-                      <td>{rowNumber}</td>
-                      <td title={item.finance_2_name || '-'}>{truncateTableText(item.finance_2_name)}</td>
-                      <td>{statusBadge(item.finance_2_status)}</td>
-                      <td>{toSafeNumber(item.transition_total_data)}</td>
-                      <td>{toSafeNumber(item.total_reject_finance_2)}</td>
-                      <td>{toSafeNumber(item.total_approve_finance_2)}</td>
-                      <td title={item.finance_1_name || '-'}>{truncateTableText(item.finance_1_name)}</td>
-                      <td>{statusBadge(item.finance_1_status)}</td>
-                      <td className="action-cell">
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
-                          onClick={() =>
-                            navigate(`/business/migrations/${item.order_id}`, {
-                              state: {
-                                row: item,
-                                context: {
-                                  finance1: finance1Input,
-                                },
-                              },
-                            })
-                          }
-                        >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                          </svg>
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  )
+            <Table
+              data={rows}
+              keyField={(item, idx) => `${item.order_id}-${idx}`}
+              className="table-list"
+              style={{ minWidth: 1180, tableLayout: 'fixed' }}
+              isLoading={loading}
+              loadingMessage="Loading finance migration data..."
+              emptyMessage="No finance migration data."
+              onRowClick={(item) =>
+                navigate(`/business/migrations/${item.order_id}`, {
+                  state: {
+                    row: item,
+                    context: { finance1: finance1Input },
+                  },
                 })}
-              </tbody>
-            </table>
+              columns={[
+                { header: 'No', accessor: (_item, idx) => (page - 1) * limit + idx + 1, headerStyle: { width: 56 }, style: { width: 56 } },
+                { header: 'Finance 2 Name', accessor: (item) => truncateTableText(item.finance_2_name), headerStyle: { width: 170 }, style: { width: 170 } },
+                { header: 'Last Approve Status Finance 2', accessor: (item) => statusBadge(item.finance_2_status), headerStyle: { width: 190 }, style: { width: 190 } },
+                { header: 'Total Data', accessor: (item) => toSafeNumber(item.transition_total_data), headerStyle: { width: 120 }, style: { width: 120 } },
+                { header: 'Total Data Reject', accessor: (item) => toSafeNumber(item.total_reject_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
+                { header: 'Total Data Approve', accessor: (item) => toSafeNumber(item.total_approve_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
+                { header: 'Finance 1 Name', accessor: (item) => truncateTableText(item.finance_1_name), headerStyle: { width: 170 }, style: { width: 170 } },
+                { header: 'Status Finance 1', accessor: (item) => statusBadge(item.finance_1_status), headerStyle: { width: 120 }, style: { width: 120 } },
+                {
+                  header: 'Action',
+                  accessor: (item) => (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+                      onClick={() =>
+                        navigate(`/business/migrations/${item.order_id}`, {
+                          state: {
+                            row: item,
+                            context: { finance1: finance1Input },
+                          },
+                        })
+                      }
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                      View
+                    </button>
+                  ),
+                  className: 'action-cell',
+                  ignoreRowClick: true,
+                  headerStyle: { width: 100 },
+                  style: { width: 100 },
+                },
+              ]}
+            />
           </div>
 
           <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>

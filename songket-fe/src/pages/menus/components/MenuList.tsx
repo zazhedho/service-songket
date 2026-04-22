@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type MenuListProps = {
   canList: boolean
@@ -49,47 +50,39 @@ export default function MenuList({
           {!canList && <div className="alert">No permission to view menu.</div>}
           {canList && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Path</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item: any) => (
-                    <tr key={item.id}>
-                      <td>{item.display_name || item.name}</td>
-                      <td>{item.path || '-'}</td>
-                      <td>{item.is_active ? 'Active' : 'Inactive'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/menus/${item.id}`, { state: { menu: item } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/menus/${item.id}/edit`, { state: { menu: item } }),
-                              hidden: !canUpdate,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>No menus yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={items}
+                keyField="id"
+                onRowClick={(item: any) => navigate(`/menus/${item.id}`, { state: { menu: item } })}
+                emptyMessage="No menus yet."
+                columns={[
+                  { header: 'Name', accessor: (item: any) => item.display_name || item.name },
+                  { header: 'Path', accessor: 'path' },
+                  { header: 'Status', accessor: (item: any) => item.is_active ? 'Active' : 'Inactive' },
+                  {
+                    header: 'Actions',
+                    accessor: (item: any) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/menus/${item.id}`, { state: { menu: item } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/menus/${item.id}/edit`, { state: { menu: item } }),
+                            hidden: !canUpdate,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

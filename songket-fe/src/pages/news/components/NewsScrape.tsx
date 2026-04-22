@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 import type { ScrapedNews } from './newsHelpers'
 import { shortText } from './newsHelpers'
 
@@ -96,44 +97,39 @@ export default function NewsScrape({
         {canScrape && scrapedRows.length > 0 && (
           <div className="card">
             <h3>Scrape Results Preview</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Content</th>
-                  <th>Created At</th>
-                  <th>Source</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedScrapedRows.map((row) => (
-                  <tr key={row.url}>
-                    <td style={{ maxWidth: 320 }}>{row.judul}</td>
-                    <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{shortText(row.isi, 180)}</td>
-                    <td>{row.created_at ? dayjs(row.created_at).format('DD MMM YYYY HH:mm') : '-'}</td>
-                    <td>{row.sumber || '-'}</td>
-                    <td className="action-cell">
-                      <ActionMenu
-                        items={[
-                          {
-                            key: 'view',
-                            label: 'View',
-                            onClick: () => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } }),
-                          },
-                          {
-                            key: 'add',
-                            label: added[row.url] ? 'Added' : adding[row.url] ? 'Adding...' : 'Add to News',
-                            onClick: () => void onAddToNews(row),
-                            disabled: !!adding[row.url] || !!added[row.url],
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table
+              data={pagedScrapedRows}
+              keyField="url"
+              onRowClick={(row) => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } })}
+              columns={[
+                { header: 'Title', accessor: 'judul', style: { maxWidth: 320 } },
+                { header: 'Content', accessor: (row) => shortText(row.isi, 180), style: { maxWidth: 360, wordBreak: 'break-word' } },
+                { header: 'Created At', accessor: (row) => row.created_at ? dayjs(row.created_at).format('DD MMM YYYY HH:mm') : '-' },
+                { header: 'Source', accessor: (row) => row.sumber || '-' },
+                {
+                  header: 'Action',
+                  accessor: (row) => (
+                    <ActionMenu
+                      items={[
+                        {
+                          key: 'view',
+                          label: 'View',
+                          onClick: () => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } }),
+                        },
+                        {
+                          key: 'add',
+                          label: added[row.url] ? 'Added' : adding[row.url] ? 'Adding...' : 'Add to News',
+                          onClick: () => void onAddToNews(row),
+                          disabled: !!adding[row.url] || !!added[row.url],
+                        },
+                      ]}
+                    />
+                  ),
+                  className: 'action-cell',
+                  ignoreRowClick: true,
+                },
+              ]}
+            />
 
             <Pagination
               page={scrapedPage}

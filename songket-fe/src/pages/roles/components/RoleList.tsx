@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type RoleListProps = {
   canCreate: boolean
@@ -56,52 +57,45 @@ export default function RoleList({
           {!canList && <div className="alert">You do not have permission to view roles.</div>}
           {canList && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Display Name</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roles.map((roleItem: any) => (
-                    <tr key={roleItem.id}>
-                      <td>{roleItem.name}</td>
-                      <td>{roleItem.display_name}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(roleItem.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {roles.length === 0 && (
-                    <tr>
-                      <td colSpan={3}>No roles found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={roles}
+                keyField="id"
+                onRowClick={(roleItem: any) => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } })}
+                emptyMessage="No roles found."
+                columns={[
+                  { header: 'Name', accessor: 'name' },
+                  { header: 'Display Name', accessor: 'display_name' },
+                  {
+                    header: 'Action',
+                    accessor: (roleItem: any) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/roles/${roleItem.id}`, { state: { role: roleItem } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/roles/${roleItem.id}/edit`, { state: { role: roleItem } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(roleItem.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

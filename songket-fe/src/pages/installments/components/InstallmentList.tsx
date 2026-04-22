@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type InstallmentListProps = {
   areaLabel: (motor?: any) => string
@@ -100,47 +101,35 @@ export default function InstallmentList({
           {(!canList || !canView) && <div className="alert">No permission to view data.</div>}
           {canList && canView && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Motor Type</th>
-                    <th>Brand / Model</th>
-                    <th>Variant</th>
-                    <th>OTR</th>
-                    <th>Area</th>
-                    <th>Installment</th>
-                    <th>Updated</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.motor_type?.name || '-'}</td>
-                      <td>{[item.motor_type?.brand, item.motor_type?.model].filter(Boolean).join(' / ') || '-'}</td>
-                      <td>{item.motor_type?.type || '-'}</td>
-                      <td>{formatRupiah(Number(item.motor_type?.otr || 0))}</td>
-                      <td>{areaLabel(item.motor_type)}</td>
-                      <td>{formatRupiah(Number(item.amount || 0))}</td>
-                      <td>{formatDate(item.updated_at)}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            { key: 'view', label: 'View', onClick: () => navigate(`/installments/${item.id}`, { state: { item } }) },
-                            { key: 'edit', label: 'Edit', onClick: () => navigate(`/installments/${item.id}/edit`, { state: { item } }), hidden: !canUpdate },
-                            { key: 'delete', label: 'Delete', onClick: () => void remove(item.id), hidden: !canDelete, danger: true },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={8}>No data available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={items}
+                keyField="id"
+                onRowClick={(item) => navigate(`/installments/${item.id}`, { state: { item } })}
+                emptyMessage="No data available."
+                columns={[
+                  { header: 'Motor Type', accessor: (item) => item.motor_type?.name || '-' },
+                  { header: 'Brand / Model', accessor: (item) => [item.motor_type?.brand, item.motor_type?.model].filter(Boolean).join(' / ') || '-' },
+                  { header: 'Variant', accessor: (item) => item.motor_type?.type || '-' },
+                  { header: 'OTR', accessor: (item) => formatRupiah(Number(item.motor_type?.otr || 0)) },
+                  { header: 'Area', accessor: (item) => areaLabel(item.motor_type) },
+                  { header: 'Installment', accessor: (item) => formatRupiah(Number(item.amount || 0)) },
+                  { header: 'Updated', accessor: (item) => formatDate(item.updated_at) },
+                  {
+                    header: 'Action',
+                    accessor: (item) => (
+                      <ActionMenu
+                        items={[
+                          { key: 'view', label: 'View', onClick: () => navigate(`/installments/${item.id}`, { state: { item } }) },
+                          { key: 'edit', label: 'Edit', onClick: () => navigate(`/installments/${item.id}/edit`, { state: { item } }), hidden: !canUpdate },
+                          { key: 'delete', label: 'Delete', onClick: () => void remove(item.id), hidden: !canDelete, danger: true },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

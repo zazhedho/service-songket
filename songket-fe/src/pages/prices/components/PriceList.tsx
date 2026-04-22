@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type PriceListProps = {
   canImport: boolean
@@ -80,50 +81,54 @@ export default function PriceList({
               <div>Loading...</div>
             ) : (
               <>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Commodity</th>
-                      <th>Price</th>
-                      <th>Source</th>
-                      <th>Collected At</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prices.map((price) => (
-                      <tr key={price.id}>
-                        <td>{price.commodity?.name || 'Commodity'}</td>
-                        <td>{formatRupiah(price.price)} {price.commodity?.unit ? `/ ${price.commodity?.unit}` : ''}</td>
-                        <td style={{ maxWidth: 220, wordBreak: 'break-word' }}>{price.source_url || '-'}</td>
-                        <td>{price.collected_at ? new Date(price.collected_at).toLocaleString('en-GB') : '-'}</td>
-                        <td className="action-cell">
-                          <ActionMenu
-                            items={[
-                              {
-                                key: 'view',
-                                label: 'View',
-                                onClick: () => navigate(`/prices/${price.id}`, { state: { price } }),
-                              },
-                              {
-                                key: 'delete',
-                                label: 'Delete',
-                                onClick: () => void onRemovePrice(price.id),
-                                hidden: !canScrape,
-                                danger: true,
-                              },
-                            ]}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  {prices.length === 0 && (
-                    <tr>
-                      <td colSpan={5}>No prices found.</td>
-                    </tr>
-                  )}
-                  </tbody>
-                </table>
+                <Table
+                  data={prices}
+                  keyField="id"
+                  onRowClick={(price) => navigate(`/prices/${price.id}`, { state: { price } })}
+                  emptyMessage="No prices found."
+                  columns={[
+                    {
+                      header: 'Commodity',
+                      accessor: (price) => price.commodity?.name || 'Commodity',
+                    },
+                    {
+                      header: 'Price',
+                      accessor: (price) => `${formatRupiah(price.price)}${price.commodity?.unit ? ` / ${price.commodity?.unit}` : ''}`,
+                    },
+                    {
+                      header: 'Source',
+                      accessor: (price) => price.source_url || '-',
+                      style: { maxWidth: 220, wordBreak: 'break-word' },
+                    },
+                    {
+                      header: 'Collected At',
+                      accessor: (price) => price.collected_at ? new Date(price.collected_at).toLocaleString('en-GB') : '-',
+                    },
+                    {
+                      header: 'Action',
+                      accessor: (price) => (
+                        <ActionMenu
+                          items={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              onClick: () => navigate(`/prices/${price.id}`, { state: { price } }),
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete',
+                              onClick: () => void onRemovePrice(price.id),
+                              hidden: !canScrape,
+                              danger: true,
+                            },
+                          ]}
+                        />
+                      ),
+                      className: 'action-cell',
+                      ignoreRowClick: true,
+                    },
+                  ]}
+                />
 
                 <Pagination
                   page={pricePage}

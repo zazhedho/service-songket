@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type NetIncomeListProps = {
   areaLabel: (area: any) => string
@@ -64,56 +65,50 @@ export default function NetIncomeList({
           {!canList && <div className="alert">No permission to view net income data.</div>}
           {canList && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Job</th>
-                    <th>Net Income</th>
-                    <th>Area</th>
-                    <th>Updated</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{jobName(item.job_id, item.job_name)}</td>
-                      <td>{formatRupiah(Number(item.net_income || 0))}</td>
-                      <td>{item.area_net_income.length ? item.area_net_income.map((area: any) => areaLabel(area)).join(', ') : '-'}</td>
-                      <td>{formatDate(item.updated_at)}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/net-income/${item.id}`, { state: { item } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/net-income/${item.id}/edit`, { state: { item } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(item.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={5}>No net income data yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={items}
+                keyField="id"
+                onRowClick={(item) => navigate(`/net-income/${item.id}`, { state: { item } })}
+                emptyMessage="No net income data yet."
+                columns={[
+                  { header: 'Job', accessor: (item) => jobName(item.job_id, item.job_name) },
+                  { header: 'Net Income', accessor: (item) => formatRupiah(Number(item.net_income || 0)) },
+                  {
+                    header: 'Area',
+                    accessor: (item) => item.area_net_income.length ? item.area_net_income.map((area: any) => areaLabel(area)).join(', ') : '-',
+                  },
+                  { header: 'Updated', accessor: (item) => formatDate(item.updated_at) },
+                  {
+                    header: 'Action',
+                    accessor: (item) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/net-income/${item.id}`, { state: { item } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/net-income/${item.id}/edit`, { state: { item } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(item.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

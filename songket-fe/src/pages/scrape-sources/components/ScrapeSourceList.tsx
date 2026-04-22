@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 
 type ScrapeSourceListProps = {
   canCreate: boolean
@@ -71,56 +72,47 @@ export default function ScrapeSourceList({
           {!canList && <div className="alert">No permission to view scrape sources.</div>}
           {canList && (
             <>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>URL</th>
-                    <th>Type</th>
-                    <th>Active</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sources.map((source: any) => (
-                    <tr key={source.id}>
-                      <td>{source.name}</td>
-                      <td style={{ maxWidth: 300, wordBreak: 'break-word' }}>{source.url}</td>
-                      <td>{source.type || '-'}</td>
-                      <td>{source.is_active ? 'Yes' : 'No'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`/scrape-sources/${source.id}`, { state: { source } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`/scrape-sources/${source.id}/edit`, { state: { source } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void remove(source.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {sources.length === 0 && (
-                    <tr>
-                      <td colSpan={5}>No sources yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={sources}
+                keyField="id"
+                onRowClick={(source: any) => navigate(`/scrape-sources/${source.id}`, { state: { source } })}
+                emptyMessage="No sources yet."
+                columns={[
+                  { header: 'Name', accessor: 'name' },
+                  { header: 'URL', accessor: 'url', style: { maxWidth: 300, wordBreak: 'break-word' } },
+                  { header: 'Type', accessor: (source: any) => source.type || '-' },
+                  { header: 'Active', accessor: (source: any) => source.is_active ? 'Yes' : 'No' },
+                  {
+                    header: 'Action',
+                    accessor: (source: any) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`/scrape-sources/${source.id}`, { state: { source } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`/scrape-sources/${source.id}/edit`, { state: { source } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void remove(source.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={page}

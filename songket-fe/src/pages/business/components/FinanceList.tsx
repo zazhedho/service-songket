@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
 import { formatDealerLocationSummary } from './financeHelpers'
 import { summarizeLocation } from './financeReportHelpers'
 
@@ -147,71 +148,61 @@ export default function FinanceList({
                 {canCreate && <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/create`)}>Create Dealer</button>}
               </div>
 
-              <table className="table finance-dealer-table">
-                <colgroup>
-                  <col className="finance-dealer-col-name" />
-                  <col className="finance-dealer-col-location" />
-                  <col className="finance-dealer-col-phone" />
-                  <col className="finance-dealer-col-action" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Location</th>
-                    <th>Phone</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dealers.map((dealer: any) => (
-                    <tr key={dealer.id} style={dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}>
-                      <td>{dealer.name}</td>
-                      <td
-                        className="finance-dealer-location-cell"
-                        title={formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
-                      >
-                        {formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])}
-                      </td>
-                      <td>{dealer.phone || '-'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'focus',
-                              label: dealer.id === selectedDealerId ? 'Selected' : 'Focus',
-                              onClick: () => setSelectedDealerId(dealer.id),
-                              disabled: dealer.id === selectedDealerId,
-                            },
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}`, { state: { dealer } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}/edit`, { state: { dealer } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void removeDealer(dealer.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {dealers.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>No dealers available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                className="finance-dealer-table"
+                data={dealers}
+                keyField="id"
+                onRowClick={(dealer: any) => navigate(`${dealerBasePath}/dealers/${dealer.id}`, { state: { dealer } })}
+                rowStyle={(dealer: any) => dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}
+                emptyMessage="No dealers available."
+                columns={[
+                  { header: 'Name', accessor: 'name' },
+                  {
+                    header: 'Location',
+                    accessor: (dealer: any) => {
+                      const locationText = formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])
+                      return <span title={locationText}>{locationText}</span>
+                    },
+                    className: 'finance-dealer-location-cell',
+                  },
+                  { header: 'Phone', accessor: (dealer: any) => dealer.phone || '-' },
+                  {
+                    header: 'Action',
+                    accessor: (dealer: any) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'focus',
+                            label: dealer.id === selectedDealerId ? 'Selected' : 'Focus',
+                            onClick: () => setSelectedDealerId(dealer.id),
+                            disabled: dealer.id === selectedDealerId,
+                          },
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}`, { state: { dealer } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`${dealerBasePath}/dealers/${dealer.id}/edit`, { state: { dealer } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void removeDealer(dealer.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={dealerPage}
@@ -274,54 +265,46 @@ export default function FinanceList({
                 {canCreate && <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/create`)}>Create Finance</button>}
               </div>
 
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Regency</th>
-                    <th>Phone</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {financeCompanies.map((company: any) => (
-                    <tr key={company.id}>
-                      <td>{company.name}</td>
-                      <td>{summarizeLocation([financeCompanyLocationNameMap[String(company.id)]?.regency])}</td>
-                      <td>{company.phone || '-'}</td>
-                      <td className="action-cell">
-                        <ActionMenu
-                          items={[
-                            {
-                              key: 'view',
-                              label: 'View',
-                              onClick: () => navigate(`${financeBasePath}/companies/${company.id}`, { state: { company } }),
-                            },
-                            {
-                              key: 'edit',
-                              label: 'Edit',
-                              onClick: () => navigate(`${financeBasePath}/companies/${company.id}/edit`, { state: { company } }),
-                              hidden: !canUpdate,
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete',
-                              onClick: () => void removeFinance(company.id),
-                              hidden: !canDelete,
-                              danger: true,
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {financeCompanies.length === 0 && (
-                    <tr>
-                      <td colSpan={4}>No finance company available.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <Table
+                data={financeCompanies}
+                keyField="id"
+                onRowClick={(company: any) => navigate(`${financeBasePath}/companies/${company.id}`, { state: { company } })}
+                emptyMessage="No finance company available."
+                columns={[
+                  { header: 'Name', accessor: 'name' },
+                  { header: 'Regency', accessor: (company: any) => summarizeLocation([financeCompanyLocationNameMap[String(company.id)]?.regency]) },
+                  { header: 'Phone', accessor: (company: any) => company.phone || '-' },
+                  {
+                    header: 'Action',
+                    accessor: (company: any) => (
+                      <ActionMenu
+                        items={[
+                          {
+                            key: 'view',
+                            label: 'View',
+                            onClick: () => navigate(`${financeBasePath}/companies/${company.id}`, { state: { company } }),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Edit',
+                            onClick: () => navigate(`${financeBasePath}/companies/${company.id}/edit`, { state: { company } }),
+                            hidden: !canUpdate,
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Delete',
+                            onClick: () => void removeFinance(company.id),
+                            hidden: !canDelete,
+                            danger: true,
+                          },
+                        ]}
+                      />
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                  },
+                ]}
+              />
 
               <Pagination
                 page={financePage}
