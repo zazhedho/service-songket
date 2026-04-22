@@ -775,7 +775,35 @@ func (r *repo) baseMigrationReportQuery(ctx context.Context, params filter.BaseP
 		`).
 		Joins("LEFT JOIN dealers d ON d.id = o.dealer_id AND d.deleted_at IS NULL").
 		Joins("LEFT JOIN jobs j ON j.id = o.job_id AND j.deleted_at IS NULL").
-		Joins("LEFT JOIN job_net_incomes jni ON jni.job_id = o.job_id AND jni.deleted_at IS NULL").
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT jni.net_income
+				FROM job_net_incomes jni
+				WHERE jni.deleted_at IS NULL
+					AND jni.job_id = o.job_id
+				ORDER BY
+					CASE
+						WHEN EXISTS (
+							SELECT 1
+							FROM jsonb_array_elements(jni.area_net_income) area
+							WHERE
+								(
+									LOWER(TRIM(COALESCE(area->>'province_code', ''))) = LOWER(TRIM(COALESCE(o.province, '')))
+									OR LOWER(TRIM(COALESCE(area->>'province_name', ''))) = LOWER(TRIM(COALESCE(o.province, '')))
+								)
+								AND (
+									LOWER(TRIM(COALESCE(area->>'regency_code', ''))) = LOWER(TRIM(COALESCE(o.regency, '')))
+									OR LOWER(TRIM(COALESCE(area->>'regency_name', ''))) = LOWER(TRIM(COALESCE(o.regency, '')))
+								)
+						) THEN 0
+						ELSE 1
+					END,
+					jni.updated_at DESC,
+					jni.created_at DESC,
+					jni.id DESC
+				LIMIT 1
+			) jni ON TRUE
+		`).
 		Joins("LEFT JOIN motor_types mt ON mt.id = o.motor_type_id AND mt.deleted_at IS NULL").
 		Joins(`
 			LEFT JOIN LATERAL (

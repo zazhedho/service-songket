@@ -312,9 +312,11 @@ func (s *Service) Worksheet(ctx context.Context, provinceCode, regencyCode, jobI
 			if key == strings.ToLower(currentJobID)+"|" {
 				continue
 			}
-			jobIncomeByArea[key] = jobIncomeValue{
-				Name:      strings.TrimSpace(row.JobName),
-				NetIncome: row.NetIncome,
+			if _, exists := jobIncomeByArea[key]; !exists {
+				jobIncomeByArea[key] = jobIncomeValue{
+					Name:      strings.TrimSpace(row.JobName),
+					NetIncome: row.NetIncome,
+				}
 			}
 		}
 	}

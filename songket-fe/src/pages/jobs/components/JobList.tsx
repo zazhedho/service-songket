@@ -75,8 +75,8 @@ export default function JobList({
             <>
               <Table
                 data={items}
-                keyField="job_id"
-                onRowClick={(item) => navigate(`/jobs/${item.job_id}`, { state: { item } })}
+                keyField="id"
+                onRowClick={(item) => navigate(`/jobs/${item.id}`, { state: { item } })}
                 emptyMessage="No data available."
                 columns={[
                   { header: 'Job Name', accessor: (item) => item.name || '-' },
@@ -91,8 +91,8 @@ export default function JobList({
                     accessor: (item) => (
                       <ActionMenu
                         items={[
-                          { key: 'view', label: 'View', onClick: () => navigate(`/jobs/${item.job_id}`, { state: { item } }) },
-                          { key: 'edit', label: 'Edit', onClick: () => navigate(`/jobs/${item.job_id}/edit`, { state: { item } }), hidden: !canUpdate },
+                          { key: 'view', label: 'View', onClick: () => navigate(`/jobs/${item.id}`, { state: { item } }) },
+                          { key: 'edit', label: 'Edit', onClick: () => navigate(`/jobs/${item.id}/edit`, { state: { item } }), hidden: !canUpdate },
                           { key: 'delete', label: 'Delete', onClick: () => void remove(item), hidden: !canDelete, danger: true },
                         ]}
                       />

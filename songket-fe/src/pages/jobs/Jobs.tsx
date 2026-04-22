@@ -10,6 +10,7 @@ import {
 import {
   createNetIncome,
   deleteNetIncome,
+  getNetIncome,
   listNetIncome,
   updateNetIncome,
 } from '../../services/netIncomeService'
@@ -51,6 +52,7 @@ type NetIncomeItem = {
 }
 
 type CombinedItem = {
+  id: string
   job_id: string
   net_income_id: string
   name: string
@@ -65,6 +67,7 @@ function normalizeCombinedItem(rawJob?: any, rawNetIncome?: any): CombinedItem |
   if (!jobId) return null
 
   return {
+    id: String(rawNetIncome?.id || rawJob?.id || jobId).trim(),
     job_id: jobId,
     net_income_id: String(rawNetIncome?.id || rawJob?.net_income_id || '').trim(),
     name: String(rawJob?.name || rawNetIncome?.job_name || rawJob?.job_name || '').trim(),
@@ -160,7 +163,7 @@ function looksLikeLocationCode(value?: string) {
   const raw = String(value || '').trim()
   if (!raw) return false
   if (/^\d+$/.test(raw)) return true
-  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  if (!/\s/.test(raw) && /^[A-Z0-9._-]+$/.test(raw) && /[0-9._-]/.test(raw)) return true
   return false
 }
 
@@ -237,29 +240,44 @@ export default function JobsPage() {
 
     const jobs: JobItem[] = Array.isArray(jobData) ? jobData : []
     const netItems: NetIncomeItem[] = Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : []
-
-    const netMap = new Map<string, NetIncomeItem>()
-    netItems.forEach((item) => {
-      if (item.job_id) netMap.set(item.job_id, item)
+    const jobsByID = new Map<string, JobItem>()
+    jobs.forEach((job) => {
+      if (job.id) jobsByID.set(job.id, job)
     })
 
-    const merged = jobs.map((job) => {
-      const income = netMap.get(job.id)
+    const merged = netItems.map((income) => {
+      const job = jobsByID.get(income.job_id)
       return {
-        job_id: job.id,
-        net_income_id: income?.id || '',
-        name: job.name || '',
-        net_income: Number(income?.net_income || 0),
-        area_net_income: normalizeAreaInput(income?.area_net_income),
-        created_at: income?.created_at || job.created_at,
-        updated_at: income?.updated_at || job.updated_at,
+        id: income.id,
+        job_id: income.job_id,
+        net_income_id: income.id,
+        name: income.job_name || job?.name || '',
+        net_income: Number(income.net_income || 0),
+        area_net_income: normalizeAreaInput(income.area_net_income),
+        created_at: income.created_at || job?.created_at,
+        updated_at: income.updated_at || job?.updated_at,
       } as CombinedItem
     })
 
+    const orphanJobs = jobs
+      .filter((job) => !netItems.some((income) => income.job_id === job.id))
+      .map((job) => ({
+        id: job.id,
+        job_id: job.id,
+        net_income_id: '',
+        name: job.name || '',
+        net_income: 0,
+        area_net_income: [],
+        created_at: job.created_at,
+        updated_at: job.updated_at,
+      } as CombinedItem))
+
+    const rows = [...merged, ...orphanJobs]
+
     const keyword = search.trim().toLowerCase()
     const filtered = keyword
-      ? merged.filter((item) => item.name.toLowerCase().includes(keyword))
-      : merged
+      ? rows.filter((item) => item.name.toLowerCase().includes(keyword))
+      : rows
 
     const nextTotalPages = Math.max(1, Math.ceil(filtered.length / limit) || 1)
     const safePage = Math.min(page, nextTotalPages)
@@ -290,11 +308,17 @@ export default function JobsPage() {
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
-    const normalizedStateItem = stateItem?.job_id === selectedId ? normalizeCombinedItem(stateItem) : null
+    const normalizedStateItem =
+      stateItem && (stateItem?.id === selectedId || stateItem?.net_income_id === selectedId || stateItem?.job_id === selectedId)
+        ? normalizeCombinedItem(
+            stateItem?.net_income_id ? { id: stateItem.job_id, name: stateItem.name } : stateItem,
+            stateItem?.net_income_id ? stateItem : null,
+          )
+        : null
     return (
-      allItems.find((item) => item.job_id === selectedId) ||
+      allItems.find((item) => item.id === selectedId || item.job_id === selectedId || item.net_income_id === selectedId) ||
       normalizedStateItem ||
-      (fetchedItem?.job_id === selectedId ? fetchedItem : null)
+      (fetchedItem?.id === selectedId || fetchedItem?.job_id === selectedId ? fetchedItem : null)
     )
   }, [allItems, fetchedItem, selectedId, stateItem])
 
@@ -303,18 +327,21 @@ export default function JobsPage() {
 
     setDetailLoading(true)
 
-    Promise.all([
-      getJob(selectedId).catch(() => null),
-      listNetIncome({ page: 1, limit: 1000 }).catch(() => null),
-    ])
-      .then(([jobRes, netRes]) => {
-        const jobData = jobRes?.data?.data || jobRes?.data || null
-        const netData = netRes?.data?.data || netRes?.data || []
-        const netItems = Array.isArray(netData) ? netData.map((item: any) => normalizeNetIncomeItem(item)) : []
-        const matchedNetIncome = netItems.find((item) => item.job_id === selectedId) || null
-        setFetchedItem(normalizeCombinedItem(jobData, matchedNetIncome))
+    getNetIncome(selectedId)
+      .then((res) => {
+        const netData = res.data?.data || res.data || null
+        const normalizedNetIncome = netData ? normalizeNetIncomeItem(netData) : null
+        if (!normalizedNetIncome) {
+          setFetchedItem(null)
+          return
+        }
+        setFetchedItem(normalizeCombinedItem({ id: normalizedNetIncome.job_id, name: normalizedNetIncome.job_name }, normalizedNetIncome))
       })
-      .catch(() => setFetchedItem(null))
+      .catch(async () => {
+        const jobRes = await getJob(selectedId).catch(() => null)
+        const jobData = jobRes?.data?.data || jobRes?.data || null
+        setFetchedItem(normalizeCombinedItem(jobData))
+      })
       .finally(() => setDetailLoading(false))
   }, [isDetail, isEdit, selectedId, selectedItem])
 
@@ -404,26 +431,35 @@ export default function JobsPage() {
     setLoading(true)
     setError('')
     try {
-      if (isEdit && selectedId) {
-        await updateJob(selectedId, { name })
+      if (isEdit && selectedItem) {
+        await updateJob(selectedItem.job_id, { name })
 
         if (selectedItem?.net_income_id) {
           await updateNetIncome(selectedItem.net_income_id, {
-            job_id: selectedId,
+            job_id: selectedItem.job_id,
             net_income: netIncome,
             area_net_income: areas,
           })
         } else {
           await createNetIncome({
-            job_id: selectedId,
+            job_id: selectedItem.job_id,
             net_income: netIncome,
             area_net_income: areas,
           })
         }
       } else {
-        const jobRes = await createJob({ name })
-        const job = jobRes.data?.data || jobRes.data
-        const jobId = String(job?.id || '').trim()
+        const jobLookup = await listJobs({ page: 1, limit: 1000, search: name }).catch(() => ({ data: { data: [] } } as any))
+        const foundJobs = Array.isArray(jobLookup.data?.data) ? jobLookup.data.data : Array.isArray(jobLookup.data) ? jobLookup.data : []
+        const existingJob = foundJobs.find((job: any) => String(job?.name || '').trim().toLowerCase() === name.toLowerCase())
+
+        let jobId = String(existingJob?.id || '').trim()
+        let createdJob = false
+        if (!jobId) {
+          const jobRes = await createJob({ name })
+          const job = jobRes.data?.data || jobRes.data
+          jobId = String(job?.id || '').trim()
+          createdJob = true
+        }
         if (!jobId) {
           throw new Error('Failed to create job')
         }
@@ -435,7 +471,9 @@ export default function JobsPage() {
             area_net_income: areas,
           })
         } catch (err) {
-          await deleteJob(jobId).catch(() => undefined)
+          if (createdJob) {
+            await deleteJob(jobId).catch(() => undefined)
+          }
           throw err
         }
       }
@@ -469,7 +507,13 @@ export default function JobsPage() {
       if (item.net_income_id) {
         await deleteNetIncome(item.net_income_id).catch(() => undefined)
       }
-      await deleteJob(item.job_id)
+
+      const latestNetIncomesRes = await listNetIncome({ page: 1, limit: 1000 }).catch(() => ({ data: { data: [] } } as any))
+      const latestNetIncomesData = latestNetIncomesRes.data?.data || latestNetIncomesRes.data || []
+      const latestNetIncomes = Array.isArray(latestNetIncomesData) ? latestNetIncomesData.map((row: any) => normalizeNetIncomeItem(row)) : []
+      if (!latestNetIncomes.some((row) => row.job_id === item.job_id)) {
+        await deleteJob(item.job_id).catch(() => undefined)
+      }
       await load()
     } catch (err: any) {
       await showAlert(errorMessage(err, 'Failed to delete job'))

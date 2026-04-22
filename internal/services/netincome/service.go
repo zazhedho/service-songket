@@ -67,6 +67,40 @@ func (s *Service) GetByID(ctx context.Context, id string) (domainnetincome.NetIn
 	}, nil
 }
 
+func areaIdentityKey(area domainnetincome.AreaItem) string {
+	return strings.ToLower(strings.TrimSpace(area.ProvinceCode)) + "|" + strings.ToLower(strings.TrimSpace(area.RegencyCode))
+}
+
+func ensureNoOverlappingAreas(current []domainnetincome.AreaItem, existingRows []domainnetincome.NetIncome) error {
+	if len(current) == 0 || len(existingRows) == 0 {
+		return nil
+	}
+
+	currentKeys := make(map[string]struct{}, len(current))
+	for _, area := range current {
+		key := areaIdentityKey(area)
+		if key == "|" {
+			continue
+		}
+		currentKeys[key] = struct{}{}
+	}
+
+	for _, row := range existingRows {
+		existingAreas := sharedsvc.DecodeAreaNetIncome(row.AreaNetIncome)
+		for _, area := range existingAreas {
+			key := areaIdentityKey(area)
+			if key == "|" {
+				continue
+			}
+			if _, exists := currentKeys[key]; exists {
+				return fmt.Errorf("net income for selected job and area already exists")
+			}
+		}
+	}
+
+	return nil
+}
+
 func (s *Service) Create(ctx context.Context, req dto.NetIncomeRequest) (domainnetincome.NetIncomeItem, error) {
 	if req.NetIncome < 0 {
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("net_income must be greater than or equal to 0")
@@ -80,6 +114,14 @@ func (s *Service) Create(ctx context.Context, req dto.NetIncomeRequest) (domainn
 	job, err := s.jobRepo.GetByID(ctx, req.JobID)
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("job not found")
+	}
+
+	existingRows, err := s.repo.ListByJobID(ctx, req.JobID, "")
+	if err != nil {
+		return domainnetincome.NetIncomeItem{}, err
+	}
+	if err := ensureNoOverlappingAreas(areas, existingRows); err != nil {
+		return domainnetincome.NetIncomeItem{}, err
 	}
 
 	row := domainnetincome.NetIncome{
@@ -131,6 +173,14 @@ func (s *Service) Update(ctx context.Context, id string, req dto.NetIncomeReques
 	job, err := s.jobRepo.GetByID(ctx, normalizedJobID)
 	if err != nil {
 		return domainnetincome.NetIncomeItem{}, fmt.Errorf("job not found")
+	}
+
+	existingRows, err := s.repo.ListByJobID(ctx, normalizedJobID, normalizedID)
+	if err != nil {
+		return domainnetincome.NetIncomeItem{}, err
+	}
+	if err := ensureNoOverlappingAreas(areas, existingRows); err != nil {
+		return domainnetincome.NetIncomeItem{}, err
 	}
 
 	row.JobID = normalizedJobID

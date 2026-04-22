@@ -294,6 +294,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_installments_motor_type_unique_active
 
 CREATE INDEX IF NOT EXISTS idx_job_net_incomes_deleted_at ON job_net_incomes(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_job_net_incomes_job_id ON job_net_incomes(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_net_incomes_job_latest_active
+    ON job_net_incomes(job_id, updated_at DESC, created_at DESC, id DESC)
+    WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_orders_deleted_at ON orders(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_order_finance_attempts_order_id ON order_finance_attempts(order_id);

@@ -136,7 +136,7 @@ func (r *repo) ListJobIncomeRows(ctx context.Context, jobID string) ([]interface
 	if strings.TrimSpace(jobID) != "" {
 		query = query.Where("job_net_incomes.job_id = ?", jobID)
 	}
-	if err := query.Scan(&rows).Error; err != nil {
+	if err := query.Order("job_net_incomes.updated_at DESC, job_net_incomes.created_at DESC, job_net_incomes.id DESC").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil

@@ -11,7 +11,7 @@ import (
 
 type NetIncome struct {
 	Id            string         `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	JobID         string         `gorm:"column:job_id;type:uuid;not null;uniqueIndex" json:"job_id"`
+	JobID         string         `gorm:"column:job_id;type:uuid;not null;index" json:"job_id"`
 	Job           *domainjob.Job `gorm:"foreignKey:JobID" json:"job,omitempty"`
 	NetIncome     float64        `gorm:"column:net_income;type:numeric(18,2);not null;default:0" json:"net_income"`
 	AreaNetIncome datatypes.JSON `gorm:"column:area_net_income;type:jsonb;not null;default:'[]'" json:"area_net_income"`

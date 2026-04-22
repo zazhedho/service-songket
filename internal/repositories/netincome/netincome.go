@@ -20,6 +20,23 @@ func NewNetIncomeRepo(db *gorm.DB) interfacenetincome.RepoNetIncomeInterface {
 	return &repo{GenericRepository: repositorygeneric.New[domainnetincome.NetIncome](db)}
 }
 
+func (r *repo) ListByJobID(ctx context.Context, jobID string, excludeID string) ([]domainnetincome.NetIncome, error) {
+	query := r.DB.WithContext(ctx).
+		Model(&domainnetincome.NetIncome{}).
+		Where("job_id = ?", jobID).
+		Where("deleted_at IS NULL")
+
+	if strings.TrimSpace(excludeID) != "" {
+		query = query.Where("id <> ?", excludeID)
+	}
+
+	rows := make([]domainnetincome.NetIncome, 0)
+	if err := query.Order("updated_at DESC, created_at DESC, id DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainnetincome.NetIncome, int64, error) {
 	query := r.DB.WithContext(ctx).Model(&domainnetincome.NetIncome{}).
 		Joins("LEFT JOIN jobs ON jobs.id = job_net_incomes.job_id")

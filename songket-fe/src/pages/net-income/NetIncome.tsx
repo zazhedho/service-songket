@@ -128,7 +128,7 @@ function looksLikeLocationCode(value?: string) {
   const raw = String(value || '').trim()
   if (!raw) return false
   if (/^\d+$/.test(raw)) return true
-  if (/^[A-Z0-9._-]+$/.test(raw) && !/[a-z]/.test(raw)) return true
+  if (!/\s/.test(raw) && /^[A-Z0-9._-]+$/.test(raw) && /[0-9._-]/.test(raw)) return true
   return false
 }
 
