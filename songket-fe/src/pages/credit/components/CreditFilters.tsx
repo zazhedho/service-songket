@@ -2,8 +2,10 @@ import SearchableSelect from '../../../components/common/SearchableSelect'
 
 type CreditFiltersProps = {
   areaOptions: any[]
+  hasActiveFilters: boolean
   jobOptions: any[]
   motorOptions: any[]
+  onReset: () => void
   selectedAreaKey: string
   selectedJobId: string
   selectedMotorTypeId: string
@@ -18,8 +20,10 @@ type CreditFiltersProps = {
 
 export default function CreditFilters({
   areaOptions,
+  hasActiveFilters,
   jobOptions,
   motorOptions,
+  onReset,
   selectedAreaKey,
   selectedJobId,
   selectedMotorTypeId,
@@ -103,6 +107,22 @@ export default function CreditFilters({
         <div className="filter-field">
           <label htmlFor="credit-time-to">Time To</label>
           <input id="credit-time-to" type="date" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} />
+        </div>
+
+        <div className="filter-field">
+          <label>&nbsp;</label>
+          <div className="filter-actions" style={{ justifyContent: 'flex-start' }}>
+            <button
+              className="btn-ghost"
+              onClick={onReset}
+              disabled={!hasActiveFilters}
+              title="Clear all filters"
+              aria-label="Clear all filters"
+              style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
     </div>

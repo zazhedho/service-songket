@@ -281,6 +281,23 @@ export default function CreditPage() {
     setPage(1)
   }, [selectedJobId, selectedAreaKey, selectedMotorTypeId, timeFrom, timeTo])
 
+  const hasActiveFilters = Boolean(
+    selectedJobId
+    || selectedAreaKey
+    || selectedMotorTypeId
+    || timeFrom
+    || timeTo,
+  )
+
+  const resetFilters = () => {
+    setSelectedJobId('')
+    setSelectedAreaKey('')
+    setSelectedMotorTypeId('')
+    setTimeFrom('')
+    setTimeTo('')
+    setPage(1)
+  }
+
   const filteredRows = useMemo(() => {
     const out: MatrixDisplayRow[] = []
     for (const area of areas) {
@@ -347,8 +364,10 @@ export default function CreditPage() {
             <>
               <CreditFilters
                 areaOptions={areaOptions}
+                hasActiveFilters={hasActiveFilters}
                 jobOptions={jobOptions}
                 motorOptions={motorOptions}
+                onReset={resetFilters}
                 selectedAreaKey={selectedAreaKey}
                 selectedJobId={selectedJobId}
                 selectedMotorTypeId={selectedMotorTypeId}
