@@ -45,9 +45,15 @@ export default function DashboardFilterPanel({
 }: DashboardFilterPanelProps) {
   return (
     <div className="card">
-      <h3>Filter Dashboard</h3>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 }}>
-        <div>
+      <div className="filter-panel">
+        <div className="filter-panel-head">
+          <div>
+            <h3 className="filter-panel-title">Filter Dashboard</h3>
+            <div className="filter-panel-subtitle">Atur area, periode analisa, dealer, dan finance company dalam layout yang rapi.</div>
+          </div>
+        </div>
+        <div className="filter-grid tight">
+        <div className="filter-field">
           <label>Area</label>
           <select value={filtersInput.area} onChange={(e) => setFiltersInput((prev) => ({ ...prev, area: e.target.value }))}>
             <option value="">All Area</option>
@@ -59,7 +65,7 @@ export default function DashboardFilterPanel({
           </select>
         </div>
 
-        <div>
+        <div className="filter-field">
           <label>Status</label>
           <select value={filtersInput.result_status} onChange={(e) => setFiltersInput((prev) => ({ ...prev, result_status: e.target.value }))}>
             <option value="">All Status</option>
@@ -69,7 +75,7 @@ export default function DashboardFilterPanel({
           </select>
         </div>
 
-        <div>
+        <div className="filter-field">
           <label>Analysis</label>
           <select
             value={filtersInput.analysis}
@@ -100,7 +106,7 @@ export default function DashboardFilterPanel({
         </div>
 
         {(filtersInput.analysis === 'yearly' || filtersInput.analysis === 'monthly') && (
-          <div>
+          <div className="filter-field">
             <label>Tahun</label>
             <select
               value={filtersInput.year}
@@ -125,7 +131,7 @@ export default function DashboardFilterPanel({
         )}
 
         {filtersInput.analysis === 'monthly' && (
-          <div>
+          <div className="filter-field">
             <label>Bulan</label>
             <select
               value={filtersInput.month}
@@ -150,7 +156,7 @@ export default function DashboardFilterPanel({
         )}
 
         {(filtersInput.analysis === 'yearly' || filtersInput.analysis === 'monthly') && (
-          <div>
+          <div className="filter-field">
             <label>Reference Date</label>
             <input
               type="date"
@@ -166,7 +172,7 @@ export default function DashboardFilterPanel({
         )}
 
         {filtersInput.analysis === 'daily' && (
-          <div>
+          <div className="filter-field">
             <label>Date</label>
             <input type="date" value={filtersInput.date} onChange={(e) => setFiltersInput((prev) => ({ ...prev, date: e.target.value }))} />
           </div>
@@ -174,18 +180,18 @@ export default function DashboardFilterPanel({
 
         {filtersInput.analysis === 'custom' && (
           <>
-            <div>
+            <div className="filter-field">
               <label>From</label>
               <input type="date" value={filtersInput.from} onChange={(e) => setFiltersInput((prev) => ({ ...prev, from: e.target.value }))} />
             </div>
-            <div>
+            <div className="filter-field">
               <label>To</label>
               <input type="date" value={filtersInput.to} onChange={(e) => setFiltersInput((prev) => ({ ...prev, to: e.target.value }))} />
             </div>
           </>
         )}
 
-        <div>
+        <div className="filter-field">
           <label>Dealer</label>
           <select value={filtersInput.dealer_id} onChange={(e) => setFiltersInput((prev) => ({ ...prev, dealer_id: e.target.value }))}>
             <option value="">All Dealer</option>
@@ -197,7 +203,7 @@ export default function DashboardFilterPanel({
           </select>
         </div>
 
-        <div>
+        <div className="filter-field">
           <label>Finance Company</label>
           <select value={filtersInput.finance_company_id} onChange={(e) => setFiltersInput((prev) => ({ ...prev, finance_company_id: e.target.value }))}>
             <option value="">All Finance Company</option>
@@ -208,11 +214,12 @@ export default function DashboardFilterPanel({
             ))}
           </select>
         </div>
-      </div>
+        </div>
 
-      <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button className="btn" onClick={applyFilters}>Apply</button>
-        <button className="btn-ghost" onClick={resetFilters}>Reset</button>
+        <div className="filter-actions">
+          <button className="btn" onClick={applyFilters}>Apply</button>
+          <button className="btn-ghost" onClick={resetFilters}>Reset</button>
+        </div>
       </div>
     </div>
   )

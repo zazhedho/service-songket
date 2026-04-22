@@ -58,9 +58,19 @@ export default function PriceScrapeResults({
         )}
       </div>
 
-      <div style={{ marginTop: 10, marginBottom: 10 }}>
-        <label>Search Scrape Results</label>
-        <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Search commodity/source" />
+      <div className="filter-panel" style={{ marginTop: 10, marginBottom: 10 }}>
+        <div className="filter-panel-head">
+          <div>
+            <div className="filter-panel-title">Search Scrape Results</div>
+            <div className="filter-panel-subtitle">Cari hasil scrape berdasarkan komoditas atau sumber sebelum import.</div>
+          </div>
+        </div>
+        <div className="filter-grid">
+          <div className="filter-field">
+            <label>Keyword</label>
+            <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Search commodity/source" />
+          </div>
+        </div>
       </div>
 
       {loadingResults ? (

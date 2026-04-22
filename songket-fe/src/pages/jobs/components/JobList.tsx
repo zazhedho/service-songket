@@ -54,9 +54,19 @@ export default function JobList({
 
       <div className="page">
         <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by job name" />
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Search Job</div>
+                <div className="filter-panel-subtitle">Cari data pekerjaan dan net income berdasarkan nama job.</div>
+              </div>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Keyword</label>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by job name" />
+              </div>
+            </div>
           </div>
 
           <h3>Data List</h3>

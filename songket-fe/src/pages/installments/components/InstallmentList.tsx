@@ -68,30 +68,38 @@ export default function InstallmentList({
 
       <div className="page">
         <div className="card">
-          <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-            <div>
-              <label>Search</label>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" />
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Filter Installment</div>
+                <div className="filter-panel-subtitle">Cari installment motor dengan kombinasi keyword dan area coverage.</div>
+              </div>
             </div>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Search</label>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" />
+              </div>
 
-            <div>
-              <label>Filter Province</label>
-              <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}>
-                <option value="">All</option>
-                {provinces.map((province: any) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
-            </div>
+              <div className="filter-field">
+                <label>Filter Province</label>
+                <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}>
+                  <option value="">All</option>
+                  {provinces.map((province: any) => (
+                    <option key={province.code} value={province.code}>{province.name}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label>Filter Regency</label>
-              <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter}>
-                <option value="">All</option>
-                {filterRegencies.map((regency: any) => (
-                  <option key={regency.code} value={regency.code}>{regency.name}</option>
-                ))}
-              </select>
+              <div className="filter-field">
+                <label>Filter Regency</label>
+                <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter}>
+                  <option value="">All</option>
+                  {filterRegencies.map((regency: any) => (
+                    <option key={regency.code} value={regency.code}>{regency.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>

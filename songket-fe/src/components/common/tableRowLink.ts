@@ -23,8 +23,15 @@ const ROW_INTERACTIVE_SELECTOR = [
   '[data-cell-clickable="true"]',
 ].join(', ')
 
-function shouldIgnoreActivation(target: EventTarget | null, selector: string): boolean {
-  return target instanceof Element && target.closest(selector) !== null
+function shouldIgnoreActivation(
+  target: EventTarget | null,
+  currentTarget: EventTarget | null,
+  selector: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  const closestMatch = target.closest(selector)
+  if (!closestMatch) return false
+  return closestMatch !== currentTarget
 }
 
 export function getClickableTableRowProps(
@@ -39,11 +46,11 @@ export function getClickableTableRowProps(
     tabIndex: 0,
     'aria-label': options.ariaLabel,
     onClick: (event) => {
-      if (shouldIgnoreActivation(event.target, ROW_INTERACTIVE_SELECTOR)) return
+      if (shouldIgnoreActivation(event.target, event.currentTarget, ROW_INTERACTIVE_SELECTOR)) return
       onActivate()
     },
     onKeyDown: (event) => {
-      if (shouldIgnoreActivation(event.target, ROW_INTERACTIVE_SELECTOR)) return
+      if (shouldIgnoreActivation(event.target, event.currentTarget, ROW_INTERACTIVE_SELECTOR)) return
       if (event.key !== 'Enter' && event.key !== ' ') return
       event.preventDefault()
       onActivate()
@@ -63,12 +70,12 @@ export function getClickableTableCellProps(
     'data-cell-clickable': 'true',
     'aria-label': options.ariaLabel,
     onClick: (event) => {
-      if (shouldIgnoreActivation(event.target, BASE_INTERACTIVE_SELECTOR)) return
+      if (shouldIgnoreActivation(event.target, event.currentTarget, BASE_INTERACTIVE_SELECTOR)) return
       event.stopPropagation()
       onActivate()
     },
     onKeyDown: (event) => {
-      if (shouldIgnoreActivation(event.target, BASE_INTERACTIVE_SELECTOR)) return
+      if (shouldIgnoreActivation(event.target, event.currentTarget, BASE_INTERACTIVE_SELECTOR)) return
       if (event.key !== 'Enter' && event.key !== ' ') return
       event.preventDefault()
       event.stopPropagation()

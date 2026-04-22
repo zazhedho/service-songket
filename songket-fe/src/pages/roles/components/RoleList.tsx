@@ -48,9 +48,19 @@ export default function RoleList({
 
       <div className="page">
         <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search Role</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/display name" />
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Search Role</div>
+                <div className="filter-panel-subtitle">Cari role berdasarkan nama internal atau display name.</div>
+              </div>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Keyword</label>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/display name" />
+              </div>
+            </div>
           </div>
 
           <h3>Role List</h3>

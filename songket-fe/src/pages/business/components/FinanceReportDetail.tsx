@@ -144,31 +144,29 @@ export default function FinanceReportDetail({
 
             <div className="card">
               <h3>Order In Data</h3>
-              <div
-                className="mobile-filter-grid"
-                style={{
-                  marginTop: 10,
-                  marginBottom: 12,
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) auto',
-                  gap: 10,
-                  alignItems: 'end',
-                }}
-              >
-                <div>
-                  <label>Search</label>
-                  <input
-                    placeholder="Pooling number, dealer, consumer..."
-                    value={detailOrderInSearchInput}
-                    onChange={(e) => setDetailOrderInSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') applyDetailOrderInFilters()
-                    }}
-                  />
+              <div className="filter-panel" style={{ marginTop: 10, marginBottom: 12 }}>
+                <div className="filter-panel-head">
+                  <div>
+                    <div className="filter-panel-title">Filter Order In Detail</div>
+                    <div className="filter-panel-subtitle">Cari pooling number, dealer, atau consumer tanpa mengganggu alur analisa detail.</div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button className="btn" onClick={applyDetailOrderInFilters}>Apply</button>
-                  <button className="btn-ghost" onClick={resetDetailOrderInFilters}>Reset</button>
+                <div className="filter-grid mobile-filter-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto' }}>
+                  <div className="filter-field">
+                    <label>Search</label>
+                    <input
+                      placeholder="Pooling number, dealer, consumer..."
+                      value={detailOrderInSearchInput}
+                      onChange={(e) => setDetailOrderInSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') applyDetailOrderInFilters()
+                      }}
+                    />
+                  </div>
+                  <div className="filter-actions">
+                    <button className="btn" onClick={applyDetailOrderInFilters}>Apply</button>
+                    <button className="btn-ghost" onClick={resetDetailOrderInFilters}>Reset</button>
+                  </div>
                 </div>
               </div>
 

@@ -54,18 +54,28 @@ export default function ScrapeSourceList({
 
       <div className="page">
         <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search Source</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/url/category" />
-          </div>
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Filter Source</div>
+                <div className="filter-panel-subtitle">Cari source scraping berdasarkan nama, URL, kategori, dan tipe.</div>
+              </div>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Search Source</label>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/url/category" />
+              </div>
 
-          <div style={{ marginBottom: 10 }}>
-            <label>Filter Type</label>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="">All</option>
-              <option value="prices">Commodity Prices</option>
-              <option value="news">News Portal</option>
-            </select>
+              <div className="filter-field">
+                <label>Filter Type</label>
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                  <option value="">All</option>
+                  <option value="prices">Commodity Prices</option>
+                  <option value="news">News Portal</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <h3>Source List</h3>

@@ -67,10 +67,20 @@ export default function PriceList({
       {canList && (
         <div className="page">
           <div className="card">
-            <div style={{ marginBottom: 10 }}>
-            <label>Search Prices</label>
-            <input value={priceSearch} onChange={(e) => setPriceSearch(e.target.value)} placeholder="Search commodity/source" />
-          </div>
+            <div className="filter-panel">
+              <div className="filter-panel-head">
+                <div>
+                  <div className="filter-panel-title">Search Prices</div>
+                  <div className="filter-panel-subtitle">Cari harga komoditas berdasarkan nama komoditas atau sumber data.</div>
+                </div>
+              </div>
+              <div className="filter-grid">
+                <div className="filter-field">
+                  <label>Keyword</label>
+                  <input value={priceSearch} onChange={(e) => setPriceSearch(e.target.value)} placeholder="Search commodity/source" />
+                </div>
+              </div>
+            </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>Price List</h3>

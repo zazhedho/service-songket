@@ -41,9 +41,19 @@ export default function MenuList({
 
       <div className="page">
         <div className="card">
-          <div style={{ marginBottom: 10 }}>
-            <label>Search Menu</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/path" />
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Search Menu</div>
+                <div className="filter-panel-subtitle">Cari menu berdasarkan nama tampil atau path route.</div>
+              </div>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Keyword</label>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/path" />
+              </div>
+            </div>
           </div>
 
           <h3>Menu List</h3>

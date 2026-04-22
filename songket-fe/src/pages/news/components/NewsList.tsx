@@ -46,16 +46,6 @@ export default function NewsList({
           <div style={{ fontSize: 22, fontWeight: 700 }}>News Portal</div>
           <div style={{ color: '#64748b' }}>This page shows news entries stored in the database</div>
         </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 220 }}>
-            <option value="">All</option>
-            <option value="agri">Agriculture</option>
-            <option value="pariwisata">Tourism</option>
-            <option value="pns">PNS/Gov</option>
-          </select>
-          {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape News</button>}
-        </div>
       </div>
 
       {!canView && <div className="page"><div className="alert">No permission to view news.</div></div>}
@@ -63,6 +53,28 @@ export default function NewsList({
       {canView && (
         <div className="page">
           <div className="card">
+            <div className="filter-panel">
+              <div className="filter-panel-head">
+                <div>
+                  <div className="filter-panel-title">Filter News</div>
+                  <div className="filter-panel-subtitle">Saring berita berdasarkan kategori sebelum membuka detail.</div>
+                </div>
+                <div className="filter-actions">
+                  {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape News</button>}
+                </div>
+              </div>
+              <div className="filter-grid">
+                <div className="filter-field">
+                  <label>Category</label>
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 220 }}>
+                    <option value="">All</option>
+                    <option value="agri">Agriculture</option>
+                    <option value="pariwisata">Tourism</option>
+                    <option value="pns">PNS/Gov</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             <h3>News List</h3>
             <Table
               data={items}

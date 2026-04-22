@@ -55,7 +55,20 @@ export default function PriceJobDock({
 
       {jobsOpen && (
         <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search status/message" />
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Search Scrape Jobs</div>
+                <div className="filter-panel-subtitle">Cari job scraping berdasarkan status atau message log.</div>
+              </div>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Keyword</label>
+                <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search status/message" />
+              </div>
+            </div>
+          </div>
 
           <div style={{ maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {jobs.length === 0 && <div className="muted">No jobs found.</div>}

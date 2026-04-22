@@ -123,46 +123,54 @@ export default function OrderListView({
 
       <div className="page">
         <div className="card">
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, alignItems: 'end' }}>
-            <div>
-              <label>Search</label>
-              <input placeholder="Search .." value={filters.search} onChange={(e) => onFilterChange((prev) => ({ ...prev, search: e.target.value }))} />
+          <div className="filter-panel">
+            <div className="filter-panel-head">
+              <div>
+                <div className="filter-panel-title">Filter Orders</div>
+                <div className="filter-panel-subtitle">Gunakan keyword, status, dan rentang export untuk menyaring data order.</div>
+              </div>
             </div>
-            <div>
-              <label>Status</label>
-              <select value={filters.status} onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))}>
-                <option value="">All</option>
-                <option value="approve">Approve</option>
-                <option value="pending">Pending</option>
-                <option value="reject">Reject</option>
-              </select>
-            </div>
-            <div>
-              <label>Export From</label>
-              <input
-                type="date"
-                value={filters.export_from}
-                onChange={(e) => onFilterChange((prev) => ({ ...prev, export_from: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label>Export To</label>
-              <input
-                type="date"
-                value={filters.export_to}
-                onChange={(e) => onFilterChange((prev) => ({ ...prev, export_to: e.target.value }))}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'end' }}>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => void onExport()}
-                disabled={exportJobRunning}
-                style={{ width: '100%' }}
-              >
-                {exportJobRunning ? 'Exporting...' : 'Export to Excel'}
-              </button>
+            <div className="filter-grid">
+              <div className="filter-field">
+                <label>Search</label>
+                <input placeholder="Search .." value={filters.search} onChange={(e) => onFilterChange((prev) => ({ ...prev, search: e.target.value }))} />
+              </div>
+              <div className="filter-field">
+                <label>Status</label>
+                <select value={filters.status} onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))}>
+                  <option value="">All</option>
+                  <option value="approve">Approve</option>
+                  <option value="pending">Pending</option>
+                  <option value="reject">Reject</option>
+                </select>
+              </div>
+              <div className="filter-field">
+                <label>Export From</label>
+                <input
+                  type="date"
+                  value={filters.export_from}
+                  onChange={(e) => onFilterChange((prev) => ({ ...prev, export_from: e.target.value }))}
+                />
+              </div>
+              <div className="filter-field">
+                <label>Export To</label>
+                <input
+                  type="date"
+                  value={filters.export_to}
+                  onChange={(e) => onFilterChange((prev) => ({ ...prev, export_to: e.target.value }))}
+                />
+              </div>
+              <div className="filter-actions grow">
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void onExport()}
+                  disabled={exportJobRunning}
+                  style={{ width: '100%' }}
+                >
+                  {exportJobRunning ? 'Exporting...' : 'Export to Excel'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

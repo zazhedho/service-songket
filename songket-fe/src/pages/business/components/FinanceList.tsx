@@ -128,19 +128,29 @@ export default function FinanceList({
         {listSection === 'dealer' && (
           <>
             <div className="card">
-              <div style={{ marginBottom: 10 }}>
-                <label>Search Dealer</label>
-                <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search by name/regency/phone" />
-              </div>
+              <div className="filter-panel">
+                <div className="filter-panel-head">
+                  <div>
+                    <div className="filter-panel-title">Filter Dealer</div>
+                    <div className="filter-panel-subtitle">Pilih provinsi dan kata kunci untuk mempercepat pencarian dealer.</div>
+                  </div>
+                </div>
+                <div className="filter-grid">
+                  <div className="filter-field">
+                    <label>Search Dealer</label>
+                    <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search by name/regency/phone" />
+                  </div>
 
-              <div style={{ marginBottom: 10 }}>
-                <label>Dealer Province Filter</label>
-                <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
-                  <option value="">All</option>
-                  {provinces.map((province: any) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
+                  <div className="filter-field">
+                    <label>Dealer Province Filter</label>
+                    <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
+                      <option value="">All</option>
+                      {provinces.map((province: any) => (
+                        <option key={province.code} value={province.code}>{province.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -245,19 +255,29 @@ export default function FinanceList({
         {listSection === 'finance' && (
           <>
             <div className="card">
-              <div style={{ marginBottom: 10 }}>
-                <label>Search Finance Company</label>
-                <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search by name/regency/phone" />
-              </div>
+              <div className="filter-panel">
+                <div className="filter-panel-head">
+                  <div>
+                    <div className="filter-panel-title">Filter Finance Company</div>
+                    <div className="filter-panel-subtitle">Cari finance company berdasar nama dan area operasional.</div>
+                  </div>
+                </div>
+                <div className="filter-grid">
+                  <div className="filter-field">
+                    <label>Search Finance Company</label>
+                    <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search by name/regency/phone" />
+                  </div>
 
-              <div style={{ marginBottom: 10 }}>
-                <label>Finance Province Filter</label>
-                <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
-                  <option value="">All</option>
-                  {provinces.map((province: any) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
+                  <div className="filter-field">
+                    <label>Finance Province Filter</label>
+                    <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
+                      <option value="">All</option>
+                      {provinces.map((province: any) => (
+                        <option key={province.code} value={province.code}>{province.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
