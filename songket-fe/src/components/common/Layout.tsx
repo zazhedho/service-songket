@@ -85,9 +85,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const root = document.querySelector('.app-main')
     if (!root) return
 
-    const applyResponsiveTableLabels = () => {
-      const tables = Array.from(root.querySelectorAll('table.table')) as HTMLTableElement[]
-      tables.forEach((table) => {
+    const applyResponsiveTableLabels = (tables: Iterable<HTMLTableElement>) => {
+      Array.from(tables).forEach((table) => {
         const headerCells = Array.from(table.querySelectorAll(':scope > thead > tr > th')) as HTMLTableCellElement[]
         const headerLabels = headerCells.map((cell) => cell.textContent?.trim() || '')
         const hasBodyTh = table.querySelector(':scope > tbody > tr > th') !== null
@@ -125,16 +124,67 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       })
     }
 
-    applyResponsiveTableLabels()
-    const timer = window.setTimeout(applyResponsiveTableLabels, 50)
-    const observer = new MutationObserver(() => applyResponsiveTableLabels())
+    const getAllTables = () => Array.from(root.querySelectorAll('table.table')) as HTMLTableElement[]
+    const pendingTables = new Set<HTMLTableElement>()
+    let frameId = 0
+
+    const flushPendingTables = (fullScan = false) => {
+      if (frameId) return
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0
+        if (fullScan || pendingTables.size === 0) {
+          applyResponsiveTableLabels(getAllTables())
+          pendingTables.clear()
+          return
+        }
+
+        const tables = Array.from(pendingTables)
+        pendingTables.clear()
+        applyResponsiveTableLabels(tables)
+      })
+    }
+
+    const collectAffectedTables = (node: Node, tables: Set<HTMLTableElement>) => {
+      if (!(node instanceof Element)) return
+      if (node instanceof HTMLTableElement && node.matches('table.table')) {
+        tables.add(node)
+      }
+      const closestTable = node.closest('table.table')
+      if (closestTable instanceof HTMLTableElement) {
+        tables.add(closestTable)
+      }
+      node.querySelectorAll('table.table').forEach((table) => {
+        if (table instanceof HTMLTableElement) {
+          tables.add(table)
+        }
+      })
+    }
+
+    applyResponsiveTableLabels(getAllTables())
+    const timer = window.setTimeout(() => flushPendingTables(true), 50)
+    const observer = new MutationObserver((mutations) => {
+      const affectedTables = new Set<HTMLTableElement>()
+      mutations.forEach((mutation) => {
+        collectAffectedTables(mutation.target, affectedTables)
+        mutation.addedNodes.forEach((node) => collectAffectedTables(node, affectedTables))
+        mutation.removedNodes.forEach((node) => collectAffectedTables(node, affectedTables))
+      })
+
+      if (affectedTables.size === 0) return
+      affectedTables.forEach((table) => pendingTables.add(table))
+      flushPendingTables()
+    })
     observer.observe(root, { childList: true, subtree: true })
-    window.addEventListener('resize', applyResponsiveTableLabels)
+    const resizeHandler = () => flushPendingTables(true)
+    window.addEventListener('resize', resizeHandler)
 
     return () => {
       window.clearTimeout(timer)
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
       observer.disconnect()
-      window.removeEventListener('resize', applyResponsiveTableLabels)
+      window.removeEventListener('resize', resizeHandler)
     }
   }, [location.pathname])
 

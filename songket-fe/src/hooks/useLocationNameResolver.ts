@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchKabupaten, fetchKecamatan, fetchProvinces } from '../services/locationService'
 
 export type ResolvedLocationNames = {
@@ -36,14 +36,30 @@ function humanizeLocationValue(value?: string) {
   return looksLikeLocationCode(raw) ? '-' : raw
 }
 
+function defaultNormalize(value?: string) {
+  return String(value || '').trim().toLowerCase()
+}
+
 export function useLocationNameResolver<T>({
   rows,
   getKey,
   getProvince,
   getRegency,
   getDistrict,
-  normalize = (value?: string) => String(value || '').trim().toLowerCase(),
+  normalize,
 }: UseLocationNameResolverParams<T>) {
+  const normalizeRef = useRef(normalize || defaultNormalize)
+  const getKeyRef = useRef(getKey)
+  const getProvinceRef = useRef(getProvince)
+  const getRegencyRef = useRef(getRegency)
+  const getDistrictRef = useRef(getDistrict)
+
+  normalizeRef.current = normalize || defaultNormalize
+  getKeyRef.current = getKey
+  getProvinceRef.current = getProvince
+  getRegencyRef.current = getRegency
+  getDistrictRef.current = getDistrict
+
   const [provinceOptions, setProvinceOptions] = useState<OptionItem[]>([])
   const [provinceNameMap, setProvinceNameMap] = useState<Record<string, string>>({})
   const [provinceCodeMap, setProvinceCodeMap] = useState<Record<string, string>>({})
@@ -53,6 +69,7 @@ export function useLocationNameResolver<T>({
 
   useEffect(() => {
     let mounted = true
+    const normalizeValue = normalizeRef.current
 
     fetchProvinces()
       .then((res) => {
@@ -66,8 +83,8 @@ export function useLocationNameResolver<T>({
           const name = String(row?.name || row?.code || row?.id || '').trim()
           if (!code || !name) return
 
-          const codeKey = normalize(code)
-          const nameKey = normalize(name)
+          const codeKey = normalizeValue(code)
+          const nameKey = normalizeValue(name)
           nextNameMap[codeKey] = name
           nextNameMap[nameKey] = name
           nextCodeMap[codeKey] = code
@@ -88,10 +105,15 @@ export function useLocationNameResolver<T>({
     return () => {
       mounted = false
     }
-  }, [normalize])
+  }, [])
 
   useEffect(() => {
     let mounted = true
+    const normalizeValue = normalizeRef.current
+    const getKeyValue = getKeyRef.current
+    const getProvinceValue = getProvinceRef.current
+    const getRegencyValue = getRegencyRef.current
+    const getDistrictValue = getDistrictRef.current
 
     const resolveNames = async () => {
       if (!rows.length) {
@@ -107,7 +129,7 @@ export function useLocationNameResolver<T>({
       const nextLocationNamesByKey: Record<string, ResolvedLocationNames> = {}
 
       const uniqueProvinceValues = Array.from(
-        new Set(rows.map((row) => String(getProvince(row) || '').trim()).filter(Boolean)),
+        new Set(rows.map((row) => String(getProvinceValue(row) || '').trim()).filter(Boolean)),
       )
 
       const provinceAliasMap = new Map<string, string[]>()
@@ -115,15 +137,15 @@ export function useLocationNameResolver<T>({
 
       await Promise.all(
         uniqueProvinceValues.map(async (provinceRaw) => {
-          const provinceRawKey = normalize(provinceRaw)
+          const provinceRawKey = normalizeValue(provinceRaw)
           const provinceCode = String(provinceCodeMap[provinceRawKey] || provinceRaw).trim()
-          const provinceCodeKey = normalize(provinceCode)
+          const provinceCodeKey = normalizeValue(provinceCode)
           provinceCodeLookup.set(provinceRawKey, provinceCode)
           if (!provinceCodeKey) return
 
           const provinceRow =
-            provinceOptions.find((row: any) => normalize(row?.code || row?.id || row?.name) === provinceCodeKey) ||
-            provinceOptions.find((row: any) => normalize(row?.name) === provinceRawKey)
+            provinceOptions.find((row: any) => normalizeValue(row?.code || row?.id || row?.name) === provinceCodeKey) ||
+            provinceOptions.find((row: any) => normalizeValue(row?.name) === provinceRawKey)
 
           const provinceAliases = [provinceRaw]
           if (provinceRow) {
@@ -140,11 +162,11 @@ export function useLocationNameResolver<T>({
               const regName = String(row?.name || row?.code || row?.id || '').trim()
               if (!regCode || !regName) return
 
-              const regCodeKey = normalize(regCode)
-              const regNameKey = normalize(regName)
+              const regCodeKey = normalizeValue(regCode)
+              const regNameKey = normalizeValue(regName)
 
               provinceAliases
-                .map((value) => normalize(value))
+                .map((value) => normalizeValue(value))
                 .filter(Boolean)
                 .forEach((provinceKey) => {
                   nextRegencyNameMap[`${provinceKey}|${regCodeKey}`] = regName
@@ -157,15 +179,15 @@ export function useLocationNameResolver<T>({
         }),
       )
 
-      if (getDistrict) {
+      if (getDistrictValue) {
         const regencyPairs = Array.from(
           new Set(
             rows
               .map((row) => {
-                const provinceRaw = String(getProvince(row) || '').trim()
-                const regencyRaw = String(getRegency(row) || '').trim()
+                const provinceRaw = String(getProvinceValue(row) || '').trim()
+                const regencyRaw = String(getRegencyValue(row) || '').trim()
                 if (!provinceRaw || !regencyRaw) return ''
-                const provinceCode = String(provinceCodeLookup.get(normalize(provinceRaw)) || provinceRaw).trim()
+                const provinceCode = String(provinceCodeLookup.get(normalizeValue(provinceRaw)) || provinceRaw).trim()
                 if (!provinceCode) return ''
                 return `${provinceRaw}::${provinceCode}::${regencyRaw}`
               })
@@ -176,11 +198,11 @@ export function useLocationNameResolver<T>({
         await Promise.all(
           regencyPairs.map(async (pair) => {
             const [provinceRaw, provinceCode, regencyRaw] = pair.split('::')
-            const provinceAliases = provinceAliasMap.get(normalize(provinceRaw)) || [provinceRaw]
+            const provinceAliases = provinceAliasMap.get(normalizeValue(provinceRaw)) || [provinceRaw]
             const regencyName = (() => {
-              const regencyRawKey = normalize(regencyRaw)
+              const regencyRawKey = normalizeValue(regencyRaw)
               for (const alias of provinceAliases) {
-                const found = nextRegencyNameMap[`${normalize(alias)}|${regencyRawKey}`]
+                const found = nextRegencyNameMap[`${normalizeValue(alias)}|${regencyRawKey}`]
                 if (found) return found
               }
               return regencyRaw
@@ -194,16 +216,16 @@ export function useLocationNameResolver<T>({
                 const districtName = String(row?.name || row?.code || row?.id || '').trim()
                 if (!districtCode || !districtName) return
 
-                const districtCodeKey = normalize(districtCode)
-                const districtNameKey = normalize(districtName)
+                const districtCodeKey = normalizeValue(districtCode)
+                const districtNameKey = normalizeValue(districtName)
                 const regencyAliases = [regencyRaw, regencyName]
 
                 provinceAliases
-                  .map((value) => normalize(value))
+                  .map((value) => normalizeValue(value))
                   .filter(Boolean)
                   .forEach((provinceKey) => {
                     regencyAliases
-                      .map((value) => normalize(value))
+                      .map((value) => normalizeValue(value))
                       .filter(Boolean)
                       .forEach((regencyKey) => {
                         nextDistrictNameMap[`${provinceKey}|${regencyKey}|${districtCodeKey}`] = districtName
@@ -219,20 +241,20 @@ export function useLocationNameResolver<T>({
       }
 
       rows.forEach((row) => {
-        const key = String(getKey(row) || '').trim()
+        const key = String(getKeyValue(row) || '').trim()
         if (!key) return
 
-        const provinceRaw = String(getProvince(row) || '').trim()
-        const regencyRaw = String(getRegency(row) || '').trim()
-        const districtRaw = String(getDistrict?.(row) || '').trim()
+        const provinceRaw = String(getProvinceValue(row) || '').trim()
+        const regencyRaw = String(getRegencyValue(row) || '').trim()
+        const districtRaw = String(getDistrictValue?.(row) || '').trim()
 
-        const provinceName = provinceNameMap[normalize(provinceRaw)] || humanizeLocationValue(provinceRaw)
-        const provinceAliases = [provinceRaw, provinceName, provinceCodeMap[normalize(provinceRaw)] || provinceRaw]
-          .map((value) => normalize(value))
+        const provinceName = provinceNameMap[normalizeValue(provinceRaw)] || humanizeLocationValue(provinceRaw)
+        const provinceAliases = [provinceRaw, provinceName, provinceCodeMap[normalizeValue(provinceRaw)] || provinceRaw]
+          .map((value) => normalizeValue(value))
           .filter(Boolean)
 
         let regencyName = humanizeLocationValue(regencyRaw)
-        const regencyKey = normalize(regencyRaw)
+        const regencyKey = normalizeValue(regencyRaw)
         for (const alias of provinceAliases) {
           const found = nextRegencyNameMap[`${alias}|${regencyKey}`]
           if (found) {
@@ -242,9 +264,9 @@ export function useLocationNameResolver<T>({
         }
 
         let districtName = humanizeLocationValue(districtRaw)
-        if (districtRaw && getDistrict) {
-          const districtKey = normalize(districtRaw)
-          const regencyAliases = [regencyRaw, regencyName].map((value) => normalize(value)).filter(Boolean)
+        if (districtRaw && getDistrictValue) {
+          const districtKey = normalizeValue(districtRaw)
+          const regencyAliases = [regencyRaw, regencyName].map((value) => normalizeValue(value)).filter(Boolean)
           for (const provinceAlias of provinceAliases) {
             for (const regencyAlias of regencyAliases) {
               const found = nextDistrictNameMap[`${provinceAlias}|${regencyAlias}|${districtKey}`]
@@ -274,12 +296,12 @@ export function useLocationNameResolver<T>({
     return () => {
       mounted = false
     }
-  }, [rows, getKey, getProvince, getRegency, getDistrict, normalize, provinceCodeMap, provinceNameMap, provinceOptions])
+  }, [rows, provinceCodeMap, provinceNameMap, provinceOptions])
 
   const displayProvince = (provinceValue?: string) => {
     const raw = String(provinceValue || '').trim()
     if (!raw) return '-'
-    return provinceNameMap[normalize(raw)] || humanizeLocationValue(raw)
+    return provinceNameMap[normalizeRef.current(raw)] || humanizeLocationValue(raw)
   }
 
   const displayRegency = (provinceValue?: string, regencyValue?: string) => {
@@ -288,9 +310,10 @@ export function useLocationNameResolver<T>({
 
     const provinceRaw = String(provinceValue || '').trim()
     const provinceName = displayProvince(provinceRaw)
-    const provinceCode = provinceCodeMap[normalize(provinceRaw)] || provinceRaw
-    const lookupKeys = [provinceRaw, provinceName, provinceCode].map((value) => normalize(value)).filter(Boolean)
-    const regKey = normalize(regRaw)
+    const normalizeValue = normalizeRef.current
+    const provinceCode = provinceCodeMap[normalizeValue(provinceRaw)] || provinceRaw
+    const lookupKeys = [provinceRaw, provinceName, provinceCode].map((value) => normalizeValue(value)).filter(Boolean)
+    const regKey = normalizeValue(regRaw)
 
     for (const key of lookupKeys) {
       const found = regencyNameMap[`${key}|${regKey}`]

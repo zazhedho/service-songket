@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
-import { getAttempt, lookupDisplayName, lookupOptionName, normalizeCode } from './orderHelpers'
+import type { ResolvedLocationNames } from '../../../hooks/useLocationNameResolver'
+import { getAttempt, lookupDisplayName } from './orderHelpers'
 
 type OrderListViewProps = {
   canCreate: boolean
@@ -18,10 +19,9 @@ type OrderListViewProps = {
   } | null
   exportJobRunning: boolean
   filters: { search: string; status: string; export_from: string; export_to: string }
-  kabupatenLookup: Record<string, string>
-  kecamatanLookup: Record<string, string>
   limit: number
   list: any[]
+  locationNamesByKey: Record<string, ResolvedLocationNames>
   lookups: any
   navigate: (path: string, options?: any) => void
   onExport: () => Promise<void>
@@ -56,29 +56,10 @@ function financeName(financeCompanies: any[] | undefined, attempt: any) {
 }
 
 function orderLocationLabel(
-  order: any,
-  provinces: any[],
-  kabupatenLookup: Record<string, string>,
-  kecamatanLookup: Record<string, string>,
+  locationNames?: ResolvedLocationNames,
 ) {
-  const provinceCode = String(order?.province || '').trim()
-  const regencyCode = String(order?.regency || '').trim()
-  const districtCode = String(order?.district || '').trim()
-
-  const provinceName = lookupOptionName(provinces, provinceCode)
-  const provinceKey = normalizeCode(provinceCode)
-  const regencyKey = normalizeCode(regencyCode)
-  const districtKey = normalizeCode(districtCode)
-
-  const regencyName = regencyCode
-    ? kabupatenLookup[`${provinceKey}|${regencyKey}`] || regencyCode
-    : '-'
-  const districtName = districtCode
-    ? kecamatanLookup[`${provinceKey}|${regencyKey}|${districtKey}`] || districtCode
-    : '-'
-
   return (
-    [districtName, regencyName, provinceName]
+    [locationNames?.district, locationNames?.regency, locationNames?.province]
       .filter((item) => String(item || '').trim() && item !== '-')
       .join(', ') || '-'
   )
@@ -92,10 +73,9 @@ export default function OrderListView({
   exportJob,
   exportJobRunning,
   filters,
-  kabupatenLookup,
-  kecamatanLookup,
   limit,
   list,
+  locationNamesByKey,
   lookups,
   navigate,
   onExport,
@@ -105,7 +85,6 @@ export default function OrderListView({
   onPageChange,
   onRemove,
   page,
-  provinces,
   showTable,
   totalData,
   totalPages,
@@ -123,13 +102,13 @@ export default function OrderListView({
           financeCompany1Name: financeName(financeCompanies, firstAttempt),
           financeCompany2Name: financeName(financeCompanies, secondAttempt),
           id: String(order?.id || ''),
-          locationLabel: orderLocationLabel(order, provinces, kabupatenLookup, kecamatanLookup),
+          locationLabel: orderLocationLabel(locationNamesByKey[String(order?.id || '').trim()]),
           order,
           showFinanceCompany2: Boolean(secondAttempt?.finance_company_id),
           status: String(order?.result_status || ''),
         }
       }),
-    [financeCompanies, kabupatenLookup, kecamatanLookup, list, provinces],
+    [financeCompanies, list, locationNamesByKey],
   )
 
   return (

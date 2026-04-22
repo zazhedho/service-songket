@@ -2,24 +2,27 @@ import { FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
+  cacheOrder,
+  cacheOrders,
   createOrder,
   deleteOrder,
   downloadOrderExport,
   fetchOrders,
+  getCachedOrder,
   getOrderExportStatus,
+  removeCachedOrder,
   startOrderExport,
   updateOrder,
 } from '../../services/orderService'
 import {
-  fetchKabupaten,
-  fetchKecamatan,
 } from '../../services/locationService'
 import { fetchLookups } from '../../services/lookupService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
+import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import OrderList from './components/OrderList'
-import { getAttempt, lookupOptionName, normalizeCode, resolveOptionCode } from './components/orderHelpers'
+import { getAttempt, lookupOptionName, resolveOptionCode } from './components/orderHelpers'
 
 const OrderDetail = lazy(() => import('./components/OrderDetail'))
 const OrderForm = lazy(() => import('./components/OrderForm'))
@@ -92,8 +95,6 @@ export default function OrdersPage() {
   const [form, setForm] = useState(defaultForm)
   const [lookups, setLookups] = useState<any>({})
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [kabupatenLookup, setKabupatenLookup] = useState<Record<string, string>>({})
-  const [kecamatanLookup, setKecamatanLookup] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({ search: '', status: '', export_from: '', export_to: '' })
@@ -110,8 +111,6 @@ export default function OrdersPage() {
   const [limit, setLimit] = useState(20)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
-  const fetchedKabupatenRef = useRef<Set<string>>(new Set())
-  const fetchedKecamatanRef = useRef<Set<string>>(new Set())
   const exportPollRef = useRef<number | null>(null)
   const exportDownloadLockRef = useRef(false)
   const lookupsLoadedRef = useRef(false)
@@ -129,6 +128,13 @@ export default function OrdersPage() {
     regencyCode: form.regency,
     withDistricts: true,
   })
+  const { locationNamesByKey } = useLocationNameResolver({
+    rows: list,
+    getKey: (row) => String(row?.id || '').trim(),
+    getProvince: (row) => String(row?.province || '').trim(),
+    getRegency: (row) => String(row?.regency || '').trim(),
+    getDistrict: (row) => String(row?.district || '').trim(),
+  })
 
   const loadList = async (params?: Record<string, unknown>) => {
     const requestRaw = params || { page, limit }
@@ -142,7 +148,9 @@ export default function OrdersPage() {
     }
     delete request.status
     const res = await fetchOrders(request)
-    setList(res.data.data || res.data || [])
+    const nextList = res.data.data || res.data || []
+    setList(nextList)
+    cacheOrders(nextList)
     setTotalPages(res.data.total_pages || 1)
     setTotalData(res.data.total_data || 0)
     setPage(res.data.current_page || (request.page as number) || 1)
@@ -194,90 +202,6 @@ export default function OrdersPage() {
       })
     }
   }, [debouncedSearch, filters.status, filters.export_from, filters.export_to, isList, limit, page, showTable])
-
-  useEffect(() => {
-    if (!list.length) return
-
-    const provinceCodes = Array.from(
-      new Set(
-        list
-          .map((order) => String(order?.province || '').trim())
-          .filter(Boolean),
-      ),
-    )
-
-    provinceCodes.forEach((provinceCode) => {
-      if (fetchedKabupatenRef.current.has(provinceCode)) return
-      fetchedKabupatenRef.current.add(provinceCode)
-
-      fetchKabupaten(provinceCode)
-        .then((res) => {
-          const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
-          const provinceKey = normalizeCode(provinceCode)
-          setKabupatenLookup((prev) => {
-            const next = { ...prev }
-            rows.forEach((row: any) => {
-              const codeKey = normalizeCode(row?.code || row?.id || row?.name)
-              if (!codeKey) return
-              next[`${provinceKey}|${codeKey}`] = String(row?.name || row?.code || '').trim()
-            })
-            return next
-          })
-        })
-        .catch(() => {
-          fetchedKabupatenRef.current.delete(provinceCode)
-        })
-    })
-
-    const regencyPairs = Array.from(
-      new Set(
-        list
-          .map((order) => {
-            const provinceCode = String(order?.province || '').trim()
-            const regencyCode = String(order?.regency || '').trim()
-            if (!provinceCode || !regencyCode) return ''
-            return `${provinceCode}|||${regencyCode}`
-          })
-          .filter(Boolean),
-      ),
-    )
-
-    regencyPairs.forEach((pair) => {
-      if (fetchedKecamatanRef.current.has(pair)) return
-      fetchedKecamatanRef.current.add(pair)
-
-      const [provinceCode, regencyCode] = pair.split('|||')
-      fetchKecamatan(provinceCode, regencyCode)
-        .then((res) => {
-          const rows = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
-          const provinceKey = normalizeCode(provinceCode)
-          const regencyKey = normalizeCode(regencyCode)
-          setKecamatanLookup((prev) => {
-            const next = { ...prev }
-            rows.forEach((row: any) => {
-              const codeKey = normalizeCode(row?.code || row?.id || row?.name)
-              if (!codeKey) return
-              next[`${provinceKey}|${regencyKey}|${codeKey}`] = String(row?.name || row?.code || '').trim()
-            })
-            return next
-          })
-        })
-        .catch(() => {
-          fetchedKecamatanRef.current.delete(pair)
-        })
-    })
-  }, [list])
-
-  useEffect(() => {
-    const shouldFetchDetailFallback = (isEdit || isDetail)
-      && Boolean(selectedId)
-      && !(stateOrder?.id === selectedId)
-      && !list.some((order) => order.id === selectedId)
-
-    if (shouldFetchDetailFallback) {
-      loadList({ page: 1, limit: 200 }).catch(() => setList([]))
-    }
-  }, [isDetail, isEdit, list, selectedId, stateOrder?.id])
 
   useEffect(() => {
     setPage(1)
@@ -459,10 +383,17 @@ export default function OrdersPage() {
     }
   }
 
+  const cachedSelectedOrder = useMemo(() => {
+    if (!selectedId) return null
+    return getCachedOrder(selectedId)
+  }, [selectedId])
+
   const selectedOrder = useMemo(() => {
     if (!selectedId) return null
-    return list.find((order) => order.id === selectedId) || (stateOrder?.id === selectedId ? stateOrder : null)
-  }, [list, selectedId, stateOrder])
+    return list.find((order) => order.id === selectedId)
+      || (stateOrder?.id === selectedId ? stateOrder : null)
+      || cachedSelectedOrder
+  }, [cachedSelectedOrder, list, selectedId, stateOrder])
   const selectedDealer = useMemo(() => {
     const rows = Array.isArray(lookups?.dealers) ? lookups.dealers : []
     return rows.find((dealer: any) => dealer.id === form.dealer_id) || null
@@ -536,6 +467,16 @@ export default function OrdersPage() {
       setError('')
     }
   }, [isCreate, isEdit, selectedOrder])
+
+  useEffect(() => {
+    if (!stateOrder) return
+    cacheOrder(stateOrder)
+  }, [stateOrder])
+
+  useEffect(() => {
+    if (!selectedOrder) return
+    cacheOrder(selectedOrder)
+  }, [selectedOrder])
 
   useEffect(() => {
     if (!provinces.length || !form.province) return
@@ -625,6 +566,7 @@ export default function OrdersPage() {
     setLoading(true)
     try {
       await deleteOrder(id)
+      removeCachedOrder(id)
       await loadList({
         page,
         limit,
@@ -705,10 +647,9 @@ export default function OrdersPage() {
       exportJob={exportJob}
       exportJobRunning={exportJobRunning}
       filters={filters}
-      kabupatenLookup={kabupatenLookup}
-      kecamatanLookup={kecamatanLookup}
       limit={limit}
       list={list}
+      locationNamesByKey={locationNamesByKey}
       lookups={lookups}
       navigate={navigate}
       onExport={requestOrderExport}
@@ -718,7 +659,6 @@ export default function OrdersPage() {
       onPageChange={setPage}
       onRemove={removeOrder}
       page={page}
-      provinces={provinces}
       showTable={showTable}
       totalData={totalData}
       totalPages={totalPages}

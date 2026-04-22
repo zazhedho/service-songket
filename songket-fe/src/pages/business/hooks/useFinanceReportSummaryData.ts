@@ -248,8 +248,10 @@ export function useFinanceReportSummaryData({
       if (finance1) filters.finance_1_company_id = finance1
       if (Object.keys(filters).length > 0) params.filters = filters
 
-      const res = await listFinanceMigrationReport(params)
-      const summaryRes = await getFinanceMigrationReportSummary(params)
+      const [res, summaryRes] = await Promise.all([
+        listFinanceMigrationReport(params),
+        getFinanceMigrationReportSummary(params),
+      ])
       const payload = res?.data || {}
       const data = payload?.data || []
       const summaryPayload = summaryRes?.data?.data || summaryRes?.data || {}

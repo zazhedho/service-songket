@@ -10,11 +10,14 @@ let hydrationPromise: Promise<void> | null = null
 
 export default function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuth((s) => s.token)
+  const role = useAuth((s) => s.role)
+  const permissions = useAuth((s) => s.permissions)
   const setRole = useAuth((s) => s.setRole)
   const setPermissions = useAuth((s) => s.setPermissions)
   const logout = useAuth((s) => s.logout)
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(() => Boolean(token && hydratedSessionToken !== token))
+  const hasHydratedSessionData = Boolean(role) && (role === 'superadmin' || permissions.length > 0)
+  const [loading, setLoading] = useState(() => Boolean(token && hydratedSessionToken !== token && !hasHydratedSessionData))
 
   const hydrateSession = useCallback(async () => {
     if (!token || hydratedSessionToken === token) return
@@ -55,6 +58,14 @@ export default function Protected({ children }: { children: React.ReactNode }) {
       }
     }
 
+    if (hasHydratedSessionData) {
+      hydratedSessionToken = token
+      setLoading(false)
+      return () => {
+        mounted = false
+      }
+    }
+
     if (hydratedSessionToken === token) {
       setLoading(false)
       return () => {
@@ -79,7 +90,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false
     }
-  }, [hydrateSession, logout, navigate, token])
+  }, [hasHydratedSessionData, hydrateSession, logout, navigate, token])
 
   if (!token) return <Navigate to="/login" replace />
   if (loading) return null

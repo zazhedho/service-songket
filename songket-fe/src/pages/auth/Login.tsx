@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../../services/authService'
+import { getMyPermissions } from '../../services/permissionService'
 import { useAuth } from '../../store'
 
 function validatePasswordByBackendRule(password: string) {
@@ -38,6 +39,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const setToken = useAuth((s) => s.setToken)
   const setRoleStore = useAuth((s) => s.setRole)
+  const setPermissions = useAuth((s) => s.setPermissions)
   const isRegisterPasswordMismatch = isRegister && confirmPassword.length > 0 && password !== confirmPassword
 
   const handleSubmit = async (e: FormEvent) => {
@@ -75,11 +77,17 @@ export default function LoginPage() {
         setToken(token)
 
         try {
-          const me = await getMe()
+          const [me, permissionsRes] = await Promise.all([getMe(), getMyPermissions()])
           const backendRole = me.data?.data?.role || me.data?.role
           if (backendRole) setRoleStore(backendRole)
+
+          const nextPermissions = (permissionsRes.data?.data || permissionsRes.data || [])
+            .map((permission: any) => String(permission?.name || '').trim())
+            .filter(Boolean)
+          setPermissions(nextPermissions)
         } catch {
           setRoleStore('')
+          setPermissions([])
         }
 
         navigate('/dashboard')
