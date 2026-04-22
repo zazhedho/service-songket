@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react'
+import DeferredMount from '../../../components/common/DeferredMount'
 import { DetailTable, formatDateTime } from './financeHelpers'
 
 const DealerLocationMap = lazy(() => import('./FinanceMap').then((module) => ({ default: module.DealerLocationMap })))
@@ -67,13 +68,18 @@ export default function DealerDetail({
             <div className="card" style={{ minHeight: 360 }}>
               <h3>Dealer Map</h3>
               <div style={{ marginTop: 10 }}>
-                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
-                  <DealerLocationMap
-                    lat={Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58)}
-                    lng={Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)}
-                    name={selectedDealer.name}
-                  />
-                </Suspense>
+                <DeferredMount
+                  minHeight={320}
+                  fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+                >
+                  <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                    <DealerLocationMap
+                      lat={Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58)}
+                      lng={Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)}
+                      name={selectedDealer.name}
+                    />
+                  </Suspense>
+                </DeferredMount>
               </div>
             </div>
           </>

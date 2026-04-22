@@ -49,14 +49,16 @@ export function useFinanceData({
   const [companySummary, setCompanySummary] = useState<CompanySummary | null>(null)
   const [companySummaryLoading, setCompanySummaryLoading] = useState(false)
   const financeCompanyFallbackRef = useRef<any[] | null>(null)
+  const businessDataRequestIdRef = useRef(0)
 
-  const loadDealers = async () => {
+  const loadDealers = async (requestId = businessDataRequestIdRef.current) => {
     const dealerRes = await fetchDealers({
       page: dealerPage,
       limit: dealerLimit,
       search: debouncedDealerSearch || undefined,
       filters: { province: dealerProvinceFilter || undefined },
     })
+    if (businessDataRequestIdRef.current !== requestId) return
     const dealerData = dealerRes.data.data || dealerRes.data || []
 
     setDealers(dealerData)
@@ -69,13 +71,14 @@ export function useFinanceData({
     }
   }
 
-  const loadFinanceCompanies = async () => {
+  const loadFinanceCompanies = async (requestId = businessDataRequestIdRef.current) => {
     const companyRes = await fetchFinanceCompanies({
       page: financePage,
       limit: financeLimit,
       search: debouncedFinanceSearch || undefined,
       filters: { province: financeProvinceFilter || undefined },
     })
+    if (businessDataRequestIdRef.current !== requestId) return
 
     const companyData = companyRes.data.data || companyRes.data || []
     setFinanceCompanies(companyData)
@@ -86,9 +89,11 @@ export function useFinanceData({
     if (!Array.isArray(companyData) || companyData.length === 0) {
       if (!financeCompanyFallbackRef.current) {
         const lookupRes = await fetchLookups()
+        if (businessDataRequestIdRef.current !== requestId) return
         const fallback = lookupRes.data.data?.finance_companies || lookupRes.data?.finance_companies || []
         financeCompanyFallbackRef.current = Array.isArray(fallback) ? fallback : []
       }
+      if (businessDataRequestIdRef.current !== requestId) return
       const fallback = financeCompanyFallbackRef.current || []
       setFinanceCompanies(Array.isArray(fallback) ? fallback : [])
     }
@@ -114,9 +119,12 @@ export function useFinanceData({
 
   const reloadBusinessData = async () => {
     if (!canView) return
+    const requestId = businessDataRequestIdRef.current + 1
+    businessDataRequestIdRef.current = requestId
     try {
-      await Promise.all([loadDealers(), loadFinanceCompanies()])
+      await Promise.all([loadDealers(requestId), loadFinanceCompanies(requestId)])
     } catch {
+      if (businessDataRequestIdRef.current !== requestId) return
       setDealers([])
       setFinanceCompanies([])
     }
@@ -124,6 +132,7 @@ export function useFinanceData({
 
   useEffect(() => {
     if (!canView) {
+      businessDataRequestIdRef.current += 1
       setDealers([])
       setFinanceCompanies([])
       setMetrics(null)
@@ -132,6 +141,10 @@ export function useFinanceData({
     }
 
     void reloadBusinessData()
+
+    return () => {
+      businessDataRequestIdRef.current += 1
+    }
   }, [
     canView,
     dealerLimit,
@@ -159,9 +172,19 @@ export function useFinanceData({
       return
     }
 
+    let isActive = true
     fetchDealerMetrics(selectedDealerId)
-      .then((res) => setMetrics(res.data.data || res.data || null))
-      .catch(() => setMetrics(null))
+      .then((res) => {
+        if (!isActive) return
+        setMetrics(res.data.data || res.data || null)
+      })
+      .catch(() => {
+        if (!isActive) return
+        setMetrics(null)
+      })
+    return () => {
+      isActive = false
+    }
   }, [isList, selectedDealerId])
 
   useEffect(() => {
@@ -181,16 +204,25 @@ export function useFinanceData({
       return
     }
 
+    let isActive = true
     setCompanySummaryLoading(true)
     fetchFinanceCompanyMetrics(selectedCompanyId)
       .then((res) => {
+        if (!isActive) return
         const payload = (res.data.data || res.data || null) as CompanySummary | null
         setCompanySummary(payload)
       })
       .catch(() => {
+        if (!isActive) return
         setCompanySummary(null)
       })
-      .finally(() => setCompanySummaryLoading(false))
+      .finally(() => {
+        if (!isActive) return
+        setCompanySummaryLoading(false)
+      })
+    return () => {
+      isActive = false
+    }
   }, [isCompanyDetail, selectedCompanyId])
 
   const dealerPoints = useMemo(() => {
@@ -312,16 +344,13 @@ export function useFinanceData({
   }, [dealerFinancePage, dealerFinanceTotalPages])
 
   useEffect(() => {
-    if (transitionFromFinanceOptions.length === 0) {
-      setSelectedTransitionFromFinanceID('')
-      return
-    }
-
-    const hasSelected = transitionFromFinanceOptions.some((item) => item.id === selectedTransitionFromFinanceID)
-    if (!hasSelected) {
-      setSelectedTransitionFromFinanceID(transitionFromFinanceOptions[0].id)
-    }
-  }, [selectedTransitionFromFinanceID, transitionFromFinanceOptions])
+    setSelectedTransitionFromFinanceID((prev) => {
+      if (transitionFromFinanceOptions.length === 0) return ''
+      return transitionFromFinanceOptions.some((item) => item.id === prev)
+        ? prev
+        : transitionFromFinanceOptions[0].id
+    })
+  }, [transitionFromFinanceOptions])
 
   useEffect(() => {
     setDealerTransitionPage(1)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import dayjs from 'dayjs'
 import { fetchDashboardSummary, listDashboardNewsItems, listDashboardPrices } from '../../../services/dashboardService'
 import { fetchLookups } from '../../../services/lookupService'
@@ -592,20 +592,33 @@ export function useDashboardData() {
   const [selectedTrendCommodity, setSelectedTrendCommodity] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const dashboardSummaryRequestIdRef = useRef(0)
 
   useEffect(() => {
+    let isActive = true
     fetchLookups()
-      .then((res) => setLookups(res.data?.data || res.data || {}))
-      .catch(() => setLookups({}))
+      .then((res) => {
+        if (!isActive) return
+        setLookups(res.data?.data || res.data || {})
+      })
+      .catch(() => {
+        if (!isActive) return
+        setLookups({})
+      })
+    return () => {
+      isActive = false
+    }
   }, [])
 
   useEffect(() => {
+    let isActive = true
     setLatestCardsLoading(true)
     Promise.all([
       listDashboardNewsItems({ page: 1, limit: 5, order_by: 'published_at', order_direction: 'desc' }),
       listDashboardPrices({ page: 1, limit: 200, order_by: 'collected_at', order_direction: 'desc' }),
     ])
       .then(([newsRes, priceRes]) => {
+        if (!isActive) return
         const newsPayload = newsRes?.data || {}
         const pricePayload = priceRes?.data || {}
         const newsRows = Array.isArray(newsPayload?.data) ? newsPayload.data : []
@@ -614,10 +627,17 @@ export function useDashboardData() {
         setLatestPrices(priceRows as DashboardPriceItem[])
       })
       .catch(() => {
+        if (!isActive) return
         setLatestNews([])
         setLatestPrices([])
       })
-      .finally(() => setLatestCardsLoading(false))
+      .finally(() => {
+        if (!isActive) return
+        setLatestCardsLoading(false)
+      })
+    return () => {
+      isActive = false
+    }
   }, [])
 
   useEffect(() => {
@@ -625,10 +645,8 @@ export function useDashboardData() {
       setActiveNewsIndex(0)
       return
     }
-    if (activeNewsIndex >= latestNews.length) {
-      setActiveNewsIndex(0)
-    }
-  }, [activeNewsIndex, latestNews.length])
+    setActiveNewsIndex((prev) => (prev >= latestNews.length ? 0 : prev))
+  }, [latestNews.length])
 
   useEffect(() => {
     if (latestNews.length <= 1) return
@@ -641,6 +659,9 @@ export function useDashboardData() {
   }, [latestNews.length])
 
   useEffect(() => {
+    const controller = new AbortController()
+    const requestId = dashboardSummaryRequestIdRef.current + 1
+    dashboardSummaryRequestIdRef.current = requestId
     const params: Record<string, unknown> = {}
     if (filtersApplied.area) params.area = filtersApplied.area
     if (filtersApplied.result_status) params.result_status = filtersApplied.result_status
@@ -663,16 +684,25 @@ export function useDashboardData() {
 
     setLoading(true)
     setError('')
-    fetchDashboardSummary(params)
+    fetchDashboardSummary(params, { signal: controller.signal })
       .then((res) => {
+        if (dashboardSummaryRequestIdRef.current !== requestId) return
         const payload = res.data?.data || res.data || {}
         setSummary(normalizeSummary(payload))
       })
       .catch((err: any) => {
+        if (controller.signal.aborted || dashboardSummaryRequestIdRef.current !== requestId) return
         setSummary(emptySummary)
         setError(err?.response?.data?.error || err?.message || 'Failed to load dashboard summary.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (controller.signal.aborted || dashboardSummaryRequestIdRef.current !== requestId) return
+        setLoading(false)
+      })
+
+    return () => {
+      controller.abort()
+    }
   }, [filtersApplied])
 
   const areaOptions = useMemo(() => {
@@ -804,14 +834,13 @@ export function useDashboardData() {
   }, [latestPrices])
 
   useEffect(() => {
-    if (trendCommodityOptions.length === 0) {
-      setSelectedTrendCommodity('')
-      return
-    }
-    if (!trendCommodityOptions.some((item) => item.value === selectedTrendCommodity)) {
-      setSelectedTrendCommodity(trendCommodityOptions[0].value)
-    }
-  }, [selectedTrendCommodity, trendCommodityOptions])
+    setSelectedTrendCommodity((prev) => {
+      if (trendCommodityOptions.length === 0) return ''
+      return trendCommodityOptions.some((item) => item.value === prev)
+        ? prev
+        : trendCommodityOptions[0].value
+    })
+  }, [trendCommodityOptions])
 
   const selectedPriceRows = useMemo(() => {
     if (!selectedTrendCommodity) return latestPrices

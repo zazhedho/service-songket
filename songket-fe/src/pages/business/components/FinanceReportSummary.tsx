@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react'
+import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
 
 const FinanceReportDealerMap = lazy(() => import('./FinanceReportMap'))
@@ -140,17 +141,22 @@ export default function FinanceReportSummary({
               </div>
             </div>
             <div className="business-map-shell">
-              <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
-                <FinanceReportDealerMap
-                  dealerMapCenter={dealerMapCenter}
-                  dealerMapZoom={dealerMapZoom}
-                  dealerPoints={dealerPoints}
-                  setDealerInput={setDealerInput}
-                  setSelectedDealerId={setSelectedDealerId}
-                  summarizeLocation={summarizeLocation}
-                  truncateTableText={truncateTableText}
-                />
-              </Suspense>
+              <DeferredMount
+                minHeight={320}
+                fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+              >
+                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                  <FinanceReportDealerMap
+                    dealerMapCenter={dealerMapCenter}
+                    dealerMapZoom={dealerMapZoom}
+                    dealerPoints={dealerPoints}
+                    setDealerInput={setDealerInput}
+                    setSelectedDealerId={setSelectedDealerId}
+                    summarizeLocation={summarizeLocation}
+                    truncateTableText={truncateTableText}
+                  />
+                </Suspense>
+              </DeferredMount>
             </div>
             {dealerPoints.length === 0 && (
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>

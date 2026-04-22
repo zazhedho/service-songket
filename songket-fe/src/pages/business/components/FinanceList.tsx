@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
+import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
 import { formatDealerLocationSummary } from './financeHelpers'
 import { summarizeLocation } from './financeReportHelpers'
@@ -232,14 +233,19 @@ export default function FinanceList({
               </div>
 
               <div style={{ marginTop: 10 }}>
-                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
-                  <FinanceDealerMap
-                    center={center}
-                    dealerLocationNameMap={dealerLocationNameMap}
-                    dealerPoints={dealerPoints}
-                    setSelectedDealerId={setSelectedDealerId}
-                  />
-                </Suspense>
+                <DeferredMount
+                  minHeight={360}
+                  fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+                >
+                  <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                    <FinanceDealerMap
+                      center={center}
+                      dealerLocationNameMap={dealerLocationNameMap}
+                      dealerPoints={dealerPoints}
+                      setSelectedDealerId={setSelectedDealerId}
+                    />
+                  </Suspense>
+                </DeferredMount>
               </div>
             </div>
           </>

@@ -8,10 +8,17 @@ import {
 const dashboardNewsCache = createRequestCacheStore<any>()
 const dashboardPricesCache = createRequestCacheStore<any>()
 
+type DashboardRequestOptions = {
+  signal?: AbortSignal
+}
+
 export const listDashboardOrders = (params?: Record<string, unknown>) =>
   api.get('/api/dashboard/orders', { params })
-export const fetchDashboardSummary = (params?: Record<string, unknown>) =>
-  api.get('/api/dashboard/summary', { params })
+export const fetchDashboardSummary = (
+  params?: Record<string, unknown>,
+  options?: DashboardRequestOptions,
+) =>
+  api.get('/api/dashboard/summary', { params, signal: options?.signal })
 export const listDashboardNewsItems = (params?: Record<string, unknown>) =>
   withAuthScopedRequestCache(
     dashboardNewsCache,
