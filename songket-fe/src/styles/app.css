@@ -773,6 +773,18 @@ h4 {
     -webkit-overflow-scrolling: touch;
   }
 
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-responsive > .table,
+  .table-scroll > .table {
+    margin-bottom: 0;
+  }
+
   .table th,
   .table td {
     padding: 10px;
@@ -782,10 +794,11 @@ h4 {
   }
 
   .table td {
-    max-width: 20ch;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
   }
 
   .table td:has(button),
@@ -802,6 +815,27 @@ h4 {
     max-width: none;
     overflow: visible;
     white-space: normal;
+  }
+
+  .table.table-list td {
+    max-width: 20ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: normal;
+  }
+
+  .table.table-list td.wrap-text,
+  .table.table-list td.action-cell,
+  .table.table-list td:has(button),
+  .table.table-list td:has(input),
+  .table.table-list td:has(select),
+  .table.table-list td:has(textarea) {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
   }
 
   .table th {
@@ -2251,8 +2285,21 @@ h4 {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    table-layout: fixed;
+    table-layout: auto;
     font-size: 11px;
+  }
+
+  .table-responsive {
+    border-radius: 10px;
+  }
+
+  .table-responsive > .table:not(.responsive-stack):not(.responsive-detail),
+  .table-scroll > .table:not(.responsive-stack):not(.responsive-detail) {
+    min-width: 640px;
+  }
+
+  .table.table-list {
+    min-width: 640px;
   }
 
   .table th,
@@ -2345,6 +2392,58 @@ h4 {
 
   .table.responsive-stack tbody td.action-cell::before {
     margin-right: auto;
+  }
+
+  .table.responsive-detail {
+    display: block;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .table.responsive-detail tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table.responsive-detail tbody tr {
+    display: block;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px 12px;
+  }
+
+  .table.responsive-detail tbody tr:hover {
+    background: #fff;
+  }
+
+  .table.responsive-detail tbody th,
+  .table.responsive-detail tbody td {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+  }
+
+  .table.responsive-detail tbody th {
+    background: transparent;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+
+  .table.responsive-detail tbody td + th {
+    margin-top: 10px;
   }
 
   .finance-report-approval-subtitle {

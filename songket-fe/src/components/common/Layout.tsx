@@ -87,14 +87,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     const applyResponsiveTableLabels = (tables: Iterable<HTMLTableElement>) => {
       Array.from(tables).forEach((table) => {
+        const parent = table.parentElement
+        if (!parent || (!parent.classList.contains('table-responsive') && !parent.classList.contains('table-scroll'))) {
+          const wrapper = document.createElement('div')
+          wrapper.className = 'table-responsive'
+          table.parentNode?.insertBefore(wrapper, table)
+          wrapper.appendChild(table)
+        }
+
         const headerCells = Array.from(table.querySelectorAll(':scope > thead > tr > th')) as HTMLTableCellElement[]
         const headerLabels = headerCells.map((cell) => cell.textContent?.trim() || '')
         const hasBodyTh = table.querySelector(':scope > tbody > tr > th') !== null
+        if (!table.dataset.responsiveMode) {
+          if (table.classList.contains('responsive-detail')) {
+            table.dataset.responsiveMode = 'detail'
+          } else if (table.classList.contains('responsive-stack')) {
+            table.dataset.responsiveMode = 'stack'
+          }
+        }
 
-        if (headerLabels.length > 0 && !hasBodyTh) {
+        const preferredMode = table.dataset.responsiveMode
+        const hasInlineMinWidth = Boolean(table.style.minWidth && table.style.minWidth.trim())
+        const isDetailTable = hasBodyTh || preferredMode === 'detail'
+        const isListTable = headerLabels.length > 0 && !isDetailTable
+        const shouldStackList = preferredMode === 'stack' || (isListTable && !hasInlineMinWidth && headerLabels.length <= 4)
+
+        if (isListTable) {
+          table.classList.add('table-list')
+        } else {
+          table.classList.remove('table-list')
+        }
+
+        if (shouldStackList) {
           table.classList.add('responsive-stack')
         } else {
           table.classList.remove('responsive-stack')
+        }
+
+        if (isDetailTable) {
+          table.classList.add('responsive-detail')
+        } else {
+          table.classList.remove('responsive-detail')
         }
 
         if (headerLabels.length === 0) return
