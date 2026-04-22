@@ -1,6 +1,7 @@
 package handlermastersetting
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -36,7 +37,7 @@ func (h *MasterSettingHandler) CreateNewsScrapeCronSetting(ctx *gin.Context) {
 		return
 	}
 	userID, username := authActor(ctx)
-	data, err := h.Service.CreateNewsScrapeCronSetting(req, userID, username)
+	data, err := h.Service.CreateNewsScrapeCronSetting(ctx.Request.Context(), req, userID, username)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -57,7 +58,7 @@ func (h *MasterSettingHandler) UpdateNewsScrapeCronSetting(ctx *gin.Context) {
 		return
 	}
 	userID, username := authActor(ctx)
-	data, err := h.Service.UpdateNewsScrapeCronSetting(req, userID, username)
+	data, err := h.Service.UpdateNewsScrapeCronSetting(ctx.Request.Context(), req, userID, username)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -90,7 +91,7 @@ func (h *MasterSettingHandler) CreatePriceScrapeCronSetting(ctx *gin.Context) {
 		return
 	}
 	userID, username := authActor(ctx)
-	data, err := h.Service.CreatePriceScrapeCronSetting(req, userID, username)
+	data, err := h.Service.CreatePriceScrapeCronSetting(ctx.Request.Context(), req, userID, username)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -111,7 +112,7 @@ func (h *MasterSettingHandler) UpdatePriceScrapeCronSetting(ctx *gin.Context) {
 		return
 	}
 	userID, username := authActor(ctx)
-	data, err := h.Service.UpdatePriceScrapeCronSetting(req, userID, username)
+	data, err := h.Service.UpdatePriceScrapeCronSetting(ctx.Request.Context(), req, userID, username)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -130,9 +131,9 @@ func (h *MasterSettingHandler) DeletePriceScrapeCronSetting(ctx *gin.Context) {
 	h.deleteSetting(ctx, domainmastersetting.MasterSettingKeyPriceScrapeCron, h.Service.DeletePriceScrapeCronSetting)
 }
 
-func (h *MasterSettingHandler) respondSetting(ctx *gin.Context, getter func() (domainmastersetting.MasterSetting, error)) {
+func (h *MasterSettingHandler) respondSetting(ctx *gin.Context, getter func(ctx context.Context) (domainmastersetting.MasterSetting, error)) {
 	logId := utils.GenerateLogId(ctx)
-	data, err := getter()
+	data, err := getter(ctx.Request.Context())
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -143,13 +144,13 @@ func (h *MasterSettingHandler) respondSetting(ctx *gin.Context, getter func() (d
 	ctx.JSON(http.StatusOK, res)
 }
 
-func (h *MasterSettingHandler) respondHistory(ctx *gin.Context, getter func(limit int) ([]domainmastersetting.MasterSettingHistory, error)) {
+func (h *MasterSettingHandler) respondHistory(ctx *gin.Context, getter func(ctx context.Context, limit int) ([]domainmastersetting.MasterSettingHistory, error)) {
 	logId := utils.GenerateLogId(ctx)
 	limit, err := strconv.Atoi(ctx.DefaultQuery("limit", "100"))
 	if err != nil {
 		limit = 100
 	}
-	data, err := getter(limit)
+	data, err := getter(ctx.Request.Context(), limit)
 	if err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -160,10 +161,10 @@ func (h *MasterSettingHandler) respondHistory(ctx *gin.Context, getter func(limi
 	ctx.JSON(http.StatusOK, res)
 }
 
-func (h *MasterSettingHandler) deleteSetting(ctx *gin.Context, key string, deleter func(actorUserID, actorName string) error) {
+func (h *MasterSettingHandler) deleteSetting(ctx *gin.Context, key string, deleter func(ctx context.Context, actorUserID, actorName string) error) {
 	logId := utils.GenerateLogId(ctx)
 	userID, username := authActor(ctx)
-	if err := deleter(userID, username); err != nil {
+	if err := deleter(ctx.Request.Context(), userID, username); err != nil {
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
 		ctx.JSON(http.StatusBadRequest, res)

@@ -1,6 +1,7 @@
 package servicemastersetting
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,8 +30,8 @@ func NewMasterSettingService(repo interfacemastersetting.RepoMasterSettingInterf
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetNewsScrapeCronSetting() (domainmastersetting.MasterSetting, error) {
-	setting, err := s.repo.GetByKey(domainmastersetting.MasterSettingKeyNewsScrapeCron)
+func (s *Service) GetNewsScrapeCronSetting(ctx context.Context) (domainmastersetting.MasterSetting, error) {
+	setting, err := s.repo.GetByKey(ctx, domainmastersetting.MasterSettingKeyNewsScrapeCron)
 	if err != nil {
 		return domainmastersetting.MasterSetting{}, err
 	}
@@ -41,8 +42,8 @@ func (s *Service) GetNewsScrapeCronSetting() (domainmastersetting.MasterSetting,
 	return setting, nil
 }
 
-func (s *Service) CreateNewsScrapeCronSetting(req dto.NewsScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
-	if _, err := s.repo.GetByKey(domainmastersetting.MasterSettingKeyNewsScrapeCron); err == nil {
+func (s *Service) CreateNewsScrapeCronSetting(ctx context.Context, req dto.NewsScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
+	if _, err := s.repo.GetByKey(ctx, domainmastersetting.MasterSettingKeyNewsScrapeCron); err == nil {
 		return domainmastersetting.MasterSetting{}, fmt.Errorf("news scrape cron setting already exists")
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return domainmastersetting.MasterSetting{}, err
@@ -73,18 +74,18 @@ func (s *Service) CreateNewsScrapeCronSetting(req dto.NewsScrapeCronSettingReque
 		ChangedByName:           normalizeHistoryActorName(actorName),
 	}
 
-	if err := s.repo.Transaction(func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
-		if err := tx.Store(setting); err != nil {
+	if err := s.repo.Transaction(ctx, func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
+		if err := tx.Store(ctx, setting); err != nil {
 			return err
 		}
-		return tx.StoreHistory(history)
+		return tx.StoreHistory(ctx, history)
 	}); err != nil {
 		return domainmastersetting.MasterSetting{}, err
 	}
 	return setting, nil
 }
 
-func (s *Service) UpdateNewsScrapeCronSetting(req dto.NewsScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
+func (s *Service) UpdateNewsScrapeCronSetting(ctx context.Context, req dto.NewsScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
 	nextInterval := req.IntervalMinutes
 	nextIsActive := req.IsActive
 	if nextInterval <= 0 {
@@ -92,7 +93,7 @@ func (s *Service) UpdateNewsScrapeCronSetting(req dto.NewsScrapeCronSettingReque
 		nextIsActive = false
 	}
 
-	setting, err := s.GetNewsScrapeCronSetting()
+	setting, err := s.GetNewsScrapeCronSetting(ctx)
 	if err != nil {
 		return domainmastersetting.MasterSetting{}, err
 	}
@@ -116,12 +117,12 @@ func (s *Service) UpdateNewsScrapeCronSetting(req dto.NewsScrapeCronSettingReque
 		ChangedByName:           normalizeHistoryActorName(actorName),
 	}
 
-	if err := s.repo.Transaction(func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
-		if err := tx.Update(setting); err != nil {
+	if err := s.repo.Transaction(ctx, func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
+		if err := tx.Update(ctx, setting); err != nil {
 			return err
 		}
 		if previousActive != setting.IsActive || previousInterval != setting.IntervalMinutes {
-			return tx.StoreHistory(history)
+			return tx.StoreHistory(ctx, history)
 		}
 		return nil
 	}); err != nil {
@@ -130,18 +131,18 @@ func (s *Service) UpdateNewsScrapeCronSetting(req dto.NewsScrapeCronSettingReque
 	return setting, nil
 }
 
-func (s *Service) ListNewsScrapeCronSettingHistory(limit int) ([]domainmastersetting.MasterSettingHistory, error) {
+func (s *Service) ListNewsScrapeCronSettingHistory(ctx context.Context, limit int) ([]domainmastersetting.MasterSettingHistory, error) {
 	if limit <= 0 {
 		limit = 100
 	}
 	if limit > 500 {
 		limit = 500
 	}
-	return s.repo.ListHistoryByKey(domainmastersetting.MasterSettingKeyNewsScrapeCron, limit)
+	return s.repo.ListHistoryByKey(ctx, domainmastersetting.MasterSettingKeyNewsScrapeCron, limit)
 }
 
-func (s *Service) DeleteNewsScrapeCronSetting(actorUserID, actorName string) error {
-	setting, err := s.repo.GetByKey(domainmastersetting.MasterSettingKeyNewsScrapeCron)
+func (s *Service) DeleteNewsScrapeCronSetting(ctx context.Context, actorUserID, actorName string) error {
+	setting, err := s.repo.GetByKey(ctx, domainmastersetting.MasterSettingKeyNewsScrapeCron)
 	if err != nil {
 		return err
 	}
@@ -156,16 +157,16 @@ func (s *Service) DeleteNewsScrapeCronSetting(actorUserID, actorName string) err
 		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
 		ChangedByName:           normalizeHistoryActorName(actorName),
 	}
-	return s.repo.Transaction(func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
-		if err := tx.StoreHistory(history); err != nil {
+	return s.repo.Transaction(ctx, func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
+		if err := tx.StoreHistory(ctx, history); err != nil {
 			return err
 		}
-		return tx.Delete(setting)
+		return tx.Delete(ctx, setting.Id)
 	})
 }
 
-func (s *Service) GetPriceScrapeCronSetting() (domainmastersetting.MasterSetting, error) {
-	setting, err := s.repo.GetByKey(domainmastersetting.MasterSettingKeyPriceScrapeCron)
+func (s *Service) GetPriceScrapeCronSetting(ctx context.Context) (domainmastersetting.MasterSetting, error) {
+	setting, err := s.repo.GetByKey(ctx, domainmastersetting.MasterSettingKeyPriceScrapeCron)
 	if err != nil {
 		return domainmastersetting.MasterSetting{}, err
 	}
@@ -176,8 +177,8 @@ func (s *Service) GetPriceScrapeCronSetting() (domainmastersetting.MasterSetting
 	return setting, nil
 }
 
-func (s *Service) CreatePriceScrapeCronSetting(req dto.PriceScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
-	if _, err := s.repo.GetByKey(domainmastersetting.MasterSettingKeyPriceScrapeCron); err == nil {
+func (s *Service) CreatePriceScrapeCronSetting(ctx context.Context, req dto.PriceScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
+	if _, err := s.repo.GetByKey(ctx, domainmastersetting.MasterSettingKeyPriceScrapeCron); err == nil {
 		return domainmastersetting.MasterSetting{}, fmt.Errorf("commodity price scrape cron setting already exists")
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return domainmastersetting.MasterSetting{}, err
@@ -208,18 +209,18 @@ func (s *Service) CreatePriceScrapeCronSetting(req dto.PriceScrapeCronSettingReq
 		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
 		ChangedByName:           normalizeHistoryActorName(actorName),
 	}
-	if err := s.repo.Transaction(func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
-		if err := tx.Store(setting); err != nil {
+	if err := s.repo.Transaction(ctx, func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
+		if err := tx.Store(ctx, setting); err != nil {
 			return err
 		}
-		return tx.StoreHistory(history)
+		return tx.StoreHistory(ctx, history)
 	}); err != nil {
 		return domainmastersetting.MasterSetting{}, err
 	}
 	return setting, nil
 }
 
-func (s *Service) UpdatePriceScrapeCronSetting(req dto.PriceScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
+func (s *Service) UpdatePriceScrapeCronSetting(ctx context.Context, req dto.PriceScrapeCronSettingRequest, actorUserID, actorName string) (domainmastersetting.MasterSetting, error) {
 	nextDays := req.IntervalDays
 	nextIsActive := req.IsActive
 	if nextDays <= 0 {
@@ -228,7 +229,7 @@ func (s *Service) UpdatePriceScrapeCronSetting(req dto.PriceScrapeCronSettingReq
 	}
 	intervalMinutes := daysToIntervalMinutes(normalizeCronIntervalDays(nextDays))
 
-	setting, err := s.GetPriceScrapeCronSetting()
+	setting, err := s.GetPriceScrapeCronSetting(ctx)
 	if err != nil {
 		return domainmastersetting.MasterSetting{}, err
 	}
@@ -250,12 +251,12 @@ func (s *Service) UpdatePriceScrapeCronSetting(req dto.PriceScrapeCronSettingReq
 		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
 		ChangedByName:           normalizeHistoryActorName(actorName),
 	}
-	if err := s.repo.Transaction(func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
-		if err := tx.Update(setting); err != nil {
+	if err := s.repo.Transaction(ctx, func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
+		if err := tx.Update(ctx, setting); err != nil {
 			return err
 		}
 		if previousActive != setting.IsActive || previousMinutes != setting.IntervalMinutes {
-			return tx.StoreHistory(history)
+			return tx.StoreHistory(ctx, history)
 		}
 		return nil
 	}); err != nil {
@@ -264,18 +265,18 @@ func (s *Service) UpdatePriceScrapeCronSetting(req dto.PriceScrapeCronSettingReq
 	return setting, nil
 }
 
-func (s *Service) ListPriceScrapeCronSettingHistory(limit int) ([]domainmastersetting.MasterSettingHistory, error) {
+func (s *Service) ListPriceScrapeCronSettingHistory(ctx context.Context, limit int) ([]domainmastersetting.MasterSettingHistory, error) {
 	if limit <= 0 {
 		limit = 100
 	}
 	if limit > 500 {
 		limit = 500
 	}
-	return s.repo.ListHistoryByKey(domainmastersetting.MasterSettingKeyPriceScrapeCron, limit)
+	return s.repo.ListHistoryByKey(ctx, domainmastersetting.MasterSettingKeyPriceScrapeCron, limit)
 }
 
-func (s *Service) DeletePriceScrapeCronSetting(actorUserID, actorName string) error {
-	setting, err := s.repo.GetByKey(domainmastersetting.MasterSettingKeyPriceScrapeCron)
+func (s *Service) DeletePriceScrapeCronSetting(ctx context.Context, actorUserID, actorName string) error {
+	setting, err := s.repo.GetByKey(ctx, domainmastersetting.MasterSettingKeyPriceScrapeCron)
 	if err != nil {
 		return err
 	}
@@ -290,10 +291,10 @@ func (s *Service) DeletePriceScrapeCronSetting(actorUserID, actorName string) er
 		ChangedByUserID:         normalizeHistoryActorUserID(actorUserID),
 		ChangedByName:           normalizeHistoryActorName(actorName),
 	}
-	return s.repo.Transaction(func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
-		if err := tx.StoreHistory(history); err != nil {
+	return s.repo.Transaction(ctx, func(tx interfacemastersetting.RepoMasterSettingTxInterface) error {
+		if err := tx.StoreHistory(ctx, history); err != nil {
 			return err
 		}
-		return tx.Delete(setting)
+		return tx.Delete(ctx, setting.Id)
 	})
 }

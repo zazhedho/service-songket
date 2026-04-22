@@ -111,7 +111,7 @@ func (c *NewsScrapeCronScheduler) loop(ctx context.Context) {
 			return
 		}
 
-		config, err := c.masterSettingService.GetNewsScrapeCronSetting()
+		config, err := c.masterSettingService.GetNewsScrapeCronSetting(ctx)
 		if err != nil {
 			logger.WriteLog(logger.LogLevelError, fmt.Sprintf("[news-cron] failed to read setting: %v", err))
 			return
@@ -179,7 +179,7 @@ func (c *PriceScrapeCronScheduler) loop(ctx context.Context) {
 			return
 		}
 
-		config, err := c.masterSettingService.GetPriceScrapeCronSetting()
+		config, err := c.masterSettingService.GetPriceScrapeCronSetting(ctx)
 		if err != nil {
 			logger.WriteLog(logger.LogLevelError, fmt.Sprintf("[price-cron] failed to read setting: %v", err))
 			return
