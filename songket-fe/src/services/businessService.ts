@@ -8,6 +8,9 @@ import {
 
 const dealersListCache = createRequestCacheStore<any>()
 const financeCompaniesListCache = createRequestCacheStore<any>()
+const allDealerMetricsCache = createRequestCacheStore<any>()
+const dealerMetricsCache = createRequestCacheStore<any>()
+const financeCompanyMetricsCache = createRequestCacheStore<any>()
 
 export const fetchDealers = (params?: Record<string, unknown>) =>
   withAuthScopedRequestCache(
@@ -32,11 +35,26 @@ export const listFinanceMigrationOrderInDetail = (id: string, params?: Record<st
 export const getFinanceMigrationOrderInSummary = (id: string, params?: Record<string, unknown>) =>
   api.get(`/api/finance/report/migrations/${id}/order-ins/summary`, { params })
 export const fetchAllDealerMetrics = (params?: Record<string, unknown>) =>
-  api.get('/api/finance/dealers/metrics', { params })
+  withAuthScopedRequestCache(
+    allDealerMetricsCache,
+    buildRequestCacheKey('all_dealer_metrics', params || {}),
+    () => api.get('/api/finance/dealers/metrics', { params }),
+    60 * 1000,
+  )
 export const fetchDealerMetrics = (id: string, params?: Record<string, unknown>) =>
-  api.get(`/api/finance/dealers/${id}/metrics`, { params })
+  withAuthScopedRequestCache(
+    dealerMetricsCache,
+    buildRequestCacheKey('dealer_metrics', id, params || {}),
+    () => api.get(`/api/finance/dealers/${id}/metrics`, { params }),
+    60 * 1000,
+  )
 export const fetchFinanceCompanyMetrics = (id: string, params?: Record<string, unknown>) =>
-  api.get(`/api/finance/companies/${id}/metrics`, { params })
+  withAuthScopedRequestCache(
+    financeCompanyMetricsCache,
+    buildRequestCacheKey('finance_company_metrics', id, params || {}),
+    () => api.get(`/api/finance/companies/${id}/metrics`, { params }),
+    60 * 1000,
+  )
 export const createDealer = (body: Record<string, unknown>) =>
   api.post('/api/finance/dealers', body).finally(() => clearRequestCache(dealersListCache))
 export const updateDealer = (id: string, body: Record<string, unknown>) =>
