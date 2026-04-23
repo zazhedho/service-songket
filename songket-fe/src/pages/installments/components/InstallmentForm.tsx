@@ -62,14 +62,14 @@ export default function InstallmentForm({
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
           <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-            <div><label>Motor Type</label><input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} /></div>
-            <div><label>Brand</label><input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} /></div>
-            <div><label>Model</label><input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} /></div>
-            <div><label>Variant</label><input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} /></div>
+            <div><label>Motor Type</label><input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" /></div>
+            <div><label>Brand</label><input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" /></div>
+            <div><label>Model</label><input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" /></div>
+            <div><label>Variant</label><input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} placeholder="Enter variant" /></div>
 
             <div>
               <label>OTR</label>
-              <input type="text" value={formatRupiah(form.otr)} onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))} inputMode="numeric" />
+              <input type="text" value={formatRupiah(form.otr)} onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))} inputMode="numeric" placeholder="Enter OTR amount" />
             </div>
 
             <div>
@@ -78,7 +78,7 @@ export default function InstallmentForm({
                 value={form.province_code}
                 onChange={updateProvince}
                 options={provinceOptions}
-                placeholder="Select"
+                placeholder="Select province"
                 searchPlaceholder="Search province..."
               />
             </div>
@@ -89,7 +89,7 @@ export default function InstallmentForm({
                 value={form.regency_code}
                 onChange={updateRegency}
                 options={regencyOptions}
-                placeholder="Select"
+                placeholder="Select regency / city"
                 searchPlaceholder="Search regency / city..."
                 disabled={!form.province_code}
               />
@@ -97,7 +97,7 @@ export default function InstallmentForm({
 
             <div>
               <label>Installment Amount</label>
-              <input type="text" value={formatRupiah(form.amount)} onChange={(e) => setForm((prev: any) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))} inputMode="numeric" />
+              <input type="text" value={formatRupiah(form.amount)} onChange={(e) => setForm((prev: any) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))} inputMode="numeric" placeholder="Enter installment amount" />
             </div>
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}

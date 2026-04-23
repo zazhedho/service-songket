@@ -62,7 +62,7 @@ export default function JobForm({
           <div className="grid" style={{ gap: 10 }}>
             <div>
               <label>Job Name</label>
-              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} />
+              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter job name" />
             </div>
 
             <div>
@@ -72,6 +72,7 @@ export default function JobForm({
                 inputMode="numeric"
                 value={form.net_income}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, net_income: e.target.value }))}
+                placeholder="Enter net income"
               />
             </div>
 

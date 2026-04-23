@@ -64,22 +64,22 @@ export default function MotorTypeForm({
           <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
             <div>
               <label>Motor Type</label>
-              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} />
+              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" />
             </div>
 
             <div>
               <label>Brand</label>
-              <input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} />
+              <input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" />
             </div>
 
             <div>
               <label>Model</label>
-              <input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} />
+              <input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" />
             </div>
 
             <div>
               <label>Type</label>
-              <input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} />
+              <input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} placeholder="Enter variant type" />
             </div>
 
             <div>
@@ -89,6 +89,7 @@ export default function MotorTypeForm({
                 value={formatRupiah(form.otr)}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))}
                 inputMode="numeric"
+                placeholder="Enter OTR amount"
               />
             </div>
 
@@ -98,7 +99,7 @@ export default function MotorTypeForm({
                 value={form.province_code}
                 onChange={updateProvince}
                 options={provinceOptions}
-                placeholder="Select"
+                placeholder="Select province"
                 searchPlaceholder="Search province..."
               />
             </div>
@@ -109,7 +110,7 @@ export default function MotorTypeForm({
                 value={form.regency_code}
                 onChange={updateRegency}
                 options={regencyOptions}
-                placeholder="Select"
+                placeholder="Select regency / city"
                 searchPlaceholder="Search regency / city..."
                 disabled={!form.province_code}
               />

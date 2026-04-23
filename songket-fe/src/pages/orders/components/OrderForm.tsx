@@ -2,6 +2,7 @@ import { FormEvent } from 'react'
 import dayjs from 'dayjs'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import { formatRupiah } from '../../../utils/currency'
+import { sanitizeDigits } from '../../../utils/input'
 
 type OrderFormViewProps = {
   canCreate: boolean
@@ -119,7 +120,7 @@ export default function OrderFormView({
                 value={form.dealer_id}
                 onChange={(value) => set('dealer_id', value)}
                 options={dealerOptions}
-                placeholder="Select"
+                placeholder="Select dealer"
                 searchPlaceholder="Search dealer..."
                 disabled={lookups?.dealers?.length === 1}
               />
@@ -127,7 +128,7 @@ export default function OrderFormView({
 
             <div>
               <label>Pooling Number</label>
-              <input value={form.pooling_number} onChange={(e) => set('pooling_number', e.target.value)} required />
+              <input value={form.pooling_number} onChange={(e) => set('pooling_number', e.target.value)} placeholder="Enter pooling number" required />
             </div>
 
             <div>
@@ -136,6 +137,7 @@ export default function OrderFormView({
                 type="datetime-local"
                 value={dayjs(form.pooling_at).format('YYYY-MM-DDTHH:mm')}
                 onChange={(e) => set('pooling_at', dayjs(e.target.value).toISOString())}
+                placeholder="Select pooling time"
                 required
               />
             </div>
@@ -146,6 +148,7 @@ export default function OrderFormView({
                 type="datetime-local"
                 value={form.result_at ? dayjs(form.result_at).format('YYYY-MM-DDTHH:mm') : ''}
                 onChange={(e) => set('result_at', e.target.value ? dayjs(e.target.value).toISOString() : '')}
+                placeholder="Select result time"
               />
             </div>
 
@@ -155,19 +158,19 @@ export default function OrderFormView({
                 value={form.finance_company_id}
                 onChange={(value) => set('finance_company_id', value)}
                 options={financeCompanyOptions}
-                placeholder="Select"
+                placeholder="Select finance company"
                 searchPlaceholder="Search finance company..."
               />
             </div>
 
             <div>
               <label>Consumer Name</label>
-              <input value={form.consumer_name} onChange={(e) => set('consumer_name', e.target.value)} required />
+              <input value={form.consumer_name} onChange={(e) => set('consumer_name', e.target.value)} placeholder="Enter consumer name" required />
             </div>
 
             <div>
               <label>Phone Number</label>
-              <input value={form.consumer_phone} onChange={(e) => set('consumer_phone', e.target.value)} required />
+              <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={form.consumer_phone} onChange={(e) => set('consumer_phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" required />
             </div>
 
             <div>
@@ -176,7 +179,7 @@ export default function OrderFormView({
                 value={form.province}
                 onChange={(value) => setForm((prev: any) => ({ ...prev, province: value, regency: '', district: '' }))}
                 options={provinceOptions}
-                placeholder="Select"
+                placeholder="Select province"
                 searchPlaceholder="Search province..."
               />
             </div>
@@ -187,7 +190,7 @@ export default function OrderFormView({
                 value={form.regency}
                 onChange={(value) => setForm((prev: any) => ({ ...prev, regency: value, district: '' }))}
                 options={regencyOptions}
-                placeholder="Select"
+                placeholder="Select regency / city"
                 searchPlaceholder="Search regency / city..."
                 disabled={!form.province}
               />
@@ -199,7 +202,7 @@ export default function OrderFormView({
                 value={form.district}
                 onChange={(value) => set('district', value)}
                 options={districtOptions}
-                placeholder="Select"
+                placeholder="Select district"
                 searchPlaceholder="Search district..."
                 disabled={!form.regency}
               />
@@ -212,7 +215,7 @@ export default function OrderFormView({
 
             <div style={{ gridColumn: '1 / -1' }}>
               <label>Address</label>
-              <input value={form.address} onChange={(e) => set('address', e.target.value)} />
+              <input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Enter address" />
             </div>
 
             <div>
@@ -221,7 +224,7 @@ export default function OrderFormView({
                 value={form.job_id}
                 onChange={(value) => set('job_id', value)}
                 options={jobOptions}
-                placeholder="Select"
+                placeholder="Select job"
                 searchPlaceholder="Search job..."
               />
             </div>
@@ -232,14 +235,14 @@ export default function OrderFormView({
                 value={form.motor_type_id}
                 onChange={(value) => set('motor_type_id', value)}
                 options={motorTypeOptions}
-                placeholder="Select"
+                placeholder="Select motor type"
                 searchPlaceholder="Search motor type..."
               />
             </div>
 
             <div>
               <label>OTR (auto)</label>
-              <input value={selectedMotor?.otr ? formatRupiah(selectedMotor.otr) : ''} readOnly />
+              <input value={selectedMotor?.otr ? formatRupiah(selectedMotor.otr) : ''} readOnly placeholder="Filled automatically from motor type" />
             </div>
 
             <div>
@@ -249,6 +252,7 @@ export default function OrderFormView({
                 value={formatRupiah(form.dp_gross)}
                 onChange={(e) => set('dp_gross', parseNumber(e.target.value))}
                 inputMode="numeric"
+                placeholder="Enter DP gross"
               />
             </div>
 
@@ -259,17 +263,25 @@ export default function OrderFormView({
                 value={formatRupiah(form.dp_paid)}
                 onChange={(e) => set('dp_paid', parseNumber(e.target.value))}
                 inputMode="numeric"
+                placeholder="Enter DP paid"
               />
             </div>
 
             <div>
               <label>%DP (auto)</label>
-              <input value={dpPct} readOnly />
+              <input value={dpPct} readOnly placeholder="Calculated automatically" />
             </div>
 
             <div>
               <label>Tenor</label>
-              <input type="number" min={1} max={60} value={form.tenor} onChange={(e) => set('tenor', Number(e.target.value))} />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.tenor}
+                onChange={(e) => set('tenor', Math.min(60, Number(sanitizeDigits(e.target.value) || '0')))}
+                maxLength={2}
+                placeholder="Enter tenor in months"
+              />
             </div>
 
             <div>
@@ -279,6 +291,7 @@ export default function OrderFormView({
                 value={formatRupiah(form.installment)}
                 onChange={(e) => set('installment', parseNumber(e.target.value))}
                 inputMode="numeric"
+                placeholder="Enter installment amount"
               />
             </div>
 
@@ -295,7 +308,7 @@ export default function OrderFormView({
 
             <div style={{ gridColumn: '1 / -1' }}>
               <label>Result Notes</label>
-              <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} />
+              <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} placeholder="Enter result notes" />
             </div>
 
             {form.result_status === 'reject' && !showAttempt2 && poolingRowsCount >= 2 && (
@@ -319,7 +332,7 @@ export default function OrderFormView({
                     value={form.finance_company2_id}
                     onChange={(value) => set('finance_company2_id', value)}
                     options={financeCompanyOptions}
-                    placeholder="Select"
+                    placeholder="Select finance company"
                     searchPlaceholder="Search finance company..."
                   />
                 </div>
@@ -330,14 +343,14 @@ export default function OrderFormView({
                     value={form.result_status2}
                     onChange={(value) => set('result_status2', value)}
                     options={finance2ResultOptions}
-                    placeholder="--"
+                    placeholder="Select finance 2 result"
                     searchPlaceholder="Search result..."
                   />
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label>Finance 2 Notes</label>
-                  <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} />
+                  <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} placeholder="Enter finance 2 notes" />
                 </div>
               </>
             )}

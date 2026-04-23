@@ -48,26 +48,26 @@ export default function ScrapeSourceForm({
           {!canUpdate && isEdit && <div className="alert">No permission to update sources.</div>}
 
           <div className="grid" style={{ gap: 10 }}>
-            <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
-            <div><label>URL</label><input value={form.url} onChange={(e) => set('url', e.target.value)} /></div>
+            <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter source name" /></div>
+            <div><label>URL</label><input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={form.url} onChange={(e) => set('url', e.target.value)} placeholder="https://example.com/source" /></div>
             <div>
               <label>Type</label>
               <SearchableSelect
                 value={form.type}
                 onChange={(value) => set('type', value)}
                 options={typeOptions}
-                placeholder="Select type"
+                placeholder="Select source type"
                 searchPlaceholder="Search source type..."
               />
             </div>
-            <div><label>Category</label><input value={form.category} onChange={(e) => set('category', e.target.value)} /></div>
+            <div><label>Category</label><input value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="Enter source category" /></div>
             <div>
               <label>Active</label>
               <SearchableSelect
                 value={form.is_active ? 'true' : 'false'}
                 onChange={(value) => set('is_active', value === 'true')}
                 options={statusOptions}
-                placeholder="Select status"
+                placeholder="Select source status"
                 searchPlaceholder="Search status..."
               />
             </div>

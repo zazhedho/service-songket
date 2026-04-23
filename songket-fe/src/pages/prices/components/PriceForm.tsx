@@ -51,6 +51,7 @@ export default function PriceForm({
             <div>
               <label>Price (IDR)</label>
               <input
+                inputMode="numeric"
                 value={manual.price}
                 onChange={(e) => setManual((m) => ({ ...m, price: formatRupiahInput(e.target.value) }))}
                 placeholder="IDR 10,000"
@@ -58,7 +59,7 @@ export default function PriceForm({
             </div>
             <div>
               <label>Source URL</label>
-              <input value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
+              <input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
             </div>
           </div>
 

@@ -58,11 +58,11 @@ export default function RoleForm({
             </div>
             <div>
               <label>Display Name</label>
-              <input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} />
+              <input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} placeholder="Enter display name" />
             </div>
             <div>
               <label>Description</label>
-              <input value={form.description} onChange={(e) => set('description', e.target.value)} />
+              <input value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Enter role description" />
             </div>
 
             {canAssignPerms && (

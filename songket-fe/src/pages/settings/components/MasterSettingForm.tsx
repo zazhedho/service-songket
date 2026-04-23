@@ -1,5 +1,6 @@
 import { usePermissions } from '../../../hooks/usePermissions'
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { sanitizeDigits } from '../../../utils/input'
 
 type MasterSettingFormProps = {
   currentExists: boolean
@@ -84,16 +85,16 @@ export default function MasterSettingForm({
       <div style={{ marginBottom: 10 }}>
         <label>{intervalLabel}</label>
         <input
-          type="number"
-          min={0}
-          max={intervalMax}
-          step={1}
+          type="text"
+          inputMode="numeric"
           value={currentInterval}
           onChange={(e) => {
-            const next = Number(e.target.value)
+            const next = Math.min(intervalMax, Number(sanitizeDigits(e.target.value) || '0'))
             onIntervalChange(Number.isFinite(next) ? next : 0)
           }}
           disabled={loading || saving}
+          maxLength={String(intervalMax).length}
+          placeholder={`Enter ${intervalLabel.toLowerCase()}`}
         />
       </div>
 

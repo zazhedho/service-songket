@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../../services/authService'
 import { getMyPermissions } from '../../services/permissionService'
 import { useAuth } from '../../store'
+import { sanitizeDigits } from '../../utils/input'
 
 function validatePasswordByBackendRule(password: string) {
   if (password.length < 8) return 'Password must be at least 8 characters long.'
@@ -234,7 +235,17 @@ export default function LoginPage() {
             {isRegister && (
               <>
                 <input style={inputStyle} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-                <input style={inputStyle} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <input
+                  style={inputStyle}
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  maxLength={20}
+                  placeholder="Phone"
+                  value={phone}
+                  onChange={(e) => setPhone(sanitizeDigits(e.target.value))}
+                  required
+                />
                 {/*<select style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)}>*/}
                 {/*  <option value="dealer">Dealer</option>*/}
                 {/*  <option value="main_dealer">Main Dealer</option>*/}
@@ -247,6 +258,9 @@ export default function LoginPage() {
               style={inputStyle}
               placeholder="E-mail"
               type="email"
+              autoComplete={isRegister ? 'email' : 'username'}
+              autoCapitalize="none"
+              autoCorrect="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -258,6 +272,7 @@ export default function LoginPage() {
                 value={password}
                 placeholder="Password"
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
                 required
                 style={{ ...inputStyle, paddingRight: 42 }}
               />
@@ -297,6 +312,7 @@ export default function LoginPage() {
                   value={confirmPassword}
                   placeholder="Password confirmation"
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                   style={{ ...inputStyle, paddingRight: 42 }}
                 />

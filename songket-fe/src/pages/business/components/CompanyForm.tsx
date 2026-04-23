@@ -1,4 +1,5 @@
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { sanitizeDigits } from '../../../utils/input'
 import type { FinanceForm as FinanceFormValues, Option } from './financeHelpers'
 
 type CompanyFormProps = {
@@ -61,11 +62,11 @@ export default function CompanyForm({
             <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label>Finance Company Name</label>
-                <input value={financeForm.name} onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))} required />
+                <input value={financeForm.name} onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter finance company name" required />
               </div>
               <div>
                 <label>Phone Number</label>
-                <input value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: e.target.value }))} required />
+                <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: sanitizeDigits(e.target.value) }))} placeholder="Enter phone number" required />
               </div>
 
               <div>
@@ -75,7 +76,7 @@ export default function CompanyForm({
                   value={financeForm.province}
                   options={provinceOptions}
                   onChange={(value) => void handleFinanceProvince(value)}
-                  placeholder="Select"
+                  placeholder="Select province"
                   searchPlaceholder="Search province..."
                   emptyMessage="Province not found."
                 />
@@ -88,7 +89,7 @@ export default function CompanyForm({
                   value={financeForm.regency}
                   options={regencyOptions}
                   onChange={(value) => void handleFinanceRegency(value)}
-                  placeholder="Select"
+                  placeholder="Select regency / city"
                   searchPlaceholder="Search regency / city..."
                   emptyMessage="Regency / city not found."
                   disabled={!financeForm.province}
@@ -102,7 +103,7 @@ export default function CompanyForm({
                   value={financeForm.district}
                   options={districtOptions}
                   onChange={(value) => setFinanceForm((prev) => ({ ...prev, district: value }))}
-                  placeholder="Select"
+                  placeholder="Select district"
                   searchPlaceholder="Search district..."
                   emptyMessage="District not found."
                   disabled={!financeForm.regency}
@@ -111,12 +112,12 @@ export default function CompanyForm({
 
               <div>
                 <label>Village</label>
-                <input value={financeForm.village} onChange={(e) => setFinanceForm((prev) => ({ ...prev, village: e.target.value }))} />
+                <input value={financeForm.village} onChange={(e) => setFinanceForm((prev) => ({ ...prev, village: e.target.value }))} placeholder="Enter village" />
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
                 <label>Address</label>
-                <input value={financeForm.address} onChange={(e) => setFinanceForm((prev) => ({ ...prev, address: e.target.value }))} />
+                <input value={financeForm.address} onChange={(e) => setFinanceForm((prev) => ({ ...prev, address: e.target.value }))} placeholder="Enter address" />
               </div>
             </div>
 

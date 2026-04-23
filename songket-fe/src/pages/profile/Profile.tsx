@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { changeMyPassword, getMe, updateMe } from '../../services/authService'
+import { sanitizeDigits } from '../../utils/input'
 
 const initialProfile = {
   name: '',
@@ -212,6 +213,7 @@ export default function ProfilePage() {
                   <input
                     value={profile.name}
                     onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="Enter full name"
                     required
                   />
                 </div>
@@ -219,16 +221,25 @@ export default function ProfilePage() {
                   <label>Email</label>
                   <input
                     type="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     value={profile.email}
                     onChange={(event) => setProfile((prev) => ({ ...prev, email: event.target.value }))}
+                    placeholder="user@example.com"
                     required
                   />
                 </div>
                 <div>
                   <label>Phone</label>
                   <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={20}
                     value={profile.phone}
-                    onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
+                    onChange={(event) => setProfile((prev) => ({ ...prev, phone: sanitizeDigits(event.target.value) }))}
+                    placeholder="Enter phone number"
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'end' }}>
@@ -257,8 +268,10 @@ export default function ProfilePage() {
               <label>Current Password</label>
               <input
                 type="password"
+                autoComplete="current-password"
                 value={passwordForm.current_password}
                 onChange={(event) => setPasswordForm((prev) => ({ ...prev, current_password: event.target.value }))}
+                placeholder="Enter current password"
                 required
               />
             </div>
@@ -266,8 +279,10 @@ export default function ProfilePage() {
               <label>New Password</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 value={passwordForm.new_password}
                 onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
+                placeholder="Enter new password"
                 required
               />
             </div>
@@ -275,8 +290,10 @@ export default function ProfilePage() {
               <label>Confirm New Password</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 value={passwordForm.confirm_password}
                 onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))}
+                placeholder="Confirm new password"
                 required
               />
             </div>

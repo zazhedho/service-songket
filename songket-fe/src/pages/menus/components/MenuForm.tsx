@@ -1,5 +1,6 @@
 import { AppIcon, ICON_LABELS, MENU_ICON_OPTIONS } from '../../../components/common/AppIcon'
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { sanitizeDigits } from '../../../utils/input'
 
 type MenuFormProps = {
   canUpdate: boolean
@@ -56,22 +57,28 @@ export default function MenuForm({
           {!canUpdate && <div className="alert">No permission to update menu.</div>}
 
           <div className="grid" style={{ gap: 10 }}>
-            <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
-            <div><label>Display Name</label><input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} /></div>
-            <div><label>Path</label><input value={form.path} onChange={(e) => set('path', e.target.value)} /></div>
+            <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter menu name" /></div>
+            <div><label>Display Name</label><input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} placeholder="Enter display name" /></div>
+            <div><label>Path</label><input value={form.path} onChange={(e) => set('path', e.target.value)} placeholder="/example-path" /></div>
             <div>
               <label>Parent Menu</label>
               <SearchableSelect
                 value={String(form.parent_id || '')}
                 onChange={(value) => set('parent_id', value)}
                 options={parentMenuOptions}
-                placeholder="None (Root Menu)"
+                placeholder="Select parent menu"
                 searchPlaceholder="Search parent menu..."
               />
             </div>
             <div>
               <label>Order Index</label>
-              <input type="number" value={form.order_index} onChange={(e) => set('order_index', Number(e.target.value))} />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.order_index}
+                onChange={(e) => set('order_index', Number(sanitizeDigits(e.target.value) || '0'))}
+                placeholder="Enter order index"
+              />
             </div>
             <div>
               <label>Status</label>
@@ -79,7 +86,7 @@ export default function MenuForm({
                 value={form.is_active ? 'true' : 'false'}
                 onChange={(value) => set('is_active', value === 'true')}
                 options={statusOptions}
-                placeholder="Select status"
+                placeholder="Select menu status"
                 searchPlaceholder="Search status..."
               />
             </div>

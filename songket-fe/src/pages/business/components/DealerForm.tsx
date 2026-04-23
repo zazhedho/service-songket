@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react'
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { sanitizeDigits, sanitizeSignedDecimal } from '../../../utils/input'
 import type { DealerForm as DealerFormValues, Option } from './financeHelpers'
 
 const DealerLeafletSearchMap = lazy(() => import('../../../components/maps/DealerLeafletSearchMap'))
@@ -76,11 +77,11 @@ export default function DealerForm({
             <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label>Dealer Name</label>
-                <input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} required />
+                <input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter dealer name" required />
               </div>
               <div>
                 <label>Phone Number</label>
-                <input value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: e.target.value }))} required />
+                <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: sanitizeDigits(e.target.value) }))} placeholder="Enter phone number" required />
               </div>
 
               <div>
@@ -90,7 +91,7 @@ export default function DealerForm({
                   value={dealerForm.province}
                   options={provinceOptions}
                   onChange={(value) => void handleDealerProvince(value)}
-                  placeholder="Select"
+                  placeholder="Select province"
                   searchPlaceholder="Search province..."
                   emptyMessage="Province not found."
                 />
@@ -103,7 +104,7 @@ export default function DealerForm({
                   value={dealerForm.regency}
                   options={regencyOptions}
                   onChange={(value) => void handleDealerRegency(value)}
-                  placeholder="Select"
+                  placeholder="Select regency / city"
                   searchPlaceholder="Search regency / city..."
                   emptyMessage="Regency / city not found."
                   disabled={!dealerForm.province}
@@ -117,7 +118,7 @@ export default function DealerForm({
                   value={dealerForm.district}
                   options={districtOptions}
                   onChange={(value) => setDealerForm((prev) => ({ ...prev, district: value }))}
-                  placeholder="Select"
+                  placeholder="Select district"
                   searchPlaceholder="Search district..."
                   emptyMessage="District not found."
                   disabled={!dealerForm.regency}
@@ -126,16 +127,18 @@ export default function DealerForm({
 
               <div>
                 <label>Village</label>
-                <input value={dealerForm.village} onChange={(e) => setDealerForm((prev) => ({ ...prev, village: e.target.value }))} />
+                <input value={dealerForm.village} onChange={(e) => setDealerForm((prev) => ({ ...prev, village: e.target.value }))} placeholder="Enter village" />
               </div>
 
               <div>
                 <label>Latitude</label>
                 <input
-                  type="number"
-                  step="any"
+                  type="text"
+                  inputMode="decimal"
+                  maxLength={16}
                   value={dealerForm.lat}
-                  onChange={(e) => setDealerForm((prev) => ({ ...prev, lat: e.target.value }))}
+                  onChange={(e) => setDealerForm((prev) => ({ ...prev, lat: sanitizeSignedDecimal(e.target.value) }))}
+                  placeholder="-6.200000"
                   required
                 />
               </div>
@@ -143,10 +146,12 @@ export default function DealerForm({
               <div>
                 <label>Longitude</label>
                 <input
-                  type="number"
-                  step="any"
+                  type="text"
+                  inputMode="decimal"
+                  maxLength={16}
                   value={dealerForm.lng}
-                  onChange={(e) => setDealerForm((prev) => ({ ...prev, lng: e.target.value }))}
+                  onChange={(e) => setDealerForm((prev) => ({ ...prev, lng: sanitizeSignedDecimal(e.target.value) }))}
+                  placeholder="106.816666"
                   required
                 />
               </div>

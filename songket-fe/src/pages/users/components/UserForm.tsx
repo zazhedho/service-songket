@@ -1,5 +1,6 @@
 import { EyeIcon, EyeOffIcon, PasswordRulesGuide, passwordInputWrapStyle, passwordToggleButtonStyle, roleLabel } from './userHelpers'
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { sanitizeDigits } from '../../../utils/input'
 
 type UserFormProps = {
   availableRoleNames: string[]
@@ -75,15 +76,15 @@ export default function UserForm({
           <div className="grid" style={{ gap: 10 }}>
             <div>
               <label>Name</label>
-              <input value={form.name} onChange={(e) => set('name', e.target.value)} />
+              <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter full name" />
             </div>
             <div>
               <label>Email</label>
-              <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
+              <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="user@example.com" />
             </div>
             <div>
               <label>Phone</label>
-              <input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+              <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" />
             </div>
             <div>
               <label>Password</label>
@@ -92,7 +93,9 @@ export default function UserForm({
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={(e) => set('password', e.target.value)}
+                  autoComplete="new-password"
                   style={{ paddingRight: 42 }}
+                  placeholder="Enter password"
                 />
                 <button
                   type="button"
@@ -114,7 +117,9 @@ export default function UserForm({
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={form.confirmPassword}
                   onChange={(e) => set('confirmPassword', e.target.value)}
+                  autoComplete="new-password"
                   style={{ paddingRight: 42 }}
+                  placeholder="Confirm password"
                 />
                 <button
                   type="button"
@@ -137,7 +142,7 @@ export default function UserForm({
                 value={form.role}
                 onChange={(value) => set('role', value)}
                 options={roleOptions}
-                placeholder="Select role"
+                placeholder="Select user role"
                 searchPlaceholder="Search role..."
               />
             </div>
