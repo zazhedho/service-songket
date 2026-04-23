@@ -112,6 +112,12 @@ export default function FinanceList({
   setFinanceSearch,
   setSelectedDealerId,
 }: FinanceListProps) {
+  const hasCoordinate = (item: any) => {
+    const lat = Number(item?.lat ?? item?.latitude)
+    const lng = Number(item?.lng ?? item?.longitude)
+    return Number.isFinite(lat) && Number.isFinite(lng)
+  }
+
   const provinceOptions = [{ value: '', label: 'All Provinces' }, ...provinces.map((province: any) => ({
     value: String(province.code || ''),
     label: String(province.name || province.code || '-'),
@@ -121,6 +127,9 @@ export default function FinanceList({
     value: String(dealer.id || ''),
     label: String(dealer.name || dealer.id || '-'),
   }))]
+
+  const selectedProvinceLabel = provinceOptions.find((option) => option.value === dealerProvinceFilter)?.label || 'All Provinces'
+  const visibleMappedDealers = dealers.filter((dealer) => hasCoordinate(dealer)).length
 
   return (
     <div>
@@ -139,9 +148,41 @@ export default function FinanceList({
         {listSection === 'dealer' && (
           <>
             <div className="card">
+              <div className="dealer-list-summary">
+                <div className="dealer-summary-card">
+                  <div className="dealer-summary-label">Total Dealers</div>
+                  <div className="dealer-summary-value">{dealerTotalData || dealers.length}</div>
+                  <div className="dealer-summary-note">Current result count for the dealer directory.</div>
+                </div>
+                <div className="dealer-summary-card">
+                  <div className="dealer-summary-label">Map Ready</div>
+                  <div className="dealer-summary-value">{dealerPoints.length || visibleMappedDealers}</div>
+                  <div className="dealer-summary-note">Dealers with valid coordinates that can appear on the map.</div>
+                </div>
+                <div className="dealer-summary-card">
+                  <div className="dealer-summary-label">Province Scope</div>
+                  <div className="dealer-summary-value dealer-summary-value-text">{selectedProvinceLabel}</div>
+                  <div className="dealer-summary-note">
+                    {selectedDealerId ? `Focused dealer: ${selectedDealerName}` : 'No dealer is currently focused.'}
+                  </div>
+                </div>
+              </div>
+
               <div className="compact-filter-toolbar">
                 <div className="compact-filter-item grow-2">
                   <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search dealer name, regency, or phone" aria-label="Search dealer" />
+                </div>
+
+                <div className="compact-filter-item narrow">
+                  <SearchableSelect
+                    id="business-dealer-focus-filter"
+                    value={selectedDealerId}
+                    options={dealerOptions}
+                    onChange={setSelectedDealerId}
+                    placeholder="Focused Dealer"
+                    searchPlaceholder="Search focused dealer..."
+                    emptyMessage="Dealer not found."
+                  />
                 </div>
 
                 <div className="compact-filter-item narrow">
@@ -179,23 +220,97 @@ export default function FinanceList({
               </div>
 
               <Table
-                className="finance-dealer-table"
+                className="finance-dealer-table dealer-list-table"
                 data={dealers}
                 keyField="id"
-                onRowClick={(dealer: any) => navigate(`${dealerBasePath}/dealers/${dealer.id}`, { state: { dealer } })}
+                onRowClick={(dealer: any) => setSelectedDealerId(String(dealer.id || ''))}
                 rowStyle={(dealer: any) => dealer.id === selectedDealerId ? { background: '#eef6ff' } : undefined}
                 emptyMessage="No dealers available."
                 columns={[
-                  { header: 'Name', accessor: 'name' },
+                  {
+                    header: 'Dealer',
+                    accessor: (dealer: any) => {
+                      const isFocused = dealer.id === selectedDealerId
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-title-row">
+                            <span className="dealer-list-title">{dealer.name || '-'}</span>
+                            {isFocused && <span className="badge pending">Focused</span>}
+                          </div>
+                          <div className="dealer-list-note">
+                            {isFocused ? 'Highlighted on the map and dealer performance panel.' : 'Click the row to focus this dealer.'}
+                          </div>
+                        </div>
+                      )
+                    },
+                    className: 'finance-dealer-col-name',
+                    headerClassName: 'finance-dealer-col-name',
+                  },
                   {
                     header: 'Location',
                     accessor: (dealer: any) => {
-                      const locationText = formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])
-                      return <span title={locationText}>{locationText}</span>
+                      const locationNames = dealerLocationNameMap[String(dealer.id)] || {}
+                      const regency = summarizeLocation([locationNames.regency || dealer.regency])
+                      const province = summarizeLocation([locationNames.province || dealer.province])
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-title">{regency}</div>
+                          <div className="dealer-list-note">{province}</div>
+                        </div>
+                      )
                     },
-                    className: 'finance-dealer-location-cell',
+                    className: 'finance-dealer-col-location',
+                    headerClassName: 'finance-dealer-col-location',
                   },
-                  { header: 'Phone', accessor: (dealer: any) => dealer.phone || '-' },
+                  {
+                    header: 'District / Village',
+                    accessor: (dealer: any) => {
+                      const locationNames = dealerLocationNameMap[String(dealer.id)] || {}
+                      const district = summarizeLocation([locationNames.district || dealer.district])
+                      const village = String(dealer.village || '').trim() || '-'
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-title">{district}</div>
+                          <div className="dealer-list-subnote">{village}</div>
+                        </div>
+                      )
+                    },
+                    className: 'finance-dealer-col-district',
+                    headerClassName: 'finance-dealer-col-district',
+                  },
+                  {
+                    header: 'Phone',
+                    accessor: (dealer: any) => {
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-title">{dealer.phone || '-'}</div>
+                        </div>
+                      )
+                    },
+                    className: 'finance-dealer-col-phone',
+                    headerClassName: 'finance-dealer-col-phone',
+                  },
+                  {
+                    header: 'Map Status',
+                    accessor: (dealer: any) => {
+                      const coordinateStatus = hasCoordinate(dealer)
+                      const locationText = formatDealerLocationSummary(dealer, dealerLocationNameMap[String(dealer.id)])
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-pill-row">
+                            <span className={`badge ${coordinateStatus ? 'success' : 'reject'}`}>
+                              {coordinateStatus ? 'Mapped' : 'No Pin'}
+                            </span>
+                          </div>
+                          <div className="dealer-list-subnote" title={locationText}>
+                            {coordinateStatus ? 'Coordinates available' : 'Coordinates missing'}
+                          </div>
+                        </div>
+                      )
+                    },
+                    className: 'finance-dealer-col-map',
+                    headerClassName: 'finance-dealer-col-map',
+                  },
                   {
                     header: 'Action',
                     accessor: (dealer: any) => (
@@ -230,8 +345,23 @@ export default function FinanceList({
                     ),
                     className: 'action-cell',
                     ignoreRowClick: true,
+                    headerClassName: 'finance-dealer-col-action',
+                    style: { width: '1%' },
                   },
                 ]}
+                emptyState={
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="dealer-empty-state">
+                        <div className="dealer-empty-icon">
+                          <i className="bi bi-geo-alt"></i>
+                        </div>
+                        <div className="dealer-empty-title">No dealers found</div>
+                        <div className="dealer-empty-note">Try a different keyword or province filter, or create a new dealer entry.</div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               />
 
               <Pagination

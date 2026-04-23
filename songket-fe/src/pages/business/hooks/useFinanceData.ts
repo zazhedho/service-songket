@@ -26,7 +26,7 @@ export function useFinanceData({
   const [dealers, setDealers] = useState<any[]>([])
   const [financeCompanies, setFinanceCompanies] = useState<any[]>([])
   const [dealerPage, setDealerPage] = useState(1)
-  const [dealerLimit, setDealerLimit] = useState(20)
+  const [dealerLimit, setDealerLimit] = useState(10)
   const [dealerTotalPages, setDealerTotalPages] = useState(1)
   const [dealerTotalData, setDealerTotalData] = useState(0)
   const [financePage, setFinancePage] = useState(1)

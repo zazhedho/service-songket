@@ -1965,19 +1965,36 @@ h4 {
   }
 
   .finance-dealer-col-name {
-    width: 16%;
+    width: 20%;
   }
 
   .finance-dealer-col-location {
-    width: 44%;
+    width: 24%;
+  }
+
+  .finance-dealer-col-district {
+    width: 18%;
   }
 
   .finance-dealer-col-phone {
     width: 14%;
   }
 
+  .finance-dealer-col-map {
+    width: 12%;
+  }
+
   .finance-dealer-col-action {
-    width: 26%;
+    width: 8%;
+  }
+
+  .dealer-list-table td.action-cell,
+  .dealer-list-table th.finance-dealer-col-action {
+    white-space: nowrap;
+  }
+
+  .dealer-list-table td.action-cell {
+    text-align: right;
   }
 
   .finance-dealer-table td.finance-dealer-location-cell {
@@ -1985,6 +2002,124 @@ h4 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .dealer-list-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .dealer-summary-card {
+    padding: 14px 16px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.98)),
+      #fff;
+  }
+
+  .dealer-summary-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .dealer-summary-value {
+    margin-top: 6px;
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .dealer-summary-value-text {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .dealer-summary-note {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .dealer-list-cell {
+    display: grid;
+    gap: 4px;
+  }
+
+  .dealer-list-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dealer-list-title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #0f172a;
+    word-break: break-word;
+  }
+
+  .dealer-list-note {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #64748b;
+  }
+
+  .dealer-list-subnote {
+    font-size: 11px;
+    line-height: 1.45;
+    color: #94a3b8;
+    word-break: break-word;
+  }
+
+  .dealer-list-pill-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .dealer-empty-state {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    text-align: center;
+  }
+
+  .dealer-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 22px;
+  }
+
+  .dealer-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .dealer-empty-note {
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #64748b;
   }
 
   .badge {
@@ -2372,6 +2507,120 @@ h4 {
     justify-content: flex-end;
   }
 
+  .role-list-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .role-summary-card {
+    padding: 14px 16px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.98)),
+      #fff;
+  }
+
+  .role-summary-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .role-summary-value {
+    margin-top: 6px;
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .role-summary-note {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .role-list-toolbar-meta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .role-name-cell,
+  .role-description-cell,
+  .role-type-cell {
+    display: grid;
+    gap: 4px;
+  }
+
+  .role-name-title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #0f172a;
+  }
+
+  .role-name-subtitle {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #64748b;
+    word-break: break-word;
+  }
+
+  .role-description-text,
+  .role-type-note {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .role-empty-state {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    text-align: center;
+  }
+
+  .role-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 22px;
+  }
+
+  .role-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .role-empty-note {
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #64748b;
+  }
+
   .pagination-wrap {
     margin-top: 12px;
     display: flex;
@@ -2412,6 +2661,19 @@ h4 {
 
   .sidebar-overlay {
     display: block;
+  }
+
+  .dealer-list-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .role-list-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .role-list-toolbar-meta {
+    width: 100%;
+    justify-content: center;
   }
 
   .app-main,
