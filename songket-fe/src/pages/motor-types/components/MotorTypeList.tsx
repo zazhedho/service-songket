@@ -54,6 +54,13 @@ export default function MotorTypeList({
   totalData,
   totalPages,
 }: MotorTypeListProps) {
+  const uniqueBrands = new Set(items.map((item: any) => String(item?.brand || '').trim()).filter(Boolean)).size
+  const uniqueAreas = new Set(
+    items
+      .map((item: any) => [item?.regency_name, item?.province_name].filter(Boolean).join(' / '))
+      .filter(Boolean),
+  ).size
+
   const provinceOptions = [
     { value: '', label: 'All Provinces' },
     ...provinces.map((province: any) => ({ value: province.code, label: province.name })),
@@ -69,12 +76,33 @@ export default function MotorTypeList({
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Types</div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            Manage motor type references and their area coverage.
+          </div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/motor-types/create')}>Create Motor Type</button>}
       </div>
 
       <div className="page">
         <div className="card">
+          <div className="entity-list-summary">
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Total Motor Types</div>
+              <div className="entity-summary-value">{totalData || items.length}</div>
+              <div className="entity-summary-note">Current result count for motor type data.</div>
+            </div>
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Brands</div>
+              <div className="entity-summary-value">{uniqueBrands}</div>
+              <div className="entity-summary-note">Distinct brands in the current result set.</div>
+            </div>
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Areas</div>
+              <div className="entity-summary-value">{uniqueAreas}</div>
+              <div className="entity-summary-note">Distinct regency and province combinations.</div>
+            </div>
+          </div>
+
           <div className="compact-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search type, brand, or model" aria-label="Search motor type" />
@@ -126,16 +154,65 @@ export default function MotorTypeList({
           {canList && canView && (
             <>
               <Table
+                className="motor-type-list-table"
                 data={items}
                 keyField="id"
                 onRowClick={(item: any) => navigate(`/motor-types/${item.id}`, { state: { motorType: item } })}
                 emptyMessage="No motor type data yet."
                 columns={[
-                  { header: 'Type', accessor: (item: any) => item.name || '-' },
-                  { header: 'Brand / Model', accessor: (item: any) => [item.brand, item.model].filter(Boolean).join(' / ') || '-' },
-                  { header: 'Type', accessor: (item: any) => item.type || '-' },
-                  { header: 'OTR', accessor: (item: any) => formatRupiah(item.otr || 0) },
-                  { header: 'Area', accessor: (item: any) => [item.regency_name, item.province_name].filter(Boolean).join(', ') || '-' },
+                  {
+                    header: 'Motor Type',
+                    accessor: (item: any) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={item.name || '-'}>
+                          {item.name || '-'}
+                        </div>
+                        <div className="entity-list-note table-text-ellipsis" title={item.type || '-'}>
+                          {item.type || 'No variant'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'motor-type-col-type',
+                    headerClassName: 'motor-type-col-type',
+                  },
+                  {
+                    header: 'Brand / Model',
+                    accessor: (item: any) => {
+                      const brandModel = [item.brand, item.model].filter(Boolean).join(' / ') || '-'
+                      return (
+                        <div className="entity-list-cell">
+                          <div className="entity-list-title table-text-ellipsis" title={brandModel}>{brandModel}</div>
+                        </div>
+                      )
+                    },
+                    className: 'motor-type-col-brand',
+                    headerClassName: 'motor-type-col-brand',
+                  },
+                  {
+                    header: 'OTR',
+                    accessor: (item: any) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">{formatRupiah(item.otr || 0)}</div>
+                      </div>
+                    ),
+                    className: 'motor-type-col-otr',
+                    headerClassName: 'motor-type-col-otr',
+                  },
+                  {
+                    header: 'Area',
+                    accessor: (item: any) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={item.regency_name || '-'}>
+                          {item.regency_name || '-'}
+                        </div>
+                        <div className="entity-list-note table-text-ellipsis" title={item.province_name || '-'}>
+                          {item.province_name || '-'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'motor-type-col-area',
+                    headerClassName: 'motor-type-col-area',
+                  },
                   {
                     header: 'Action',
                     accessor: (item: any) => (
@@ -164,8 +241,23 @@ export default function MotorTypeList({
                     ),
                     className: 'action-cell',
                     ignoreRowClick: true,
+                    headerClassName: 'motor-type-col-action',
+                    style: { width: '1%' },
                   },
                 ]}
+                emptyState={
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="entity-empty-state">
+                        <div className="entity-empty-icon">
+                          <i className="bi bi-bicycle"></i>
+                        </div>
+                        <div className="entity-empty-title">No motor types found</div>
+                        <div className="entity-empty-note">Try another keyword or create a new motor type to get started.</div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               />
 
               <Pagination

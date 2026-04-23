@@ -2409,6 +2409,138 @@ h4 {
     padding-right: 8px;
   }
 
+  .price-list-col-commodity {
+    width: 28%;
+  }
+
+  .price-list-col-price {
+    width: 18%;
+  }
+
+  .price-list-col-source {
+    width: 28%;
+  }
+
+  .price-list-col-collected {
+    width: 16%;
+  }
+
+  .price-list-col-action {
+    width: 10%;
+  }
+
+  .price-list-table .action-cell,
+  .price-list-table th.price-list-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .price-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .scrape-source-col-source {
+    width: 28%;
+  }
+
+  .scrape-source-col-url {
+    width: 34%;
+  }
+
+  .scrape-source-col-type {
+    width: 16%;
+  }
+
+  .scrape-source-col-status {
+    width: 12%;
+  }
+
+  .scrape-source-col-action {
+    width: 10%;
+  }
+
+  .scrape-source-list-table .action-cell,
+  .scrape-source-list-table th.scrape-source-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .scrape-source-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .motor-type-col-type {
+    width: 28%;
+  }
+
+  .motor-type-col-brand {
+    width: 24%;
+  }
+
+  .motor-type-col-otr {
+    width: 16%;
+  }
+
+  .motor-type-col-area {
+    width: 22%;
+  }
+
+  .motor-type-col-action {
+    width: 10%;
+  }
+
+  .motor-type-list-table .action-cell,
+  .motor-type-list-table th.motor-type-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .motor-type-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .installment-col-type {
+    width: 22%;
+  }
+
+  .installment-col-brand {
+    width: 20%;
+  }
+
+  .installment-col-otr {
+    width: 14%;
+  }
+
+  .installment-col-area {
+    width: 18%;
+  }
+
+  .installment-col-amount {
+    width: 14%;
+  }
+
+  .installment-col-updated {
+    width: 12%;
+  }
+
+  .installment-col-action {
+    width: 10%;
+  }
+
+  .installment-list-table .action-cell,
+  .installment-list-table th.installment-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .installment-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
   .dealer-list-pill-row {
     display: flex;
     align-items: center;

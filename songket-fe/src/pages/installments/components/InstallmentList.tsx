@@ -58,6 +58,15 @@ export default function InstallmentList({
   totalData,
   totalPages,
 }: InstallmentListProps) {
+  const uniqueBrands = new Set(
+    items.map((item: any) => String(item?.motor_type?.brand || '').trim()).filter(Boolean),
+  ).size
+  const uniqueAreas = new Set(
+    items
+      .map((item: any) => [item?.motor_type?.regency_name, item?.motor_type?.province_name].filter(Boolean).join(' / '))
+      .filter(Boolean),
+  ).size
+
   const provinceOptions = [
     { value: '', label: 'All Provinces' },
     ...provinces.map((province: any) => ({ value: province.code, label: province.name })),
@@ -73,12 +82,33 @@ export default function InstallmentList({
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Types & Installments</div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            Review installment references for each motor type and area.
+          </div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/installments/create')}>Create Motor & Installment</button>}
       </div>
 
       <div className="page">
         <div className="card">
+          <div className="entity-list-summary">
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Total Installments</div>
+              <div className="entity-summary-value">{totalData || items.length}</div>
+              <div className="entity-summary-note">Current result count for installment data.</div>
+            </div>
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Brands</div>
+              <div className="entity-summary-value">{uniqueBrands}</div>
+              <div className="entity-summary-note">Distinct motor brands in the current result set.</div>
+            </div>
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Areas</div>
+              <div className="entity-summary-value">{uniqueAreas}</div>
+              <div className="entity-summary-note">Distinct regency and province combinations.</div>
+            </div>
+          </div>
+
           <div className="compact-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" aria-label="Search installment motor type" />
@@ -130,18 +160,85 @@ export default function InstallmentList({
           {canList && canView && (
             <>
               <Table
+                className="installment-list-table"
                 data={items}
                 keyField="id"
                 onRowClick={(item) => navigate(`/installments/${item.id}`, { state: { item } })}
                 emptyMessage="No data available."
                 columns={[
-                  { header: 'Motor Type', accessor: (item) => item.motor_type?.name || '-' },
-                  { header: 'Brand / Model', accessor: (item) => [item.motor_type?.brand, item.motor_type?.model].filter(Boolean).join(' / ') || '-' },
-                  { header: 'Variant', accessor: (item) => item.motor_type?.type || '-' },
-                  { header: 'OTR', accessor: (item) => formatRupiah(Number(item.motor_type?.otr || 0)) },
-                  { header: 'Area', accessor: (item) => areaLabel(item.motor_type) },
-                  { header: 'Installment', accessor: (item) => formatRupiah(Number(item.amount || 0)) },
-                  { header: 'Updated', accessor: (item) => formatDate(item.updated_at) },
+                  {
+                    header: 'Motor Type',
+                    accessor: (item) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={item.motor_type?.name || '-'}>
+                          {item.motor_type?.name || '-'}
+                        </div>
+                        <div className="entity-list-note table-text-ellipsis" title={item.motor_type?.type || '-'}>
+                          {item.motor_type?.type || 'No variant'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'installment-col-type',
+                    headerClassName: 'installment-col-type',
+                  },
+                  {
+                    header: 'Brand / Model',
+                    accessor: (item) => {
+                      const brandModel = [item.motor_type?.brand, item.motor_type?.model].filter(Boolean).join(' / ') || '-'
+                      return (
+                        <div className="entity-list-cell">
+                          <div className="entity-list-title table-text-ellipsis" title={brandModel}>{brandModel}</div>
+                        </div>
+                      )
+                    },
+                    className: 'installment-col-brand',
+                    headerClassName: 'installment-col-brand',
+                  },
+                  {
+                    header: 'OTR',
+                    accessor: (item) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">{formatRupiah(Number(item.motor_type?.otr || 0))}</div>
+                      </div>
+                    ),
+                    className: 'installment-col-otr',
+                    headerClassName: 'installment-col-otr',
+                  },
+                  {
+                    header: 'Area',
+                    accessor: (item) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={item.motor_type?.regency_name || '-'}>
+                          {item.motor_type?.regency_name || '-'}
+                        </div>
+                        <div className="entity-list-note table-text-ellipsis" title={item.motor_type?.province_name || '-'}>
+                          {item.motor_type?.province_name || '-'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'installment-col-area',
+                    headerClassName: 'installment-col-area',
+                  },
+                  {
+                    header: 'Installment',
+                    accessor: (item) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">{formatRupiah(Number(item.amount || 0))}</div>
+                      </div>
+                    ),
+                    className: 'installment-col-amount',
+                    headerClassName: 'installment-col-amount',
+                  },
+                  {
+                    header: 'Updated',
+                    accessor: (item) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">{formatDate(item.updated_at)}</div>
+                      </div>
+                    ),
+                    className: 'installment-col-updated',
+                    headerClassName: 'installment-col-updated',
+                  },
                   {
                     header: 'Action',
                     accessor: (item) => (
@@ -155,8 +252,23 @@ export default function InstallmentList({
                     ),
                     className: 'action-cell',
                     ignoreRowClick: true,
+                    headerClassName: 'installment-col-action',
+                    style: { width: '1%' },
                   },
                 ]}
+                emptyState={
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="entity-empty-state">
+                        <div className="entity-empty-icon">
+                          <i className="bi bi-receipt"></i>
+                        </div>
+                        <div className="entity-empty-title">No installment rows found</div>
+                        <div className="entity-empty-note">Try another keyword or create a new installment entry to get started.</div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               />
 
               <Pagination

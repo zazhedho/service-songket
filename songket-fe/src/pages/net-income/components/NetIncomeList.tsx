@@ -24,6 +24,46 @@ type NetIncomeListProps = {
   totalPages: number
 }
 
+function looksLikeLocationCode(value?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  if (/^\d+$/.test(raw)) return true
+  if (!/\s/.test(raw) && /^[A-Z0-9._-]+$/.test(raw) && /[0-9._-]/.test(raw)) return true
+  return false
+}
+
+function summarizeAreas(areas: any[], areaLabel: (area: any) => string) {
+  const safeAreas = Array.isArray(areas) ? areas : []
+  const regencies = safeAreas
+    .map((area) => String(area?.regency_name || '').trim())
+    .filter((value) => value && !looksLikeLocationCode(value))
+  const provinces = Array.from(new Set(
+    safeAreas
+      .map((area) => String(area?.province_name || '').trim())
+      .filter((value) => value && !looksLikeLocationCode(value)),
+  ))
+  const fullCoverage = safeAreas.length
+    ? safeAreas.map((area) => areaLabel(area)).filter(Boolean).join(', ')
+    : '-'
+
+  const headline = regencies.length === 0
+    ? '-'
+    : regencies.length === 1
+      ? regencies[0]
+      : `${regencies[0]} + ${regencies.length - 1} more`
+
+  const provinceLine = provinces.length === 0
+    ? 'No province data'
+    : provinces.join(', ')
+
+  return {
+    countLabel: `${safeAreas.length} area${safeAreas.length === 1 ? '' : 's'}`,
+    fullCoverage,
+    headline,
+    provinceLine,
+  }
+}
+
 export default function NetIncomeList({
   areaLabel,
   canCreate,
@@ -117,18 +157,17 @@ export default function NetIncomeList({
                 columns={[
                   {
                     header: 'Job',
-                    accessor: (item) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={jobName(item.job_id, item.job_name)}>
-                          {jobName(item.job_id, item.job_name)}
+                    accessor: (item) => {
+                      const areaSummary = summarizeAreas(item.area_net_income, areaLabel)
+                      return (
+                        <div className="entity-list-cell">
+                          <div className="entity-list-title table-text-ellipsis" title={jobName(item.job_id, item.job_name)}>
+                            {jobName(item.job_id, item.job_name)}
+                          </div>
+                          <div className="entity-list-note">{areaSummary.countLabel}</div>
                         </div>
-                        <div className="entity-list-note">
-                          {Array.isArray(item.area_net_income) && item.area_net_income.length > 0
-                            ? `${item.area_net_income.length} configured area${item.area_net_income.length > 1 ? 's' : ''}`
-                            : 'No configured areas'}
-                        </div>
-                      </div>
-                    ),
+                      )
+                    },
                     className: 'net-income-col-job',
                     headerClassName: 'net-income-col-job',
                   },
@@ -145,12 +184,15 @@ export default function NetIncomeList({
                   {
                     header: 'Area Coverage',
                     accessor: (item) => {
-                      const coverage = item.area_net_income.length
-                        ? item.area_net_income.map((area: any) => areaLabel(area)).join(', ')
-                        : '-'
+                      const areaSummary = summarizeAreas(item.area_net_income, areaLabel)
                       return (
                         <div className="entity-list-cell">
-                          <div className="entity-list-title table-text-ellipsis" title={coverage}>{coverage}</div>
+                          <div className="entity-list-title table-text-ellipsis" title={areaSummary.fullCoverage}>
+                            {areaSummary.headline}
+                          </div>
+                          <div className="entity-list-note table-text-ellipsis" title={areaSummary.provinceLine}>
+                            {areaSummary.provinceLine}
+                          </div>
                         </div>
                       )
                     },
