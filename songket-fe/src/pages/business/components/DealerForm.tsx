@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import type { DealerForm as DealerFormValues, Option } from './financeHelpers'
 
 const DealerLeafletSearchMap = lazy(() => import('../../../components/maps/DealerLeafletSearchMap'))
@@ -44,6 +45,21 @@ export default function DealerForm({
   setDealerForm,
   submitDealer,
 }: DealerFormProps) {
+  const provinceOptions = [{ value: '', label: 'Select' }, ...provinces.map((province) => ({
+    value: String(province.code || ''),
+    label: String(province.name || province.code || '-'),
+  }))]
+
+  const regencyOptions = [{ value: '', label: 'Select' }, ...dealerKabupaten.map((kab) => ({
+    value: String(kab.code || ''),
+    label: String(kab.name || kab.code || '-'),
+  }))]
+
+  const districtOptions = [{ value: '', label: 'Select' }, ...dealerKecamatan.map((kec) => ({
+    value: String(kec.code || ''),
+    label: String(kec.name || kec.code || '-'),
+  }))]
+
   return (
     <div>
       <div className="header">
@@ -69,42 +85,43 @@ export default function DealerForm({
 
               <div>
                 <label>Province</label>
-                <select value={dealerForm.province} onChange={(e) => void handleDealerProvince(e.target.value)} required>
-                  <option value="">Select</option>
-                  {provinces.map((province) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  id="dealer-form-province"
+                  value={dealerForm.province}
+                  options={provinceOptions}
+                  onChange={(value) => void handleDealerProvince(value)}
+                  placeholder="Select"
+                  searchPlaceholder="Search province..."
+                  emptyMessage="Province not found."
+                />
               </div>
 
               <div>
                 <label>Regency / City</label>
-                <select
+                <SearchableSelect
+                  id="dealer-form-regency"
                   value={dealerForm.regency}
-                  onChange={(e) => void handleDealerRegency(e.target.value)}
+                  options={regencyOptions}
+                  onChange={(value) => void handleDealerRegency(value)}
+                  placeholder="Select"
+                  searchPlaceholder="Search regency / city..."
+                  emptyMessage="Regency / city not found."
                   disabled={!dealerForm.province}
-                  required
-                >
-                  <option value="">Select</option>
-                  {dealerKabupaten.map((kab) => (
-                    <option key={kab.code} value={kab.code}>{kab.name}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label>District</label>
-                <select
+                <SearchableSelect
+                  id="dealer-form-district"
                   value={dealerForm.district}
-                  onChange={(e) => setDealerForm((prev) => ({ ...prev, district: e.target.value }))}
+                  options={districtOptions}
+                  onChange={(value) => setDealerForm((prev) => ({ ...prev, district: value }))}
+                  placeholder="Select"
+                  searchPlaceholder="Search district..."
+                  emptyMessage="District not found."
                   disabled={!dealerForm.regency}
-                  required
-                >
-                  <option value="">Select</option>
-                  {dealerKecamatan.map((kec) => (
-                    <option key={kec.code} value={kec.code}>{kec.name}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>

@@ -1,3 +1,4 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import type { FinanceForm as FinanceFormValues, Option } from './financeHelpers'
 
 type CompanyFormProps = {
@@ -29,6 +30,21 @@ export default function CompanyForm({
   setFinanceForm,
   submitFinance,
 }: CompanyFormProps) {
+  const provinceOptions = [{ value: '', label: 'Select' }, ...provinces.map((province) => ({
+    value: String(province.code || ''),
+    label: String(province.name || province.code || '-'),
+  }))]
+
+  const regencyOptions = [{ value: '', label: 'Select' }, ...financeKabupaten.map((kab) => ({
+    value: String(kab.code || ''),
+    label: String(kab.name || kab.code || '-'),
+  }))]
+
+  const districtOptions = [{ value: '', label: 'Select' }, ...financeKecamatan.map((kec) => ({
+    value: String(kec.code || ''),
+    label: String(kec.name || kec.code || '-'),
+  }))]
+
   return (
     <div>
       <div className="header">
@@ -54,42 +70,43 @@ export default function CompanyForm({
 
               <div>
                 <label>Province</label>
-                <select value={financeForm.province} onChange={(e) => void handleFinanceProvince(e.target.value)} required>
-                  <option value="">Select</option>
-                  {provinces.map((province) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  id="company-form-province"
+                  value={financeForm.province}
+                  options={provinceOptions}
+                  onChange={(value) => void handleFinanceProvince(value)}
+                  placeholder="Select"
+                  searchPlaceholder="Search province..."
+                  emptyMessage="Province not found."
+                />
               </div>
 
               <div>
                 <label>Regency / City</label>
-                <select
+                <SearchableSelect
+                  id="company-form-regency"
                   value={financeForm.regency}
-                  onChange={(e) => void handleFinanceRegency(e.target.value)}
+                  options={regencyOptions}
+                  onChange={(value) => void handleFinanceRegency(value)}
+                  placeholder="Select"
+                  searchPlaceholder="Search regency / city..."
+                  emptyMessage="Regency / city not found."
                   disabled={!financeForm.province}
-                  required
-                >
-                  <option value="">Select</option>
-                  {financeKabupaten.map((kab) => (
-                    <option key={kab.code} value={kab.code}>{kab.name}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label>District</label>
-                <select
+                <SearchableSelect
+                  id="company-form-district"
                   value={financeForm.district}
-                  onChange={(e) => setFinanceForm((prev) => ({ ...prev, district: e.target.value }))}
+                  options={districtOptions}
+                  onChange={(value) => setFinanceForm((prev) => ({ ...prev, district: value }))}
+                  placeholder="Select"
+                  searchPlaceholder="Search district..."
+                  emptyMessage="District not found."
                   disabled={!financeForm.regency}
-                  required
-                >
-                  <option value="">Select</option>
-                  {financeKecamatan.map((kec) => (
-                    <option key={kec.code} value={kec.code}>{kec.name}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>

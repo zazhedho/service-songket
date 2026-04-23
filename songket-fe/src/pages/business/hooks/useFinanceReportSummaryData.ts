@@ -148,9 +148,10 @@ export function useFinanceReportSummaryData({
 
   const activeDealerId = useMemo(() => {
     if (selectedDealerId) return selectedDealerId
+    if (dealer) return dealer
     if (stateContext?.dealer_id) return stateContext.dealer_id
     return ''
-  }, [selectedDealerId, stateContext?.dealer_id])
+  }, [dealer, selectedDealerId, stateContext?.dealer_id])
 
   const activeDealerName = useMemo(() => {
     if (!activeDealerId) return 'All Dealer'
@@ -245,7 +246,10 @@ export function useFinanceReportSummaryData({
       }
       const filters: Record<string, unknown> = {}
 
+      if (dealer) filters.dealer_id = dealer
       if (finance1) filters.finance_1_company_id = finance1
+      if (month) params.month = Number(month)
+      if (year) params.year = Number(year)
       if (Object.keys(filters).length > 0) params.filters = filters
 
       const [res, summaryRes] = await Promise.all([
@@ -341,7 +345,7 @@ export function useFinanceReportSummaryData({
   useEffect(() => {
     if (isDetail) return
     void loadList()
-  }, [canList, isDetail, page, limit, finance1])
+  }, [canList, isDetail, page, limit, dealer, finance1, month, year])
 
   useEffect(() => {
     if (!canList || isDetail) return

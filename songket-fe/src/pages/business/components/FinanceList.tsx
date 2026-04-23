@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 import { formatDealerLocationSummary } from './financeHelpers'
 import { summarizeLocation } from './financeReportHelpers'
@@ -111,6 +112,16 @@ export default function FinanceList({
   setFinanceSearch,
   setSelectedDealerId,
 }: FinanceListProps) {
+  const provinceOptions = [{ value: '', label: 'All Provinces' }, ...provinces.map((province: any) => ({
+    value: String(province.code || ''),
+    label: String(province.name || province.code || '-'),
+  }))]
+
+  const dealerOptions = [{ value: '', label: 'Select dealer' }, ...dealers.map((dealer: any) => ({
+    value: String(dealer.id || ''),
+    label: String(dealer.name || dealer.id || '-'),
+  }))]
+
   return (
     <div>
       <div className="header">
@@ -134,12 +145,15 @@ export default function FinanceList({
                 </div>
 
                 <div className="compact-filter-item narrow">
-                  <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)} aria-label="Filter dealer by province">
-                    <option value="">All Provinces</option>
-                    {provinces.map((province: any) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    id="business-dealer-province-filter"
+                    value={dealerProvinceFilter}
+                    options={provinceOptions}
+                    onChange={setDealerProvinceFilter}
+                    placeholder="All Provinces"
+                    searchPlaceholder="Search province..."
+                    emptyMessage="Province not found."
+                  />
                 </div>
 
                 <div className="compact-filter-action">
@@ -267,12 +281,15 @@ export default function FinanceList({
                 </div>
 
                 <div className="compact-filter-item narrow">
-                  <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)} aria-label="Filter finance by province">
-                    <option value="">All Provinces</option>
-                    {provinces.map((province: any) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    id="business-finance-province-filter"
+                    value={financeProvinceFilter}
+                    options={provinceOptions}
+                    onChange={setFinanceProvinceFilter}
+                    placeholder="All Provinces"
+                    searchPlaceholder="Search province..."
+                    emptyMessage="Province not found."
+                  />
                 </div>
 
                 <div className="compact-filter-action">
@@ -359,12 +376,15 @@ export default function FinanceList({
 
               <div style={{ marginTop: 12, maxWidth: 360 }}>
                 <label>Select Dealer</label>
-                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                  <option value="">Select dealer</option>
-                  {dealers.map((dealer: any) => (
-                    <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  id="business-finance-dealer-select"
+                  value={selectedDealerId}
+                  options={dealerOptions}
+                  onChange={setSelectedDealerId}
+                  placeholder="Select dealer"
+                  searchPlaceholder="Search dealer..."
+                  emptyMessage="Dealer not found."
+                />
               </div>
 
               {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance company performance.</div>}

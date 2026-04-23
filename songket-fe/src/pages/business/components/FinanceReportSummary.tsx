@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 
 const FinanceReportDealerMap = lazy(() => import('./FinanceReportMap'))
@@ -110,6 +111,16 @@ export default function FinanceReportSummary({
   formatCoordinate,
   formatLeadTimeHours,
 }: FinanceReportSummaryProps) {
+  const dealerFilterOptions = [{ value: '', label: 'All Dealer' }, ...dealerOptions.map((item) => ({
+    value: String(item.code || ''),
+    label: String(item.name || item.code || '-'),
+  }))]
+
+  const finance1SelectOptions = [{ value: '', label: 'All Finance 1' }, ...finance1Options.map((item) => ({
+    value: String(item.code || ''),
+    label: String(item.name || item.code || '-'),
+  }))]
+
   return (
     <div style={{ overflowX: 'hidden' }}>
       <div className="header">
@@ -137,7 +148,7 @@ export default function FinanceReportSummary({
             <div className="business-map-head">
               <h3>Map Dealer</h3>
               <div className="business-map-meta">
-                <span className="muted">Selected:</span>
+                <span className="muted">Focus Dealer:</span>
                 <span style={{ fontWeight: 700 }}>{activeDealerName}</span>
               </div>
             </div>
@@ -162,6 +173,11 @@ export default function FinanceReportSummary({
             {dealerPoints.length === 0 && (
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
                 No dealer coordinates found. Set latitude/longitude in dealer data.
+              </div>
+            )}
+            {dealerPoints.length > 0 && (
+              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                Klik titik dealer untuk fokus ke performa dealer tersebut.
               </div>
             )}
           </div>
@@ -225,14 +241,15 @@ export default function FinanceReportSummary({
         <div className="card business-filter-card">
           <div className="compact-filter-toolbar">
             <div className="compact-filter-item grow-2">
-              <select value={dealerInput} onChange={(e) => setDealerInput(e.target.value)} aria-label="Filter by dealer">
-                <option value="">All Dealer</option>
-                {dealerOptions.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                id="business-summary-dealer-filter"
+                value={dealerInput}
+                options={dealerFilterOptions}
+                onChange={setDealerInput}
+                placeholder="Filter Dealer"
+                searchPlaceholder="Search dealer..."
+                emptyMessage="Dealer not found."
+              />
             </div>
 
             <div className="compact-filter-item narrow">
@@ -262,6 +279,9 @@ export default function FinanceReportSummary({
               <button className="btn-ghost" onClick={resetFilters}>Reset</button>
             </div>
           </div>
+          <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+            Filter di atas berlaku untuk Summary dan Migration Fincoy. Dealer yang dipilih dari map akan memfokuskan card performa dealer.
+          </div>
         </div>
 
         <div className="card business-section">
@@ -271,23 +291,16 @@ export default function FinanceReportSummary({
           </div>
 
           <div style={{ padding: 12 }}>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
-              <div>
-                <label>Select Dealer</label>
-                <select value={selectedDealerId} onChange={(e) => setSelectedDealerId(e.target.value)}>
-                  <option value="">Select dealer</option>
-                  {dealerRows.map((dealerItem) => (
-                    <option key={`summary-dealer-${dealerItem.id}`} value={dealerItem.id}>
-                      {dealerItem.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+              Card ini mengikuti dealer hasil filter di atas atau dealer yang terakhir dipilih dari map.
             </div>
-
-            {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view metrics.</div>}
-            {selectedDealerId && !dealerMetrics && (
-              <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>
+            {!selectedDealerId && !dealerInput && (
+              <div style={{ marginTop: 10, color: '#64748b' }}>
+                Pilih dealer dari filter atas atau klik titik dealer pada map untuk melihat performanya.
+              </div>
+            )}
+            {activeDealerName !== 'All Dealer' && !dealerMetrics && (
+              <div style={{ marginTop: 10, color: '#64748b' }}>No metrics available for selected dealer.</div>
             )}
 
             {dealerMetrics && (
@@ -400,22 +413,19 @@ export default function FinanceReportSummary({
             <h3 className="business-section-title">Migration Fincoy</h3>
             <div style={{ minWidth: 230 }}>
               <label style={{ marginBottom: 4 }}>Finance company 1</label>
-              <select
+              <SearchableSelect
+                id="business-summary-finance1-filter"
                 value={finance1Input}
-                onChange={(e) => {
-                  const next = e.target.value
+                options={finance1SelectOptions}
+                onChange={(next) => {
                   setFinance1Input(next)
                   setFinance1(next)
                   setPage(1)
                 }}
-              >
-                <option value="">All Finance 1</option>
-                {finance1Options.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="All Finance 1"
+                searchPlaceholder="Search finance company..."
+                emptyMessage="Finance company not found."
+              />
             </div>
           </div>
 
