@@ -454,9 +454,9 @@ h4 {
 
   .profile-layout {
     display: grid;
-    grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.25fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
-    align-items: start;
+    align-items: stretch;
   }
 
   .dealer-performance-grid {
@@ -465,16 +465,23 @@ h4 {
     gap: 12px;
   }
 
-  .profile-summary-card {
+  .profile-hero-card {
     background:
-      radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.12), transparent 36%),
-      #f8fbff;
+      radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.14), transparent 30%),
+      linear-gradient(135deg, #eff6ff, #f8fbff 55%, #ffffff);
+    overflow: hidden;
   }
 
-  .profile-summary-banner {
+  .profile-hero-banner {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .profile-hero-body {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
   }
 
   .profile-avatar {
@@ -491,55 +498,116 @@ h4 {
     background: linear-gradient(145deg, #eff6ff, #dbeafe);
   }
 
+  .profile-avatar-lg {
+    width: 68px;
+    height: 68px;
+    font-size: 24px;
+  }
+
   .profile-summary-title {
     font-family: var(--font-heading);
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 700;
     color: #0f172a;
+    line-height: 1.15;
   }
 
   .profile-summary-subtitle {
     margin-top: 2px;
     color: #64748b;
-    font-size: 13px;
+    font-size: 14px;
+    word-break: break-word;
   }
 
-  .profile-badges {
-    margin-top: 12px;
+  .profile-hero-meta {
+    margin-top: 6px;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  .profile-badge {
-    border: 1px solid #cdddf5;
+  .profile-hero-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 6px 12px;
+    border: 1px solid #d7e3f4;
     border-radius: 999px;
-    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.86);
     font-size: 12px;
     font-weight: 600;
-    color: #1e3a8a;
-    background: #eff6ff;
+    color: #334155;
   }
 
-  .profile-summary-table {
-    margin-top: 12px;
+  .profile-role-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
-  .profile-summary-table th {
-    width: 38%;
-    text-transform: none;
-    letter-spacing: normal;
-  }
-
-  .profile-summary-table td {
-    font-weight: 600;
-    word-break: break-word;
+  .profile-account-card,
+  .profile-edit-card,
+  .profile-password-card {
+    display: grid;
+    gap: 12px;
   }
 
   .profile-edit-card,
   .profile-password-card {
+    height: 100%;
+    align-content: start;
+  }
+
+  .profile-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .profile-section-head h3 {
+    margin: 0;
+  }
+
+  .profile-account-grid {
     display: grid;
-    gap: 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .profile-info-item {
+    padding: 14px 16px;
+    border: 1px solid #dde5f1;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fbff, #ffffff);
+    min-width: 0;
+  }
+
+  .profile-info-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .profile-info-value {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.45;
+    color: #0f172a;
+    word-break: break-word;
   }
 
   .profile-help {
@@ -549,14 +617,126 @@ h4 {
 
   .profile-form-grid {
     display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form-actions {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .profile-form-actions .btn {
+    width: 100%;
   }
 
   .profile-success {
     color: #166534;
     font-size: 13px;
     font-weight: 600;
+  }
+
+  .profile-inline-success {
+    margin-top: 6px;
+    color: #166534;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .profile-inline-error {
+    margin-top: 6px;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .profile-password-rules {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .profile-password-rules-title {
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  .profile-password-rule {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    padding: 0;
+  }
+
+  .profile-password-rule-icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .profile-password-rule.valid {
+    color: #166534;
+  }
+
+  .profile-password-rule.valid .profile-password-rule-icon {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .profile-password-rule.invalid {
+    color: #b91c1c;
+  }
+
+  .profile-password-rule.invalid .profile-password-rule-icon {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .password-input-wrap {
+    position: relative;
+  }
+
+  .password-input-wrap input {
+    padding-right: 44px;
+  }
+
+  .password-toggle-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+  }
+
+  .password-toggle-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
   }
 
   .btn {
@@ -3398,6 +3578,10 @@ h4 {
     grid-template-columns: 1fr;
   }
 
+  .profile-account-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dealer-performance-grid {
     grid-template-columns: 1fr;
   }
@@ -3415,6 +3599,10 @@ h4 {
   }
 
   .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-password-rules {
     grid-template-columns: 1fr;
   }
 
@@ -3858,6 +4046,19 @@ h4 {
   .confirm-toast {
     max-height: calc(100vh - 24px);
     padding: 12px;
+  }
+
+  .profile-hero-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-account-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-hero-meta {
+    width: 100%;
   }
 }
 

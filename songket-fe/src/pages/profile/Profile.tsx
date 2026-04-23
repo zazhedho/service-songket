@@ -8,6 +8,11 @@ const initialProfile = {
   phone: '',
 }
 
+const initialMeta = {
+  created_at: '',
+  updated_at: '',
+}
+
 const initialPassword = {
   current_password: '',
   new_password: '',
@@ -16,20 +21,24 @@ const initialPassword = {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(initialProfile)
+  const [profileMeta, setProfileMeta] = useState(initialMeta)
   const [passwordForm, setPasswordForm] = useState(initialPassword)
   const [role, setRole] = useState('-')
-  const [permissions, setPermissions] = useState<string[]>([])
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
   const [profileMessage, setProfileMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [error, setError] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const displayRole = useMemo(
     () => String(role || '-').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
     [role],
   )
+
   const profileInitials = useMemo(() => {
     const chunks = String(profile.name || '')
       .trim()
@@ -39,6 +48,7 @@ export default function ProfilePage() {
     if (chunks.length === 0) return 'U'
     return chunks.map((chunk) => chunk.charAt(0).toUpperCase()).join('')
   }, [profile.name])
+
   const passwordValidationRules = useMemo(() => {
     const value = passwordForm.new_password || ''
     return [
@@ -51,6 +61,18 @@ export default function ProfilePage() {
     ]
   }, [passwordForm.new_password])
 
+  const passwordMatch = useMemo(() => {
+    if (!passwordForm.confirm_password) return null
+    return passwordForm.new_password === passwordForm.confirm_password
+  }, [passwordForm.confirm_password, passwordForm.new_password])
+
+  const formatDate = (value?: string) => {
+    if (!value) return '-'
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return '-'
+    return parsed.toLocaleString('en-GB')
+  }
+
   const loadProfile = async () => {
     setLoadingProfile(true)
     setError('')
@@ -62,8 +84,11 @@ export default function ProfilePage() {
         email: data.email || '',
         phone: data.phone || '',
       })
+      setProfileMeta({
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || '',
+      })
       setRole(data.role || '-')
-      setPermissions(Array.isArray(data.permissions) ? data.permissions.map((item: any) => String(item)).filter(Boolean) : [])
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Failed to load profile')
     } finally {
@@ -118,6 +143,9 @@ export default function ProfilePage() {
       })
       setPasswordMessage('Password changed successfully.')
       setPasswordForm(initialPassword)
+      setShowCurrentPassword(false)
+      setShowNewPassword(false)
+      setShowConfirmPassword(false)
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Failed to change password')
     } finally {
@@ -129,7 +157,7 @@ export default function ProfilePage() {
     <div>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Profile</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>My Profile</div>
           <div style={{ color: '#64748b' }}>Manage your account information and password.</div>
         </div>
       </div>
@@ -137,73 +165,70 @@ export default function ProfilePage() {
       <div className="page profile-page">
         {error && <div className="alert">{error}</div>}
 
-        <div className="profile-layout">
-          <div className="card profile-summary-card">
-            <div className="profile-summary-banner">
-              <div className="profile-avatar">{profileInitials}</div>
-              <div>
-                <div className="profile-summary-title">{profile.name || 'User'}</div>
-                <div className="profile-summary-subtitle">{profile.email || '-'}</div>
+        <div className="card profile-hero-card">
+          <div className="profile-hero-banner">
+            <div className="profile-avatar profile-avatar-lg">{profileInitials}</div>
+            <div className="profile-hero-body">
+              <div className="profile-summary-title">{profile.name || 'User'}</div>
+              <div className="profile-summary-subtitle">{profile.email || '-'}</div>
+              <div className="profile-hero-meta">
+                {profile.phone && (
+                  <div className="profile-hero-meta-item">
+                    <i className="bi bi-telephone"></i>
+                    <span>{profile.phone}</span>
+                  </div>
+                )}
+                <div className="profile-hero-meta-item">
+                  <span className="profile-role-badge">{displayRole}</span>
+                </div>
               </div>
             </div>
-
-            <div className="profile-badges">
-              <div className="profile-badge">Role: {displayRole}</div>
-              <div className="profile-badge">Permissions: {permissions.length}</div>
-            </div>
-
-            <table className="table profile-summary-table">
-              <tbody>
-                <tr>
-                  <th>Name</th>
-                  <td>{profile.name || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Email</th>
-                  <td>{profile.email || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Phone</th>
-                  <td>{profile.phone || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Role</th>
-                  <td>{displayRole}</td>
-                </tr>
-                <tr>
-                  <th>Permission Count</th>
-                  <td>{permissions.length}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <h3 style={{ marginTop: 14 }}>Permissions</h3>
-            <table className="table" style={{ marginTop: 10 }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 70 }}>No</th>
-                  <th>Permission</th>
-                </tr>
-              </thead>
-              <tbody>
-                {permissions.map((permission, index) => (
-                  <tr key={`${permission}-${index}`}>
-                    <td>{index + 1}</td>
-                    <td style={{ fontWeight: 600 }}>{permission}</td>
-                  </tr>
-                ))}
-                {permissions.length === 0 && (
-                  <tr>
-                    <td colSpan={2}>No permissions assigned.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
+        </div>
 
+        <div className="card profile-account-card">
+          <div className="profile-section-head">
+            <div>
+              <h3>Account Information</h3>
+              <div className="profile-help">Review your current account details.</div>
+            </div>
+          </div>
+          <div className="profile-account-grid">
+            <div className="profile-info-item">
+              <div className="profile-info-label">Name</div>
+              <div className="profile-info-value">{profile.name || '-'}</div>
+            </div>
+            <div className="profile-info-item">
+              <div className="profile-info-label">Email</div>
+              <div className="profile-info-value">{profile.email || '-'}</div>
+            </div>
+            <div className="profile-info-item">
+              <div className="profile-info-label">Phone</div>
+              <div className="profile-info-value">{profile.phone || '-'}</div>
+            </div>
+            <div className="profile-info-item">
+              <div className="profile-info-label">Role</div>
+              <div className="profile-info-value">{displayRole}</div>
+            </div>
+            <div className="profile-info-item">
+              <div className="profile-info-label">Created At</div>
+              <div className="profile-info-value">{formatDate(profileMeta.created_at)}</div>
+            </div>
+            <div className="profile-info-item">
+              <div className="profile-info-label">Updated At</div>
+              <div className="profile-info-value">{formatDate(profileMeta.updated_at)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="profile-layout">
           <div className="card profile-edit-card">
-            <h3>Edit Profile Information</h3>
-            <div className="profile-help">Update your basic account identity used across the application.</div>
+            <div className="profile-section-head">
+              <div>
+                <h3>Update Profile</h3>
+                <div className="profile-help">Update your basic account identity used across the application.</div>
+              </div>
+            </div>
 
             {loadingProfile && <div style={{ marginTop: 8, color: '#64748b' }}>Loading profile...</div>}
             {!loadingProfile && (
@@ -242,68 +267,114 @@ export default function ProfilePage() {
                     placeholder="Enter phone number"
                   />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'end' }}>
+                <div className="profile-form-actions">
                   <button className="btn" type="submit" disabled={savingProfile}>
-                    {savingProfile ? 'Saving...' : 'Save Profile'}
+                    <i className="bi bi-check-circle"></i>
+                    <span>{savingProfile ? 'Saving...' : 'Save Changes'}</span>
                   </button>
                 </div>
                 {profileMessage && <div className="profile-success">{profileMessage}</div>}
               </form>
             )}
           </div>
-        </div>
 
-        <div className="card profile-password-card">
-          <h3>Change Password</h3>
-          <div className="profile-help">Use a strong password with uppercase, lowercase, number, and symbol.</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 12, rowGap: 3 }}>
-            {passwordValidationRules.map((rule) => (
-              <div key={rule.label} style={{ color: rule.valid ? '#166534' : '#b91c1c', fontSize: 12, fontWeight: 600 }}>
-                {rule.label}
+          <div className="card profile-password-card">
+            <div className="profile-section-head">
+              <div>
+                <h3>Change Password</h3>
+                <div className="profile-help">Use a strong password with uppercase, lowercase, number, and symbol.</div>
               </div>
-            ))}
+            </div>
+
+            {passwordForm.new_password && (
+              <div className="profile-password-rules">
+                <div className="profile-password-rules-title">Password Requirements:</div>
+                {passwordValidationRules.map((rule) => (
+                  <div key={rule.label} className={`profile-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
+                    <span className="profile-password-rule-icon" aria-hidden="true">
+                      {rule.valid ? '✓' : '×'}
+                    </span>
+                    <span>{rule.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={savePassword} className="profile-form-grid" style={{ marginTop: 12 }}>
+              <div>
+                <label>Current Password</label>
+                <div className="password-input-wrap">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={passwordForm.current_password}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, current_password: event.target.value }))}
+                    placeholder="Enter current password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                  >
+                    <i className={`bi bi-eye${showCurrentPassword ? '-slash' : ''}`}></i>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label>New Password</label>
+                <div className="password-input-wrap">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={passwordForm.new_password}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
+                    placeholder="Enter new password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                  >
+                    <i className={`bi bi-eye${showNewPassword ? '-slash' : ''}`}></i>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label>Confirm New Password</label>
+                <div className="password-input-wrap">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={passwordForm.confirm_password}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))}
+                    placeholder="Confirm new password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  >
+                    <i className={`bi bi-eye${showConfirmPassword ? '-slash' : ''}`}></i>
+                  </button>
+                </div>
+                {passwordMatch === false && <div className="profile-inline-error">Passwords do not match.</div>}
+                {passwordMatch === true && <div className="profile-inline-success">Passwords match.</div>}
+              </div>
+              <div className="profile-form-actions">
+                <button className="btn" type="submit" disabled={savingPassword}>
+                  <i className="bi bi-shield-check"></i>
+                  <span>{savingPassword ? 'Updating...' : 'Update Password'}</span>
+                </button>
+              </div>
+              {passwordMessage && <div className="profile-success">{passwordMessage}</div>}
+            </form>
           </div>
-          <form onSubmit={savePassword} className="profile-form-grid" style={{ marginTop: 12 }}>
-            <div>
-              <label>Current Password</label>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={passwordForm.current_password}
-                onChange={(event) => setPasswordForm((prev) => ({ ...prev, current_password: event.target.value }))}
-                placeholder="Enter current password"
-                required
-              />
-            </div>
-            <div>
-              <label>New Password</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={passwordForm.new_password}
-                onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
-                placeholder="Enter new password"
-                required
-              />
-            </div>
-            <div>
-              <label>Confirm New Password</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={passwordForm.confirm_password}
-                onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))}
-                placeholder="Confirm new password"
-                required
-              />
-            </div>
-            <div>
-              <button className="btn" type="submit" disabled={savingPassword}>
-                {savingPassword ? 'Updating...' : 'Update Password'}
-              </button>
-            </div>
-            {passwordMessage && <div className="profile-success">{passwordMessage}</div>}
-          </form>
         </div>
       </div>
     </div>
