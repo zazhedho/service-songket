@@ -479,7 +479,6 @@ export default function FinanceList({
                         <div className="dealer-list-title table-text-ellipsis" title={company.name || '-'}>
                           {company.name || '-'}
                         </div>
-                        <div className="dealer-list-note">Click the row to open.</div>
                       </div>
                     ),
                     className: 'finance-company-col-name',

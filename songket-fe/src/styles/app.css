@@ -615,10 +615,12 @@ h4 {
   }
 
   .action-menu-trigger {
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
     padding: 0;
-    border-radius: 10px;
+    min-height: 34px;
+    border-radius: 999px;
+    justify-content: center;
   }
 
   .action-menu-icon {
@@ -1991,10 +1993,12 @@ h4 {
   .dealer-list-table td.action-cell,
   .dealer-list-table th.finance-dealer-col-action {
     white-space: nowrap;
+    text-align: center;
   }
 
   .dealer-list-table td.action-cell {
-    text-align: right;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   .finance-company-col-name {
@@ -2024,10 +2028,12 @@ h4 {
   .finance-company-table td.action-cell,
   .finance-company-table th.finance-company-col-action {
     white-space: nowrap;
+    text-align: center;
   }
 
   .finance-company-table td.action-cell {
-    text-align: right;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   .finance-dealer-table td.finance-dealer-location-cell {
@@ -2128,6 +2134,279 @@ h4 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .user-list-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .user-summary-card {
+    padding: 14px 16px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.98)),
+      #fff;
+  }
+
+  .user-summary-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .user-summary-value {
+    margin-top: 6px;
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .user-summary-note {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .user-list-table .action-cell,
+  .user-list-table th.user-list-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .user-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .user-list-col-user {
+    width: 24%;
+  }
+
+  .user-list-col-phone {
+    width: 18%;
+  }
+
+  .user-list-col-email {
+    width: 30%;
+  }
+
+  .user-list-col-role {
+    width: 16%;
+  }
+
+  .user-list-col-action {
+    width: 12%;
+  }
+
+  .user-list-cell {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .user-list-title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #0f172a;
+  }
+
+  .user-list-note {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #64748b;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .user-list-subnote {
+    font-size: 11px;
+    line-height: 1.45;
+    color: #94a3b8;
+  }
+
+  .user-list-role-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .user-empty-state {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    text-align: center;
+  }
+
+  .user-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 22px;
+  }
+
+  .user-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .user-empty-note {
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #64748b;
+  }
+
+  .entity-list-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .entity-summary-card {
+    padding: 14px 16px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.98)),
+      #fff;
+  }
+
+  .entity-summary-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .entity-summary-value {
+    margin-top: 6px;
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .entity-summary-note {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .entity-list-cell {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .entity-list-title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #0f172a;
+  }
+
+  .entity-list-note {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #64748b;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .entity-empty-state {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    text-align: center;
+  }
+
+  .entity-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 22px;
+  }
+
+  .entity-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .entity-empty-note {
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #64748b;
+  }
+
+  .job-list-col-job,
+  .net-income-col-job {
+    width: 30%;
+  }
+
+  .job-list-col-income,
+  .net-income-col-income {
+    width: 18%;
+  }
+
+  .job-list-col-area,
+  .net-income-col-area {
+    width: 28%;
+  }
+
+  .job-list-col-updated,
+  .net-income-col-updated {
+    width: 14%;
+  }
+
+  .job-list-col-action,
+  .net-income-col-action {
+    width: 10%;
+  }
+
+  .job-list-table .action-cell,
+  .job-list-table th.job-list-col-action,
+  .net-income-list-table .action-cell,
+  .net-income-list-table th.net-income-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .job-list-table .action-cell,
+  .net-income-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   .dealer-list-pill-row {
@@ -2712,6 +2991,14 @@ h4 {
   }
 
   .dealer-list-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .user-list-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .entity-list-summary {
     grid-template-columns: 1fr;
   }
 

@@ -76,9 +76,6 @@ export default function RoleList({
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or display name" aria-label="Search role" />
             </div>
-            <div className="role-list-toolbar-meta">
-              {canList && <span>{totalData || roles.length} roles</span>}
-            </div>
             <div className="compact-filter-action">
               <button
                 className="btn-ghost"
