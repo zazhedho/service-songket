@@ -154,9 +154,9 @@ export function useFinanceReportSummaryData({
   }, [dealer, selectedDealerId, stateContext?.dealer_id])
 
   const activeDealerName = useMemo(() => {
-    if (!activeDealerId) return 'All Dealer'
+    if (!activeDealerId) return 'All Dealers'
     const found = dealerRows.find((item) => item.id === activeDealerId)
-    return normalizeText(found?.name) || 'All Dealer'
+    return normalizeText(found?.name) || 'All Dealers'
   }, [activeDealerId, dealerRows])
 
   const activeFinance1Name = useMemo(() => {

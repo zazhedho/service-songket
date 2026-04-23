@@ -190,16 +190,15 @@ export default function FinanceReportDetail({
                     },
                     { header: 'Motor / OTR', accessor: (row) => `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}` },
                     { header: 'Status 1', accessor: (row) => statusBadge(row.finance_1_status || '') },
-                    { header: 'Keterangan Finance 1', accessor: (row) => truncateTableText(row.finance_1_notes || '-') },
+                    { header: 'Finance 1 Notes', accessor: (row) => truncateTableText(row.finance_1_notes || '-') },
                     { header: 'Status 2', accessor: (row) => statusBadge(row.finance_2_status || '') },
-                    { header: 'Keterangan Finance 2', accessor: (row) => truncateTableText(row.finance_2_notes || '-') },
+                    { header: 'Finance 2 Notes', accessor: (row) => truncateTableText(row.finance_2_notes || '-') },
                     {
                       header: 'Action',
                       accessor: (row) => (
                         <button
                           type="button"
-                          className="btn-ghost"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
+                          className="btn-ghost table-action-button"
                           onClick={() => setSelectedOrderInRow(row)}
                         >
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
@@ -211,6 +210,8 @@ export default function FinanceReportDetail({
                       ),
                       className: 'action-cell',
                       ignoreRowClick: true,
+                      headerStyle: { width: 108 },
+                      style: { width: 108 },
                     },
                   ]}
                 />

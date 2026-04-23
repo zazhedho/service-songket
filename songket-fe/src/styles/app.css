@@ -1130,6 +1130,17 @@ h4 {
     word-break: break-word;
   }
 
+  .table-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 84px;
+    padding: 6px 10px;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+  }
+
   .table th {
     background: #f8fafc;
     color: #475569;

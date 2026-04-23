@@ -35,7 +35,7 @@ export default function Pagination({
     <div className="pagination-wrap">
       <div className="pagination-meta">
         <span>Total: {typeof totalData === 'number' ? totalData : '-'}</span>
-        <span>Halaman {safePage} dari {safeTotalPages}</span>
+        <span>Page {safePage} of {safeTotalPages}</span>
       </div>
 
       <div className="pagination-actions">
@@ -60,4 +60,3 @@ export default function Pagination({
     </div>
   )
 }
-

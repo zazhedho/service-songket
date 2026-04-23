@@ -111,7 +111,7 @@ export default function FinanceReportSummary({
   formatCoordinate,
   formatLeadTimeHours,
 }: FinanceReportSummaryProps) {
-  const dealerFilterOptions = [{ value: '', label: 'All Dealer' }, ...dealerOptions.map((item) => ({
+  const dealerFilterOptions = [{ value: '', label: 'All Dealers' }, ...dealerOptions.map((item) => ({
     value: String(item.code || ''),
     label: String(item.name || item.code || '-'),
   }))]
@@ -126,7 +126,7 @@ export default function FinanceReportSummary({
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Business</div>
-          <div style={{ color: '#64748b' }}>Dealer Performance dan Migration Fincoy (Finance 1 ke Finance 2)</div>
+          <div style={{ color: '#64748b' }}>Dealer Performance and Finance Company Migration (Finance 1 to Finance 2)</div>
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export default function FinanceReportSummary({
         <div className="business-top-grid">
           <div className="card business-map-card">
             <div className="business-map-head">
-              <h3>Map Dealer</h3>
+              <h3>Dealer Map</h3>
               <div className="business-map-meta">
                 <span className="muted">Focus Dealer:</span>
                 <span style={{ fontWeight: 700 }}>{activeDealerName}</span>
@@ -177,14 +177,14 @@ export default function FinanceReportSummary({
             )}
             {dealerPoints.length > 0 && (
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                Klik titik dealer untuk fokus ke performa dealer tersebut.
+                Click a dealer marker to focus on that dealer's performance.
               </div>
             )}
           </div>
 
           <div className="card business-dealer-detail-card">
             <div className="business-map-head">
-              <h3>Detail Dealer</h3>
+              <h3>Dealer Details</h3>
               <div className="business-map-meta">
                 <span className="muted">Source:</span>
                 <span style={{ fontWeight: 700 }}>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</span>
@@ -193,14 +193,14 @@ export default function FinanceReportSummary({
 
             {!activeDealerPoint && (
               <div className="muted" style={{ fontSize: 12 }}>
-                Klik titik dealer pada map untuk menampilkan detail dealer.
+                Click a dealer marker on the map to show dealer details.
               </div>
             )}
 
             {activeDealerPoint && (
               <div className="business-dealer-detail-grid">
                 <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Nama Dealer</div>
+                  <div className="business-dealer-detail-label">Dealer Name</div>
                   <div className="business-dealer-detail-value">{activeDealerPoint.name || '-'}</div>
                 </div>
                 <div className="business-dealer-detail-item">
@@ -208,7 +208,7 @@ export default function FinanceReportSummary({
                   <div className="business-dealer-detail-value">{activeDealerPoint.phone || '-'}</div>
                 </div>
                 <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Lokasi</div>
+                  <div className="business-dealer-detail-label">Location</div>
                   <div className="business-dealer-detail-value">
                     {summarizeLocation([
                       activeDealerPoint.province,
@@ -219,7 +219,7 @@ export default function FinanceReportSummary({
                   </div>
                 </div>
                 <div className="business-dealer-detail-item">
-                  <div className="business-dealer-detail-label">Alamat</div>
+                  <div className="business-dealer-detail-label">Address</div>
                   <div className="business-dealer-detail-value">{activeDealerPoint.address || '-'}</div>
                 </div>
                 <div className="business-dealer-detail-item">
@@ -280,7 +280,7 @@ export default function FinanceReportSummary({
             </div>
           </div>
           <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-            Filter di atas berlaku untuk Summary dan Migration Fincoy. Dealer yang dipilih dari map akan memfokuskan card performa dealer.
+            The filters above apply to the Summary and Finance Company Migration sections. A dealer selected from the map will focus the dealer performance card.
           </div>
         </div>
 
@@ -292,14 +292,14 @@ export default function FinanceReportSummary({
 
           <div style={{ padding: 12 }}>
             <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-              Card ini mengikuti dealer hasil filter di atas atau dealer yang terakhir dipilih dari map.
+              This card follows the dealer selected from the filter above or the most recently selected dealer on the map.
             </div>
             {!selectedDealerId && !dealerInput && (
               <div style={{ marginTop: 10, color: '#64748b' }}>
-                Pilih dealer dari filter atas atau klik titik dealer pada map untuk melihat performanya.
+                Select a dealer from the filter above or click a dealer marker on the map to view performance.
               </div>
             )}
-            {activeDealerName !== 'All Dealer' && !dealerMetrics && (
+            {activeDealerName !== 'All Dealers' && !dealerMetrics && (
               <div style={{ marginTop: 10, color: '#64748b' }}>No metrics available for selected dealer.</div>
             )}
 
@@ -410,9 +410,9 @@ export default function FinanceReportSummary({
 
         <div className="card business-section">
           <div className="business-section-head">
-            <h3 className="business-section-title">Migration Fincoy</h3>
+            <h3 className="business-section-title">Finance Company Migration</h3>
             <div style={{ minWidth: 230 }}>
-              <label style={{ marginBottom: 4 }}>Finance company 1</label>
+              <label style={{ marginBottom: 4 }}>Finance Company 1</label>
               <SearchableSelect
                 id="business-summary-finance1-filter"
                 value={finance1Input}
@@ -429,104 +429,105 @@ export default function FinanceReportSummary({
             </div>
           </div>
 
-          <div className="business-summary-row">
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Total Group</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalRows}</div>
+          <div style={{ padding: '12px 12px 14px' }}>
+            <div className="business-summary-row" style={{ padding: 0 }}>
+              <div className="business-summary-item">
+                <div className="muted" style={{ fontSize: 12 }}>Total Groups</div>
+                <div style={{ fontWeight: 700 }}>{migrationSummary.totalRows}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="muted" style={{ fontSize: 12 }}>Total Order-Ins</div>
+                <div style={{ fontWeight: 700 }}>{migrationSummary.totalDataSum}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="muted" style={{ fontSize: 12 }}>Approved</div>
+                <div style={{ fontWeight: 700 }}>{migrationSummary.totalApproveSum}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="muted" style={{ fontSize: 12 }}>Rejected</div>
+                <div style={{ fontWeight: 700 }}>{migrationSummary.totalRejectSum}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="muted" style={{ fontSize: 12 }}>Approval Rate</div>
+                <div style={{ fontWeight: 700 }}>{migrationSummary.approvalRate.toFixed(2)}%</div>
+              </div>
             </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Order In Total</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalDataSum}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Approve</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalApproveSum}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Reject</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.totalRejectSum}</div>
-            </div>
-            <div className="business-summary-item">
-              <div className="muted" style={{ fontSize: 12 }}>Approve Rate</div>
-              <div style={{ fontWeight: 700 }}>{migrationSummary.approvalRate.toFixed(2)}%</div>
-            </div>
-          </div>
 
-          {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
+            {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
-          <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
-            <Table
-              data={rows}
-              keyField={(item, idx) => `${item.order_id}-${idx}`}
-              className="table-list"
-              style={{ minWidth: 1180, tableLayout: 'fixed' }}
-              isLoading={loading}
-              loadingMessage="Loading finance migration data..."
-              emptyMessage="No finance migration data."
-              onRowClick={(item) =>
-                navigate(`/business/migrations/${item.order_id}`, {
-                  state: {
-                    row: item,
-                    context: { finance1: finance1Input },
+            <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
+              <Table
+                data={rows}
+                keyField={(item, idx) => `${item.order_id}-${idx}`}
+                className="table-list"
+                style={{ minWidth: 1180, tableLayout: 'fixed' }}
+                isLoading={loading}
+                loadingMessage="Loading finance migration data..."
+                emptyMessage="No finance migration data."
+                onRowClick={(item) =>
+                  navigate(`/business/migrations/${item.order_id}`, {
+                    state: {
+                      row: item,
+                      context: { finance1: finance1Input },
+                    },
+                  })}
+                columns={[
+                  { header: 'No', accessor: (_item, idx) => (page - 1) * limit + idx + 1, headerStyle: { width: 56 }, style: { width: 56 } },
+                  { header: 'Finance 2 Name', accessor: (item) => truncateTableText(item.finance_2_name), headerStyle: { width: 170 }, style: { width: 170 } },
+                  { header: 'Latest Finance 2 Status', accessor: (item) => statusBadge(item.finance_2_status), headerStyle: { width: 190 }, style: { width: 190 } },
+                  { header: 'Total Records', accessor: (item) => toSafeNumber(item.transition_total_data), headerStyle: { width: 120 }, style: { width: 120 } },
+                  { header: 'Rejected Records', accessor: (item) => toSafeNumber(item.total_reject_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
+                  { header: 'Approved Records', accessor: (item) => toSafeNumber(item.total_approve_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
+                  { header: 'Finance 1 Name', accessor: (item) => truncateTableText(item.finance_1_name), headerStyle: { width: 170 }, style: { width: 170 } },
+                  { header: 'Finance 1 Status', accessor: (item) => statusBadge(item.finance_1_status), headerStyle: { width: 120 }, style: { width: 120 } },
+                  {
+                    header: 'Action',
+                    accessor: (item) => (
+                      <button
+                        type="button"
+                        className="btn-ghost table-action-button"
+                        onClick={() =>
+                          navigate(`/business/migrations/${item.order_id}`, {
+                            state: {
+                              row: item,
+                              context: { finance1: finance1Input },
+                            },
+                          })
+                        }
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                        </svg>
+                        View
+                      </button>
+                    ),
+                    className: 'action-cell',
+                    ignoreRowClick: true,
+                    headerStyle: { width: 108 },
+                    style: { width: 108 },
                   },
-                })}
-              columns={[
-                { header: 'No', accessor: (_item, idx) => (page - 1) * limit + idx + 1, headerStyle: { width: 56 }, style: { width: 56 } },
-                { header: 'Finance 2 Name', accessor: (item) => truncateTableText(item.finance_2_name), headerStyle: { width: 170 }, style: { width: 170 } },
-                { header: 'Last Approve Status Finance 2', accessor: (item) => statusBadge(item.finance_2_status), headerStyle: { width: 190 }, style: { width: 190 } },
-                { header: 'Total Data', accessor: (item) => toSafeNumber(item.transition_total_data), headerStyle: { width: 120 }, style: { width: 120 } },
-                { header: 'Total Data Reject', accessor: (item) => toSafeNumber(item.total_reject_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
-                { header: 'Total Data Approve', accessor: (item) => toSafeNumber(item.total_approve_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
-                { header: 'Finance 1 Name', accessor: (item) => truncateTableText(item.finance_1_name), headerStyle: { width: 170 }, style: { width: 170 } },
-                { header: 'Status Finance 1', accessor: (item) => statusBadge(item.finance_1_status), headerStyle: { width: 120 }, style: { width: 120 } },
-                {
-                  header: 'Action',
-                  accessor: (item) => (
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px' }}
-                      onClick={() =>
-                        navigate(`/business/migrations/${item.order_id}`, {
-                          state: {
-                            row: item,
-                            context: { finance1: finance1Input },
-                          },
-                        })
-                      }
-                    >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                      </svg>
-                      View
-                    </button>
-                  ),
-                  className: 'action-cell',
-                  ignoreRowClick: true,
-                  headerStyle: { width: 100 },
-                  style: { width: 100 },
-                },
-              ]}
+                ]}
+              />
+            </div>
+
+            <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>
+              Active Finance 1 filter: {activeFinance1Name}
+            </div>
+
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalData={totalData}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next)
+                setPage(1)
+              }}
+              disabled={loading}
             />
           </div>
-
-          <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>
-            Filter Finance 1 aktif: {activeFinance1Name}
-          </div>
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalData={totalData}
-            limit={limit}
-            onPageChange={setPage}
-            onLimitChange={(next) => {
-              setLimit(next)
-              setPage(1)
-            }}
-            disabled={loading}
-          />
         </div>
       </div>
     </div>
