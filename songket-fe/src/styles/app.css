@@ -2669,6 +2669,86 @@ h4 {
     width: 12%;
   }
 
+  .order-list-col-order {
+    width: 16%;
+  }
+
+  .order-list-col-consumer {
+    width: 16%;
+  }
+
+  .order-list-col-location {
+    width: 18%;
+  }
+
+  .order-list-col-finance {
+    width: 18%;
+  }
+
+  .order-list-col-credit {
+    width: 16%;
+  }
+
+  .order-list-col-status {
+    width: 10%;
+  }
+
+  .order-list-col-action {
+    width: 6%;
+  }
+
+  .order-finance-stack {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .order-finance-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .order-finance-item.secondary {
+    opacity: 0.92;
+  }
+
+  .order-finance-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef4ff;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .order-finance-value {
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #0f172a;
+  }
+
+  .order-list-table .action-cell,
+  .order-list-table th.order-list-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .order-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
   .dealer-list-pill-row {
     display: flex;
     align-items: center;

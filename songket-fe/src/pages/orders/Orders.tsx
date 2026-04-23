@@ -109,7 +109,7 @@ export default function OrdersPage() {
   } | null>(null)
   const [exportDownloading, setExportDownloading] = useState(false)
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
+  const [limit, setLimit] = useState(10)
   const [totalPages, setTotalPages] = useState(1)
   const [totalData, setTotalData] = useState(0)
   const exportPollRef = useRef<number | null>(null)
@@ -129,7 +129,7 @@ export default function OrdersPage() {
     regencyCode: form.regency,
     withDistricts: true,
   })
-  const { locationNamesByKey } = useLocationNameResolver({
+  const { displayRegency, locationNamesByKey } = useLocationNameResolver({
     rows: list,
     getKey: (row) => String(row?.id || '').trim(),
     getProvince: (row) => String(row?.province || '').trim(),
@@ -165,12 +165,12 @@ export default function OrdersPage() {
   }
 
   useEffect(() => {
-    if (isList) return
+    if (isList && !showTable) return
     loadLookups().catch(() => {
       lookupsLoadedRef.current = false
       setLookups({})
     })
-  }, [isList])
+  }, [isList, showTable])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -660,6 +660,7 @@ export default function OrdersPage() {
       onPageChange={setPage}
       onRemove={removeOrder}
       page={page}
+      resolveRegencyLabel={displayRegency}
       showTable={showTable}
       totalData={totalData}
       totalPages={totalPages}

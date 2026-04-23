@@ -4,7 +4,7 @@ import Pagination from '../../../components/common/Pagination'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 import type { ResolvedLocationNames } from '../../../hooks/useLocationNameResolver'
-import { getAttempt, lookupDisplayName } from './orderHelpers'
+import { formatDate, getAttempt, lookupDisplayName } from './orderHelpers'
 
 type OrderListViewProps = {
   canCreate: boolean
@@ -33,18 +33,24 @@ type OrderListViewProps = {
   onPageChange: (page: number) => void
   onRemove: (id: string) => Promise<void>
   page: number
-  provinces: any[]
+  resolveRegencyLabel: (provinceValue?: string, regencyValue?: string) => string
   showTable: boolean
   totalData: number
   totalPages: number
 }
 
 type OrderListRow = {
+  consumerPhone: string
+  createdAt: string
+  dealerName: string
   financeCompany1Name: string
   financeCompany2Name: string
   id: string
-  locationLabel: string
+  locationDistrict: string
+  locationProvince: string
+  locationRegency: string
   order: any
+  resultAt: string
   showFinanceCompany2: boolean
   status: string
 }
@@ -57,13 +63,19 @@ function financeName(financeCompanies: any[] | undefined, attempt: any) {
   )
 }
 
-function orderLocationLabel(
-  locationNames?: ResolvedLocationNames,
-) {
-  return (
-    [locationNames?.district, locationNames?.regency, locationNames?.province]
-      .filter((item) => String(item || '').trim() && item !== '-')
-      .join(', ') || '-'
+function locationParts(locationNames?: ResolvedLocationNames) {
+  return {
+    district: String(locationNames?.district || '').trim() || '-',
+    province: String(locationNames?.province || '').trim() || '-',
+    regency: String(locationNames?.regency || '').trim() || '-',
+  }
+}
+
+function dealerName(dealers: any[] | undefined, order: any) {
+  return lookupDisplayName(
+    dealers,
+    order?.dealer_id,
+    order?.dealer?.name || order?.dealer_name,
   )
 }
 
@@ -87,12 +99,22 @@ export default function OrderListView({
   onPageChange,
   onRemove,
   page,
+  resolveRegencyLabel,
   showTable,
   totalData,
   totalPages,
 }: OrderListViewProps) {
   const exportJobTone = exportJob?.status === 'failed' ? 'error' : exportJob?.status === 'downloaded' ? 'success' : 'info'
+  const dealers = lookups?.dealers
   const financeCompanies = lookups?.finance_companies
+  const statusCounts = useMemo(
+    () => ({
+      approve: list.filter((order) => String(order?.result_status || '').toLowerCase() === 'approve').length,
+      pending: list.filter((order) => String(order?.result_status || '').toLowerCase() === 'pending').length,
+      reject: list.filter((order) => String(order?.result_status || '').toLowerCase() === 'reject').length,
+    }),
+    [list],
+  )
   const statusOptions = [
     { value: '', label: 'All Statuses' },
     { value: 'approve', label: 'Approve' },
@@ -105,18 +127,29 @@ export default function OrderListView({
       list.map((order) => {
         const firstAttempt = getAttempt(order, 1)
         const secondAttempt = getAttempt(order, 2)
+        const resolvedLocation = locationParts(locationNamesByKey[String(order?.id || '').trim()])
+        const resolvedDealerName = dealerName(dealers, order)
+        const resolvedRegency = resolvedLocation.regency !== '-'
+          ? resolvedLocation.regency
+          : resolveRegencyLabel(order?.province, order?.regency)
 
         return {
+          consumerPhone: String(order?.consumer_phone || '').trim() || '-',
+          createdAt: formatDate(order?.created_at),
+          dealerName: resolvedDealerName,
           financeCompany1Name: financeName(financeCompanies, firstAttempt),
           financeCompany2Name: financeName(financeCompanies, secondAttempt),
           id: String(order?.id || ''),
-          locationLabel: orderLocationLabel(locationNamesByKey[String(order?.id || '').trim()]),
+          locationDistrict: resolvedLocation.district,
+          locationProvince: resolvedLocation.province,
+          locationRegency: resolvedRegency,
           order,
+          resultAt: formatDate(order?.result_at),
           showFinanceCompany2: Boolean(secondAttempt?.finance_company_id),
           status: String(order?.result_status || ''),
         }
       }),
-    [financeCompanies, list, locationNamesByKey],
+    [dealers, financeCompanies, list, locationNamesByKey, resolveRegencyLabel],
   )
 
   return (
@@ -130,6 +163,24 @@ export default function OrderListView({
 
       <div className="page">
         <div className="card">
+          <div className="entity-list-summary">
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Total Orders</div>
+              <div className="entity-summary-value">{totalData || list.length}</div>
+              <div className="entity-summary-note">Current result count for pooled credit orders.</div>
+            </div>
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Approved / Pending</div>
+              <div className="entity-summary-value">{statusCounts.approve} / {statusCounts.pending}</div>
+              <div className="entity-summary-note">Approved and pending orders in the current result set.</div>
+            </div>
+            <div className="entity-summary-card">
+              <div className="entity-summary-label">Rejected</div>
+              <div className="entity-summary-value">{statusCounts.reject}</div>
+              <div className="entity-summary-note">Orders currently marked as rejected.</div>
+            </div>
+          </div>
+
           <div className="compact-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input
@@ -195,32 +246,112 @@ export default function OrderListView({
           {showTable && (
             <>
               <Table
+                className="order-list-table"
                 data={rows}
                 keyField="id"
                 onRowClick={(row) => navigate(`/orders/${row.id}`, { state: { order: row.order } })}
                 emptyMessage="No orders yet."
                 columns={[
-                  { header: 'Pooling', accessor: (row) => row.order.pooling_number },
-                  { header: 'Consumer', accessor: (row) => row.order.consumer_name },
-                  { header: 'Location', accessor: 'locationLabel' },
+                  {
+                    header: 'Order',
+                    accessor: (row) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={row.order.pooling_number || '-'}>
+                          {row.order.pooling_number || '-'}
+                        </div>
+                        <div className="entity-list-note table-text-ellipsis" title={row.dealerName}>
+                          {row.dealerName !== '-' ? row.dealerName : 'Dealer not available'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'order-list-col-order',
+                    headerClassName: 'order-list-col-order',
+                  },
+                  {
+                    header: 'Consumer',
+                    accessor: (row) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={row.order.consumer_name || '-'}>
+                          {row.order.consumer_name || '-'}
+                        </div>
+                        <div className="entity-list-note table-text-ellipsis" title={row.consumerPhone}>
+                          {row.consumerPhone}
+                        </div>
+                      </div>
+                    ),
+                    className: 'order-list-col-consumer',
+                    headerClassName: 'order-list-col-consumer',
+                  },
+                  {
+                    header: 'Location',
+                    accessor: (row) => {
+                      const districtRegency = [row.locationDistrict, row.locationRegency]
+                        .filter((value, index, array) => value && value !== '-' && array.indexOf(value) === index)
+                        .join(' / ') || '-'
+                      const locationTitle = districtRegency.replace(' / ', ', ')
+
+                      return (
+                        <div className="entity-list-cell">
+                          <div className="entity-list-title table-text-ellipsis" title={locationTitle}>
+                            {locationTitle}
+                          </div>
+                          <div className="entity-list-note table-text-ellipsis" title={row.locationProvince}>
+                            {row.locationProvince}
+                          </div>
+                        </div>
+                      )
+                    },
+                    className: 'order-list-col-location',
+                    headerClassName: 'order-list-col-location',
+                  },
                   {
                     header: 'Finance',
                     accessor: (row) => (
-                      <>
-                        <div>{row.financeCompany1Name}</div>
+                      <div className="order-finance-stack">
+                        <div className="order-finance-item">
+                          <span className="order-finance-label">FC1</span>
+                          <span className="order-finance-value table-text-ellipsis" title={row.financeCompany1Name}>
+                            {row.financeCompany1Name}
+                          </span>
+                        </div>
                         {row.showFinanceCompany2 && (
-                          <div style={{ color: '#64748b', fontSize: 12 }}>
-                            FC2: {row.financeCompany2Name}
+                          <div className="order-finance-item secondary">
+                            <span className="order-finance-label">FC2</span>
+                            <span className="order-finance-value table-text-ellipsis" title={row.financeCompany2Name}>
+                              {row.financeCompany2Name}
+                            </span>
                           </div>
                         )}
-                      </>
+                      </div>
                     ),
+                    className: 'order-list-col-finance',
+                    headerClassName: 'order-list-col-finance',
+                  },
+                  {
+                    header: 'Credit',
+                    accessor: (row) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">{row.order.tenor ? `${row.order.tenor} months` : '-'}</div>
+                        <div className="entity-list-note">
+                          {Number(row.order.installment || 0) > 0 ? `Installment: ${Number(row.order.installment || 0).toLocaleString('en-US')}` : 'Installment not available'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'order-list-col-credit',
+                    headerClassName: 'order-list-col-credit',
                   },
                   {
                     header: 'Status',
-                    accessor: (row) => <span className={`badge ${row.status}`}>{row.status}</span>,
+                    accessor: (row) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">
+                          <span className={`badge ${row.status || 'pending'}`}>{row.status || '-'}</span>
+                        </div>
+                      </div>
+                    ),
+                    className: 'order-list-col-status',
+                    headerClassName: 'order-list-col-status',
                   },
-                  { header: 'Tenor', accessor: (row) => `${row.order.tenor} months` },
                   {
                     header: 'Action',
                     accessor: (row) => (
@@ -248,9 +379,24 @@ export default function OrderListView({
                       />
                     ),
                     className: 'action-cell',
+                    headerClassName: 'order-list-col-action',
                     ignoreRowClick: true,
+                    style: { width: '1%' },
                   },
                 ]}
+                emptyState={
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="entity-empty-state">
+                        <div className="entity-empty-icon">
+                          <i className="bi bi-journal-text"></i>
+                        </div>
+                        <div className="entity-empty-title">No orders found</div>
+                        <div className="entity-empty-note">Try another keyword or create a new order to populate this list.</div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               />
 
               <Pagination
