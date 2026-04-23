@@ -55,18 +55,21 @@ export default function PriceJobDock({
 
       {jobsOpen && (
         <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Search Scrape Jobs</div>
-                <div className="filter-panel-subtitle">Cari job scraping berdasarkan status atau message log.</div>
-              </div>
+          <div className="compact-filter-toolbar" style={{ marginBottom: 4 }}>
+            <div className="compact-filter-item grow-2">
+              <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search status or message" aria-label="Search scrape jobs" />
             </div>
-            <div className="filter-grid">
-              <div className="filter-field">
-                <label>Keyword</label>
-                <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search status/message" />
-              </div>
+            <div className="compact-filter-action">
+              <button
+                className="btn-ghost"
+                onClick={() => onSearchChange('')}
+                disabled={!jobsSearch.trim()}
+                title="Clear all filters"
+                aria-label="Clear all filters"
+                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              >
+                ×
+              </button>
             </div>
           </div>
 

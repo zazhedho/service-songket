@@ -128,28 +128,34 @@ export default function FinanceList({
         {listSection === 'dealer' && (
           <>
             <div className="card">
-              <div className="filter-panel">
-                <div className="filter-panel-head">
-                  <div>
-                    <div className="filter-panel-title">Filter Dealer</div>
-                    <div className="filter-panel-subtitle">Pilih provinsi dan kata kunci untuk mempercepat pencarian dealer.</div>
-                  </div>
+              <div className="compact-filter-toolbar">
+                <div className="compact-filter-item grow-2">
+                  <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search dealer name, regency, or phone" aria-label="Search dealer" />
                 </div>
-                <div className="filter-grid">
-                  <div className="filter-field">
-                    <label>Search Dealer</label>
-                    <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search by name/regency/phone" />
-                  </div>
 
-                  <div className="filter-field">
-                    <label>Dealer Province Filter</label>
-                    <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)}>
-                      <option value="">All</option>
-                      {provinces.map((province: any) => (
-                        <option key={province.code} value={province.code}>{province.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="compact-filter-item narrow">
+                  <select value={dealerProvinceFilter} onChange={(e) => setDealerProvinceFilter(e.target.value)} aria-label="Filter dealer by province">
+                    <option value="">All Provinces</option>
+                    {provinces.map((province: any) => (
+                      <option key={province.code} value={province.code}>{province.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="compact-filter-action">
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      setDealerSearch('')
+                      setDealerProvinceFilter('')
+                    }}
+                    disabled={!dealerSearch.trim() && !dealerProvinceFilter}
+                    title="Clear all filters"
+                    aria-label="Clear all filters"
+                    style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
 
@@ -255,28 +261,34 @@ export default function FinanceList({
         {listSection === 'finance' && (
           <>
             <div className="card">
-              <div className="filter-panel">
-                <div className="filter-panel-head">
-                  <div>
-                    <div className="filter-panel-title">Filter Finance Company</div>
-                    <div className="filter-panel-subtitle">Cari finance company berdasar nama dan area operasional.</div>
-                  </div>
+              <div className="compact-filter-toolbar">
+                <div className="compact-filter-item grow-2">
+                  <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search finance name, regency, or phone" aria-label="Search finance company" />
                 </div>
-                <div className="filter-grid">
-                  <div className="filter-field">
-                    <label>Search Finance Company</label>
-                    <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search by name/regency/phone" />
-                  </div>
 
-                  <div className="filter-field">
-                    <label>Finance Province Filter</label>
-                    <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)}>
-                      <option value="">All</option>
-                      {provinces.map((province: any) => (
-                        <option key={province.code} value={province.code}>{province.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="compact-filter-item narrow">
+                  <select value={financeProvinceFilter} onChange={(e) => setFinanceProvinceFilter(e.target.value)} aria-label="Filter finance by province">
+                    <option value="">All Provinces</option>
+                    {provinces.map((province: any) => (
+                      <option key={province.code} value={province.code}>{province.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="compact-filter-action">
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      setFinanceSearch('')
+                      setFinanceProvinceFilter('')
+                    }}
+                    disabled={!financeSearch.trim() && !financeProvinceFilter}
+                    title="Clear all filters"
+                    aria-label="Clear all filters"
+                    style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
 

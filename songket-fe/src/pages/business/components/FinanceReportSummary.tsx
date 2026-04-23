@@ -223,54 +223,43 @@ export default function FinanceReportSummary({
         {masterLoading && <div className="muted">Loading dealer and finance data...</div>}
 
         <div className="card business-filter-card">
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Filter Report Summary</div>
-                <div className="filter-panel-subtitle">Pilih dealer dan periode untuk membaca dealer performance dan migration fincoy.</div>
-              </div>
+          <div className="compact-filter-toolbar">
+            <div className="compact-filter-item grow-2">
+              <select value={dealerInput} onChange={(e) => setDealerInput(e.target.value)} aria-label="Filter by dealer">
+                <option value="">All Dealer</option>
+                {dealerOptions.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="filter-grid mobile-filter-grid">
-              <div className="filter-field">
-                <label>Dealer</label>
-                <select value={dealerInput} onChange={(e) => setDealerInput(e.target.value)}>
-                  <option value="">All Dealer</option>
-                  {dealerOptions.map((item) => (
-                    <option key={item.code} value={item.code}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="filter-field">
-                <label>Bulan</label>
-                <select value={monthInput} onChange={(e) => setMonthInput(e.target.value)}>
-                  <option value="">All Months</option>
-                  {Array.from({ length: 12 }, (_, idx) => (
-                    <option key={idx + 1} value={String(idx + 1)}>
-                      {String(idx + 1).padStart(2, '0')}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="compact-filter-item narrow">
+              <select value={monthInput} onChange={(e) => setMonthInput(e.target.value)} aria-label="Filter by month">
+                <option value="">All Months</option>
+                {Array.from({ length: 12 }, (_, idx) => (
+                  <option key={idx + 1} value={String(idx + 1)}>
+                    {String(idx + 1).padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div className="filter-field">
-                <label>Tahun</label>
-                <select value={yearInput} onChange={(e) => setYearInput(e.target.value)}>
-                  <option value="">All Years</option>
-                  {yearOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="compact-filter-item narrow">
+              <select value={yearInput} onChange={(e) => setYearInput(e.target.value)} aria-label="Filter by year">
+                <option value="">All Years</option>
+                {yearOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div className="filter-actions">
-                <button className="btn" onClick={applyFilters}>Apply</button>
-                <button className="btn-ghost" onClick={resetFilters}>Reset</button>
-              </div>
+            <div className="compact-filter-action">
+              <button className="btn" onClick={applyFilters}>Apply</button>
+              <button className="btn-ghost" onClick={resetFilters}>Reset</button>
             </div>
           </div>
         </div>

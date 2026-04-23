@@ -123,54 +123,60 @@ export default function OrderListView({
 
       <div className="page">
         <div className="card">
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Filter Orders</div>
-                <div className="filter-panel-subtitle">Gunakan keyword, status, dan rentang export untuk menyaring data order.</div>
-              </div>
+          <div className="compact-filter-toolbar">
+            <div className="compact-filter-item grow-2">
+              <input
+                placeholder="Search consumer or pooling number"
+                value={filters.search}
+                onChange={(e) => onFilterChange((prev) => ({ ...prev, search: e.target.value }))}
+                aria-label="Search orders"
+              />
             </div>
-            <div className="filter-grid">
-              <div className="filter-field">
-                <label>Search</label>
-                <input placeholder="Search .." value={filters.search} onChange={(e) => onFilterChange((prev) => ({ ...prev, search: e.target.value }))} />
-              </div>
-              <div className="filter-field">
-                <label>Status</label>
-                <select value={filters.status} onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))}>
-                  <option value="">All</option>
-                  <option value="approve">Approve</option>
-                  <option value="pending">Pending</option>
-                  <option value="reject">Reject</option>
-                </select>
-              </div>
-              <div className="filter-field">
-                <label>Export From</label>
+            <div className="compact-filter-item narrow">
+              <select value={filters.status} onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))} aria-label="Filter by status">
+                <option value="">All Statuses</option>
+                <option value="approve">Approve</option>
+                <option value="pending">Pending</option>
+                <option value="reject">Reject</option>
+              </select>
+            </div>
+            <div className="compact-filter-item narrow">
+              <div className="credit-date-field">
+                <span className="credit-date-label">From</span>
                 <input
                   type="date"
                   value={filters.export_from}
                   onChange={(e) => onFilterChange((prev) => ({ ...prev, export_from: e.target.value }))}
+                  aria-label="Export from date"
                 />
               </div>
-              <div className="filter-field">
-                <label>Export To</label>
+            </div>
+            <div className="compact-filter-item narrow">
+              <div className="credit-date-field">
+                <span className="credit-date-label">To</span>
                 <input
                   type="date"
                   value={filters.export_to}
                   onChange={(e) => onFilterChange((prev) => ({ ...prev, export_to: e.target.value }))}
+                  aria-label="Export to date"
                 />
               </div>
-              <div className="filter-actions grow">
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void onExport()}
-                  disabled={exportJobRunning}
-                  style={{ width: '100%' }}
-                >
-                  {exportJobRunning ? 'Exporting...' : 'Export to Excel'}
-                </button>
-              </div>
+            </div>
+            <div className="compact-filter-action">
+              <button
+                className="btn-ghost"
+                type="button"
+                onClick={() => onFilterChange({ search: '', status: '', export_from: '', export_to: '' })}
+                disabled={!filters.search.trim() && !filters.status && !filters.export_from && !filters.export_to}
+                title="Clear all filters"
+                aria-label="Clear all filters"
+                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              >
+                ×
+              </button>
+              <button className="btn" type="button" onClick={() => void onExport()} disabled={exportJobRunning}>
+                {exportJobRunning ? 'Exporting...' : 'Export'}
+              </button>
             </div>
           </div>
         </div>

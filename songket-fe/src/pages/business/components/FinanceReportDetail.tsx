@@ -144,29 +144,21 @@ export default function FinanceReportDetail({
 
             <div className="card">
               <h3>Order In Data</h3>
-              <div className="filter-panel" style={{ marginTop: 10, marginBottom: 12 }}>
-                <div className="filter-panel-head">
-                  <div>
-                    <div className="filter-panel-title">Filter Order In Detail</div>
-                    <div className="filter-panel-subtitle">Cari pooling number, dealer, atau consumer tanpa mengganggu alur analisa detail.</div>
-                  </div>
+              <div className="compact-filter-toolbar" style={{ marginTop: 10, marginBottom: 12 }}>
+                <div className="compact-filter-item grow-2">
+                  <input
+                    placeholder="Pooling number, dealer, consumer..."
+                    value={detailOrderInSearchInput}
+                    onChange={(e) => setDetailOrderInSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') applyDetailOrderInFilters()
+                    }}
+                    aria-label="Search order in detail"
+                  />
                 </div>
-                <div className="filter-grid mobile-filter-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto' }}>
-                  <div className="filter-field">
-                    <label>Search</label>
-                    <input
-                      placeholder="Pooling number, dealer, consumer..."
-                      value={detailOrderInSearchInput}
-                      onChange={(e) => setDetailOrderInSearchInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') applyDetailOrderInFilters()
-                      }}
-                    />
-                  </div>
-                  <div className="filter-actions">
-                    <button className="btn" onClick={applyDetailOrderInFilters}>Apply</button>
-                    <button className="btn-ghost" onClick={resetDetailOrderInFilters}>Reset</button>
-                  </div>
+                <div className="compact-filter-action">
+                  <button className="btn" onClick={applyDetailOrderInFilters}>Apply</button>
+                  <button className="btn-ghost" onClick={resetDetailOrderInFilters}>Reset</button>
                 </div>
               </div>
 

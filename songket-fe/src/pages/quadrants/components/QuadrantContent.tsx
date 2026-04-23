@@ -66,84 +66,90 @@ export default function QuadrantContent({
           Backend-computed job and area points. Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
         </div>
 
-        <div className="filter-panel" style={{ marginTop: 12 }}>
-          <div className="filter-panel-head">
-            <div>
-              <div className="filter-panel-title">Filter Quadrant</div>
-              <div className="filter-panel-subtitle">Pilih area, keyword, dan periode untuk membaca quadrant flow dengan lebih cepat.</div>
-            </div>
+        <div className="compact-filter-toolbar" style={{ marginTop: 12 }}>
+          <div className="compact-filter-item narrow">
+            <select value={filter.province} onChange={(e) => setFilter((prev) => ({ ...prev, province: e.target.value, regency: '' }))} aria-label="Filter by province">
+              <option value="">All Provinces</option>
+              {provinceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="filter-grid">
-            <div className="filter-field">
-              <label>Province</label>
-              <select value={filter.province} onChange={(e) => setFilter((prev) => ({ ...prev, province: e.target.value, regency: '' }))}>
-                <option value="">All</option>
-                {provinceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
 
-            <div className="filter-field">
-              <label>Regency/City</label>
-              <select value={filter.regency} onChange={(e) => setFilter((prev) => ({ ...prev, regency: e.target.value }))} disabled={!regencyOptions.length}>
-                <option value="">All</option>
-                {regencyOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="compact-filter-item narrow">
+            <select value={filter.regency} onChange={(e) => setFilter((prev) => ({ ...prev, regency: e.target.value }))} disabled={!regencyOptions.length} aria-label="Filter by regency">
+              <option value="">All Regencies</option>
+              {regencyOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div className="filter-field">
-              <label>Search Job/Area</label>
-              <input value={filter.search} onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))} placeholder="Search job / province / regency" />
-            </div>
+          <div className="compact-filter-item grow-2">
+            <input value={filter.search} onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))} placeholder="Search job, province, or regency" aria-label="Search quadrant job or area" />
+          </div>
 
-            <div className="filter-field">
-              <label>Year</label>
-              <select
-                value={selectedYear}
-                onChange={(e) => {
-                  const nextYear = e.target.value
-                  setSelectedYear(nextYear)
-                  if (!nextYear) {
-                    setSelectedMonth('')
-                  }
-                }}
-              >
-                <option value="">Latest</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="compact-filter-item narrow">
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                const nextYear = e.target.value
+                setSelectedYear(nextYear)
+                if (!nextYear) {
+                  setSelectedMonth('')
+                }
+              }}
+              aria-label="Filter by year"
+            >
+              <option value="">Latest Year</option>
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div className="filter-field">
-              <label>Month</label>
-              <select
-                value={selectedMonth}
-                onChange={(e) => {
-                  const nextMonth = e.target.value
-                  setSelectedMonth(nextMonth)
-                  if (nextMonth && !selectedYear) {
-                    setSelectedYear(String(currentYear))
-                  }
-                }}
-              >
-                <option value="">Latest</option>
-                {Array.from({ length: 12 }, (_, idx) => (
-                  <option key={`m-${idx + 1}`} value={String(idx + 1)}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="compact-filter-item narrow">
+            <select
+              value={selectedMonth}
+              onChange={(e) => {
+                const nextMonth = e.target.value
+                setSelectedMonth(nextMonth)
+                if (nextMonth && !selectedYear) {
+                  setSelectedYear(String(currentYear))
+                }
+              }}
+              aria-label="Filter by month"
+            >
+              <option value="">Latest Month</option>
+              {Array.from({ length: 12 }, (_, idx) => (
+                <option key={`m-${idx + 1}`} value={String(idx + 1)}>
+                  {String(idx + 1).padStart(2, '0')}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="compact-filter-action">
+            <button
+              className="btn-ghost"
+              onClick={() => {
+                setFilter({ province: '', regency: '', search: '' })
+                setSelectedMonth('')
+                setSelectedYear('')
+              }}
+              disabled={!filter.province && !filter.regency && !filter.search.trim() && !selectedMonth && !selectedYear}
+              title="Clear all filters"
+              aria-label="Clear all filters"
+              style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+            >
+              ×
+            </button>
           </div>
         </div>
 

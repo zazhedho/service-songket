@@ -732,6 +732,84 @@ h4 {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
+  .compact-filter-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+
+  .compact-filter-item {
+    min-width: 0;
+    flex: 1 1 220px;
+  }
+
+  .compact-filter-item.grow-2 {
+    flex: 2 1 280px;
+  }
+
+  .compact-filter-item.narrow {
+    flex: 0 1 170px;
+  }
+
+  .compact-filter-action {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .compact-filter-action .btn,
+  .compact-filter-action .btn-ghost {
+    min-height: 42px;
+  }
+
+  .credit-filter-toolbar {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.15fr) minmax(180px, 1.15fr) minmax(180px, 1.15fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) 52px;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+
+  .credit-filter-item {
+    min-width: 0;
+  }
+
+  .credit-date-field {
+    display: grid;
+    gap: 4px;
+  }
+
+  .credit-date-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1;
+    padding-left: 2px;
+  }
+
+  .credit-filter-action {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .credit-filter-action .btn-ghost {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  @media (max-width: 1180px) {
+    .credit-filter-toolbar {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .credit-filter-action .btn-ghost {
+      width: 52px;
+    }
+  }
+
   .filter-field {
     display: grid;
     gap: 6px;

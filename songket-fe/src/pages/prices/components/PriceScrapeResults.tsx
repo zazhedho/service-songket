@@ -58,18 +58,21 @@ export default function PriceScrapeResults({
         )}
       </div>
 
-      <div className="filter-panel" style={{ marginTop: 10, marginBottom: 10 }}>
-        <div className="filter-panel-head">
-          <div>
-            <div className="filter-panel-title">Search Scrape Results</div>
-            <div className="filter-panel-subtitle">Cari hasil scrape berdasarkan komoditas atau sumber sebelum import.</div>
-          </div>
+      <div className="compact-filter-toolbar" style={{ marginTop: 10 }}>
+        <div className="compact-filter-item grow-2">
+          <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Search commodity or source" aria-label="Search scrape results" />
         </div>
-        <div className="filter-grid">
-          <div className="filter-field">
-            <label>Keyword</label>
-            <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Search commodity/source" />
-          </div>
+        <div className="compact-filter-action">
+          <button
+            className="btn-ghost"
+            onClick={() => setResultSearch('')}
+            disabled={!resultSearch.trim()}
+            title="Clear all filters"
+            aria-label="Clear all filters"
+            style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+          >
+            ×
+          </button>
         </div>
       </div>
 

@@ -56,18 +56,21 @@ export default function NetIncomeList({
 
       <div className="page">
         <div className="card">
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Search Net Income</div>
-                <div className="filter-panel-subtitle">Cari data net income berdasarkan job yang terhubung.</div>
-              </div>
+          <div className="compact-filter-toolbar">
+            <div className="compact-filter-item grow-2">
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search job name" aria-label="Search job name" />
             </div>
-            <div className="filter-grid">
-              <div className="filter-field">
-                <label>Keyword</label>
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search job name" />
-              </div>
+            <div className="compact-filter-action">
+              <button
+                className="btn-ghost"
+                onClick={() => setSearch('')}
+                disabled={!search.trim()}
+                title="Clear all filters"
+                aria-label="Clear all filters"
+                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              >
+                ×
+              </button>
             </div>
           </div>
 

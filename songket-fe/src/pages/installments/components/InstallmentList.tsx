@@ -68,38 +68,44 @@ export default function InstallmentList({
 
       <div className="page">
         <div className="card">
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Filter Installment</div>
-                <div className="filter-panel-subtitle">Cari installment motor dengan kombinasi keyword dan area coverage.</div>
-              </div>
+          <div className="compact-filter-toolbar">
+            <div className="compact-filter-item grow-2">
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" aria-label="Search installment motor type" />
             </div>
-            <div className="filter-grid">
-              <div className="filter-field">
-                <label>Search</label>
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" />
-              </div>
 
-              <div className="filter-field">
-                <label>Filter Province</label>
-                <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}>
-                  <option value="">All</option>
-                  {provinces.map((province: any) => (
-                    <option key={province.code} value={province.code}>{province.name}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="compact-filter-item">
+              <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)} aria-label="Filter by province">
+                <option value="">All Provinces</option>
+                {provinces.map((province: any) => (
+                  <option key={province.code} value={province.code}>{province.name}</option>
+                ))}
+              </select>
+            </div>
 
-              <div className="filter-field">
-                <label>Filter Regency</label>
-                <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter}>
-                  <option value="">All</option>
-                  {filterRegencies.map((regency: any) => (
-                    <option key={regency.code} value={regency.code}>{regency.name}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="compact-filter-item">
+              <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter} aria-label="Filter by regency">
+                <option value="">All Regencies</option>
+                {filterRegencies.map((regency: any) => (
+                  <option key={regency.code} value={regency.code}>{regency.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="compact-filter-action">
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  setSearch('')
+                  setProvinceFilter('')
+                  setRegencyFilter('')
+                }}
+                disabled={!search.trim() && !provinceFilter && !regencyFilter}
+                title="Clear all filters"
+                aria-label="Clear all filters"
+                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              >
+                ×
+              </button>
             </div>
           </div>
         </div>

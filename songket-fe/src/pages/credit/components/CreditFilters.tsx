@@ -51,17 +51,8 @@ export default function CreditFilters({
   }))]
 
   return (
-    <div className="filter-panel">
-      <div className="filter-panel-head">
-        <div>
-          <div className="filter-panel-title">Filter Credit Worksheet</div>
-          <div className="filter-panel-subtitle">Pilih kombinasi job, area, motor, dan periode tanpa mengubah hasil perhitungan.</div>
-        </div>
-      </div>
-
-      <div className="filter-grid">
-        <div className="filter-field">
-          <label htmlFor="credit-job-select">Job</label>
+    <div className="credit-filter-toolbar">
+      <div className="credit-filter-item">
           <SearchableSelect
             id="credit-job-select"
             value={selectedJobId}
@@ -71,10 +62,9 @@ export default function CreditFilters({
             searchPlaceholder="Search job..."
             emptyMessage="Job not found."
           />
-        </div>
+      </div>
 
-        <div className="filter-field">
-          <label htmlFor="credit-area-select">Area</label>
+      <div className="credit-filter-item">
           <SearchableSelect
             id="credit-area-select"
             value={selectedAreaKey}
@@ -84,10 +74,9 @@ export default function CreditFilters({
             searchPlaceholder="Search area..."
             emptyMessage="Area not found."
           />
-        </div>
+      </div>
 
-        <div className="filter-field">
-          <label htmlFor="credit-motor-select">Motor Type</label>
+      <div className="credit-filter-item">
           <SearchableSelect
             id="credit-motor-select"
             value={selectedMotorTypeId}
@@ -97,33 +86,47 @@ export default function CreditFilters({
             searchPlaceholder="Search motor type..."
             emptyMessage="Motor type not found."
           />
-        </div>
+      </div>
 
-        <div className="filter-field">
-          <label htmlFor="credit-time-from">Time From</label>
-          <input id="credit-time-from" type="date" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} />
+      <div className="credit-filter-item">
+        <div className="credit-date-field">
+          <span className="credit-date-label">From</span>
+          <input
+            id="credit-time-from"
+            type="date"
+            value={timeFrom}
+            onChange={(e) => setTimeFrom(e.target.value)}
+            aria-label="Filter by start date"
+            title="Filter by start date"
+          />
         </div>
+      </div>
 
-        <div className="filter-field">
-          <label htmlFor="credit-time-to">Time To</label>
-          <input id="credit-time-to" type="date" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} />
+      <div className="credit-filter-item">
+        <div className="credit-date-field">
+          <span className="credit-date-label">To</span>
+          <input
+            id="credit-time-to"
+            type="date"
+            value={timeTo}
+            onChange={(e) => setTimeTo(e.target.value)}
+            aria-label="Filter by end date"
+            title="Filter by end date"
+          />
         </div>
+      </div>
 
-        <div className="filter-field">
-          <label>&nbsp;</label>
-          <div className="filter-actions" style={{ justifyContent: 'flex-start' }}>
-            <button
-              className="btn-ghost"
-              onClick={onReset}
-              disabled={!hasActiveFilters}
-              title="Clear all filters"
-              aria-label="Clear all filters"
-              style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
-            >
-              ×
-            </button>
-          </div>
-        </div>
+      <div className="credit-filter-item credit-filter-action">
+        <button
+          className="btn-ghost"
+          onClick={onReset}
+          disabled={!hasActiveFilters}
+          title="Clear all filters"
+          aria-label="Clear all filters"
+          style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+        >
+          ×
+        </button>
       </div>
     </div>
   )

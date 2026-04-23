@@ -54,27 +54,33 @@ export default function ScrapeSourceList({
 
       <div className="page">
         <div className="card">
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Filter Source</div>
-                <div className="filter-panel-subtitle">Cari source scraping berdasarkan nama, URL, kategori, dan tipe.</div>
-              </div>
+          <div className="compact-filter-toolbar">
+            <div className="compact-filter-item grow-2">
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, URL, or category" aria-label="Search scrape source" />
             </div>
-            <div className="filter-grid">
-              <div className="filter-field">
-                <label>Search Source</label>
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/url/category" />
-              </div>
 
-              <div className="filter-field">
-                <label>Filter Type</label>
-                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                  <option value="">All</option>
-                  <option value="prices">Commodity Prices</option>
-                  <option value="news">News Portal</option>
-                </select>
-              </div>
+            <div className="compact-filter-item narrow">
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Filter by source type">
+                <option value="">All Types</option>
+                <option value="prices">Commodity Prices</option>
+                <option value="news">News Portal</option>
+              </select>
+            </div>
+
+            <div className="compact-filter-action">
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  setSearch('')
+                  setTypeFilter('')
+                }}
+                disabled={!search.trim() && !typeFilter}
+                title="Clear all filters"
+                aria-label="Clear all filters"
+                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              >
+                ×
+              </button>
             </div>
           </div>
 

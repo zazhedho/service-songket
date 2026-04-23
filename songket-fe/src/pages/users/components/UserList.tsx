@@ -50,18 +50,21 @@ export default function UserList({
 
       <div className="page">
         <div className="card">
-          <div className="filter-panel">
-            <div className="filter-panel-head">
-              <div>
-                <div className="filter-panel-title">Search User</div>
-                <div className="filter-panel-subtitle">Filter cepat berdasarkan nama, email, atau nomor telepon.</div>
-              </div>
+          <div className="compact-filter-toolbar">
+            <div className="compact-filter-item grow-2">
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, or phone" aria-label="Search user" />
             </div>
-            <div className="filter-grid">
-              <div className="filter-field">
-                <label>Keyword</label>
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/email/phone" />
-              </div>
+            <div className="compact-filter-action">
+              <button
+                className="btn-ghost"
+                onClick={() => setSearch('')}
+                disabled={!search.trim()}
+                title="Clear all filters"
+                aria-label="Clear all filters"
+                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              >
+                ×
+              </button>
             </div>
           </div>
 

@@ -53,26 +53,27 @@ export default function NewsList({
       {canView && (
         <div className="page">
           <div className="card">
-            <div className="filter-panel">
-              <div className="filter-panel-head">
-                <div>
-                  <div className="filter-panel-title">Filter News</div>
-                  <div className="filter-panel-subtitle">Saring berita berdasarkan kategori sebelum membuka detail.</div>
-                </div>
-                <div className="filter-actions">
-                  {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape News</button>}
-                </div>
+            <div className="compact-filter-toolbar">
+              <div className="compact-filter-item narrow">
+                <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Filter by news category">
+                  <option value="">All Categories</option>
+                  <option value="agri">Agriculture</option>
+                  <option value="pariwisata">Tourism</option>
+                  <option value="pns">PNS/Gov</option>
+                </select>
               </div>
-              <div className="filter-grid">
-                <div className="filter-field">
-                  <label>Category</label>
-                  <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 220 }}>
-                    <option value="">All</option>
-                    <option value="agri">Agriculture</option>
-                    <option value="pariwisata">Tourism</option>
-                    <option value="pns">PNS/Gov</option>
-                  </select>
-                </div>
+              <div className="compact-filter-action">
+                <button
+                  className="btn-ghost"
+                  onClick={() => setCategory('')}
+                  disabled={!category}
+                  title="Clear all filters"
+                  aria-label="Clear all filters"
+                  style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+                >
+                  ×
+                </button>
+                {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape News</button>}
               </div>
             </div>
             <h3>News List</h3>
