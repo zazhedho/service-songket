@@ -9,7 +9,7 @@ type Props = {
   disabled?: boolean
 }
 
-const DEFAULT_LIMIT_OPTIONS = [10, 20, 50, 100]
+const DEFAULT_LIMIT_OPTIONS = [5, 10, 20, 50, 100]
 
 export default function Pagination({
   page,

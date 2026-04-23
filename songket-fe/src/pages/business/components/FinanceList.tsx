@@ -129,6 +129,7 @@ export default function FinanceList({
   }))]
 
   const selectedProvinceLabel = provinceOptions.find((option) => option.value === dealerProvinceFilter)?.label || 'All Provinces'
+  const selectedFinanceProvinceLabel = provinceOptions.find((option) => option.value === financeProvinceFilter)?.label || 'All Provinces'
   const visibleMappedDealers = dealers.filter((dealer) => hasCoordinate(dealer)).length
 
   return (
@@ -234,11 +235,13 @@ export default function FinanceList({
                       return (
                         <div className="dealer-list-cell">
                           <div className="dealer-list-title-row">
-                            <span className="dealer-list-title">{dealer.name || '-'}</span>
+                            <span className="dealer-list-title table-text-ellipsis" title={dealer.name || '-'}>
+                              {dealer.name || '-'}
+                            </span>
                             {isFocused && <span className="badge pending">Focused</span>}
                           </div>
                           <div className="dealer-list-note">
-                            {isFocused ? 'Highlighted on the map and dealer performance panel.' : 'Click the row to focus this dealer.'}
+                            {isFocused ? 'Focused on the map and performance panel.' : 'Click the row to focus.'}
                           </div>
                         </div>
                       )
@@ -254,8 +257,8 @@ export default function FinanceList({
                       const province = summarizeLocation([locationNames.province || dealer.province])
                       return (
                         <div className="dealer-list-cell">
-                          <div className="dealer-list-title">{regency}</div>
-                          <div className="dealer-list-note">{province}</div>
+                          <div className="dealer-list-title table-text-ellipsis" title={regency}>{regency}</div>
+                          <div className="dealer-list-note table-text-ellipsis" title={province}>{province}</div>
                         </div>
                       )
                     },
@@ -270,8 +273,8 @@ export default function FinanceList({
                       const village = String(dealer.village || '').trim() || '-'
                       return (
                         <div className="dealer-list-cell">
-                          <div className="dealer-list-title">{district}</div>
-                          <div className="dealer-list-subnote">{village}</div>
+                          <div className="dealer-list-title table-text-ellipsis" title={district}>{district}</div>
+                          <div className="dealer-list-subnote table-text-ellipsis" title={village}>{village}</div>
                         </div>
                       )
                     },
@@ -283,7 +286,7 @@ export default function FinanceList({
                     accessor: (dealer: any) => {
                       return (
                         <div className="dealer-list-cell">
-                          <div className="dealer-list-title">{dealer.phone || '-'}</div>
+                          <div className="dealer-list-title table-text-ellipsis" title={dealer.phone || '-'}>{dealer.phone || '-'}</div>
                         </div>
                       )
                     },
@@ -405,6 +408,24 @@ export default function FinanceList({
         {listSection === 'finance' && (
           <>
             <div className="card">
+              <div className="dealer-list-summary finance-list-summary">
+                <div className="dealer-summary-card">
+                  <div className="dealer-summary-label">Total Finance Companies</div>
+                  <div className="dealer-summary-value">{financeTotalData || financeCompanies.length}</div>
+                  <div className="dealer-summary-note">Current result count for finance company data.</div>
+                </div>
+                <div className="dealer-summary-card">
+                  <div className="dealer-summary-label">Province Scope</div>
+                  <div className="dealer-summary-value dealer-summary-value-text">{selectedFinanceProvinceLabel}</div>
+                  <div className="dealer-summary-note">Current province filter applied to the finance company table.</div>
+                </div>
+                <div className="dealer-summary-card">
+                  <div className="dealer-summary-label">Focused Dealer</div>
+                  <div className="dealer-summary-value dealer-summary-value-text">{selectedDealerName}</div>
+                  <div className="dealer-summary-note">The finance performance card below follows this selected dealer.</div>
+                </div>
+              </div>
+
               <div className="compact-filter-toolbar">
                 <div className="compact-filter-item grow-2">
                   <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search finance name, regency, or phone" aria-label="Search finance company" />
@@ -445,14 +466,83 @@ export default function FinanceList({
               </div>
 
               <Table
+                className="finance-company-table"
                 data={financeCompanies}
                 keyField="id"
                 onRowClick={(company: any) => navigate(`${financeBasePath}/companies/${company.id}`, { state: { company } })}
                 emptyMessage="No finance company available."
                 columns={[
-                  { header: 'Name', accessor: 'name' },
-                  { header: 'Regency', accessor: (company: any) => summarizeLocation([financeCompanyLocationNameMap[String(company.id)]?.regency]) },
-                  { header: 'Phone', accessor: (company: any) => company.phone || '-' },
+                  {
+                    header: 'Finance Company',
+                    accessor: (company: any) => (
+                      <div className="dealer-list-cell">
+                        <div className="dealer-list-title table-text-ellipsis" title={company.name || '-'}>
+                          {company.name || '-'}
+                        </div>
+                        <div className="dealer-list-note">Click the row to open.</div>
+                      </div>
+                    ),
+                    className: 'finance-company-col-name',
+                    headerClassName: 'finance-company-col-name',
+                  },
+                  {
+                    header: 'Location',
+                    accessor: (company: any) => {
+                      const locationNames = financeCompanyLocationNameMap[String(company.id)] || {}
+                      const regency = summarizeLocation([locationNames.regency || company.regency])
+                      const province =
+                        provinceOptions.find((option) => option.value === String(company.province || ''))?.label ||
+                        summarizeLocation([company.province])
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-title table-text-ellipsis" title={regency}>{regency}</div>
+                          <div className="dealer-list-note table-text-ellipsis" title={province}>{province}</div>
+                        </div>
+                      )
+                    },
+                    className: 'finance-company-col-location',
+                    headerClassName: 'finance-company-col-location',
+                  },
+                  {
+                    header: 'District / Village',
+                    accessor: (company: any) => (
+                      <div className="dealer-list-cell">
+                        <div className="dealer-list-title table-text-ellipsis" title={summarizeLocation([company.district])}>
+                          {summarizeLocation([company.district])}
+                        </div>
+                        <div className="dealer-list-subnote table-text-ellipsis" title={String(company.village || '').trim() || '-'}>
+                          {String(company.village || '').trim() || '-'}
+                        </div>
+                      </div>
+                    ),
+                    className: 'finance-company-col-area',
+                    headerClassName: 'finance-company-col-area',
+                  },
+                  {
+                    header: 'Phone',
+                    accessor: (company: any) => (
+                      <div className="dealer-list-cell">
+                        <div className="dealer-list-title table-text-ellipsis" title={company.phone || '-'}>{company.phone || '-'}</div>
+                      </div>
+                    ),
+                    className: 'finance-company-col-phone',
+                    headerClassName: 'finance-company-col-phone',
+                  },
+                  {
+                    header: 'Address',
+                    accessor: (company: any) => {
+                      const addressText = String(company.address || '-')
+                      return (
+                        <div className="dealer-list-cell">
+                          <div className="dealer-list-note table-text-ellipsis" title={addressText}>
+                            {addressText}
+                          </div>
+                        </div>
+                      )
+                    },
+                    className: 'finance-company-col-address',
+                    headerClassName: 'finance-company-col-address',
+                  },
                   {
                     header: 'Action',
                     accessor: (company: any) => (
@@ -481,8 +571,23 @@ export default function FinanceList({
                     ),
                     className: 'action-cell',
                     ignoreRowClick: true,
+                    headerClassName: 'finance-company-col-action',
+                    style: { width: '1%' },
                   },
                 ]}
+                emptyState={
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="dealer-empty-state">
+                        <div className="dealer-empty-icon">
+                          <i className="bi bi-bank"></i>
+                        </div>
+                        <div className="dealer-empty-title">No finance companies found</div>
+                        <div className="dealer-empty-note">Try a different keyword or province filter, or create a new finance company entry.</div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               />
 
               <Pagination
@@ -500,7 +605,7 @@ export default function FinanceList({
 
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Finance Performence</h3>
+                <h3>Finance Performance</h3>
                 <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
               </div>
 

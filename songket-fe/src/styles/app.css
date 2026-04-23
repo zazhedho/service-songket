@@ -1997,6 +1997,39 @@ h4 {
     text-align: right;
   }
 
+  .finance-company-col-name {
+    width: 22%;
+  }
+
+  .finance-company-col-location {
+    width: 22%;
+  }
+
+  .finance-company-col-area {
+    width: 16%;
+  }
+
+  .finance-company-col-phone {
+    width: 14%;
+  }
+
+  .finance-company-col-address {
+    width: 18%;
+  }
+
+  .finance-company-col-action {
+    width: 8%;
+  }
+
+  .finance-company-table td.action-cell,
+  .finance-company-table th.finance-company-col-action {
+    white-space: nowrap;
+  }
+
+  .finance-company-table td.action-cell {
+    text-align: right;
+  }
+
   .finance-dealer-table td.finance-dealer-location-cell {
     max-width: 0;
     white-space: nowrap;
@@ -2052,6 +2085,7 @@ h4 {
   .dealer-list-cell {
     display: grid;
     gap: 4px;
+    min-width: 0;
   }
 
   .dealer-list-title-row {
@@ -2059,6 +2093,7 @@ h4 {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .dealer-list-title {
@@ -2066,20 +2101,33 @@ h4 {
     font-weight: 700;
     line-height: 1.35;
     color: #0f172a;
-    word-break: break-word;
   }
 
   .dealer-list-note {
     font-size: 12px;
     line-height: 1.45;
     color: #64748b;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .dealer-list-subnote {
     font-size: 11px;
     line-height: 1.45;
     color: #94a3b8;
-    word-break: break-word;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .table-text-ellipsis {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .dealer-list-pill-row {

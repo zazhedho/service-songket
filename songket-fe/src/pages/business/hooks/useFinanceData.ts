@@ -26,11 +26,11 @@ export function useFinanceData({
   const [dealers, setDealers] = useState<any[]>([])
   const [financeCompanies, setFinanceCompanies] = useState<any[]>([])
   const [dealerPage, setDealerPage] = useState(1)
-  const [dealerLimit, setDealerLimit] = useState(10)
+  const [dealerLimit, setDealerLimit] = useState(5)
   const [dealerTotalPages, setDealerTotalPages] = useState(1)
   const [dealerTotalData, setDealerTotalData] = useState(0)
   const [financePage, setFinancePage] = useState(1)
-  const [financeLimit, setFinanceLimit] = useState(20)
+  const [financeLimit, setFinanceLimit] = useState(5)
   const [financeTotalPages, setFinanceTotalPages] = useState(1)
   const [financeTotalData, setFinanceTotalData] = useState(0)
   const [dealerFinancePage, setDealerFinancePage] = useState(1)
@@ -86,7 +86,10 @@ export function useFinanceData({
     setFinanceTotalData(companyRes.data.total_data || 0)
     setFinancePage(companyRes.data.current_page || financePage)
 
-    if (!Array.isArray(companyData) || companyData.length === 0) {
+    const hasActiveFinanceFilter = Boolean(debouncedFinanceSearch || financeProvinceFilter)
+    const allowFallback = !hasActiveFinanceFilter && financePage === 1
+
+    if ((!Array.isArray(companyData) || companyData.length === 0) && allowFallback) {
       if (!financeCompanyFallbackRef.current) {
         const lookupRes = await fetchLookups()
         if (businessDataRequestIdRef.current !== requestId) return
