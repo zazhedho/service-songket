@@ -1,3 +1,5 @@
+import { MAX_CURRENCY_INPUT_LENGTH } from '../../../utils/currency'
+
 type PriceFormProps = {
   canImport: boolean
   manual: {
@@ -54,6 +56,7 @@ export default function PriceForm({
                 inputMode="numeric"
                 value={manual.price}
                 onChange={(e) => setManual((m) => ({ ...m, price: formatRupiahInput(e.target.value) }))}
+                maxLength={MAX_CURRENCY_INPUT_LENGTH}
                 placeholder="IDR 10,000"
               />
             </div>

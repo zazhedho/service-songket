@@ -1,7 +1,7 @@
 import { FormEvent } from 'react'
 import dayjs from 'dayjs'
 import SearchableSelect from '../../../components/common/SearchableSelect'
-import { formatRupiah } from '../../../utils/currency'
+import { formatRupiah, MAX_CURRENCY_INPUT_LENGTH } from '../../../utils/currency'
 import { sanitizeDigits } from '../../../utils/input'
 
 type OrderFormViewProps = {
@@ -52,6 +52,7 @@ export default function OrderFormView({
   submit,
 }: OrderFormViewProps) {
   const dpPct = selectedMotor?.otr ? ((form.dp_paid / selectedMotor.otr) * 100).toFixed(1) : '0'
+  const dpPctDisplay = `${dpPct}%`
   const dealerOptions = [
     { value: '', label: 'Select' },
     ...(lookups?.dealers || []).map((dealer: any) => ({ value: String(dealer.id || ''), label: String(dealer.name || dealer.id || '-') })),
@@ -252,6 +253,7 @@ export default function OrderFormView({
                 value={formatRupiah(form.dp_gross)}
                 onChange={(e) => set('dp_gross', parseNumber(e.target.value))}
                 inputMode="numeric"
+                maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                 placeholder="Enter DP gross"
               />
             </div>
@@ -263,13 +265,17 @@ export default function OrderFormView({
                 value={formatRupiah(form.dp_paid)}
                 onChange={(e) => set('dp_paid', parseNumber(e.target.value))}
                 inputMode="numeric"
+                maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                 placeholder="Enter DP paid"
               />
             </div>
 
             <div>
-              <label>%DP (auto)</label>
-              <input value={dpPct} readOnly placeholder="Calculated automatically" />
+              <label>%DP (Auto Calculated)</label>
+              <input value={dpPctDisplay} readOnly placeholder="Calculated automatically" title="Calculated automatically from DP Paid and OTR" />
+              <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+                Calculated automatically from DP Paid and OTR.
+              </div>
             </div>
 
             <div>
@@ -291,6 +297,7 @@ export default function OrderFormView({
                 value={formatRupiah(form.installment)}
                 onChange={(e) => set('installment', parseNumber(e.target.value))}
                 inputMode="numeric"
+                maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                 placeholder="Enter installment amount"
               />
             </div>

@@ -1,4 +1,5 @@
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { MAX_CURRENCY_INPUT_LENGTH } from '../../../utils/currency'
 
 type MotorTypeFormProps = {
   canCreate: boolean
@@ -89,6 +90,7 @@ export default function MotorTypeForm({
                 value={formatRupiah(form.otr)}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))}
                 inputMode="numeric"
+                maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                 placeholder="Enter OTR amount"
               />
             </div>

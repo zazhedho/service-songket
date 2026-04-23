@@ -21,6 +21,7 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
+import { parseRupiahInput } from '../../utils/currency'
 import OrderList from './components/OrderList'
 import { getAttempt, lookupOptionName, resolveOptionCode } from './components/orderHelpers'
 
@@ -587,7 +588,7 @@ export default function OrdersPage() {
 
   const set = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }))
 
-  const parseNumber = (value: string) => Number(value.replace(/[^0-9]/g, '')) || 0
+  const parseNumber = (value: string) => parseRupiahInput(value)
   const exportJobRunning = exportJob?.status === 'queued' || exportJob?.status === 'running' || exportDownloading
 
   if (isDetail) {

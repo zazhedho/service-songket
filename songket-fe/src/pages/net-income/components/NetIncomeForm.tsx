@@ -1,4 +1,5 @@
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { MAX_CURRENCY_INPUT_LENGTH } from '../../../utils/currency'
 
 type NetIncomeFormProps = {
   addArea: () => void
@@ -87,6 +88,7 @@ export default function NetIncomeForm({
                 inputMode="numeric"
                 value={form.net_income}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, net_income: formatRupiahInput(e.target.value) }))}
+                maxLength={MAX_CURRENCY_INPUT_LENGTH}
                 placeholder="Enter net income"
               />
             </div>

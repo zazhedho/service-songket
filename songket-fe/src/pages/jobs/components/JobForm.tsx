@@ -1,4 +1,5 @@
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { MAX_CURRENCY_INPUT_LENGTH } from '../../../utils/currency'
 
 type JobFormProps = {
   addArea: () => void
@@ -72,6 +73,7 @@ export default function JobForm({
                 inputMode="numeric"
                 value={form.net_income}
                 onChange={(e) => setForm((prev: any) => ({ ...prev, net_income: e.target.value }))}
+                maxLength={MAX_CURRENCY_INPUT_LENGTH}
                 placeholder="Enter net income"
               />
             </div>

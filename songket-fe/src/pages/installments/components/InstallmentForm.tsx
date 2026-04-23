@@ -1,4 +1,5 @@
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { MAX_CURRENCY_INPUT_LENGTH } from '../../../utils/currency'
 
 type InstallmentFormProps = {
   canCreate: boolean
@@ -69,7 +70,7 @@ export default function InstallmentForm({
 
             <div>
               <label>OTR</label>
-              <input type="text" value={formatRupiah(form.otr)} onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))} inputMode="numeric" placeholder="Enter OTR amount" />
+              <input type="text" value={formatRupiah(form.otr)} onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))} inputMode="numeric" maxLength={MAX_CURRENCY_INPUT_LENGTH + 3} placeholder="Enter OTR amount" />
             </div>
 
             <div>
@@ -97,7 +98,7 @@ export default function InstallmentForm({
 
             <div>
               <label>Installment Amount</label>
-              <input type="text" value={formatRupiah(form.amount)} onChange={(e) => setForm((prev: any) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))} inputMode="numeric" placeholder="Enter installment amount" />
+              <input type="text" value={formatRupiah(form.amount)} onChange={(e) => setForm((prev: any) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))} inputMode="numeric" maxLength={MAX_CURRENCY_INPUT_LENGTH + 3} placeholder="Enter installment amount" />
             </div>
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
