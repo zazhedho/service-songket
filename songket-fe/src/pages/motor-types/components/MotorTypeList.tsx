@@ -10,6 +10,7 @@ type MotorTypeListProps = {
   canUpdate: boolean
   canView: boolean
   filterRegencies: any[]
+  formatDate: (value?: string) => string
   formatRupiah: (value: number) => string
   items: any[]
   limit: number
@@ -36,6 +37,7 @@ export default function MotorTypeList({
   canUpdate,
   canView,
   filterRegencies,
+  formatDate,
   formatRupiah,
   items,
   limit,
@@ -214,6 +216,16 @@ export default function MotorTypeList({
                     headerClassName: 'motor-type-col-area',
                   },
                   {
+                    header: 'Updated',
+                    accessor: (item: any) => (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title">{formatDate(item.updated_at)}</div>
+                      </div>
+                    ),
+                    className: 'motor-type-col-updated',
+                    headerClassName: 'motor-type-col-updated',
+                  },
+                  {
                     header: 'Action',
                     accessor: (item: any) => (
                       <ActionMenu
@@ -247,7 +259,7 @@ export default function MotorTypeList({
                 ]}
                 emptyState={
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <div className="entity-empty-state">
                         <div className="entity-empty-icon">
                           <i className="bi bi-bicycle"></i>

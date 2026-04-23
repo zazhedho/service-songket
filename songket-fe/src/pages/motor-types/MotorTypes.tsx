@@ -308,6 +308,7 @@ export default function MotorTypesPage() {
       canUpdate={canUpdate}
       canView={canView}
       filterRegencies={filterRegencies}
+      formatDate={formatDate}
       formatRupiah={formatRupiah}
       items={items}
       limit={limit}

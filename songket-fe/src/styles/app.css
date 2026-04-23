@@ -2382,12 +2382,12 @@ h4 {
 
   .job-list-col-area,
   .net-income-col-area {
-    width: 28%;
+    width: 24%;
   }
 
   .job-list-col-updated,
   .net-income-col-updated {
-    width: 14%;
+    width: 18%;
   }
 
   .job-list-col-action,
@@ -2407,6 +2407,16 @@ h4 {
   .net-income-list-table .action-cell {
     padding-left: 8px;
     padding-right: 8px;
+  }
+
+  .job-list-table td.job-list-col-updated,
+  .net-income-list-table td.net-income-col-updated,
+  .job-list-table th.job-list-col-updated,
+  .net-income-list-table th.net-income-col-updated {
+    max-width: none;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .price-list-col-commodity {
@@ -2472,23 +2482,27 @@ h4 {
   }
 
   .motor-type-col-type {
-    width: 28%;
-  }
-
-  .motor-type-col-brand {
-    width: 24%;
-  }
-
-  .motor-type-col-otr {
-    width: 16%;
-  }
-
-  .motor-type-col-area {
     width: 22%;
   }
 
+  .motor-type-col-brand {
+    width: 21%;
+  }
+
+  .motor-type-col-otr {
+    width: 15%;
+  }
+
+  .motor-type-col-area {
+    width: 20%;
+  }
+
+  .motor-type-col-updated {
+    width: 14%;
+  }
+
   .motor-type-col-action {
-    width: 10%;
+    width: 8%;
   }
 
   .motor-type-list-table .action-cell,
@@ -2502,12 +2516,22 @@ h4 {
     padding-right: 8px;
   }
 
+  .motor-type-list-table td.motor-type-col-updated,
+  .motor-type-list-table th.motor-type-col-updated,
+  .installment-list-table td.installment-col-updated,
+  .installment-list-table th.installment-col-updated {
+    max-width: none;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .installment-col-type {
-    width: 22%;
+    width: 20%;
   }
 
   .installment-col-brand {
-    width: 20%;
+    width: 18%;
   }
 
   .installment-col-otr {
@@ -2515,19 +2539,19 @@ h4 {
   }
 
   .installment-col-area {
-    width: 18%;
+    width: 16%;
   }
 
   .installment-col-amount {
-    width: 14%;
+    width: 16%;
   }
 
   .installment-col-updated {
-    width: 12%;
+    width: 10%;
   }
 
   .installment-col-action {
-    width: 10%;
+    width: 6%;
   }
 
   .installment-list-table .action-cell,
@@ -2539,6 +2563,110 @@ h4 {
   .installment-list-table .action-cell {
     padding-left: 8px;
     padding-right: 8px;
+  }
+
+  .menu-list-col-menu {
+    width: 20%;
+  }
+
+  .menu-list-col-path {
+    width: 24%;
+  }
+
+  .menu-list-col-parent {
+    width: 18%;
+  }
+
+  .menu-list-col-status {
+    width: 18%;
+  }
+
+  .menu-list-col-updated {
+    width: 14%;
+  }
+
+  .menu-list-col-action {
+    width: 6%;
+  }
+
+  .menu-list-table .action-cell,
+  .menu-list-table th.menu-list-col-action,
+  .news-list-table .action-cell,
+  .news-list-table th.news-list-col-action,
+  .settings-list-table .action-cell,
+  .settings-list-table th.settings-list-col-action {
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .menu-list-table .action-cell,
+  .news-list-table .action-cell,
+  .settings-list-table .action-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .menu-list-table td.menu-list-col-updated,
+  .menu-list-table th.menu-list-col-updated,
+  .news-list-table td.news-list-col-created,
+  .news-list-table th.news-list-col-created,
+  .settings-list-table td.settings-list-col-updated,
+  .settings-list-table th.settings-list-col-updated {
+    max-width: none;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .news-list-col-article {
+    width: 22%;
+  }
+
+  .news-list-col-preview {
+    width: 28%;
+  }
+
+  .news-list-col-created {
+    width: 14%;
+  }
+
+  .news-list-col-source {
+    width: 20%;
+  }
+
+  .news-list-col-link {
+    width: 10%;
+  }
+
+  .news-list-col-action {
+    width: 6%;
+  }
+
+  .news-list-preview {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #334155;
+  }
+
+  .settings-list-col-setting {
+    width: 28%;
+  }
+
+  .settings-list-col-status {
+    width: 22%;
+  }
+
+  .settings-list-col-interval {
+    width: 20%;
+  }
+
+  .settings-list-col-updated {
+    width: 18%;
+  }
+
+  .settings-list-col-action {
+    width: 12%;
   }
 
   .dealer-list-pill-row {

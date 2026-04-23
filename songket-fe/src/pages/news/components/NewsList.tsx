@@ -46,6 +46,13 @@ export default function NewsList({
     { value: 'pariwisata', label: 'Tourism' },
     { value: 'pns', label: 'PNS/Gov' },
   ]
+  const sourceCount = new Set(
+    items
+      .map((item) => String(item.source_name || item.source?.name || toDetailRow(item).sumber || '').trim())
+      .filter(Boolean),
+  ).size
+  const selectedCategoryLabel = categoryOptions.find((option) => option.value === category)?.label || 'All Categories'
+  const formatDate = (value: unknown) => value ? dayjs(String(value)).format('DD MMM YYYY HH:mm') : '-'
 
   return (
     <div>
@@ -61,6 +68,24 @@ export default function NewsList({
       {canView && (
         <div className="page">
           <div className="card">
+            <div className="entity-list-summary">
+              <div className="entity-summary-card">
+                <div className="entity-summary-label">Total Articles</div>
+                <div className="entity-summary-value">{totalData || items.length}</div>
+                <div className="entity-summary-note">Saved news entries in the current result set.</div>
+              </div>
+              <div className="entity-summary-card">
+                <div className="entity-summary-label">Sources</div>
+                <div className="entity-summary-value">{sourceCount}</div>
+                <div className="entity-summary-note">Distinct news sources represented in this list.</div>
+              </div>
+              <div className="entity-summary-card">
+                <div className="entity-summary-label">Category Scope</div>
+                <div className="entity-summary-value" style={{ fontSize: 22 }}>{selectedCategoryLabel}</div>
+                <div className="entity-summary-note">Current category filter applied to the news list.</div>
+              </div>
+            </div>
+
             <div className="compact-filter-toolbar">
               <div className="compact-filter-item narrow">
                 <SearchableSelect
@@ -87,31 +112,73 @@ export default function NewsList({
             </div>
             <h3>News List</h3>
             <Table
+              className="news-list-table"
               data={items}
               keyField={(item) => String(item.id || item.url)}
               onRowClick={(item) => navigate(`/news/${item.id}`, { state: { detail: toDetailRow(item) } })}
               emptyMessage="No saved news yet."
               columns={[
-                { header: 'Title', accessor: (item) => item.title || '-', style: { maxWidth: 320 } },
-                { header: 'Content', accessor: (item) => shortText(item.content || '', 180), style: { maxWidth: 360, wordBreak: 'break-word' } },
                 {
-                  header: 'Created At',
-                  accessor: (item) => (item.published_at || item.created_at)
-                    ? dayjs(item.published_at || item.created_at).format('DD MMM YYYY HH:mm')
-                    : '-',
+                  header: 'Article',
+                  accessor: (item) => (
+                    <div className="entity-list-cell">
+                      <div className="entity-list-title table-text-ellipsis" title={item.title || '-'}>
+                        {item.title || '-'}
+                      </div>
+                      <div className="entity-list-note">
+                        {categoryOptions.find((option) => option.value === item.category)?.label || item.category || 'Uncategorized'}
+                      </div>
+                    </div>
+                  ),
+                  className: 'news-list-col-article',
+                  headerClassName: 'news-list-col-article',
+                },
+                {
+                  header: 'Preview',
+                  accessor: (item) => (
+                    <div className="entity-list-cell">
+                      <div className="entity-list-title news-list-preview">
+                        {shortText(item.content || '', 180) || '-'}
+                      </div>
+                    </div>
+                  ),
+                  className: 'news-list-col-preview',
+                  headerClassName: 'news-list-col-preview',
+                },
+                {
+                  header: 'Published',
+                  accessor: (item) => (
+                    <div className="entity-list-cell">
+                      <div className="entity-list-title">{formatDate(item.published_at || item.created_at)}</div>
+                    </div>
+                  ),
+                  className: 'news-list-col-created',
+                  headerClassName: 'news-list-col-created',
                 },
                 {
                   header: 'Source',
                   accessor: (item) => {
                     const detailRow = toDetailRow(item)
-                    return item.source_name || item.source?.name || detailRow.sumber || '-'
+                    const sourceLabel = item.source_name || item.source?.name || detailRow.sumber || '-'
+                    return (
+                      <div className="entity-list-cell">
+                        <div className="entity-list-title table-text-ellipsis" title={sourceLabel}>{sourceLabel}</div>
+                        <div className="entity-list-note table-text-ellipsis" title={item.url || '-'}>
+                          {item.url || '-'}
+                        </div>
+                      </div>
+                    )
                   },
+                  className: 'news-list-col-source',
+                  headerClassName: 'news-list-col-source',
                 },
                 {
                   header: 'Link',
                   accessor: (item) => (
                     <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Open Link</a>
                   ),
+                  className: 'news-list-col-link',
+                  headerClassName: 'news-list-col-link',
                   ignoreRowClick: true,
                 },
                 {
@@ -143,9 +210,24 @@ export default function NewsList({
                     )
                   },
                   className: 'action-cell',
+                  headerClassName: 'news-list-col-action',
                   ignoreRowClick: true,
+                  style: { width: '1%' },
                 },
               ]}
+              emptyState={
+                <tr>
+                  <td colSpan={6}>
+                    <div className="entity-empty-state">
+                      <div className="entity-empty-icon">
+                        <i className="bi bi-newspaper"></i>
+                      </div>
+                      <div className="entity-empty-title">No news found</div>
+                      <div className="entity-empty-note">Try another category or scrape new articles to populate this list.</div>
+                    </div>
+                  </td>
+                </tr>
+              }
             />
 
             <Pagination
