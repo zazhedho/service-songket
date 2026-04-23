@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 import type { ResolvedLocationNames } from '../../../hooks/useLocationNameResolver'
 import { getAttempt, lookupDisplayName } from './orderHelpers'
@@ -92,6 +93,12 @@ export default function OrderListView({
 }: OrderListViewProps) {
   const exportJobTone = exportJob?.status === 'failed' ? 'error' : exportJob?.status === 'downloaded' ? 'success' : 'info'
   const financeCompanies = lookups?.finance_companies
+  const statusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'approve', label: 'Approve' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'reject', label: 'Reject' },
+  ]
 
   const rows = useMemo<OrderListRow[]>(
     () =>
@@ -133,12 +140,13 @@ export default function OrderListView({
               />
             </div>
             <div className="compact-filter-item narrow">
-              <select value={filters.status} onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))} aria-label="Filter by status">
-                <option value="">All Statuses</option>
-                <option value="approve">Approve</option>
-                <option value="pending">Pending</option>
-                <option value="reject">Reject</option>
-              </select>
+              <SearchableSelect
+                value={filters.status}
+                onChange={(value) => onFilterChange((prev) => ({ ...prev, status: value }))}
+                options={statusOptions}
+                placeholder="All Statuses"
+                searchPlaceholder="Search status..."
+              />
             </div>
             <div className="compact-filter-item narrow">
               <div className="credit-date-field">

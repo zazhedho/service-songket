@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import { formatRupiah } from '../../../utils/currency'
 import { BarLineChart, DonutCard, KpiCard, colorBySign, formatFixed, formatGrowthPercent, formatInteger, formatPercent } from './dashboardHelpers'
 
@@ -45,6 +46,10 @@ export default function DashboardContent({
   summary,
   trendCommodityOptions,
 }: DashboardContentProps) {
+  const commodityChartOptions = trendCommodityOptions.length > 0
+    ? trendCommodityOptions
+    : [{ value: '', label: 'No commodity' }]
+
   return (
     <>
       {error && <div className="alert">{error}</div>}
@@ -276,14 +281,14 @@ export default function DashboardContent({
           <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Latest commodity price updates.</div>
           <div style={{ marginTop: 8 }}>
             <label>Commodity Chart</label>
-            <select value={selectedTrendCommodity} onChange={(e) => setSelectedTrendCommodity(e.target.value)} disabled={trendCommodityOptions.length === 0}>
-              {trendCommodityOptions.length === 0 && <option value="">No commodity</option>}
-              {trendCommodityOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={selectedTrendCommodity}
+              onChange={setSelectedTrendCommodity}
+              options={commodityChartOptions}
+              placeholder="Select commodity"
+              searchPlaceholder="Search commodity..."
+              disabled={trendCommodityOptions.length === 0}
+            />
           </div>
           <div style={{ marginTop: 10 }}>
             <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Daily Commodity Prices" />

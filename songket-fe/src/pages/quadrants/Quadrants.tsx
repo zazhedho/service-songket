@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchQuadrantSummary } from '../../services/quadrantService'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
+import { buildFilterYearOptions } from '../../utils/yearOptions'
 import QuadrantContent from './components/QuadrantContent'
 import { buildAnalysisText, buildAxisTicks, clampPercent, formatAxisPercent, getOrderInGrowth, normalizeToken, quadrantColor } from './components/quadrantHelpers'
 
@@ -52,13 +53,7 @@ export default function QuadrantsPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
-  const yearOptions = useMemo(() => {
-    const years: string[] = []
-    for (let year = currentYear + 1; year >= 2015; year -= 1) {
-      years.push(String(year))
-    }
-    return years
-  }, [currentYear])
+  const yearOptions = useMemo(() => buildFilterYearOptions(2024), [])
 
   useEffect(() => {
     const params: Record<string, unknown> = {}

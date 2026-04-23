@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 import { shortText, toDetailRow } from './newsHelpers'
 
@@ -39,6 +40,13 @@ export default function NewsList({
   totalData,
   totalPages,
 }: NewsListProps) {
+  const categoryOptions = [
+    { value: '', label: 'All Categories' },
+    { value: 'agri', label: 'Agriculture' },
+    { value: 'pariwisata', label: 'Tourism' },
+    { value: 'pns', label: 'PNS/Gov' },
+  ]
+
   return (
     <div>
       <div className="header">
@@ -55,12 +63,13 @@ export default function NewsList({
           <div className="card">
             <div className="compact-filter-toolbar">
               <div className="compact-filter-item narrow">
-                <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Filter by news category">
-                  <option value="">All Categories</option>
-                  <option value="agri">Agriculture</option>
-                  <option value="pariwisata">Tourism</option>
-                  <option value="pns">PNS/Gov</option>
-                </select>
+                <SearchableSelect
+                  value={category}
+                  onChange={setCategory}
+                  options={categoryOptions}
+                  placeholder="All Categories"
+                  searchPlaceholder="Search category..."
+                />
               </div>
               <div className="compact-filter-action">
                 <button

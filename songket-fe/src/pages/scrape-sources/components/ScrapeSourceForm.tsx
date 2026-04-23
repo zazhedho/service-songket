@@ -1,3 +1,5 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
+
 type ScrapeSourceFormProps = {
   canCreate: boolean
   canUpdate: boolean
@@ -21,6 +23,16 @@ export default function ScrapeSourceForm({
   save,
   set,
 }: ScrapeSourceFormProps) {
+  const typeOptions = [
+    { value: 'prices', label: 'Commodity Prices' },
+    { value: 'news', label: 'News Portal' },
+  ]
+
+  const statusOptions = [
+    { value: 'true', label: 'Active' },
+    { value: 'false', label: 'Inactive' },
+  ]
+
   return (
     <div>
       <div className="header">
@@ -40,18 +52,24 @@ export default function ScrapeSourceForm({
             <div><label>URL</label><input value={form.url} onChange={(e) => set('url', e.target.value)} /></div>
             <div>
               <label>Type</label>
-              <select value={form.type} onChange={(e) => set('type', e.target.value)}>
-                <option value="prices">Commodity Prices</option>
-                <option value="news">News Portal</option>
-              </select>
+              <SearchableSelect
+                value={form.type}
+                onChange={(value) => set('type', value)}
+                options={typeOptions}
+                placeholder="Select type"
+                searchPlaceholder="Search source type..."
+              />
             </div>
             <div><label>Category</label><input value={form.category} onChange={(e) => set('category', e.target.value)} /></div>
             <div>
               <label>Active</label>
-              <select value={form.is_active ? 'true' : 'false'} onChange={(e) => set('is_active', e.target.value === 'true')}>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
+              <SearchableSelect
+                value={form.is_active ? 'true' : 'false'}
+                onChange={(value) => set('is_active', value === 'true')}
+                options={statusOptions}
+                placeholder="Select status"
+                searchPlaceholder="Search status..."
+              />
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>

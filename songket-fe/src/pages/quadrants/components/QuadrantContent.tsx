@@ -1,5 +1,7 @@
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import { buildAnalysisText, formatAxisPercent, getOrderInGrowth, quadrantColor } from './quadrantHelpers'
+import { buildMonthOptions } from '../../../utils/yearOptions'
 
 type QuadrantContentProps = {
   activePoint: any
@@ -58,6 +60,12 @@ export default function QuadrantContent({
   totalPages,
   yearOptions,
 }: QuadrantContentProps) {
+  const monthOptions = buildMonthOptions()
+  const provinceSelectOptions = [{ value: '', label: 'All Provinces' }, ...provinceOptions]
+  const regencySelectOptions = [{ value: '', label: 'All Regencies' }, ...regencyOptions]
+  const yearSelectOptions = [{ value: '', label: 'Latest Year' }, ...yearOptions.map((year) => ({ value: year, label: year }))]
+  const monthSelectOptions = [{ value: '', label: 'Latest Month' }, ...monthOptions]
+
   return (
     <div className="page">
       <div className="card">
@@ -68,25 +76,28 @@ export default function QuadrantContent({
 
         <div className="compact-filter-toolbar" style={{ marginTop: 12 }}>
           <div className="compact-filter-item narrow">
-            <select value={filter.province} onChange={(e) => setFilter((prev) => ({ ...prev, province: e.target.value, regency: '' }))} aria-label="Filter by province">
-              <option value="">All Provinces</option>
-              {provinceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              id="quadrant-province-filter"
+              value={filter.province}
+              options={provinceSelectOptions}
+              onChange={(value) => setFilter((prev) => ({ ...prev, province: value, regency: '' }))}
+              placeholder="All Provinces"
+              searchPlaceholder="Search province..."
+              emptyMessage="Province not found."
+            />
           </div>
 
           <div className="compact-filter-item narrow">
-            <select value={filter.regency} onChange={(e) => setFilter((prev) => ({ ...prev, regency: e.target.value }))} disabled={!regencyOptions.length} aria-label="Filter by regency">
-              <option value="">All Regencies</option>
-              {regencyOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              id="quadrant-regency-filter"
+              value={filter.regency}
+              options={regencySelectOptions}
+              onChange={(value) => setFilter((prev) => ({ ...prev, regency: value }))}
+              placeholder="All Regencies"
+              searchPlaceholder="Search regency..."
+              emptyMessage="Regency not found."
+              disabled={!regencyOptions.length}
+            />
           </div>
 
           <div className="compact-filter-item grow-2">
@@ -94,45 +105,37 @@ export default function QuadrantContent({
           </div>
 
           <div className="compact-filter-item narrow">
-            <select
+            <SearchableSelect
+              id="quadrant-year-filter"
               value={selectedYear}
-              onChange={(e) => {
-                const nextYear = e.target.value
+              options={yearSelectOptions}
+              onChange={(nextYear) => {
                 setSelectedYear(nextYear)
                 if (!nextYear) {
                   setSelectedMonth('')
                 }
               }}
-              aria-label="Filter by year"
-            >
-              <option value="">Latest Year</option>
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+              placeholder="Latest Year"
+              searchPlaceholder="Search year..."
+              emptyMessage="Year not found."
+            />
           </div>
 
           <div className="compact-filter-item narrow">
-            <select
+            <SearchableSelect
+              id="quadrant-month-filter"
               value={selectedMonth}
-              onChange={(e) => {
-                const nextMonth = e.target.value
+              options={monthSelectOptions}
+              onChange={(nextMonth) => {
                 setSelectedMonth(nextMonth)
                 if (nextMonth && !selectedYear) {
                   setSelectedYear(String(currentYear))
                 }
               }}
-              aria-label="Filter by month"
-            >
-              <option value="">Latest Month</option>
-              {Array.from({ length: 12 }, (_, idx) => (
-                <option key={`m-${idx + 1}`} value={String(idx + 1)}>
-                  {String(idx + 1).padStart(2, '0')}
-                </option>
-              ))}
-            </select>
+              placeholder="Latest Month"
+              searchPlaceholder="Search month..."
+              emptyMessage="Month not found."
+            />
           </div>
 
           <div className="compact-filter-action">

@@ -12,6 +12,7 @@ import {
   normalizeText,
   toSafeNumber,
 } from '../components/financeReportHelpers'
+import { buildFilterYearOptions } from '../../../utils/yearOptions'
 
 const MASTER_DATA_CACHE_TTL_MS = 5 * 60 * 1000
 const DEALER_METRICS_CACHE_TTL_MS = 2 * 60 * 1000
@@ -141,10 +142,7 @@ export function useFinanceReportSummaryData({
   const [dealerMetricsError, setDealerMetricsError] = useState('')
   const [migrationSummary, setMigrationSummary] = useState(emptyMigrationSummary)
 
-  const yearOptions = useMemo(() => {
-    const now = new Date().getFullYear()
-    return Array.from({ length: 8 }, (_, idx) => String(now - idx))
-  }, [])
+  const yearOptions = useMemo(() => buildFilterYearOptions(2024), [])
 
   const activeDealerId = useMemo(() => {
     if (selectedDealerId) return selectedDealerId

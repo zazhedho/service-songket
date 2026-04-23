@@ -3,6 +3,7 @@ import DeferredMount from '../../../components/common/DeferredMount'
 import Pagination from '../../../components/common/Pagination'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
+import { buildMonthOptions } from '../../../utils/yearOptions'
 
 const FinanceReportDealerMap = lazy(() => import('./FinanceReportMap'))
 
@@ -115,6 +116,9 @@ export default function FinanceReportSummary({
     value: String(item.code || ''),
     label: String(item.name || item.code || '-'),
   }))]
+  const monthOptions = buildMonthOptions()
+  const monthSelectOptions = [{ value: '', label: 'All Months' }, ...monthOptions]
+  const yearSelectOptions = [{ value: '', label: 'All Years' }, ...yearOptions.map((item) => ({ value: item, label: item }))]
 
   const finance1SelectOptions = [{ value: '', label: 'All Finance 1' }, ...finance1Options.map((item) => ({
     value: String(item.code || ''),
@@ -253,25 +257,27 @@ export default function FinanceReportSummary({
             </div>
 
             <div className="compact-filter-item narrow">
-              <select value={monthInput} onChange={(e) => setMonthInput(e.target.value)} aria-label="Filter by month">
-                <option value="">All Months</option>
-                {Array.from({ length: 12 }, (_, idx) => (
-                  <option key={idx + 1} value={String(idx + 1)}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                id="business-summary-month-filter"
+                value={monthInput}
+                options={monthSelectOptions}
+                onChange={setMonthInput}
+                placeholder="All Months"
+                searchPlaceholder="Search month..."
+                emptyMessage="Month not found."
+              />
             </div>
 
             <div className="compact-filter-item narrow">
-              <select value={yearInput} onChange={(e) => setYearInput(e.target.value)} aria-label="Filter by year">
-                <option value="">All Years</option>
-                {yearOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                id="business-summary-year-filter"
+                value={yearInput}
+                options={yearSelectOptions}
+                onChange={setYearInput}
+                placeholder="All Years"
+                searchPlaceholder="Search year..."
+                emptyMessage="Year not found."
+              />
             </div>
 
             <div className="compact-filter-action">

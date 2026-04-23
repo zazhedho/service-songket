@@ -1,4 +1,5 @@
 import { EyeIcon, EyeOffIcon, PasswordRulesGuide, passwordInputWrapStyle, passwordToggleButtonStyle, roleLabel } from './userHelpers'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 
 type UserFormProps = {
   availableRoleNames: string[]
@@ -53,6 +54,11 @@ export default function UserForm({
   showConfirmPassword,
   showPassword,
 }: UserFormProps) {
+  const roleOptions = availableRoleNames.map((roleName) => ({
+    value: roleName,
+    label: roleLabel(roleName),
+  }))
+
   return (
     <div>
       <div className="header">
@@ -127,13 +133,13 @@ export default function UserForm({
             </div>
             <div>
               <label>Role</label>
-              <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-                {availableRoleNames.map((roleName) => (
-                  <option key={roleName} value={roleName}>
-                    {roleLabel(roleName)}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.role}
+                onChange={(value) => set('role', value)}
+                options={roleOptions}
+                placeholder="Select role"
+                searchPlaceholder="Search role..."
+              />
             </div>
 
             {canSetUserPerm && (

@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 
 type ScrapeSourceListProps = {
@@ -41,6 +42,12 @@ export default function ScrapeSourceList({
   totalPages,
   typeFilter,
 }: ScrapeSourceListProps) {
+  const typeOptions = [
+    { value: '', label: 'All Types' },
+    { value: 'prices', label: 'Commodity Prices' },
+    { value: 'news', label: 'News Portal' },
+  ]
+
   return (
     <div>
       <div className="header">
@@ -60,11 +67,13 @@ export default function ScrapeSourceList({
             </div>
 
             <div className="compact-filter-item narrow">
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Filter by source type">
-                <option value="">All Types</option>
-                <option value="prices">Commodity Prices</option>
-                <option value="news">News Portal</option>
-              </select>
+              <SearchableSelect
+                value={typeFilter}
+                onChange={setTypeFilter}
+                options={typeOptions}
+                placeholder="All Types"
+                searchPlaceholder="Search source type..."
+              />
             </div>
 
             <div className="compact-filter-action">

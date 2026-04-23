@@ -1,4 +1,5 @@
 import { usePermissions } from '../../../hooks/usePermissions'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 
 type MasterSettingFormProps = {
   currentExists: boolean
@@ -41,6 +42,14 @@ export default function MasterSettingForm({
   const canSave = formAction === 'create'
     ? hasPermission('master_settings', 'create')
     : hasPermission('master_settings', 'update')
+  const settingOptions = [
+    { value: 'news', label: 'News Scrape Scheduler' },
+    { value: 'prices', label: 'Commodity Price Scrape Scheduler' },
+  ]
+  const statusOptions = [
+    { value: 'on', label: 'ON' },
+    { value: 'off', label: 'OFF' },
+  ]
 
   return (
     <div className="card" style={{ maxWidth: 860 }}>
@@ -50,26 +59,26 @@ export default function MasterSettingForm({
 
       <div style={{ marginBottom: 10 }}>
         <label>Setting Option</label>
-        <select
+        <SearchableSelect
           value={selectedOption}
-          onChange={(e) => setSelectedOption(e.target.value as 'news' | 'prices')}
+          onChange={(value) => setSelectedOption(value as 'news' | 'prices')}
+          options={settingOptions}
+          placeholder="Select setting option"
+          searchPlaceholder="Search setting option..."
           disabled={loading || saving}
-        >
-          <option value="news">News Scrape Scheduler</option>
-          <option value="prices">Commodity Price Scrape Scheduler</option>
-        </select>
+        />
       </div>
 
       <div style={{ marginBottom: 10 }}>
         <label>Scheduler Status</label>
-        <select
+        <SearchableSelect
           value={currentStatus ? 'on' : 'off'}
-          onChange={(e) => onStatusChange(e.target.value === 'on')}
+          onChange={(value) => onStatusChange(value === 'on')}
+          options={statusOptions}
+          placeholder="Select scheduler status"
+          searchPlaceholder="Search scheduler status..."
           disabled={loading || saving}
-        >
-          <option value="on">ON</option>
-          <option value="off">OFF</option>
-        </select>
+        />
       </div>
 
       <div style={{ marginBottom: 10 }}>

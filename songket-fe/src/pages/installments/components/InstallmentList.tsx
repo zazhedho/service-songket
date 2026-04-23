@@ -1,5 +1,6 @@
 import ActionMenu from '../../../components/common/ActionMenu'
 import Pagination from '../../../components/common/Pagination'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import Table from '../../../components/common/Table'
 
 type InstallmentListProps = {
@@ -57,6 +58,16 @@ export default function InstallmentList({
   totalData,
   totalPages,
 }: InstallmentListProps) {
+  const provinceOptions = [
+    { value: '', label: 'All Provinces' },
+    ...provinces.map((province: any) => ({ value: province.code, label: province.name })),
+  ]
+
+  const regencyOptions = [
+    { value: '', label: 'All Regencies' },
+    ...filterRegencies.map((regency: any) => ({ value: regency.code, label: regency.name })),
+  ]
+
   return (
     <div>
       <div className="header">
@@ -74,21 +85,24 @@ export default function InstallmentList({
             </div>
 
             <div className="compact-filter-item">
-              <select value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)} aria-label="Filter by province">
-                <option value="">All Provinces</option>
-                {provinces.map((province: any) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={provinceFilter}
+                onChange={setProvinceFilter}
+                options={provinceOptions}
+                placeholder="All Provinces"
+                searchPlaceholder="Search province..."
+              />
             </div>
 
             <div className="compact-filter-item">
-              <select value={regencyFilter} onChange={(e) => setRegencyFilter(e.target.value)} disabled={!provinceFilter} aria-label="Filter by regency">
-                <option value="">All Regencies</option>
-                {filterRegencies.map((regency: any) => (
-                  <option key={regency.code} value={regency.code}>{regency.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={regencyFilter}
+                onChange={setRegencyFilter}
+                options={regencyOptions}
+                placeholder="All Regencies"
+                searchPlaceholder="Search regency..."
+                disabled={!provinceFilter}
+              />
             </div>
 
             <div className="compact-filter-action">

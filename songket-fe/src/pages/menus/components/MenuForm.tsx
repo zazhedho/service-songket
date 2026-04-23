@@ -1,4 +1,5 @@
 import { AppIcon, ICON_LABELS, MENU_ICON_OPTIONS } from '../../../components/common/AppIcon'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 
 type MenuFormProps = {
   canUpdate: boolean
@@ -25,6 +26,22 @@ export default function MenuForm({
   selectedParentLabel,
   set,
 }: MenuFormProps) {
+  const parentMenuOptions = [
+    { value: '', label: 'None (Root Menu)' },
+    ...(!selectedParentInOptions && form.parent_id
+      ? [{ value: String(form.parent_id), label: selectedParentLabel || 'Current Parent' }]
+      : []),
+    ...parentOptions.map((parent: any) => ({
+      value: String(parent.id || ''),
+      label: String(parent.label || parent.name || parent.id || '-'),
+    })),
+  ]
+
+  const statusOptions = [
+    { value: 'true', label: 'Active' },
+    { value: 'false', label: 'Inactive' },
+  ]
+
   return (
     <div>
       <div className="header">
@@ -44,17 +61,13 @@ export default function MenuForm({
             <div><label>Path</label><input value={form.path} onChange={(e) => set('path', e.target.value)} /></div>
             <div>
               <label>Parent Menu</label>
-              <select value={form.parent_id} onChange={(e) => set('parent_id', e.target.value)}>
-                <option value="">None (Root Menu)</option>
-                {!selectedParentInOptions && form.parent_id && (
-                  <option value={form.parent_id}>{selectedParentLabel || 'Current Parent'}</option>
-                )}
-                {parentOptions.map((parent: any) => (
-                  <option key={parent.id} value={parent.id}>
-                    {parent.label}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={String(form.parent_id || '')}
+                onChange={(value) => set('parent_id', value)}
+                options={parentMenuOptions}
+                placeholder="None (Root Menu)"
+                searchPlaceholder="Search parent menu..."
+              />
             </div>
             <div>
               <label>Order Index</label>
@@ -62,10 +75,13 @@ export default function MenuForm({
             </div>
             <div>
               <label>Status</label>
-              <select value={form.is_active ? 'true' : 'false'} onChange={(e) => set('is_active', e.target.value === 'true')}>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
+              <SearchableSelect
+                value={form.is_active ? 'true' : 'false'}
+                onChange={(value) => set('is_active', value === 'true')}
+                options={statusOptions}
+                placeholder="Select status"
+                searchPlaceholder="Search status..."
+              />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label>Icon</label>

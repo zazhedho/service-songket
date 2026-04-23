@@ -1,3 +1,5 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
+
 type Job = {
   id: string
   status: string
@@ -37,6 +39,11 @@ export default function PriceJobDock({
   statusColor,
 }: PriceJobDockProps) {
   const safeTotalPages = jobsTotalPages > 0 ? jobsTotalPages : 1
+  const jobsLimitOptions = [
+    { value: '10', label: '10 / page' },
+    { value: '20', label: '20 / page' },
+    { value: '50', label: '50 / page' },
+  ]
 
   return (
     <div
@@ -108,14 +115,18 @@ export default function PriceJobDock({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <select value={jobsLimit} onChange={(e) => {
-                setJobsLimit(Number(e.target.value))
-                setJobsPage(1)
-              }} style={{ width: 90 }}>
-                <option value={10}>10 / page</option>
-                <option value={20}>20 / page</option>
-                <option value={50}>50 / page</option>
-              </select>
+              <div style={{ width: 110 }}>
+                <SearchableSelect
+                  value={String(jobsLimit)}
+                  onChange={(value) => {
+                    setJobsLimit(Number(value))
+                    setJobsPage(1)
+                  }}
+                  options={jobsLimitOptions}
+                  placeholder="Page size"
+                  searchPlaceholder="Search page size..."
+                />
+              </div>
 
               <button className="btn-ghost" onClick={() => setJobsPage((prev) => prev - 1)} disabled={jobsPage <= 1}>Prev</button>
               <button className="btn-ghost" onClick={() => setJobsPage((prev) => prev + 1)} disabled={jobsPage >= safeTotalPages}>Next</button>

@@ -1642,6 +1642,8 @@ h4 {
   }
 
   .business-map-shell {
+    position: relative;
+    z-index: 0;
     border: 1px solid var(--card-border);
     border-radius: 12px;
     overflow: hidden;
@@ -1649,8 +1651,15 @@ h4 {
   }
 
   .business-map-shell .leaflet-container {
+    position: relative;
+    z-index: 0;
     width: 100%;
     height: 360px;
+  }
+
+  .app-main .leaflet-container {
+    position: relative;
+    z-index: 0;
   }
 
   .business-dealer-detail-card {

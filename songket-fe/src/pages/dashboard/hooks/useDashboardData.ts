@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import dayjs from 'dayjs'
 import { fetchDashboardSummary, listDashboardNewsItems, listDashboardPrices } from '../../../services/dashboardService'
 import { fetchLookups } from '../../../services/lookupService'
+import { buildFilterYearOptions } from '../../../utils/yearOptions'
 
 export type DashboardAnalysis = 'yearly' | 'monthly' | 'daily' | 'custom'
 
@@ -757,26 +758,8 @@ export function useDashboardData() {
   }, [lookups?.finance_companies])
 
   const yearOptions = useMemo(() => {
-    const lookupYearsRaw = Array.isArray(lookups?.dashboard_years) ? lookups.dashboard_years : []
-    const lookupYears = lookupYearsRaw
-      .map((value: any) => Number(value))
-      .filter((value: number) => Number.isFinite(value) && value > 0)
-      .map((value: number) => Math.trunc(value))
-
-    const currentYear = new Date().getFullYear()
-    const fallbackMinYear = 1900
-    const fallbackMaxYear = currentYear + 5
-    const maxLookupYear = lookupYears.length > 0 ? Math.max(...lookupYears) : fallbackMaxYear
-    const minLookupYear = lookupYears.length > 0 ? Math.min(...lookupYears) : fallbackMinYear
-    const minYear = Math.min(fallbackMinYear, minLookupYear)
-    const maxYear = Math.max(fallbackMaxYear, maxLookupYear, currentYear)
-
-    const years: string[] = []
-    for (let year = maxYear; year >= minYear; year -= 1) {
-      years.push(String(year))
-    }
-    return years
-  }, [lookups?.dashboard_years])
+    return buildFilterYearOptions(2024)
+  }, [])
 
   const dailyChartRange = useMemo(
     () => resolveDailyChartRange(filtersApplied, summary.analysis_applied),

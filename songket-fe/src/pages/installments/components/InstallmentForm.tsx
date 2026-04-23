@@ -1,3 +1,5 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
+
 type InstallmentFormProps = {
   canCreate: boolean
   canUpdate: boolean
@@ -35,6 +37,16 @@ export default function InstallmentForm({
   formatRupiah,
   parseRupiahInput,
 }: InstallmentFormProps) {
+  const provinceOptions = [
+    { value: '', label: 'Select' },
+    ...provinces.map((province: any) => ({ value: province.code, label: province.name })),
+  ]
+
+  const regencyOptions = [
+    { value: '', label: 'Select' },
+    ...regencies.map((regency: any) => ({ value: regency.code, label: regency.name })),
+  ]
+
   return (
     <div>
       <div className="header">
@@ -62,22 +74,25 @@ export default function InstallmentForm({
 
             <div>
               <label>Province</label>
-              <select value={form.province_code} onChange={(e) => updateProvince(e.target.value)}>
-                <option value="">Select</option>
-                {provinces.map((province: any) => (
-                  <option key={province.code} value={province.code}>{province.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.province_code}
+                onChange={updateProvince}
+                options={provinceOptions}
+                placeholder="Select"
+                searchPlaceholder="Search province..."
+              />
             </div>
 
             <div>
               <label>Regency/City</label>
-              <select value={form.regency_code} onChange={(e) => updateRegency(e.target.value)} disabled={!form.province_code}>
-                <option value="">Select</option>
-                {regencies.map((regency: any) => (
-                  <option key={regency.code} value={regency.code}>{regency.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.regency_code}
+                onChange={updateRegency}
+                options={regencyOptions}
+                placeholder="Select"
+                searchPlaceholder="Search regency / city..."
+                disabled={!form.province_code}
+              />
             </div>
 
             <div>

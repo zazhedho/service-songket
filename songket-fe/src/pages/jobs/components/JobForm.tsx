@@ -1,3 +1,5 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
+
 type JobFormProps = {
   addArea: () => void
   areaLabel: (area: any) => string
@@ -33,6 +35,16 @@ export default function JobForm({
   save,
   setForm,
 }: JobFormProps) {
+  const provinceOptions = [
+    { value: '', label: 'Select province' },
+    ...provinces.map((province: any) => ({ value: province.code, label: province.name })),
+  ]
+
+  const regencyOptions = [
+    { value: '', label: 'Select regency/city' },
+    ...kabupaten.map((item: any) => ({ value: item.code, label: item.name })),
+  ]
+
   return (
     <div>
       <div className="header">
@@ -68,22 +80,25 @@ export default function JobForm({
               <div className="grid" style={{ gap: 10 }}>
                 <div>
                   <label>Province</label>
-                  <select value={form.province_code} onChange={(e) => setForm((prev: any) => ({ ...prev, province_code: e.target.value, regency_code: '' }))}>
-                    <option value="">Select province</option>
-                    {provinces.map((province: any) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={form.province_code}
+                    onChange={(value) => setForm((prev: any) => ({ ...prev, province_code: value, regency_code: '' }))}
+                    options={provinceOptions}
+                    placeholder="Select province"
+                    searchPlaceholder="Search province..."
+                  />
                 </div>
 
                 <div>
                   <label>Regency / City</label>
-                  <select value={form.regency_code} onChange={(e) => setForm((prev: any) => ({ ...prev, regency_code: e.target.value }))} disabled={!form.province_code}>
-                    <option value="">Select regency/city</option>
-                    {kabupaten.map((item: any) => (
-                      <option key={item.code} value={item.code}>{item.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={form.regency_code}
+                    onChange={(value) => setForm((prev: any) => ({ ...prev, regency_code: value }))}
+                    options={regencyOptions}
+                    placeholder="Select regency/city"
+                    searchPlaceholder="Search regency / city..."
+                    disabled={!form.province_code}
+                  />
                 </div>
 
                 <div>

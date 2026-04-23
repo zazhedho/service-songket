@@ -1,3 +1,5 @@
+import SearchableSelect from '../../../components/common/SearchableSelect'
+
 type NetIncomeFormProps = {
   addArea: () => void
   areaLabel: (area: any) => string
@@ -37,6 +39,21 @@ export default function NetIncomeForm({
   setForm,
   formatRupiahInput,
 }: NetIncomeFormProps) {
+  const jobOptions = [
+    { value: '', label: 'Select job' },
+    ...jobs.map((job: any) => ({ value: job.id, label: job.name })),
+  ]
+
+  const provinceOptions = [
+    { value: '', label: 'Select province' },
+    ...provinces.map((province: any) => ({ value: province.code, label: province.name })),
+  ]
+
+  const regencyOptions = [
+    { value: '', label: 'Select regency/city' },
+    ...kabupaten.map((item: any) => ({ value: item.code, label: item.name })),
+  ]
+
   return (
     <div>
       <div className="header">
@@ -54,12 +71,13 @@ export default function NetIncomeForm({
           <div className="grid" style={{ gap: 10 }}>
             <div>
               <label>Job</label>
-              <select value={form.job_id} onChange={(e) => setForm((prev: any) => ({ ...prev, job_id: e.target.value }))}>
-                <option value="">Select job</option>
-                {jobs.map((job: any) => (
-                  <option key={job.id} value={job.id}>{job.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.job_id}
+                onChange={(value) => setForm((prev: any) => ({ ...prev, job_id: value }))}
+                options={jobOptions}
+                placeholder="Select job"
+                searchPlaceholder="Search job..."
+              />
             </div>
 
             <div>
@@ -77,29 +95,25 @@ export default function NetIncomeForm({
               <div className="grid" style={{ gap: 10 }}>
                 <div>
                   <label>Province</label>
-                  <select
+                  <SearchableSelect
                     value={form.province_code}
-                    onChange={(e) => setForm((prev: any) => ({ ...prev, province_code: e.target.value, regency_code: '' }))}
-                  >
-                    <option value="">Select province</option>
-                    {provinces.map((province: any) => (
-                      <option key={province.code} value={province.code}>{province.name}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => setForm((prev: any) => ({ ...prev, province_code: value, regency_code: '' }))}
+                    options={provinceOptions}
+                    placeholder="Select province"
+                    searchPlaceholder="Search province..."
+                  />
                 </div>
 
                 <div>
                   <label>Regency / City</label>
-                  <select
+                  <SearchableSelect
                     value={form.regency_code}
-                    onChange={(e) => setForm((prev: any) => ({ ...prev, regency_code: e.target.value }))}
+                    onChange={(value) => setForm((prev: any) => ({ ...prev, regency_code: value }))}
+                    options={regencyOptions}
+                    placeholder="Select regency/city"
+                    searchPlaceholder="Search regency / city..."
                     disabled={!form.province_code}
-                  >
-                    <option value="">Select regency/city</option>
-                    {kabupaten.map((item: any) => (
-                      <option key={item.code} value={item.code}>{item.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>

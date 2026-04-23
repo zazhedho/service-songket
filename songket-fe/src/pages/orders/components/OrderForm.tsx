@@ -1,5 +1,6 @@
 import { FormEvent } from 'react'
 import dayjs from 'dayjs'
+import SearchableSelect from '../../../components/common/SearchableSelect'
 import { formatRupiah } from '../../../utils/currency'
 
 type OrderFormViewProps = {
@@ -50,6 +51,46 @@ export default function OrderFormView({
   submit,
 }: OrderFormViewProps) {
   const dpPct = selectedMotor?.otr ? ((form.dp_paid / selectedMotor.otr) * 100).toFixed(1) : '0'
+  const dealerOptions = [
+    { value: '', label: 'Select' },
+    ...(lookups?.dealers || []).map((dealer: any) => ({ value: String(dealer.id || ''), label: String(dealer.name || dealer.id || '-') })),
+  ]
+  const financeCompanyOptions = [
+    { value: '', label: 'Select' },
+    ...(lookups?.finance_companies || []).map((finance: any) => ({ value: String(finance.id || ''), label: String(finance.name || finance.id || '-') })),
+  ]
+  const provinceOptions = [
+    { value: '', label: 'Select' },
+    ...provinces.map((prov: any) => ({ value: String(prov.code || ''), label: String(prov.name || prov.code || '-') })),
+  ]
+  const regencyOptions = [
+    { value: '', label: 'Select' },
+    ...kabupaten.map((kab: any) => ({ value: String(kab.code || ''), label: String(kab.name || kab.code || '-') })),
+  ]
+  const districtOptions = [
+    { value: '', label: 'Select' },
+    ...kecamatan.map((kec: any) => ({ value: String(kec.code || ''), label: String(kec.name || kec.code || '-') })),
+  ]
+  const jobOptions = [
+    { value: '', label: 'Select' },
+    ...(lookups?.jobs || []).map((job: any) => ({ value: String(job.id || ''), label: String(job.name || job.id || '-') })),
+  ]
+  const motorTypeOptions = [
+    { value: '', label: 'Select' },
+    ...filteredMotorTypes.map((motor: any) => ({
+      value: String(motor.id || ''),
+      label: `${motor.name || '-'} - OTR ${motor.otr?.toLocaleString?.('id-ID') || '0'}`,
+    })),
+  ]
+  const resultOptions = [
+    { value: 'approve', label: 'Approve' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'reject', label: 'Reject' },
+  ]
+  const finance2ResultOptions = [
+    { value: '', label: '--' },
+    ...resultOptions,
+  ]
 
   return (
     <div>
@@ -74,17 +115,14 @@ export default function OrderFormView({
           >
             <div>
               <label>Dealer</label>
-              <select
+              <SearchableSelect
                 value={form.dealer_id}
-                onChange={(e) => set('dealer_id', e.target.value)}
-                required
+                onChange={(value) => set('dealer_id', value)}
+                options={dealerOptions}
+                placeholder="Select"
+                searchPlaceholder="Search dealer..."
                 disabled={lookups?.dealers?.length === 1}
-              >
-                <option value="">Select</option>
-                {lookups?.dealers?.map((dealer: any) => (
-                  <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
@@ -113,12 +151,13 @@ export default function OrderFormView({
 
             <div>
               <label>Finance Company 1</label>
-              <select value={form.finance_company_id} onChange={(e) => set('finance_company_id', e.target.value)} required>
-                <option value="">Select</option>
-                {lookups?.finance_companies?.map((finance: any) => (
-                  <option key={finance.id} value={finance.id}>{finance.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.finance_company_id}
+                onChange={(value) => set('finance_company_id', value)}
+                options={financeCompanyOptions}
+                placeholder="Select"
+                searchPlaceholder="Search finance company..."
+              />
             </div>
 
             <div>
@@ -133,40 +172,37 @@ export default function OrderFormView({
 
             <div>
               <label>Province</label>
-              <select
+              <SearchableSelect
                 value={form.province}
-                onChange={(e) => setForm((prev: any) => ({ ...prev, province: e.target.value, regency: '', district: '' }))}
-                required
-              >
-                <option value="">Select</option>
-                {provinces.map((prov: any) => (
-                  <option key={prov.code} value={prov.code}>{prov.name}</option>
-                ))}
-              </select>
+                onChange={(value) => setForm((prev: any) => ({ ...prev, province: value, regency: '', district: '' }))}
+                options={provinceOptions}
+                placeholder="Select"
+                searchPlaceholder="Search province..."
+              />
             </div>
 
             <div>
               <label>Regency / City</label>
-              <select
+              <SearchableSelect
                 value={form.regency}
-                onChange={(e) => setForm((prev: any) => ({ ...prev, regency: e.target.value, district: '' }))}
+                onChange={(value) => setForm((prev: any) => ({ ...prev, regency: value, district: '' }))}
+                options={regencyOptions}
+                placeholder="Select"
+                searchPlaceholder="Search regency / city..."
                 disabled={!form.province}
-              >
-                <option value="">Select</option>
-                {kabupaten.map((kab: any) => (
-                  <option key={kab.code} value={kab.code}>{kab.name}</option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
               <label>District</label>
-              <select value={form.district} onChange={(e) => set('district', e.target.value)} disabled={!form.regency}>
-                <option value="">Select</option>
-                {kecamatan.map((kec: any) => (
-                  <option key={kec.code} value={kec.code}>{kec.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.district}
+                onChange={(value) => set('district', value)}
+                options={districtOptions}
+                placeholder="Select"
+                searchPlaceholder="Search district..."
+                disabled={!form.regency}
+              />
             </div>
 
             <div>
@@ -181,24 +217,24 @@ export default function OrderFormView({
 
             <div>
               <label>Job</label>
-              <select value={form.job_id} onChange={(e) => set('job_id', e.target.value)}>
-                <option value="">Select</option>
-                {lookups?.jobs?.map((job: any) => (
-                  <option key={job.id} value={job.id}>{job.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.job_id}
+                onChange={(value) => set('job_id', value)}
+                options={jobOptions}
+                placeholder="Select"
+                searchPlaceholder="Search job..."
+              />
             </div>
 
             <div>
               <label>Motor Type</label>
-              <select value={form.motor_type_id} onChange={(e) => set('motor_type_id', e.target.value)}>
-                <option value="">Select</option>
-                {filteredMotorTypes.map((motor: any) => (
-                  <option key={motor.id} value={motor.id}>
-                    {motor.name} - OTR {motor.otr?.toLocaleString?.('id-ID')}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.motor_type_id}
+                onChange={(value) => set('motor_type_id', value)}
+                options={motorTypeOptions}
+                placeholder="Select"
+                searchPlaceholder="Search motor type..."
+              />
             </div>
 
             <div>
@@ -248,11 +284,13 @@ export default function OrderFormView({
 
             <div>
               <label>Result</label>
-              <select value={form.result_status} onChange={(e) => set('result_status', e.target.value)}>
-                <option value="approve">Approve</option>
-                <option value="pending">Pending</option>
-                <option value="reject">Reject</option>
-              </select>
+              <SearchableSelect
+                value={form.result_status}
+                onChange={(value) => set('result_status', value)}
+                options={resultOptions}
+                placeholder="Select result"
+                searchPlaceholder="Search result..."
+              />
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
@@ -277,22 +315,24 @@ export default function OrderFormView({
 
                 <div>
                   <label>Finance Company 2</label>
-                  <select value={form.finance_company2_id} onChange={(e) => set('finance_company2_id', e.target.value)}>
-                    <option value="">Select</option>
-                    {lookups?.finance_companies?.map((finance: any) => (
-                      <option key={finance.id} value={finance.id}>{finance.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={form.finance_company2_id}
+                    onChange={(value) => set('finance_company2_id', value)}
+                    options={financeCompanyOptions}
+                    placeholder="Select"
+                    searchPlaceholder="Search finance company..."
+                  />
                 </div>
 
                 <div>
                   <label>Finance 2 Result</label>
-                  <select value={form.result_status2} onChange={(e) => set('result_status2', e.target.value)}>
-                    <option value="">--</option>
-                    <option value="approve">Approve</option>
-                    <option value="pending">Pending</option>
-                    <option value="reject">Reject</option>
-                  </select>
+                  <SearchableSelect
+                    value={form.result_status2}
+                    onChange={(value) => set('result_status2', value)}
+                    options={finance2ResultOptions}
+                    placeholder="--"
+                    searchPlaceholder="Search result..."
+                  />
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
