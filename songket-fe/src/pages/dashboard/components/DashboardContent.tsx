@@ -46,15 +46,40 @@ export default function DashboardContent({
   summary,
   trendCommodityOptions,
 }: DashboardContentProps) {
+  const hasSummaryData =
+    Number(summary.total_orders || 0) > 0 ||
+    summary.order_decision_snapshot.length > 0 ||
+    summary.job_proportion.length > 0 ||
+    summary.product_proportion.length > 0 ||
+    summary.finance_company_proportion.length > 0 ||
+    summary.dp_range.length > 0
+
   const commodityChartOptions = trendCommodityOptions.length > 0
     ? trendCommodityOptions
     : [{ value: '', label: 'No commodity' }]
+
+  if (loading && !hasSummaryData) {
+    return (
+      <div className="dashboard-loading-shell">
+        <div className="dashboard-skeleton-grid">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={`dashboard-kpi-skeleton-${index}`} className="dashboard-skeleton-card dashboard-skeleton-short" />
+          ))}
+        </div>
+        <div className="dashboard-skeleton-grid dashboard-skeleton-grid-wide">
+          <div className="dashboard-skeleton-card dashboard-skeleton-tall" />
+          <div className="dashboard-skeleton-card dashboard-skeleton-tall" />
+        </div>
+        <div className="dashboard-skeleton-card dashboard-skeleton-block" />
+      </div>
+    )
+  }
 
   return (
     <>
       {error && <div className="alert">{error}</div>}
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+      <div className="dashboard-kpi-grid">
         <KpiCard label="Total Order In" value={formatInteger(summary.total_orders)} note="Filtered data" />
         <KpiCard label="Lead Time" value={`${summary.lead_time_avg_hours.toFixed(2)} hours`} note={`${summary.lead_time_avg_seconds.toFixed(0)} seconds`} />
         <KpiCard label="Approval Rate" value={`${(summary.approval_rate * 100).toFixed(2)}%`} note={`${formatInteger(summary.approved_orders)} approved`} />
@@ -66,10 +91,15 @@ export default function DashboardContent({
         />
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 12 }}>
+      <div className="dashboard-panel-grid">
         <div className="card">
-          <h3>Daily Order In Trend</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Daily order-in trend based on pooling date.</div>
+          <div className="dashboard-card-head">
+            <div>
+              <h3>Daily Order In Trend</h3>
+              <div className="dashboard-card-note">Daily order-in trend based on pooling date.</div>
+            </div>
+            <span className="dashboard-card-tag">Trend</span>
+          </div>
           <div style={{ marginTop: 10 }}>
             <BarLineChart
               labels={dailyDistributionTrend.labels}
@@ -84,9 +114,14 @@ export default function DashboardContent({
         </div>
 
         <div className="card">
-          <h3>Daily Finance Approve</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-            Daily approve/reject data from the order finance attempts table, based on the current dashboard filter.
+          <div className="dashboard-card-head">
+            <div>
+              <h3>Daily Finance Approve</h3>
+              <div className="dashboard-card-note">
+                Daily approve/reject data from the order finance attempts table, based on the current dashboard filter.
+              </div>
+            </div>
+            <span className="dashboard-card-tag">Finance</span>
           </div>
           <div style={{ marginTop: 10 }}>
             <BarLineChart
@@ -108,9 +143,14 @@ export default function DashboardContent({
       </div>
 
       <div className="card">
-        <h3>Order In Approve/Reject Summary</h3>
-        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Comparison between the active period and the previous period.</div>
-        <div style={{ marginTop: 10, overflowX: 'auto' }}>
+        <div className="dashboard-card-head">
+          <div>
+            <h3>Order In Approve/Reject Summary</h3>
+            <div className="dashboard-card-note">Comparison between the active period and the previous period.</div>
+          </div>
+          <span className="dashboard-card-tag">{growthNote}</span>
+        </div>
+        <div className="dashboard-table-shell">
           <table className="table responsive-stack">
             <thead>
               <tr>
@@ -161,15 +201,20 @@ export default function DashboardContent({
         </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+      <div className="dashboard-donut-grid">
         <DonutCard title="Job Proportion" subtitle="Order-in distribution by job" items={summary.job_proportion} />
         <DonutCard title="Product Proportion" subtitle="Order-in distribution by product" items={summary.product_proportion} />
         <DonutCard title="Finance Company Proportion" subtitle="Order-in distribution by finance company" items={summary.finance_company_proportion} />
       </div>
 
       <div className="card">
-        <h3>Range DP</h3>
-        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>DP range distribution from &lt;10% to &gt;=40%.</div>
+        <div className="dashboard-card-head">
+          <div>
+            <h3>Range DP</h3>
+            <div className="dashboard-card-note">DP range distribution from &lt;10% to &gt;=40%.</div>
+          </div>
+          <span className="dashboard-card-tag">DP Mix</span>
+        </div>
         <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
           {summary.dp_range.map((item: any) => (
             <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr) 64px 64px', gap: 8, alignItems: 'center' }}>
@@ -191,13 +236,23 @@ export default function DashboardContent({
         </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+      <div className="dashboard-panel-grid dashboard-panel-grid-secondary">
         <div className="card">
-          <h3>Latest News</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Latest news summary slideshow.</div>
+          <div className="dashboard-card-head">
+            <div>
+              <h3>Latest News</h3>
+              <div className="dashboard-card-note">Latest news summary slideshow.</div>
+            </div>
+            <span className="dashboard-card-tag">News</span>
+          </div>
           <div style={{ marginTop: 10 }}>
-            {latestCardsLoading && <div style={{ color: '#64748b', fontSize: 12 }}>Loading news...</div>}
-            {!latestCardsLoading && latestNews.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No news data.</div>}
+            {latestCardsLoading && <div className="dashboard-inline-state">Loading news...</div>}
+            {!latestCardsLoading && latestNews.length === 0 && (
+              <div className="dashboard-empty-state">
+                <div className="dashboard-empty-title">No news data</div>
+                <div className="dashboard-empty-note">Latest external headlines will appear here when source data is available.</div>
+              </div>
+            )}
             {!latestCardsLoading && activeNewsItem && (
               <>
                 <a
@@ -277,8 +332,13 @@ export default function DashboardContent({
         </div>
 
         <div className="card">
-          <h3>Latest Commodity Prices</h3>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Latest commodity price updates.</div>
+          <div className="dashboard-card-head">
+            <div>
+              <h3>Latest Commodity Prices</h3>
+              <div className="dashboard-card-note">Latest commodity price updates.</div>
+            </div>
+            <span className="dashboard-card-tag">Commodity</span>
+          </div>
           <div style={{ marginTop: 8 }}>
             <label>Commodity Chart</label>
             <SearchableSelect
@@ -293,7 +353,7 @@ export default function DashboardContent({
           <div style={{ marginTop: 10 }}>
             <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Daily Commodity Prices" />
           </div>
-          <div style={{ marginTop: 10, overflowX: 'auto' }}>
+          <div className="dashboard-table-shell">
             <table className="table dashboard-latest-prices-table">
               <thead>
                 <tr>
@@ -328,7 +388,7 @@ export default function DashboardContent({
         </div>
       </div>
 
-      {loading && <div className="card"><div style={{ color: '#64748b' }}>Loading dashboard data...</div></div>}
+      {loading && hasSummaryData && <div className="dashboard-inline-state">Refreshing dashboard data...</div>}
     </>
   )
 }

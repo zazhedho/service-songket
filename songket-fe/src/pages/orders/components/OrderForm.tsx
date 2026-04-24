@@ -105,16 +105,20 @@ export default function OrderFormView({
       </div>
 
       <div className="page">
-        <div className="card">
-          {isCreate && !canCreate && <div className="alert">You do not have permission to create orders.</div>}
-          {isEdit && !canUpdate && <div className="alert">You do not have permission to update orders.</div>}
-          {error && <div className="alert" style={{ marginBottom: 10 }}>{error}</div>}
+        {isCreate && !canCreate && <div className="alert">You do not have permission to create orders.</div>}
+        {isEdit && !canUpdate && <div className="alert">You do not have permission to update orders.</div>}
+        {error && <div className="alert">{error}</div>}
 
-          <form
-            className="grid"
-            style={{ gap: 12, gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', alignItems: 'start' }}
-            onSubmit={submit}
-          >
+        <form className="form-layout" onSubmit={submit}>
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Submission Info</h3>
+                <div className="form-section-note">Core dealer, pooling, and finance submission information.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
             <div>
               <label>Dealer</label>
               <SearchableSelect
@@ -163,6 +167,18 @@ export default function OrderFormView({
                 searchPlaceholder="Search finance company..."
               />
             </div>
+            </div>
+          </div>
+
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Customer & Location</h3>
+                <div className="form-section-note">Consumer profile and area information used for the order record.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
 
             <div>
               <label>Consumer Name</label>
@@ -214,11 +230,22 @@ export default function OrderFormView({
               <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Enter village" />
             </div>
 
-            <div style={{ gridColumn: '1 / -1' }}>
+            <div className="form-field-span-full">
               <label>Address</label>
               <input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Enter address" />
             </div>
+            </div>
+          </div>
 
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Credit Simulation</h3>
+                <div className="form-section-note">Job, product, and installment values used for the initial credit decision.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
             <div>
               <label>Job</label>
               <SearchableSelect
@@ -301,7 +328,18 @@ export default function OrderFormView({
                 placeholder="Enter installment amount"
               />
             </div>
+            </div>
+          </div>
 
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Finance Decision</h3>
+                <div className="form-section-note">Outcome for attempt 1 and optional attempt 2 when the first result is rejected.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
             <div>
               <label>Result</label>
               <SearchableSelect
@@ -313,20 +351,20 @@ export default function OrderFormView({
               />
             </div>
 
-            <div style={{ gridColumn: '1 / -1' }}>
+            <div className="form-field-span-full">
               <label>Result Notes</label>
               <input value={form.result_notes} onChange={(e) => set('result_notes', e.target.value)} placeholder="Enter result notes" />
             </div>
 
             {form.result_status === 'reject' && !showAttempt2 && poolingRowsCount >= 2 && (
-              <div style={{ gridColumn: '1 / -1', color: '#64748b', fontSize: 12 }}>
+              <div className="form-field-span-full" style={{ color: '#64748b', fontSize: 12 }}>
                 This pooling number already has 2 records, so no additional finance attempt can be added.
               </div>
             )}
 
             {showAttempt2 && (
               <>
-                <div style={{ gridColumn: '1 / -1', marginTop: 4, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
+                <div className="form-field-span-full form-subsection-head">
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>Finance Attempt 2</div>
                   <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
                     Attempt 2 appears when attempt 1 result is reject.
@@ -355,14 +393,17 @@ export default function OrderFormView({
                   />
                 </div>
 
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div className="form-field-span-full">
                   <label>Finance 2 Notes</label>
                   <input value={form.result_notes2} onChange={(e) => set('result_notes2', e.target.value)} placeholder="Enter finance 2 notes" />
                 </div>
               </>
             )}
+            </div>
+          </div>
 
-            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
+          <div className="card form-section">
+            <div className="form-actions-row">
               <button className="btn" type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Order'}</button>
               <button
                 className="btn-ghost"
@@ -375,8 +416,8 @@ export default function OrderFormView({
                 Cancel
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   )

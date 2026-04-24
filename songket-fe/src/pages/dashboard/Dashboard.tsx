@@ -37,11 +37,18 @@ export default function DashboardPage() {
   } = useDashboardData()
 
   return (
-    <div>
+    <div className="dashboard-shell">
       <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Dashboard Songket</div>
-          <div style={{ color: '#64748b' }}>Monitoring Order In, komposisi data, dan performa.</div>
+        <div className="dashboard-hero-copy">
+          <div className="dashboard-hero-eyebrow">Operations Overview</div>
+          <div className="dashboard-hero-title">Dashboard Songket</div>
+          <div className="dashboard-hero-subtitle">
+            Monitor order inflow, approval performance, finance mix, and commodity movement from one workspace.
+          </div>
+          <div className="dashboard-context-row">
+            <span className="dashboard-context-pill">Filter-ready analytics</span>
+            <span className="dashboard-context-pill subtle">Daily, monthly, yearly, or custom period</span>
+          </div>
         </div>
       </div>
 
