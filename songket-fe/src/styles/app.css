@@ -1995,6 +1995,10 @@ h4 {
     display: block;
   }
 
+  .finance-report-detail-order-table {
+    table-layout: fixed;
+  }
+
   .finance-report-approval-table {
     min-width: 560px;
   }

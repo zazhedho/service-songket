@@ -168,17 +168,17 @@ export default function FinanceReportDetail({
                 <Table
                   data={detailOrderInRows}
                   keyField={(row) => `detail-order-in-${row.order_id}`}
-                  className="table-list"
-                  style={{ minWidth: 1040 }}
+                  className="table-list finance-report-detail-order-table"
+                  style={{ minWidth: 1120, tableLayout: 'fixed' }}
                   isLoading={detailOrderInLoading}
                   loadingMessage="Loading order in data..."
                   emptyMessage="No order in data found for this migration."
                   onRowClick={(row) => setSelectedOrderInRow(row)}
                   columns={[
-                    { header: 'Pooling Number', accessor: (row) => row.pooling_number || '-' },
-                    { header: 'Pooling Date', accessor: (row) => formatDateTime(row.pooling_at) },
-                    { header: 'Dealer', accessor: (row) => row.dealer_name || '-' },
-                    { header: 'Consumer', accessor: (row) => row.consumer_name || '-' },
+                    { header: 'Pooling Number', accessor: (row) => row.pooling_number || '-', headerStyle: { width: 140 }, style: { width: 140 } },
+                    { header: 'Pooling Date', accessor: (row) => formatDateTime(row.pooling_at), headerStyle: { width: 140 }, style: { width: 140 } },
+                    { header: 'Dealer', accessor: (row) => row.dealer_name || '-', headerStyle: { width: 140 }, style: { width: 140 } },
+                    { header: 'Consumer', accessor: (row) => row.consumer_name || '-', headerStyle: { width: 140 }, style: { width: 140 } },
                     {
                       header: 'Location',
                       accessor: (row) => summarizeLocation([
@@ -188,12 +188,15 @@ export default function FinanceReportDetail({
                         row.village,
                         row.address,
                       ]),
+                      className: 'wrap-text',
+                      headerStyle: { width: 200 },
+                      style: { width: 200 },
                     },
-                    { header: 'Motor / OTR', accessor: (row) => `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}` },
-                    { header: 'Status 1', accessor: (row) => statusBadge(row.finance_1_status || '') },
-                    { header: 'Finance 1 Notes', accessor: (row) => truncateTableText(row.finance_1_notes || '-') },
-                    { header: 'Status 2', accessor: (row) => statusBadge(row.finance_2_status || '') },
-                    { header: 'Finance 2 Notes', accessor: (row) => truncateTableText(row.finance_2_notes || '-') },
+                    { header: 'Motor / OTR', accessor: (row) => `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}`, headerStyle: { width: 180 }, style: { width: 180 } },
+                    { header: 'Status 1', accessor: (row) => statusBadge(row.finance_1_status || ''), headerStyle: { width: 110 }, style: { width: 110 } },
+                    { header: 'Finance 1 Notes', accessor: (row) => truncateTableText(row.finance_1_notes || '-'), headerStyle: { width: 180 }, style: { width: 180 } },
+                    { header: 'Status 2', accessor: (row) => statusBadge(row.finance_2_status || ''), headerStyle: { width: 110 }, style: { width: 110 } },
+                    { header: 'Finance 2 Notes', accessor: (row) => truncateTableText(row.finance_2_notes || '-'), headerStyle: { width: 180 }, style: { width: 180 } },
                   ]}
                 />
               </div>

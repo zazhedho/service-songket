@@ -42,6 +42,15 @@ type QuadrantPoint = {
 
 type OptionItem = { value: string; label: string }
 
+const getQuadrantLoadErrorMessage = (error: any) => {
+  const status = Number(error?.response?.status || 0)
+  const rawMessage = String(error?.response?.data?.error || error?.message || '').trim()
+  const fallbackMessage = 'Failed to load quadrant data. Please try again.'
+
+  if (!status || status >= 500) return fallbackMessage
+  return rawMessage || fallbackMessage
+}
+
 export default function QuadrantsPage() {
   const currentYear = new Date().getFullYear()
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 767 : false))
@@ -70,7 +79,7 @@ export default function QuadrantsPage() {
       })
       .catch((err: any) => {
         setItems([])
-        setLoadError(err?.response?.data?.error || err?.message || 'Failed to load quadrant data.')
+        setLoadError(getQuadrantLoadErrorMessage(err))
       })
       .finally(() => setIsLoading(false))
   }, [selectedYear, selectedMonth])
