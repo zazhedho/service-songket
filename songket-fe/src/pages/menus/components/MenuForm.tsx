@@ -53,7 +53,7 @@ export default function MenuForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 860 }}>
+        <div className="card" style={{ width: '100%' }}>
           {!canUpdate && <div className="alert">No permission to update menu.</div>}
 
           <div className="grid" style={{ gap: 10 }}>
@@ -111,7 +111,7 @@ export default function MenuForm({
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : 'Update Menu'}
               </button>

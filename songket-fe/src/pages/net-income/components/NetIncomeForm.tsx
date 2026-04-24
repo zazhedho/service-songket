@@ -65,7 +65,7 @@ export default function NetIncomeForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 900 }}>
+        <div className="card" style={{ width: '100%' }}>
           {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
@@ -153,7 +153,7 @@ export default function NetIncomeForm({
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
               </button>

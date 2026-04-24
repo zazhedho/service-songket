@@ -61,7 +61,7 @@ export default function UserForm({
         {!canCreate && isCreate && <div className="alert">You do not have permission to create users.</div>}
         {!canUpdate && isEdit && <div className="alert">You do not have permission to update users.</div>}
 
-        <div className="form-layout" style={{ maxWidth: 920 }}>
+        <div className="form-layout" style={{ width: '100%' }}>
           <div className="card form-section">
             <div className="form-section-head">
               <div>

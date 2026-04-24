@@ -1,6 +1,6 @@
 function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
   return (
-    <table className="table" style={{ marginTop: 10 }}>
+    <table className="table responsive-detail" style={{ marginTop: 10 }}>
       <tbody>
         {rows.map((row) => (
           <tr key={row.label}>
@@ -60,7 +60,7 @@ export default function JobDetail({
       <div className="page">
         {!selectedItem && <div className="alert">Data not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ maxWidth: 960 }}>
+          <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Job & Net Income Information</h3>
             {detailLoading && <div style={{ color: '#64748b', marginBottom: 10 }}>Loading latest relation data...</div>}
             <DetailTable
@@ -74,7 +74,7 @@ export default function JobDetail({
             />
 
             <h3 style={{ marginTop: 14 }}>Coverage Areas</h3>
-            <table className="table" style={{ marginTop: 10 }}>
+            <table className="table table-list" style={{ marginTop: 10 }}>
               <thead>
                 <tr>
                   <th>No</th>

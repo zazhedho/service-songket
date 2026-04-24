@@ -33,7 +33,7 @@ export default function NewsDetail({
       <div className="page">
         {!selectedDetail && <div className="alert">News details not found.</div>}
         {selectedDetail && (
-          <div className="card" style={{ maxWidth: 980 }}>
+          <div className="card" style={{ width: '100%' }}>
             <h3>{selectedDetail.judul || '-'}</h3>
             <div style={{ color: '#64748b', marginTop: 6 }}>
               {selectedDetail.created_at ? dayjs(selectedDetail.created_at).format('DD MMM YYYY HH:mm') : '-'} | {selectedDetail.sumber || '-'}

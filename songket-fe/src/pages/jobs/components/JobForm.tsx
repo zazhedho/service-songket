@@ -56,7 +56,7 @@ export default function JobForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 920 }}>
+        <div className="card" style={{ width: '100%' }}>
           {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 

@@ -43,7 +43,7 @@ export default function ScrapeSourceForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 860 }}>
+        <div className="card" style={{ width: '100%' }}>
           {!canCreate && isCreate && <div className="alert">No permission to create sources.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update sources.</div>}
 
@@ -72,7 +72,7 @@ export default function ScrapeSourceForm({
               />
             </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn" onClick={() => void save()} disabled={loading || (!canCreate && !canUpdate)}>
                 {loading ? 'Saving...' : isEdit ? 'Update Source' : 'Save Source'}
               </button>

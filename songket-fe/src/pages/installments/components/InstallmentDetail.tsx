@@ -39,9 +39,9 @@ export default function InstallmentDetail({
       <div className="page">
         {!selectedItem && <div className="alert">Data not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ maxWidth: 920 }}>
+          <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Motor Type & Installment Information</h3>
-            <table className="table" style={{ marginTop: 10 }}>
+            <table className="table responsive-detail" style={{ marginTop: 10 }}>
               <tbody>
                 <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th><td style={{ fontWeight: 600 }}>{motor?.name || '-'}</td></tr>
                 <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th><td style={{ fontWeight: 600 }}>{motor?.brand || '-'}</td></tr>

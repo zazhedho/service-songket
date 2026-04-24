@@ -58,7 +58,7 @@ export default function MotorTypeForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 980 }}>
+        <div className="card" style={{ width: '100%' }}>
           {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
@@ -120,7 +120,7 @@ export default function MotorTypeForm({
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10, gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', gridColumn: '1 / -1' }}>
               <button className="btn" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
               </button>

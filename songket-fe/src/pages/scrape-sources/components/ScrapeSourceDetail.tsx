@@ -31,9 +31,9 @@ export default function ScrapeSourceDetail({
       <div className="page">
         {!selectedSource && <div className="alert">Source data not found.</div>}
         {selectedSource && (
-          <div className="card" style={{ maxWidth: 820 }}>
+          <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Source Information</h3>
-            <table className="table" style={{ marginTop: 10 }}>
+            <table className="table responsive-detail" style={{ marginTop: 10 }}>
               <tbody>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>

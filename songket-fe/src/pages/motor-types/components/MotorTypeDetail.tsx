@@ -35,9 +35,9 @@ export default function MotorTypeDetail({
       <div className="page">
         {!selectedItem && <div className="alert">Motor type data not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ maxWidth: 860 }}>
+          <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Motor Type Information</h3>
-            <table className="table" style={{ marginTop: 10 }}>
+            <table className="table responsive-detail" style={{ marginTop: 10 }}>
               <tbody>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>

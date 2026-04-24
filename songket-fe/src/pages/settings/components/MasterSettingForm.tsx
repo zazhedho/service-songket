@@ -53,7 +53,7 @@ export default function MasterSettingForm({
   ]
 
   return (
-    <div className="card" style={{ maxWidth: 860 }}>
+    <div className="card" style={{ width: '100%' }}>
       <h3 style={{ marginBottom: 10 }}>
         {formAction === 'create' ? 'Create Scheduler Setting' : 'Edit Scheduler Setting'}
       </h3>

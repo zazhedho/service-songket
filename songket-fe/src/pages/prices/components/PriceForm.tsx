@@ -40,7 +40,7 @@ export default function PriceForm({
       <div className="page">
         {!canImport && <div className="alert">No permission to create manual prices.</div>}
 
-        <div className="card" style={{ maxWidth: 820 }}>
+        <div className="card" style={{ width: '100%' }}>
           <div className="grid" style={{ gap: 10 }}>
             <div>
               <label>Commodity Name</label>
@@ -66,7 +66,7 @@ export default function PriceForm({
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
             <button className="btn" onClick={() => void submitManual()}>Save</button>
             <button className="btn-ghost" onClick={() => navigate('/prices')}>Cancel</button>
           </div>

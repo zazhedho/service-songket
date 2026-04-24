@@ -41,7 +41,7 @@ export default function RoleForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 980 }}>
+        <div className="card" style={{ width: '100%' }}>
           {!canCreate && isCreate && <div className="alert">You do not have permission to create roles.</div>}
           {!canUpdate && isEdit && <div className="alert">You do not have permission to update roles.</div>}
 
@@ -85,7 +85,7 @@ export default function RoleForm({
 
             {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn" onClick={() => void saveRole()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update Role' : 'Create Role'}
               </button>
