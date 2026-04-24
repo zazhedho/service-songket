@@ -2239,6 +2239,39 @@ h4 {
     padding: 0;
   }
 
+  .detail-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .detail-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #dbe3ef;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .detail-link {
+    color: #2563eb;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .detail-link:hover {
+    color: #1d4ed8;
+  }
+
   .business-master-stack {
     display: grid;
     gap: 12px;

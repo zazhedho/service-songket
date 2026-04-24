@@ -149,7 +149,7 @@ export default function OrderDetailView({
               </div>
 
               <div className="card" style={{ background: '#f8fafc' }}>
-                <h4 style={{ marginTop: 0 }}>Hasil Finance</h4>
+                <h4 style={{ marginTop: 0 }}>Finance Results</h4>
                 <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))', gap: 12 }}>
                   {detailAttempts.map((attempt: any) => (
                     <div

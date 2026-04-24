@@ -18,6 +18,7 @@ export default function RoleDetail({
   const resolvedRole = roleDetail || selectedRole || null
   const permissionIds = roleDetail?.permission_ids || []
   const isSystemRole = Boolean(roleDetail?.is_system || selectedRole?.is_system)
+  const roleName = resolvedRole?.display_name || resolvedRole?.name || '-'
 
   return (
     <div>
@@ -41,11 +42,22 @@ export default function RoleDetail({
 
         {resolvedRole && (
           <>
+            <div className="card business-dealer-detail-hero">
+              <div className="business-dealer-detail-hero-main">
+                <div className="business-dealer-detail-kicker">Role</div>
+                <div className="business-dealer-detail-name">{roleName}</div>
+                <div className="business-dealer-detail-note">{resolvedRole.description || 'No description provided.'}</div>
+              </div>
+              <div className="business-dealer-detail-badges">
+                <span className="business-dealer-detail-badge muted">{isSystemRole ? 'System role' : 'Custom role'}</span>
+                <span className="business-dealer-detail-badge muted">{permissionIds.length} permissions</span>
+              </div>
+            </div>
+
             <div className="business-dealer-grid" style={{ padding: 0 }}>
               <div className="card business-section">
                 <div className="business-section-head">
                   <h3 className="business-section-title">Role Information</h3>
-                  <span className="business-section-side">Profile</span>
                 </div>
                 <div className="business-dealer-detail-card">
                   <div className="business-dealer-detail-grid">
@@ -68,33 +80,12 @@ export default function RoleDetail({
                   </div>
                 </div>
               </div>
-
-              <div className="card business-section">
-                <div className="business-section-head">
-                  <h3 className="business-section-title">Access Summary</h3>
-                  <span className="business-section-side">Security</span>
-                </div>
-                <div className="business-dealer-detail-card">
-                  <div className="business-dealer-detail-grid">
-                    <div className="business-dealer-detail-item">
-                      <div className="business-dealer-detail-label">Permission Count</div>
-                      <div className="business-dealer-detail-value">{permissionIds.length}</div>
-                    </div>
-                    <div className="business-dealer-detail-item">
-                      <div className="business-dealer-detail-label">Coverage</div>
-                      <div className="business-dealer-detail-value">
-                        {permissionIds.length > 0 ? 'Permissions assigned to this role.' : 'No permissions assigned to this role.'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="card business-section">
               <div className="business-section-head">
                 <h3 className="business-section-title">Permissions</h3>
-                <span className="business-section-side">Access</span>
+                <span className="business-section-side">{permissionIds.length} assigned</span>
               </div>
               <div className="business-dealer-detail-card">
                 <div className="table-responsive">

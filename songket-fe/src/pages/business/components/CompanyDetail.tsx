@@ -55,7 +55,7 @@ export default function CompanyDetail({
           <>
             <div className="card business-dealer-detail-hero">
               <div className="business-dealer-detail-hero-main">
-                <div className="business-dealer-detail-kicker">Finance Company Overview</div>
+                <div className="business-dealer-detail-kicker">Finance Company</div>
                 <div className="business-dealer-detail-name">{selectedCompany.name || '-'}</div>
                 <div className="business-dealer-detail-note">{locationSummary}</div>
               </div>
@@ -64,27 +64,6 @@ export default function CompanyDetail({
                 <span className="business-dealer-detail-badge muted">
                   {companySummaryLoading ? 'Loading performance' : `${companySummary?.active_dealers || 0} active dealers`}
                 </span>
-              </div>
-            </div>
-
-            <div className="business-summary-row business-dealer-detail-summary-row">
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Phone</div>
-                <div className="business-dealer-detail-stat-value">{selectedCompany.phone || '-'}</div>
-              </div>
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Province</div>
-                <div className="business-dealer-detail-stat-value">{selectedCompanyProvinceName}</div>
-              </div>
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Regency / City</div>
-                <div className="business-dealer-detail-stat-value">{selectedCompanyRegencyName}</div>
-              </div>
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Dealer Coverage</div>
-                <div className="business-dealer-detail-stat-value">
-                  {companySummaryLoading ? 'Loading...' : `${companySummary?.active_dealers || 0} / ${dealers.length}`}
-                </div>
               </div>
             </div>
 
@@ -143,10 +122,6 @@ export default function CompanyDetail({
                       <div className="business-dealer-detail-label">Village</div>
                       <div className="business-dealer-detail-value">{selectedCompany.village || '-'}</div>
                     </div>
-                    <div className="business-dealer-detail-item">
-                      <div className="business-dealer-detail-label">Location Summary</div>
-                      <div className="business-dealer-detail-value">{locationSummary}</div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -185,7 +160,7 @@ export default function CompanyDetail({
                     </div>
 
                     <div style={{ marginBottom: 12, color: '#64748b', fontSize: 12 }}>
-                      Active dealers: {companySummary.active_dealers} of {dealers.length} dealers
+                      Active dealers: {companySummary.active_dealers} of {dealers.length}
                     </div>
 
                     <div className="table-responsive">

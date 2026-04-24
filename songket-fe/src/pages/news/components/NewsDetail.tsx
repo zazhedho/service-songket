@@ -22,11 +22,11 @@ export default function NewsDetail({
 }: NewsDetailProps) {
   return (
     <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>News Details</div>
-          <div style={{ color: '#64748b' }}>Complete news information</div>
-        </div>
+          <div className="header">
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 700 }}>News Details</div>
+          <div style={{ color: '#64748b' }}>Source, images, and article content.</div>
+            </div>
         <button className="btn-ghost" onClick={() => navigate('/news')}>Back</button>
       </div>
 
@@ -34,13 +34,14 @@ export default function NewsDetail({
         {!selectedDetail && <div className="alert">News details not found.</div>}
         {selectedDetail && (
           <div className="card" style={{ width: '100%' }}>
-            <h3>{selectedDetail.judul || '-'}</h3>
-            <div style={{ color: '#64748b', marginTop: 6 }}>
-              {selectedDetail.created_at ? dayjs(selectedDetail.created_at).format('DD MMM YYYY HH:mm') : '-'} | {selectedDetail.sumber || '-'}
+            <h3 style={{ marginTop: 0, lineHeight: 1.3 }}>{selectedDetail.judul || '-'}</h3>
+            <div style={{ color: '#64748b', marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span>{selectedDetail.created_at ? dayjs(selectedDetail.created_at).format('DD MMM YYYY HH:mm') : '-'}</span>
+              <span>{selectedDetail.sumber || '-'}</span>
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <a href={selectedDetail.url} target="_blank" rel="noreferrer">{selectedDetail.url}</a>
+              <a className="detail-link" href={selectedDetail.url} target="_blank" rel="noreferrer">{selectedDetail.url}</a>
             </div>
 
             {detailImages.length > 0 && (
@@ -72,6 +73,7 @@ export default function NewsDetail({
                 overflowY: 'auto',
                 whiteSpace: 'pre-wrap',
                 lineHeight: 1.45,
+                overflowWrap: 'anywhere',
                 border: '1px solid #dbe3ef',
                 borderRadius: 10,
                 padding: 12,

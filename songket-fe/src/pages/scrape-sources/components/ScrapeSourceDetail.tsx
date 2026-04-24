@@ -41,7 +41,13 @@ export default function ScrapeSourceDetail({
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>URL</th>
-                  <td style={{ fontWeight: 600 }}>{selectedSource.url || '-'}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {selectedSource.url ? (
+                      <a className="detail-link" href={selectedSource.url} target="_blank" rel="noreferrer">
+                        {selectedSource.url}
+                      </a>
+                    ) : '-'}
+                  </td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Type</th>

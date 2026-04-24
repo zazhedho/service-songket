@@ -40,7 +40,13 @@ export default function PriceDetail({
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Source URL</th>
-                  <td style={{ fontWeight: 600 }}>{selectedPrice.source_url || '-'}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {selectedPrice.source_url ? (
+                      <a className="detail-link" href={selectedPrice.source_url} target="_blank" rel="noreferrer">
+                        {selectedPrice.source_url}
+                      </a>
+                    ) : '-'}
+                  </td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Collected At</th>

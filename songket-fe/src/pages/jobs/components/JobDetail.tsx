@@ -74,29 +74,31 @@ export default function JobDetail({
             />
 
             <h3 style={{ marginTop: 14 }}>Coverage Areas</h3>
-            <table className="table table-list" style={{ marginTop: 10 }}>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Province</th>
-                  <th>Regency / City</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detailAreaRows.map((area: any, index: number) => (
-                  <tr key={`${area.province_code}-${area.regency_code}-${index}`}>
-                    <td>{index + 1}</td>
-                    <td>{area.province_name || '-'}</td>
-                    <td>{area.regency_name || '-'}</td>
-                  </tr>
-                ))}
-                {detailAreaRows.length === 0 && (
+            <div className="table-responsive">
+              <table className="table table-list" style={{ marginTop: 10 }}>
+                <thead>
                   <tr>
-                    <td colSpan={3}>No coverage areas.</td>
+                    <th>No</th>
+                    <th>Province</th>
+                    <th>Regency / City</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {detailAreaRows.map((area: any, index: number) => (
+                    <tr key={`${area.province_code}-${area.regency_code}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td>{area.province_name || '-'}</td>
+                      <td>{area.regency_name || '-'}</td>
+                    </tr>
+                  ))}
+                  {detailAreaRows.length === 0 && (
+                    <tr>
+                      <td colSpan={3}>No coverage areas.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

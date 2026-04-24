@@ -19,6 +19,8 @@ export default function NetIncomeDetail({
   selectedId,
   selectedItem,
 }: NetIncomeDetailProps) {
+  const areaRows = Array.isArray(selectedItem?.area_net_income) ? selectedItem.area_net_income : []
+
   return (
     <div>
       <div className="header">
@@ -54,7 +56,15 @@ export default function NetIncomeDetail({
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area Coverage</th>
                   <td style={{ fontWeight: 600 }}>
-                    {selectedItem.area_net_income.length ? selectedItem.area_net_income.map((area: any) => areaLabel(area)).join(', ') : '-'}
+                    {areaRows.length > 0 ? (
+                      <div className="detail-chip-list">
+                        {areaRows.map((area: any, index: number) => (
+                          <span key={`${area.province_code || area.province_id || 'province'}-${area.regency_code || area.regency_id || index}`} className="detail-chip">
+                            {areaLabel(area)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : '-'}
                   </td>
                 </tr>
                 <tr>

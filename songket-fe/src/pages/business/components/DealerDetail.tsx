@@ -62,7 +62,7 @@ export default function DealerDetail({
           <>
             <div className="card business-dealer-detail-hero">
               <div className="business-dealer-detail-hero-main">
-                <div className="business-dealer-detail-kicker">Dealer Overview</div>
+                <div className="business-dealer-detail-kicker">Dealer</div>
                 <div className="business-dealer-detail-name">{selectedDealer.name || '-'}</div>
                 <div className="business-dealer-detail-note">{locationSummary}</div>
               </div>
@@ -73,27 +73,6 @@ export default function DealerDetail({
                 <span className="business-dealer-detail-badge muted">
                   {selectedDealer.phone?.trim() ? selectedDealer.phone : 'Phone not set'}
                 </span>
-              </div>
-            </div>
-
-            <div className="business-summary-row business-dealer-detail-summary-row">
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Phone</div>
-                <div className="business-dealer-detail-stat-value">{selectedDealer.phone || '-'}</div>
-              </div>
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Province</div>
-                <div className="business-dealer-detail-stat-value">{selectedDealerProvinceName}</div>
-              </div>
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Regency / City</div>
-                <div className="business-dealer-detail-stat-value">{selectedDealerRegencyName}</div>
-              </div>
-              <div className="business-summary-item">
-                <div className="business-dealer-detail-stat-label">Coordinates</div>
-                <div className="business-dealer-detail-stat-value">
-                  {hasCoordinates ? `${formatCoordinate(lat)}, ${formatCoordinate(lng)}` : '-'}
-                </div>
               </div>
             </div>
 

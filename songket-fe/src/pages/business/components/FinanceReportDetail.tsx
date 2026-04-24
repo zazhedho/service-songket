@@ -100,7 +100,7 @@ export default function FinanceReportDetail({
     <div style={{ overflowX: 'hidden' }}>
       <div className="header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Report Finance Detail</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>Finance Migration Detail</div>
           <div style={{ color: '#64748b' }}>Detailed migration data: {financePairText}</div>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/business')}>
@@ -194,26 +194,6 @@ export default function FinanceReportDetail({
                     { header: 'Finance 1 Notes', accessor: (row) => truncateTableText(row.finance_1_notes || '-') },
                     { header: 'Status 2', accessor: (row) => statusBadge(row.finance_2_status || '') },
                     { header: 'Finance 2 Notes', accessor: (row) => truncateTableText(row.finance_2_notes || '-') },
-                    {
-                      header: 'Action',
-                      accessor: (row) => (
-                        <button
-                          type="button"
-                          className="btn-ghost table-action-button"
-                          onClick={() => setSelectedOrderInRow(row)}
-                        >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                          </svg>
-                          View
-                        </button>
-                      ),
-                      className: 'action-cell',
-                      ignoreRowClick: true,
-                      headerStyle: { width: 108 },
-                      style: { width: 108 },
-                    },
                   ]}
                 />
               </div>
@@ -255,7 +235,7 @@ export default function FinanceReportDetail({
                   </div>
 
                   <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performence</div>
+                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performance</div>
                     <div className="finance-report-wide-table">
                       <table className="table" style={{ minWidth: 760 }}>
                         <thead>
