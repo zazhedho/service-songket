@@ -62,8 +62,7 @@ func (h *QuadrantHandler) Summary(ctx *gin.Context) {
 	data, err := h.Service.Summary(reqCtx, year, month)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Summary; Error: %+v", logPrefix, err))
-		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
-		res.Error = "failed to load quadrant data"
+		res := response.InternalServerError(logId)
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
@@ -87,8 +86,7 @@ func (h *QuadrantHandler) Recompute(ctx *gin.Context) {
 	data, err := h.Service.Recompute(reqCtx, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Recompute; Error: %+v", logPrefix, err))
-		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
-		res.Error = "failed to recompute quadrant data"
+		res := response.InternalServerError(logId)
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}
@@ -114,8 +112,7 @@ func (h *QuadrantHandler) GetAll(ctx *gin.Context) {
 	data, total, err := h.Service.List(reqCtx, params)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.List; Error: %+v", logPrefix, err))
-		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
-		res.Error = "failed to load quadrant history"
+		res := response.InternalServerError(logId)
 		ctx.JSON(http.StatusInternalServerError, res)
 		return
 	}

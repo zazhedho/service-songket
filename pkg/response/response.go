@@ -44,11 +44,34 @@ type PaginatedResponse struct {
 func Response(code int, msg string, logId uuid.UUID, data interface{}) *ApiResponse {
 	res := new(ApiResponse)
 	res.Id = logId
+	res.Code = code
 	res.Message = msg
 	res.Data = data
-	res.Status = code == http.StatusOK || code == http.StatusCreated
+	res.Status = code >= http.StatusOK && code < http.StatusMultipleChoices
 
 	return res
+}
+
+func ErrorResponse(code int, msg string, logId uuid.UUID, publicError string) *ApiResponse {
+	res := Response(code, msg, logId, nil)
+	res.Error = Errors{Code: code, Message: publicError}
+	return res
+}
+
+func InternalServerError(logId uuid.UUID) *ApiResponse {
+	return ErrorResponse(http.StatusInternalServerError, messages.MsgInternal, logId, "Internal server error")
+}
+
+func BadGateway(logId uuid.UUID, publicError string) *ApiResponse {
+	return ErrorResponse(http.StatusBadGateway, messages.MsgFail, logId, publicError)
+}
+
+func Unauthorized(logId uuid.UUID, publicError string) *ApiResponse {
+	return ErrorResponse(http.StatusUnauthorized, messages.MsgFail, logId, publicError)
+}
+
+func Forbidden(logId uuid.UUID, publicError string) *ApiResponse {
+	return ErrorResponse(http.StatusForbidden, messages.MsgDenied, logId, publicError)
 }
 
 func PaginationResponse(code, total, page, perPage int, logId uuid.UUID, data interface{}) *PaginatedResponse {
@@ -70,7 +93,7 @@ func PaginationResponse(code, total, page, perPage int, logId uuid.UUID, data in
 
 	res.LogID = logId.String()
 	res.Code = code
-	res.Status = code == http.StatusOK || code == http.StatusCreated
+	res.Status = code >= http.StatusOK && code < http.StatusMultipleChoices
 	res.Message = message
 	res.Data = data
 	res.TotalData = total

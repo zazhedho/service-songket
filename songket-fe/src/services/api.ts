@@ -13,6 +13,8 @@ api.interceptors.request.use((config) => {
 
 let isHandlingUnauthorized = false
 
+const INTERNAL_ERROR_MESSAGE = 'Something went wrong. Please contact support with the log ID.'
+
 function isAuthRequest(url?: string) {
   return Boolean(url && ['/api/user/login', '/api/user/register'].some((path) => url.includes(path)))
 }
@@ -21,6 +23,18 @@ function redirectToLogin() {
   if (typeof window === 'undefined') return
   if (window.location.pathname === '/login') return
   window.location.replace('/login')
+}
+
+function normalizeInternalError(error: any) {
+  const status = Number(error?.response?.status || 0)
+  if (!status || status < 500) return
+
+  const data = error.response.data || {}
+  error.response.data = {
+    ...data,
+    message: data.message || INTERNAL_ERROR_MESSAGE,
+    error: data.error?.message || INTERNAL_ERROR_MESSAGE,
+  }
 }
 
 api.interceptors.response.use(
@@ -38,6 +52,8 @@ api.interceptors.response.use(
         redirectToLogin()
       }
     }
+
+    normalizeInternalError(error)
 
     return Promise.reject(error)
   },
