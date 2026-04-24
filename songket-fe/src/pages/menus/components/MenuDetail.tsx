@@ -17,6 +17,8 @@ export default function MenuDetail({
   selectedId,
   selectedItem,
 }: MenuDetailProps) {
+  const menuTitle = selectedItem?.display_name || selectedItem?.name || '-'
+
   return (
     <div>
       <div className="header">
@@ -37,55 +39,69 @@ export default function MenuDetail({
       <div className="page">
         {!selectedItem && <div className="alert">Menu not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>Menu Information</h3>
-            <table className="table responsive-detail" style={{ marginTop: 10 }}>
-              <tbody>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
-                  <td style={{ fontWeight: 600 }}>{selectedItem.name || '-'}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Display Name</th>
-                  <td style={{ fontWeight: 600 }}>{selectedItem.display_name || '-'}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Path</th>
-                  <td style={{ fontWeight: 600 }}>{selectedItem.path || '-'}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Icon</th>
-                  <td style={{ fontWeight: 600 }}>{selectedItem.icon || '-'}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Parent Menu</th>
-                  <td style={{ fontWeight: 600 }}>
-                    {parentMenu?.display_name || parentMenu?.name || parentMenu?.path || 'Root Menu'}
-                  </td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Child Menus</th>
-                  <td style={{ fontWeight: 600 }}>{childMenuCount}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Order Index</th>
-                  <td style={{ fontWeight: 600 }}>{String(selectedItem.order_index ?? 0)}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Status</th>
-                  <td style={{ fontWeight: 600 }}>{selectedItem.is_active ? 'Active' : 'Inactive'}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
-                  <td style={{ fontWeight: 600 }}>{formatDateTime(selectedItem.created_at)}</td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                  <td style={{ fontWeight: 600 }}>{formatDateTime(selectedItem.updated_at)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="card business-dealer-detail-hero">
+              <div className="business-dealer-detail-hero-main">
+                <div className="business-dealer-detail-kicker">Menu</div>
+                <div className="business-dealer-detail-name">{menuTitle}</div>
+                <div className="business-dealer-detail-note">{selectedItem.path || 'No route path set.'}</div>
+              </div>
+              <div className="business-dealer-detail-badges">
+                <span className={`business-dealer-detail-badge ${selectedItem.is_active ? 'success' : 'muted'}`}>
+                  {selectedItem.is_active ? 'Active' : 'Inactive'}
+                </span>
+                <span className="business-dealer-detail-badge muted">{childMenuCount} child menus</span>
+              </div>
+            </div>
+
+            <div className="card" style={{ width: '100%' }}>
+              <h3 style={{ marginTop: 0 }}>Menu Information</h3>
+              <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
+                <table className="table responsive-detail">
+                  <tbody>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
+                      <td style={{ fontWeight: 600 }}>{selectedItem.name || '-'}</td>
+                    </tr>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Display Name</th>
+                      <td style={{ fontWeight: 600 }}>{selectedItem.display_name || '-'}</td>
+                    </tr>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Path</th>
+                      <td style={{ fontWeight: 600 }}>{selectedItem.path || '-'}</td>
+                    </tr>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Icon</th>
+                      <td style={{ fontWeight: 600 }}>{selectedItem.icon || '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <table className="table responsive-detail">
+                  <tbody>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Parent Menu</th>
+                      <td style={{ fontWeight: 600 }}>
+                        {parentMenu?.display_name || parentMenu?.name || parentMenu?.path || 'Root Menu'}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Order Index</th>
+                      <td style={{ fontWeight: 600 }}>{String(selectedItem.order_index ?? 0)}</td>
+                    </tr>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
+                      <td style={{ fontWeight: 600 }}>{formatDateTime(selectedItem.created_at)}</td>
+                    </tr>
+                    <tr>
+                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
+                      <td style={{ fontWeight: 600 }}>{formatDateTime(selectedItem.updated_at)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
