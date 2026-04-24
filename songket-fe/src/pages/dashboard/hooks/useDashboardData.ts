@@ -477,20 +477,7 @@ function buildDailyFinanceDecisionSeries({
   to: string
 }): DailyFinanceDecisionSeries {
   const approveByDate = new Map<string, number>()
-  approveRows.forEach((item) => {
-    const parsedDate = dayjs(item.date)
-    if (!parsedDate.isValid()) return
-    const key = parsedDate.format('YYYY-MM-DD')
-    approveByDate.set(key, (approveByDate.get(key) || 0) + Number(item.total || 0))
-  })
-
   const rejectByDate = new Map<string, number>()
-  rejectRows.forEach((item) => {
-    const parsedDate = dayjs(item.date)
-    if (!parsedDate.isValid()) return
-    const key = parsedDate.format('YYYY-MM-DD')
-    rejectByDate.set(key, (rejectByDate.get(key) || 0) + Number(item.total || 0))
-  })
 
   const companyByDate = new Map<string, { approve: Array<{ name: string; total: number }>; reject: Array<{ name: string; total: number }> }>()
   companyRows.forEach((item) => {
@@ -502,6 +489,12 @@ function buildDailyFinanceDecisionSeries({
     const approveTotal = Number(item.approve_total || 0)
     const rejectTotal = Number(item.reject_total || 0)
     if (approveTotal > 0) {
+      approveByDate.set(dateKey, (approveByDate.get(dateKey) || 0) + approveTotal)
+    }
+    if (rejectTotal > 0) {
+      rejectByDate.set(dateKey, (rejectByDate.get(dateKey) || 0) + rejectTotal)
+    }
+    if (approveTotal > 0) {
       bucket.approve.push({ name: companyName, total: approveTotal })
     }
     if (rejectTotal > 0) {
@@ -509,6 +502,24 @@ function buildDailyFinanceDecisionSeries({
     }
     companyByDate.set(dateKey, bucket)
   })
+
+  if (approveByDate.size === 0) {
+    approveRows.forEach((item) => {
+      const parsedDate = dayjs(item.date)
+      if (!parsedDate.isValid()) return
+      const key = parsedDate.format('YYYY-MM-DD')
+      approveByDate.set(key, (approveByDate.get(key) || 0) + Number(item.total || 0))
+    })
+  }
+
+  if (rejectByDate.size === 0) {
+    rejectRows.forEach((item) => {
+      const parsedDate = dayjs(item.date)
+      if (!parsedDate.isValid()) return
+      const key = parsedDate.format('YYYY-MM-DD')
+      rejectByDate.set(key, (rejectByDate.get(key) || 0) + Number(item.total || 0))
+    })
+  }
 
   let startDate: ReturnType<typeof dayjs> | null = null
   let endDate: ReturnType<typeof dayjs> | null = null

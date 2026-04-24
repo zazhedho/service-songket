@@ -43,11 +43,7 @@ export default function DashboardPage() {
           <div className="dashboard-hero-eyebrow">Operations Overview</div>
           <div className="dashboard-hero-title">Dashboard Songket</div>
           <div className="dashboard-hero-subtitle">
-            Monitor order inflow, approval performance, finance mix, and commodity movement from one workspace.
-          </div>
-          <div className="dashboard-context-row">
-            <span className="dashboard-context-pill">Filter-ready analytics</span>
-            <span className="dashboard-context-pill subtle">Daily, monthly, yearly, or custom period</span>
+            Monitor order inflow, approval performance, finance mix, and commodity movement with cutoff-based period comparison.
           </div>
         </div>
       </div>

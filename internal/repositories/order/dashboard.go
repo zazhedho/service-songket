@@ -38,6 +38,9 @@ func applyDashboardPeriodFilters(query *gorm.DB, req dto.DashboardSummaryQuery) 
 		if req.Year > 0 {
 			query = query.Where("EXTRACT(YEAR FROM o.pooling_at) = ?", req.Year)
 		}
+		if date := strings.TrimSpace(req.Date); date != "" {
+			query = query.Where("DATE(o.pooling_at) <= ?", date)
+		}
 		return query
 	case "monthly":
 		if req.Year > 0 {
@@ -45,6 +48,9 @@ func applyDashboardPeriodFilters(query *gorm.DB, req dto.DashboardSummaryQuery) 
 		}
 		if req.Month >= 1 && req.Month <= 12 {
 			query = query.Where("EXTRACT(MONTH FROM o.pooling_at) = ?", req.Month)
+		}
+		if date := strings.TrimSpace(req.Date); date != "" {
+			query = query.Where("DATE(o.pooling_at) <= ?", date)
 		}
 		return query
 	case "daily":

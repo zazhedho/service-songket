@@ -93,6 +93,49 @@ func TestResolveDashboardPeriodWindowForCustomRange(t *testing.T) {
 	}
 }
 
+func TestResolveDashboardPeriodWindowForMonthlyUsesCutoffDate(t *testing.T) {
+	window := resolveDashboardPeriodWindow(dto.DashboardSummaryQuery{
+		Analysis: "monthly",
+		Year:     2026,
+		Month:    4,
+		Date:     "2026-04-15",
+	}, time.Date(2026, 4, 24, 0, 0, 0, 0, time.UTC))
+
+	if got := window.CurrentFrom.Format("2006-01-02"); got != "2026-04-01" {
+		t.Fatalf("expected monthly current from 2026-04-01, got %s", got)
+	}
+	if got := window.CurrentTo.Format("2006-01-02"); got != "2026-04-15" {
+		t.Fatalf("expected monthly cutoff at 2026-04-15, got %s", got)
+	}
+	if got := window.PreviousFrom.Format("2006-01-02"); got != "2026-03-01" {
+		t.Fatalf("expected previous monthly from 2026-03-01, got %s", got)
+	}
+	if got := window.PreviousTo.Format("2006-01-02"); got != "2026-03-15" {
+		t.Fatalf("expected previous monthly cutoff at 2026-03-15, got %s", got)
+	}
+}
+
+func TestResolveDashboardPeriodWindowForYearlyUsesCutoffDate(t *testing.T) {
+	window := resolveDashboardPeriodWindow(dto.DashboardSummaryQuery{
+		Analysis: "yearly",
+		Year:     2026,
+		Date:     "2026-04-15",
+	}, time.Date(2026, 4, 24, 0, 0, 0, 0, time.UTC))
+
+	if got := window.CurrentFrom.Format("2006-01-02"); got != "2026-01-01" {
+		t.Fatalf("expected yearly current from 2026-01-01, got %s", got)
+	}
+	if got := window.CurrentTo.Format("2006-01-02"); got != "2026-04-15" {
+		t.Fatalf("expected yearly cutoff at 2026-04-15, got %s", got)
+	}
+	if got := window.PreviousFrom.Format("2006-01-02"); got != "2025-01-01" {
+		t.Fatalf("expected previous yearly from 2025-01-01, got %s", got)
+	}
+	if got := window.PreviousTo.Format("2006-01-02"); got != "2025-04-15" {
+		t.Fatalf("expected previous yearly cutoff at 2025-04-15, got %s", got)
+	}
+}
+
 func TestCanAccessOrderExportRequiresCreatorForNonSuperadmin(t *testing.T) {
 	job := domainorder.OrderExportJob{CreatedBy: "user-1"}
 	if canAccessOrderExport(&job, authscope.New("user-2", "dealer", nil)) {

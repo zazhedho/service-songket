@@ -241,6 +241,10 @@ export default function DashboardFilterPanel({
           <button className="btn-ghost" onClick={resetFilters}>Reset</button>
         </div>
       </div>
+
+      <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+        Monthly and yearly comparisons use the selected cutoff date for both the current period and the previous matching period.
+      </div>
     </div>
   )
 }
