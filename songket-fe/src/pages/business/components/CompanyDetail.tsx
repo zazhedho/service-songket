@@ -1,4 +1,4 @@
-import { DetailTable, Metric, formatDateTime } from './financeHelpers'
+import { formatDateTime } from './financeHelpers'
 
 type CompanyDetailProps = {
   canUpdate: boolean
@@ -27,12 +27,17 @@ export default function CompanyDetail({
   selectedCompanyRegencyName,
   selectedId,
 }: CompanyDetailProps) {
+  const phoneText = selectedCompany?.phone?.trim() || 'Phone not set'
+  const locationSummary = [selectedCompanyDistrictName, selectedCompanyRegencyName, selectedCompanyProvinceName]
+    .filter((item) => item && item !== '-')
+    .join(', ') || '-'
+
   return (
     <div>
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Finance Company Details</div>
-          <div style={{ color: '#64748b' }}>Company profile and performance summary</div>
+          <div style={{ color: '#64748b' }}>Company profile and performance summary.</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canUpdate && selectedId && (
@@ -48,72 +53,173 @@ export default function CompanyDetail({
         {!selectedCompany && <div className="alert">Finance company not found.</div>}
         {selectedCompany && (
           <>
-            <div className="card" style={{ maxWidth: 960 }}>
-              <h3>Finance Company Information</h3>
-              <DetailTable
-                rows={[
-                  { label: 'Name', value: selectedCompany.name || '-' },
-                  { label: 'Phone', value: selectedCompany.phone || '-' },
-                  { label: 'Province', value: selectedCompanyProvinceName },
-                  { label: 'Regency / City', value: selectedCompanyRegencyName },
-                  { label: 'District', value: selectedCompanyDistrictName },
-                  { label: 'Village', value: selectedCompany.village || '-' },
-                  { label: 'Address', value: selectedCompany.address || '-' },
-                  { label: 'Created At', value: formatDateTime(selectedCompany.created_at) },
-                  { label: 'Updated At', value: formatDateTime(selectedCompany.updated_at) },
-                ]}
-              />
+            <div className="card business-dealer-detail-hero">
+              <div className="business-dealer-detail-hero-main">
+                <div className="business-dealer-detail-kicker">Finance Company Overview</div>
+                <div className="business-dealer-detail-name">{selectedCompany.name || '-'}</div>
+                <div className="business-dealer-detail-note">{locationSummary}</div>
+              </div>
+              <div className="business-dealer-detail-badges">
+                <span className="business-dealer-detail-badge muted">{phoneText}</span>
+                <span className="business-dealer-detail-badge muted">
+                  {companySummaryLoading ? 'Loading performance' : `${companySummary?.active_dealers || 0} active dealers`}
+                </span>
+              </div>
             </div>
 
-            <div className="card">
-              <h3>Finance Performance Summary</h3>
-              {companySummaryLoading && <div className="muted">Loading performance summary...</div>}
-              {!companySummaryLoading && !companySummary && <div className="muted">No performance data yet.</div>}
+            <div className="business-summary-row business-dealer-detail-summary-row">
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Phone</div>
+                <div className="business-dealer-detail-stat-value">{selectedCompany.phone || '-'}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Province</div>
+                <div className="business-dealer-detail-stat-value">{selectedCompanyProvinceName}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Regency / City</div>
+                <div className="business-dealer-detail-stat-value">{selectedCompanyRegencyName}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Dealer Coverage</div>
+                <div className="business-dealer-detail-stat-value">
+                  {companySummaryLoading ? 'Loading...' : `${companySummary?.active_dealers || 0} / ${dealers.length}`}
+                </div>
+              </div>
+            </div>
 
-              {!companySummaryLoading && companySummary && (
-                <>
-                  <div className="grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
-                    <Metric label="Total Order" value={companySummary.total_orders} />
-                    <Metric label="Approval Rate" value={`${(companySummary.approval_rate * 100).toFixed(1)}%`} />
-                    <Metric label="Lead Avg (s)" value={companySummary.lead_time_seconds_avg != null ? companySummary.lead_time_seconds_avg.toFixed(1) : '-'} />
-                    <Metric label="Rescue FC2" value={companySummary.rescue_approved_fc2} />
+            <div className="business-dealer-grid business-dealer-detail-layout">
+              <div className="card business-section">
+                <div className="business-section-head">
+                  <h3 className="business-section-title">Company Information</h3>
+                  <span className="business-section-side">Profile</span>
+                </div>
+                <div className="business-dealer-detail-card">
+                  <div className="business-dealer-detail-grid">
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Company Name</div>
+                      <div className="business-dealer-detail-value">{selectedCompany.name || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Phone</div>
+                      <div className="business-dealer-detail-value">{selectedCompany.phone || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Created At</div>
+                      <div className="business-dealer-detail-value">{formatDateTime(selectedCompany.created_at)}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Updated At</div>
+                      <div className="business-dealer-detail-value">{formatDateTime(selectedCompany.updated_at)}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Address</div>
+                      <div className="business-dealer-detail-value">{selectedCompany.address || '-'}</div>
+                    </div>
                   </div>
+                </div>
+              </div>
 
-                  <div style={{ marginTop: 10, color: '#64748b', fontSize: 12 }}>
-                    Active dealers: {companySummary.active_dealers} of {dealers.length} dealers
+              <div className="card business-section">
+                <div className="business-section-head">
+                  <h3 className="business-section-title">Location Information</h3>
+                  <span className="business-section-side">Area</span>
+                </div>
+                <div className="business-dealer-detail-card">
+                  <div className="business-dealer-detail-grid">
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Province</div>
+                      <div className="business-dealer-detail-value">{selectedCompanyProvinceName}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Regency / City</div>
+                      <div className="business-dealer-detail-value">{selectedCompanyRegencyName}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">District</div>
+                      <div className="business-dealer-detail-value">{selectedCompanyDistrictName}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Village</div>
+                      <div className="business-dealer-detail-value">{selectedCompany.village || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Location Summary</div>
+                      <div className="business-dealer-detail-value">{locationSummary}</div>
+                    </div>
                   </div>
+                </div>
+              </div>
+            </div>
 
-                  <div style={{ marginTop: 12 }}>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Dealer</th>
-                          <th>Total Order</th>
-                          <th>Approval Rate</th>
-                          <th>Lead Avg (s)</th>
-                          <th>Rescue FC2</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {companySummary.dealer_rows.map((row: any) => (
-                          <tr key={row.dealer_id}>
-                            <td>{row.dealer_name}</td>
-                            <td>{row.total_orders}</td>
-                            <td>{(row.approval_rate * 100).toFixed(1)}%</td>
-                            <td>{row.lead_time_seconds_avg != null ? row.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                            <td>{row.rescue_approved_fc2}</td>
-                          </tr>
-                        ))}
-                        {companySummary.dealer_rows.length === 0 && (
+            <div className="card business-section">
+              <div className="business-section-head">
+                <h3 className="business-section-title">Finance Performance Summary</h3>
+                <span className="business-section-side">Performance</span>
+              </div>
+              <div className="business-dealer-detail-card">
+                {companySummaryLoading && <div className="muted">Loading performance summary...</div>}
+                {!companySummaryLoading && !companySummary && <div className="muted">No performance data yet.</div>}
+
+                {!companySummaryLoading && companySummary && (
+                  <>
+                    <div className="business-summary-row business-dealer-detail-summary-row" style={{ padding: 0, marginBottom: 12 }}>
+                      <div className="business-summary-item">
+                        <div className="business-dealer-detail-stat-label">Total Orders</div>
+                        <div className="business-dealer-detail-stat-value">{companySummary.total_orders}</div>
+                      </div>
+                      <div className="business-summary-item">
+                        <div className="business-dealer-detail-stat-label">Approval Rate</div>
+                        <div className="business-dealer-detail-stat-value">{`${(companySummary.approval_rate * 100).toFixed(1)}%`}</div>
+                      </div>
+                      <div className="business-summary-item">
+                        <div className="business-dealer-detail-stat-label">Lead Avg (s)</div>
+                        <div className="business-dealer-detail-stat-value">
+                          {companySummary.lead_time_seconds_avg != null ? companySummary.lead_time_seconds_avg.toFixed(1) : '-'}
+                        </div>
+                      </div>
+                      <div className="business-summary-item">
+                        <div className="business-dealer-detail-stat-label">Rescue FC2</div>
+                        <div className="business-dealer-detail-stat-value">{companySummary.rescue_approved_fc2}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12, color: '#64748b', fontSize: 12 }}>
+                      Active dealers: {companySummary.active_dealers} of {dealers.length} dealers
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-list">
+                        <thead>
                           <tr>
-                            <td colSpan={5}>No dealer performance data yet.</td>
+                            <th>Dealer</th>
+                            <th>Total Order</th>
+                            <th>Approval Rate</th>
+                            <th>Lead Avg (s)</th>
+                            <th>Rescue FC2</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+                        </thead>
+                        <tbody>
+                          {companySummary.dealer_rows.map((row: any) => (
+                            <tr key={row.dealer_id}>
+                              <td>{row.dealer_name}</td>
+                              <td>{row.total_orders}</td>
+                              <td>{(row.approval_rate * 100).toFixed(1)}%</td>
+                              <td>{row.lead_time_seconds_avg != null ? row.lead_time_seconds_avg.toFixed(1) : '-'}</td>
+                              <td>{row.rescue_approved_fc2}</td>
+                            </tr>
+                          ))}
+                          {companySummary.dealer_rows.length === 0 && (
+                            <tr>
+                              <td colSpan={5}>No dealer performance data yet.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </>
         )}

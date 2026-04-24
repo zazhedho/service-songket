@@ -2112,6 +2112,104 @@ h4 {
     word-break: break-word;
   }
 
+  .business-dealer-detail-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.1), transparent 28%),
+      linear-gradient(135deg, #eff6ff, #f8fbff 54%, #ffffff);
+  }
+
+  .business-dealer-detail-hero-main {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .business-dealer-detail-kicker {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .business-dealer-detail-name {
+    color: #0f172a;
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.15;
+    word-break: break-word;
+  }
+
+  .business-dealer-detail-note {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.55;
+    max-width: 720px;
+  }
+
+  .business-dealer-detail-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .business-dealer-detail-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid #dbe3ef;
+    background: #fff;
+    color: #334155;
+  }
+
+  .business-dealer-detail-badge.success {
+    border-color: #86efac;
+    background: #f0fdf4;
+    color: #166534;
+  }
+
+  .business-dealer-detail-badge.muted {
+    background: #fff;
+    color: #475569;
+  }
+
+  .business-dealer-detail-summary-row {
+    padding-top: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .business-dealer-detail-stat-label {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .business-dealer-detail-stat-value {
+    margin-top: 6px;
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+
+  .business-dealer-detail-layout {
+    padding: 0;
+  }
+
   .business-master-stack {
     display: grid;
     gap: 12px;
@@ -4243,6 +4341,10 @@ h4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .business-dealer-detail-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .business-section-title {
     font-size: 22px;
   }
@@ -4348,6 +4450,14 @@ h4 {
 
   .dashboard-hero-title {
     font-size: 20px;
+  }
+
+  .business-dealer-detail-name {
+    font-size: 22px;
+  }
+
+  .business-dealer-detail-summary-row {
+    grid-template-columns: 1fr;
   }
 
   .table {

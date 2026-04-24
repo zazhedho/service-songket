@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react'
 import DeferredMount from '../../../components/common/DeferredMount'
-import { DetailTable, formatDateTime } from './financeHelpers'
+import { formatDealerLocationSummary, formatDateTime } from './financeHelpers'
 
 const DealerLocationMap = lazy(() => import('./FinanceMap').then((module) => ({ default: module.DealerLocationMap })))
 
@@ -15,6 +15,11 @@ type DealerDetailProps = {
   selectedId: string
 }
 
+function formatCoordinate(value: unknown) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num.toFixed(6) : '-'
+}
+
 export default function DealerDetail({
   canUpdate,
   dealerBasePath,
@@ -25,12 +30,21 @@ export default function DealerDetail({
   selectedDealerRegencyName,
   selectedId,
 }: DealerDetailProps) {
+  const lat = Number(selectedDealer?.lat ?? selectedDealer?.latitude)
+  const lng = Number(selectedDealer?.lng ?? selectedDealer?.longitude)
+  const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng)
+  const locationSummary = formatDealerLocationSummary(selectedDealer, {
+    province: selectedDealerProvinceName,
+    regency: selectedDealerRegencyName,
+    district: selectedDealerDistrictName,
+  })
+
   return (
     <div>
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Dealer Details</div>
-          <div style={{ color: '#64748b' }}>Dealer profile and location map</div>
+          <div style={{ color: '#64748b' }}>Dealer profile, location summary, and map view.</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canUpdate && selectedId && (
@@ -46,40 +60,142 @@ export default function DealerDetail({
         {!selectedDealer && <div className="alert">Dealer not found.</div>}
         {selectedDealer && (
           <>
-            <div className="card" style={{ maxWidth: 960 }}>
-              <h3>Dealer Information</h3>
-              <DetailTable
-                rows={[
-                  { label: 'Name', value: selectedDealer.name || '-' },
-                  { label: 'Phone', value: selectedDealer.phone || '-' },
-                  { label: 'Province', value: selectedDealerProvinceName },
-                  { label: 'Regency / City', value: selectedDealerRegencyName },
-                  { label: 'District', value: selectedDealerDistrictName },
-                  { label: 'Village', value: selectedDealer.village || '-' },
-                  { label: 'Address', value: selectedDealer.address || '-' },
-                  { label: 'Latitude', value: String(selectedDealer.lat ?? selectedDealer.latitude ?? '-') },
-                  { label: 'Longitude', value: String(selectedDealer.lng ?? selectedDealer.longitude ?? '-') },
-                  { label: 'Created At', value: formatDateTime(selectedDealer.created_at) },
-                  { label: 'Updated At', value: formatDateTime(selectedDealer.updated_at) },
-                ]}
-              />
+            <div className="card business-dealer-detail-hero">
+              <div className="business-dealer-detail-hero-main">
+                <div className="business-dealer-detail-kicker">Dealer Overview</div>
+                <div className="business-dealer-detail-name">{selectedDealer.name || '-'}</div>
+                <div className="business-dealer-detail-note">{locationSummary}</div>
+              </div>
+              <div className="business-dealer-detail-badges">
+                <span className={`business-dealer-detail-badge ${hasCoordinates ? 'success' : 'muted'}`}>
+                  {hasCoordinates ? 'Map Ready' : 'No Coordinates'}
+                </span>
+                <span className="business-dealer-detail-badge muted">
+                  {selectedDealer.phone?.trim() ? selectedDealer.phone : 'Phone not set'}
+                </span>
+              </div>
             </div>
 
-            <div className="card" style={{ minHeight: 360 }}>
-              <h3>Dealer Map</h3>
-              <div style={{ marginTop: 10 }}>
-                <DeferredMount
-                  minHeight={320}
-                  fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
-                >
-                  <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
-                    <DealerLocationMap
-                      lat={Number(selectedDealer.lat ?? selectedDealer.latitude ?? -8.58)}
-                      lng={Number(selectedDealer.lng ?? selectedDealer.longitude ?? 116.12)}
-                      name={selectedDealer.name}
-                    />
-                  </Suspense>
-                </DeferredMount>
+            <div className="business-summary-row business-dealer-detail-summary-row">
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Phone</div>
+                <div className="business-dealer-detail-stat-value">{selectedDealer.phone || '-'}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Province</div>
+                <div className="business-dealer-detail-stat-value">{selectedDealerProvinceName}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Regency / City</div>
+                <div className="business-dealer-detail-stat-value">{selectedDealerRegencyName}</div>
+              </div>
+              <div className="business-summary-item">
+                <div className="business-dealer-detail-stat-label">Coordinates</div>
+                <div className="business-dealer-detail-stat-value">
+                  {hasCoordinates ? `${formatCoordinate(lat)}, ${formatCoordinate(lng)}` : '-'}
+                </div>
+              </div>
+            </div>
+
+            <div className="business-dealer-grid business-dealer-detail-layout">
+              <div className="card business-section">
+                <div className="business-section-head">
+                  <h3 className="business-section-title">Dealer Information</h3>
+                  <span className="business-section-side">Profile</span>
+                </div>
+                <div className="business-dealer-detail-card">
+                  <div className="business-dealer-detail-grid">
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Dealer Name</div>
+                      <div className="business-dealer-detail-value">{selectedDealer.name || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Phone</div>
+                      <div className="business-dealer-detail-value">{selectedDealer.phone || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Created At</div>
+                      <div className="business-dealer-detail-value">{formatDateTime(selectedDealer.created_at)}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Updated At</div>
+                      <div className="business-dealer-detail-value">{formatDateTime(selectedDealer.updated_at)}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Address</div>
+                      <div className="business-dealer-detail-value">{selectedDealer.address || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card business-section">
+                <div className="business-section-head">
+                  <h3 className="business-section-title">Location Information</h3>
+                  <span className="business-section-side">Area</span>
+                </div>
+                <div className="business-dealer-detail-card">
+                  <div className="business-dealer-detail-grid">
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Province</div>
+                      <div className="business-dealer-detail-value">{selectedDealerProvinceName}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Regency / City</div>
+                      <div className="business-dealer-detail-value">{selectedDealerRegencyName}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">District</div>
+                      <div className="business-dealer-detail-value">{selectedDealerDistrictName}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Village</div>
+                      <div className="business-dealer-detail-value">{selectedDealer.village || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Latitude</div>
+                      <div className="business-dealer-detail-value">{formatCoordinate(selectedDealer.lat ?? selectedDealer.latitude)}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Longitude</div>
+                      <div className="business-dealer-detail-value">{formatCoordinate(selectedDealer.lng ?? selectedDealer.longitude)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card business-section">
+              <div className="business-section-head">
+                <h3 className="business-section-title">Dealer Map</h3>
+                {hasCoordinates ? (
+                  <a
+                    className="btn-ghost"
+                    href={`https://www.google.com/maps?q=${lat},${lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open in Maps
+                  </a>
+                ) : (
+                  <span className="business-section-side">Location unavailable</span>
+                )}
+              </div>
+              <div className="business-dealer-detail-card">
+                <div className="business-map-shell">
+                  <DeferredMount
+                    minHeight={320}
+                    fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+                  >
+                    <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                      <DealerLocationMap
+                        lat={hasCoordinates ? lat : -8.58}
+                        lng={hasCoordinates ? lng : 116.12}
+                        name={selectedDealer.name}
+                      />
+                    </Suspense>
+                  </DeferredMount>
+                </div>
               </div>
             </div>
           </>
