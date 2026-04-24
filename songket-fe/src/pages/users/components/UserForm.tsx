@@ -70,84 +70,115 @@ export default function UserForm({
         <button className="btn-ghost" onClick={() => navigate('/users')}>Back to List</button>
       </div>
       <div className="page">
-        <div className="card" style={{ maxWidth: 920 }}>
-          {!canCreate && isCreate && <div className="alert">You do not have permission to create users.</div>}
-          {!canUpdate && isEdit && <div className="alert">You do not have permission to update users.</div>}
-          <div className="grid" style={{ gap: 10 }}>
-            <div>
-              <label>Name</label>
-              <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter full name" />
-            </div>
-            <div>
-              <label>Email</label>
-              <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="user@example.com" />
-            </div>
-            <div>
-              <label>Phone</label>
-              <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" />
-            </div>
-            <div>
-              <label>Password</label>
-              <div style={passwordInputWrapStyle}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={(e) => set('password', e.target.value)}
-                  autoComplete="new-password"
-                  style={{ paddingRight: 42 }}
-                  placeholder="Enter password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={passwordToggleButtonStyle}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
+        {!canCreate && isCreate && <div className="alert">You do not have permission to create users.</div>}
+        {!canUpdate && isEdit && <div className="alert">You do not have permission to update users.</div>}
+
+        <div className="form-layout" style={{ maxWidth: 920 }}>
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Basic Info</h3>
+                <div className="form-section-note">Core user identity, contact details, and assigned role.</div>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <PasswordRulesGuide password={form.password} />
-              </div>
-            </div>
-            <div>
-              <label>Password Confirmation</label>
-              <div style={passwordInputWrapStyle}>
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={form.confirmPassword}
-                  onChange={(e) => set('confirmPassword', e.target.value)}
-                  autoComplete="new-password"
-                  style={{ paddingRight: 42 }}
-                  placeholder="Confirm password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
-                  style={passwordToggleButtonStyle}
-                >
-                  {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-              </div>
-              {isPasswordConfirmationMismatch && (
-                <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600, marginTop: 6 }}>
-                  Password and password confirmation do not match.
-                </div>
-              )}
-            </div>
-            <div>
-              <label>Role</label>
-              <SearchableSelect
-                value={form.role}
-                onChange={(value) => set('role', value)}
-                options={roleOptions}
-                placeholder="Select user role"
-                searchPlaceholder="Search role..."
-              />
             </div>
 
-            {canSetUserPerm && (
+            <div className="form-section-grid">
+              <div>
+                <label>Name</label>
+                <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter full name" />
+              </div>
+              <div>
+                <label>Email</label>
+                <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="user@example.com" />
+              </div>
+              <div>
+                <label>Phone</label>
+                <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" />
+              </div>
+              <div>
+                <label>Role</label>
+                <SearchableSelect
+                  value={form.role}
+                  onChange={(value) => set('role', value)}
+                  options={roleOptions}
+                  placeholder="Select user role"
+                  searchPlaceholder="Search role..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Security</h3>
+                <div className="form-section-note">Password and confirmation for the user account.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
+              <div>
+                <label>Password</label>
+                <div style={passwordInputWrapStyle}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={(e) => set('password', e.target.value)}
+                    autoComplete="new-password"
+                    style={{ paddingRight: 42 }}
+                    placeholder="Enter password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    style={passwordToggleButtonStyle}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <PasswordRulesGuide password={form.password} />
+                </div>
+              </div>
+              <div>
+                <label>Password Confirmation</label>
+                <div style={passwordInputWrapStyle}>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={form.confirmPassword}
+                    onChange={(e) => set('confirmPassword', e.target.value)}
+                    autoComplete="new-password"
+                    style={{ paddingRight: 42 }}
+                    placeholder="Confirm password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
+                    style={passwordToggleButtonStyle}
+                  >
+                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                {isPasswordConfirmationMismatch && (
+                  <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+                    Password and password confirmation do not match.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {canSetUserPerm && (
+            <div className="card form-section">
+              <div className="form-section-head">
+                <div>
+                  <h3>Access Overrides</h3>
+                  <div className="form-section-note">Optional permission-level overrides for this specific user.</div>
+                </div>
+              </div>
+
               <div>
                 <label>Permission (optional)</label>
                 {permLoading && (
@@ -161,11 +192,13 @@ export default function UserForm({
                   groupedPermissions,
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
+          {error && <div className="alert">{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10 }}>
+          <div className="card form-section">
+            <div className="form-actions-row">
               <button className="btn" onClick={() => void save()} disabled={loading}>{loading ? 'Saving...' : 'Save User'}</button>
               <button
                 className="btn-ghost"

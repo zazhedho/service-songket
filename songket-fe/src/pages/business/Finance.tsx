@@ -574,6 +574,13 @@ export default function FinancePage() {
     e.preventDefault()
     if ((isDealerEdit && !canUpdate) || (!isDealerEdit && !canCreate)) return
 
+    const dealerName = dealerForm.name.trim()
+
+    if (dealerName.length < 3) {
+      await showAlert('Dealer name must be at least 3 characters long.')
+      return
+    }
+
     const lat = parseCoordinateValue(dealerForm.lat)
     const lng = parseCoordinateValue(dealerForm.lng)
 
@@ -583,7 +590,7 @@ export default function FinancePage() {
     }
 
     const payload = {
-      name: dealerForm.name.trim(),
+      name: dealerName,
       province: resolveOptionNameValue(provinces, dealerForm.province),
       regency: resolveOptionNameValue(dealerKabupaten, dealerForm.regency),
       district: resolveOptionNameValue(dealerKecamatan, dealerForm.district),
@@ -611,8 +618,15 @@ export default function FinancePage() {
     e.preventDefault()
     if ((isCompanyEdit && !canUpdate) || (!isCompanyEdit && !canCreate)) return
 
+    const financeCompanyName = financeForm.name.trim()
+
+    if (financeCompanyName.length < 3) {
+      await showAlert('Finance company name must be at least 3 characters long.')
+      return
+    }
+
     const payload = {
-      name: financeForm.name.trim(),
+      name: financeCompanyName,
       province: resolveOptionNameValue(provinces, financeForm.province),
       regency: resolveOptionNameValue(financeKabupaten, financeForm.regency),
       district: resolveOptionNameValue(financeKecamatan, financeForm.district),

@@ -57,18 +57,42 @@ export default function CompanyForm({
       </div>
 
       <div className="page">
-        <div className="card" style={{ maxWidth: 920 }}>
-          <form onSubmit={(e) => void submitFinance(e)} className="grid" style={{ gap: 10 }}>
-            <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <form onSubmit={(e) => void submitFinance(e)} className="form-layout" style={{ width: '100%' }}>
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Basic Info</h3>
+                <div className="form-section-note">Primary finance company identity and contact information.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
               <div>
                 <label>Finance Company Name</label>
-                <input value={financeForm.name} onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter finance company name" required />
+                <input
+                  value={financeForm.name}
+                  onChange={(e) => setFinanceForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter finance company name"
+                  minLength={3}
+                  required
+                />
               </div>
               <div>
                 <label>Phone Number</label>
                 <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: sanitizeDigits(e.target.value) }))} placeholder="Enter phone number" required />
               </div>
+            </div>
+          </div>
 
+          <div className="card form-section">
+            <div className="form-section-head">
+              <div>
+                <h3>Location Details</h3>
+                <div className="form-section-note">Administrative area and office address for the finance company.</div>
+              </div>
+            </div>
+
+            <div className="form-section-grid">
               <div>
                 <label>Province</label>
                 <SearchableSelect
@@ -115,20 +139,22 @@ export default function CompanyForm({
                 <input value={financeForm.village} onChange={(e) => setFinanceForm((prev) => ({ ...prev, village: e.target.value }))} placeholder="Enter village" />
               </div>
 
-              <div style={{ gridColumn: '1 / -1' }}>
+              <div className="form-field-span-full">
                 <label>Address</label>
                 <input value={financeForm.address} onChange={(e) => setFinanceForm((prev) => ({ ...prev, address: e.target.value }))} placeholder="Enter address" />
               </div>
             </div>
+          </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div className="card form-section">
+            <div className="form-actions-row" style={{ justifyContent: 'flex-end' }}>
               <button className="btn-ghost" type="button" onClick={() => navigate(financeBasePath)}>Cancel</button>
               <button className="btn" type="submit" disabled={savingFinance}>
                 {savingFinance ? 'Saving...' : isCompanyEdit ? 'Update Finance Company' : 'Create Finance Company'}
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   )
