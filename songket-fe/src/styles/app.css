@@ -2272,6 +2272,118 @@ h4 {
     color: #1d4ed8;
   }
 
+  .quadrant-job-points-table {
+    table-layout: fixed;
+  }
+
+  .quadrant-job-points-table th:nth-child(1),
+  .quadrant-job-points-table td:nth-child(1) {
+    width: 16%;
+  }
+
+  .quadrant-job-points-table th:nth-child(2),
+  .quadrant-job-points-table td:nth-child(2) {
+    width: 18%;
+  }
+
+  .quadrant-job-points-table th:nth-child(3),
+  .quadrant-job-points-table td:nth-child(3),
+  .quadrant-job-points-table th:nth-child(4),
+  .quadrant-job-points-table td:nth-child(4),
+  .quadrant-job-points-table th:nth-child(5),
+  .quadrant-job-points-table td:nth-child(5) {
+    width: 12%;
+  }
+
+  .quadrant-job-points-table th:nth-child(6),
+  .quadrant-job-points-table td:nth-child(6) {
+    width: 8%;
+  }
+
+  .quadrant-job-points-table th:nth-child(7),
+  .quadrant-job-points-table td:nth-child(7) {
+    width: 22%;
+  }
+
+  .quadrant-job-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .quadrant-area-cell {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .quadrant-metric-cell,
+  .quadrant-badge-cell {
+    white-space: nowrap;
+  }
+
+  .quadrant-analysis-cell {
+    max-width: 420px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .quadrant-area-primary {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .quadrant-area-secondary {
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .quadrant-analysis-text {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .quadrant-analysis-text.expanded {
+    display: block;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
+  .quadrant-analysis-toggle {
+    border: 0;
+    padding: 0;
+    margin-top: 6px;
+    background: transparent;
+    color: #2563eb;
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .quadrant-analysis-toggle:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .business-master-stack {
     display: grid;
     gap: 12px;

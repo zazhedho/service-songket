@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Pagination from '../../../components/common/Pagination'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import { buildAnalysisText, formatAxisPercent, getOrderInGrowth, quadrantColor } from './quadrantHelpers'
@@ -60,6 +61,7 @@ export default function QuadrantContent({
   totalPages,
   yearOptions,
 }: QuadrantContentProps) {
+  const [expandedAnalysisIds, setExpandedAnalysisIds] = useState<Record<string, boolean>>({})
   const monthOptions = buildMonthOptions()
   const provinceSelectOptions = [{ value: '', label: 'All Provinces' }, ...provinceOptions]
   const regencySelectOptions = [{ value: '', label: 'All Regencies' }, ...regencyOptions]
@@ -242,41 +244,71 @@ export default function QuadrantContent({
 
       <div className="card">
         <h3>Job Points</h3>
-        <table className="table" style={{ marginTop: 10 }}>
-          <thead>
-            <tr>
-              <th>Job</th>
-              <th>Area</th>
-              <th>Total Order In</th>
-              <th>Order In Growth %</th>
-              <th>Credit Capability %</th>
-              <th>Quadrant</th>
-              <th>Analysis</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((row, idx) => (
-              <tr key={`${row.job_id || row.job_name}-${idx}`}>
-                <td>{row.job_name || '-'}</td>
-                <td>{row.area_label || '-'}</td>
-                <td>{Number(row.order_in_current_total ?? row.total_orders ?? 0).toLocaleString('id-ID')}</td>
-                <td>{`${getOrderInGrowth(row) >= 0 ? '+' : ''}${getOrderInGrowth(row).toFixed(2)}%`}</td>
-                <td>{row.credit_capability.toFixed(2)}%</td>
-                <td>
-                  <span className="badge" style={{ background: quadrantColor(row.quadrant), color: '#fff' }}>
-                    Q{row.quadrant}
-                  </span>
-                </td>
-                <td style={{ maxWidth: 420, whiteSpace: 'normal', wordBreak: 'break-word' }}>{buildAnalysisText(row)}</td>
-              </tr>
-            ))}
-            {paged.length === 0 && (
+        <div className="table-responsive">
+          <table className="table quadrant-job-points-table" style={{ marginTop: 10, minWidth: 980 }}>
+            <thead>
               <tr>
-                <td colSpan={7}>No data found.</td>
+                <th>Job</th>
+                <th>Area</th>
+                <th>Total Order In</th>
+                <th>Order In Growth %</th>
+                <th>Credit Capability %</th>
+                <th>Quadrant</th>
+                <th>Analysis</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {paged.map((row, idx) => {
+                const orderInGrowth = getOrderInGrowth(row)
+                const rowKey = `${row.job_id || row.job_name}-${idx}`
+                const analysisText = buildAnalysisText(row)
+                const isExpanded = Boolean(expandedAnalysisIds[rowKey])
+                const analysisPreviewLimit = 52
+                const shouldCollapse = analysisText.length > analysisPreviewLimit
+                const previewText = shouldCollapse
+                  ? `${analysisText.slice(0, analysisPreviewLimit).trimEnd()}...`
+                  : analysisText
+
+                return (
+                  <tr key={rowKey}>
+                    <td className="quadrant-job-cell">{row.job_name || '-'}</td>
+                    <td className="quadrant-area-cell">
+                      <div className="quadrant-area-primary">{row.regency_label || '-'}</div>
+                      <div className="quadrant-area-secondary">{row.province_label || '-'}</div>
+                    </td>
+                    <td className="quadrant-metric-cell">{Number(row.order_in_current_total ?? row.total_orders ?? 0).toLocaleString('id-ID')}</td>
+                    <td className="quadrant-metric-cell">{`${orderInGrowth >= 0 ? '+' : ''}${orderInGrowth.toFixed(2)}%`}</td>
+                    <td className="quadrant-metric-cell">{row.credit_capability.toFixed(2)}%</td>
+                    <td className="quadrant-badge-cell">
+                      <span className="badge" style={{ background: quadrantColor(row.quadrant), color: '#fff' }}>
+                        Q{row.quadrant}
+                      </span>
+                    </td>
+                    <td className="quadrant-analysis-cell">
+                      <div className={isExpanded ? 'quadrant-analysis-text expanded' : 'quadrant-analysis-text'}>
+                        {isExpanded ? analysisText : previewText}
+                      </div>
+                      {shouldCollapse && (
+                        <button
+                          type="button"
+                          className="quadrant-analysis-toggle"
+                          onClick={() => setExpandedAnalysisIds((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                        >
+                          {isExpanded ? 'Show less' : 'Read more'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+              {paged.length === 0 && (
+                <tr>
+                  <td colSpan={7}>No data found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         <Pagination
           page={page}

@@ -27,6 +27,8 @@ type QuadrantPoint = {
   job_name: string
   province: string
   regency: string
+  province_label: string
+  regency_label: string
   area_label: string
   total_orders: number
   order_in_growth_percent: number
@@ -159,6 +161,8 @@ export default function QuadrantsPage() {
         job_name: jobName,
         province,
         regency,
+        province_label: provinceLabel,
+        regency_label: regencyLabel,
         area_label: areaLabel,
         total_orders: Number(row.total_orders || 0),
         order_in_growth_percent: Number(row.order_in_growth_percent ?? row.order_in_percent ?? 0),
