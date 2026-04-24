@@ -164,11 +164,12 @@ export default function FinanceReportDetail({
 
               {detailOrderInError && <div className="alert" style={{ marginTop: 10 }}>{detailOrderInError}</div>}
 
-              <div style={{ overflowX: 'auto' }}>
+              <div className="finance-report-wide-table">
                 <Table
                   data={detailOrderInRows}
                   keyField={(row) => `detail-order-in-${row.order_id}`}
-                  style={{ minWidth: 1280 }}
+                  className="table-list"
+                  style={{ minWidth: 1040 }}
                   isLoading={detailOrderInLoading}
                   loadingMessage="Loading order in data..."
                   emptyMessage="No order in data found for this migration."
@@ -237,14 +238,7 @@ export default function FinanceReportDetail({
 
               {!detailFinanceSummaryLoading && computedDetailSummary && (
                 <>
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                      gap: 10,
-                    }}
-                  >
+                  <div className="finance-report-summary-kpi-grid" style={{ marginTop: 10 }}>
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
                       <div className="muted" style={{ fontSize: 12 }}>Total Order Data</div>
                       <div style={{ fontSize: 20, fontWeight: 700 }}>{computedDetailSummary.totalOrders}</div>
@@ -262,7 +256,7 @@ export default function FinanceReportDetail({
 
                   <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
                     <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performence</div>
-                    <div style={{ overflowX: 'auto' }}>
+                    <div className="finance-report-wide-table">
                       <table className="table" style={{ minWidth: 760 }}>
                         <thead>
                           <tr>
@@ -288,15 +282,7 @@ export default function FinanceReportDetail({
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 12,
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: 12,
-                    }}
-                    className="mobile-filter-grid"
-                  >
+                  <div className="finance-report-summary-split-grid" style={{ marginTop: 12 }}>
                     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Dealer Summary</div>
                       <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>

@@ -310,7 +310,7 @@ export default function FinanceReportSummary({
             )}
 
             {dealerMetrics && (
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+              <div className="finance-report-dealer-kpi-grid" style={{ marginTop: 12 }}>
                 <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
                   <div style={{ color: '#64748b', fontSize: 12 }}>Total Order</div>
                   <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.total_orders)}</div>
@@ -343,7 +343,7 @@ export default function FinanceReportSummary({
 
           {!dealerMetricsLoading && !dealerMetricsError && (
             <div className="business-dealer-grid">
-              <div style={{ overflowX: 'auto' }}>
+              <div className="finance-report-wide-table">
                 <table className="table" style={{ minWidth: 760 }}>
                   <thead>
                     <tr>
@@ -417,7 +417,7 @@ export default function FinanceReportSummary({
         <div className="card business-section">
           <div className="business-section-head">
             <h3 className="business-section-title">Finance Company Migration</h3>
-            <div style={{ minWidth: 230 }}>
+            <div className="finance-report-filter-field">
               <label style={{ marginBottom: 4 }}>Finance Company 1</label>
               <SearchableSelect
                 id="business-summary-finance1-filter"
@@ -461,12 +461,12 @@ export default function FinanceReportSummary({
 
             {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
-            <div style={{ marginTop: 12, overflowX: 'auto', width: '100%', maxWidth: '100%', display: 'block' }}>
+            <div className="finance-report-wide-table" style={{ marginTop: 12 }}>
               <Table
                 data={rows}
                 keyField={(item, idx) => `${item.order_id}-${idx}`}
                 className="table-list"
-                style={{ minWidth: 1180, tableLayout: 'fixed' }}
+                style={{ minWidth: 980, tableLayout: 'fixed' }}
                 isLoading={loading}
                 loadingMessage="Loading finance migration data..."
                 emptyMessage="No finance migration data."

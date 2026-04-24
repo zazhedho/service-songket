@@ -131,7 +131,7 @@ export function PriceTrendChart({ labels, values, dates }: { labels: string[]; v
   const tooltipY = top + 6
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div className="chart-scroll-shell">
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ minWidth: width, display: 'block' }}>
         <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
         <line x1={left} y1={top} x2={left} y2={bottom} stroke="#94a3b8" strokeWidth={1} />
@@ -268,7 +268,7 @@ export function BarLineChart({
   const lineLegendX = left + (hasSecondaryBars ? 208 : 70)
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div className="chart-scroll-shell">
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ minWidth: width, display: 'block' }}>
         {yTicks.map((tick, idx) => {
           const y = bottom - (tick / maxValue) * plotHeight
@@ -415,7 +415,7 @@ export function DonutCard({ title, subtitle, items }: { title: string; subtitle:
     <div className="card">
       <h3>{title}</h3>
       <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{subtitle}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr)', gap: 10, marginTop: 12, alignItems: 'center' }}>
+      <div className="dashboard-donut-card-layout" style={{ marginTop: 12 }}>
         {slices.length > 0 && (
           <div style={{ display: 'grid', placeItems: 'center' }}>
             <div style={{ width: ringSize, height: ringSize, position: 'relative' }}>
@@ -456,7 +456,7 @@ export function DonutCard({ title, subtitle, items }: { title: string; subtitle:
             )}
           </div>
         )}
-        <div style={{ display: 'grid', gap: 6, maxHeight: 185, overflowY: 'auto', paddingRight: 4 }}>
+        <div className="dashboard-donut-legend">
           {slices.map((slice, idx) => (
             <div
               key={slice.label}

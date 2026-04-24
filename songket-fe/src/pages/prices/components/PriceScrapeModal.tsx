@@ -24,7 +24,7 @@ export default function PriceScrapeModal({
         <div className="muted" style={{ marginBottom: 8 }}>Add one or more URLs. You can insert additional rows.</div>
         <div className="grid" style={{ gap: 10 }}>
           {urls.map((url, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div key={idx} className="modal-inline-field-row">
               <input
                 style={{ flex: 1 }}
                 value={url}
@@ -45,7 +45,7 @@ export default function PriceScrapeModal({
           <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Add Row</button>
         </div>
 
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="modal-action-row" style={{ marginTop: 16 }}>
           <button className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
           <button className="btn" onClick={() => void startJob()} disabled={startingJob}>
             {startingJob ? 'Starting...' : 'Run'}

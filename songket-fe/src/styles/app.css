@@ -1988,8 +1988,37 @@ h4 {
     width: 100%;
   }
 
+  .finance-report-wide-table {
+    overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
+    display: block;
+  }
+
   .finance-report-approval-table {
     min-width: 560px;
+  }
+
+  .finance-report-summary-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .finance-report-summary-split-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .finance-report-filter-field {
+    min-width: 230px;
+  }
+
+  .finance-report-dealer-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .finance-report-approval-table th:not(:first-child),
@@ -2826,6 +2855,33 @@ h4 {
     color: #64748b;
   }
 
+  .credit-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .credit-summary-panel-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr);
+    gap: 10px;
+  }
+
+  .credit-summary-table-shell {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .credit-matrix-table {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .credit-matrix-area {
+    min-width: 180px;
+  }
+
   .entity-list-cell {
     display: grid;
     gap: 4px;
@@ -3455,6 +3511,39 @@ h4 {
     border: 1px solid var(--card-border);
     box-shadow: 0 24px 40px rgba(15, 23, 42, 0.26);
     padding: 16px;
+  }
+
+  .modal-inline-field-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .modal-action-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chart-scroll-shell {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .dashboard-donut-card-layout {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .dashboard-donut-legend {
+    display: grid;
+    gap: 6px;
+    max-height: 185px;
+    overflow-y: auto;
+    padding-right: 4px;
   }
 
   .confirm-backdrop {
@@ -4103,6 +4192,18 @@ h4 {
     max-width: none;
   }
 
+  .credit-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-summary-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-matrix-area {
+    min-width: 0;
+  }
+
   .table.responsive-stack {
     display: block;
     border: 0;
@@ -4305,6 +4406,34 @@ h4 {
 
   .mobile-filter-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .finance-report-summary-split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-report-dealer-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-report-filter-field {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dashboard-donut-card-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .dashboard-donut-legend {
+    width: 100%;
+    max-height: none;
+  }
+
+  .modal-inline-field-row {
+    flex-wrap: wrap;
+    align-items: stretch;
   }
 
   .business-filter-row {

@@ -14,14 +14,7 @@ export default function CreditSummary({
   maxInstallmentTotal,
 }: CreditSummaryProps) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: 12,
-        marginBottom: 12,
-      }}
-    >
+    <div className="credit-summary-grid">
       <div
         style={{
           border: '1px solid #e2e8f0',
@@ -34,7 +27,7 @@ export default function CreditSummary({
         <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
           Highlighted bars represent product installment ranges.
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 10 }}>
+        <div className="credit-summary-panel-grid">
           <div>
             {installmentRanges.map((item: any) => {
               const total = Number(item.total || 0)
@@ -61,7 +54,7 @@ export default function CreditSummary({
             {installmentRanges.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No installment range data.</div>}
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
+          <div className="credit-summary-table-shell">
             <table className="table compact-table">
               <thead>
                 <tr>
@@ -99,7 +92,7 @@ export default function CreditSummary({
         <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
           Approval rate by DP percentage range.
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 10 }}>
+        <div className="credit-summary-panel-grid">
           <div>
             {dpRanges.map((item: any) => {
               const total = Number(item.total || 0)
@@ -125,7 +118,7 @@ export default function CreditSummary({
             {dpRanges.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No DP range data.</div>}
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
+          <div className="credit-summary-table-shell">
             <table className="table compact-table">
               <thead>
                 <tr>

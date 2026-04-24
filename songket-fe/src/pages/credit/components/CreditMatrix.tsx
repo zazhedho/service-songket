@@ -21,7 +21,7 @@ export default function CreditMatrix({
 }: CreditMatrixProps) {
   return (
     <>
-      <div style={{ overflowX: 'auto' }}>
+      <div className="credit-matrix-table">
         <table className="table compact-table">
           <thead>
             <tr>
@@ -49,7 +49,7 @@ export default function CreditMatrix({
               return (
                 <tr key={`${row.area_key}-${row.job_id || 'all'}-${row.motor_type_id || 'empty'}-${idx}`}>
                   <td>
-                    <div style={{ minWidth: 180 }}>
+                    <div className="credit-matrix-area">
                       <div style={{ fontWeight: 600 }}>{row.area_regency || row.area_name || '-'}</div>
                       {row.area_province && row.area_province !== '-' && (
                         <div style={{ color: '#64748b', fontSize: 12 }}>{row.area_province}</div>
