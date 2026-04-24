@@ -5,24 +5,18 @@ import { sanitizeDigits } from '../../../utils/input'
 type UserFormProps = {
   availableRoleNames: string[]
   canCreate: boolean
-  canSetUserPerm: boolean
   canUpdate: boolean
   error: string
   form: any
-  groupedPermissions: any
   isCreate: boolean
   isEdit: boolean
   isPasswordConfirmationMismatch: boolean
   loading: boolean
   navigate: (path: string, options?: any) => void
-  permDraft: string[]
-  permLoading: boolean
-  renderPermTable: (selected: string[], toggle: (id: string) => void, customGrouped?: Record<string, any[]>) => JSX.Element
   save: () => Promise<void>
   set: (key: string, value: string) => void
   setEditingId: (value: string | null) => void
   setForm: React.Dispatch<React.SetStateAction<any>>
-  setPermDraft: React.Dispatch<React.SetStateAction<string[]>>
   setShowConfirmPassword: React.Dispatch<React.SetStateAction<boolean>>
   setShowPassword: React.Dispatch<React.SetStateAction<boolean>>
   showConfirmPassword: boolean
@@ -32,24 +26,18 @@ type UserFormProps = {
 export default function UserForm({
   availableRoleNames,
   canCreate,
-  canSetUserPerm,
   canUpdate,
   error,
   form,
-  groupedPermissions,
   isCreate,
   isEdit,
   isPasswordConfirmationMismatch,
   loading,
   navigate,
-  permDraft,
-  permLoading,
-  renderPermTable,
   save,
   set,
   setEditingId,
   setForm,
-  setPermDraft,
   setShowConfirmPassword,
   setShowPassword,
   showConfirmPassword,
@@ -169,31 +157,6 @@ export default function UserForm({
               </div>
             </div>
           </div>
-
-          {canSetUserPerm && (
-            <div className="card form-section">
-              <div className="form-section-head">
-                <div>
-                  <h3>Access Overrides</h3>
-                  <div className="form-section-note">Optional permission-level overrides for this specific user.</div>
-                </div>
-              </div>
-
-              <div>
-                <label>Permission (optional)</label>
-                {permLoading && (
-                  <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
-                    Loading existing user permissions...
-                  </div>
-                )}
-                {renderPermTable(
-                  permDraft,
-                  (id) => setPermDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
-                  groupedPermissions,
-                )}
-              </div>
-            </div>
-          )}
 
           {error && <div className="alert">{error}</div>}
 

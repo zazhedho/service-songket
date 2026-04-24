@@ -109,7 +109,7 @@ export default function App() {
 
           <Route path="/users" element={<Guarded><UsersPage /></Guarded>} />
           <Route path="/users/create" element={<Guarded><UsersPage /></Guarded>} />
-          <Route path="/users/:id" element={<Guarded><UsersPage /></Guarded>} />
+          <Route path="/users/:id" element={<Guarded><Navigate to="/users" replace /></Guarded>} />
           <Route path="/users/:id/edit" element={<Guarded><UsersPage /></Guarded>} />
 
           <Route path="/profile" element={<Guarded><ProfilePage /></Guarded>} />

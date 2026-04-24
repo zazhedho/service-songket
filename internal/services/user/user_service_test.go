@@ -212,6 +212,51 @@ func TestAdminCreateUserRequiresAssignRoleForNonDefaultRole(t *testing.T) {
 	}
 }
 
+func TestAdminCreateUserAssignsRoleIDFromSelectedRole(t *testing.T) {
+	permissionRepo := &permissionRepoMock{}
+	service := &ServiceUser{
+		UserRepo:      &userRepoMock{},
+		BlacklistRepo: &authRepoMock{},
+		RoleRepo: &roleRepoMock{roles: map[string]domainrole.Role{
+			utils.RoleAdmin: {Id: "role-admin", Name: utils.RoleAdmin},
+		}},
+		PermissionRepo: permissionRepo,
+	}
+
+	user, err := service.AdminCreateUser(
+		authscope.WithContext(
+			context.Background(),
+			authscope.New("creator-1", utils.RoleAdmin, []string{"users:assign_role"}),
+		),
+		dto.AdminCreateUser{
+			Name:     "Jane Admin",
+			Email:    " Jane.Admin@Example.COM ",
+			Phone:    "0812-2222-3333",
+			Password: "Password1!",
+			Role:     utils.RoleAdmin,
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+
+	if user.Role != utils.RoleAdmin {
+		t.Fatalf("expected role %q, got %q", utils.RoleAdmin, user.Role)
+	}
+	if user.RoleId == nil || *user.RoleId != "role-admin" {
+		t.Fatalf("expected admin role id to be assigned, got %+v", user.RoleId)
+	}
+	if user.Email != "jane.admin@example.com" {
+		t.Fatalf("expected sanitized email, got %q", user.Email)
+	}
+	if user.Phone != "6281222223333" {
+		t.Fatalf("expected normalized phone, got %q", user.Phone)
+	}
+	if len(permissionRepo.setCalls) != 0 {
+		t.Fatalf("expected no direct user permission assignment, got %+v", permissionRepo.setCalls)
+	}
+}
+
 func TestUpdateAllowsNonRoleChangesWithoutAssignRole(t *testing.T) {
 	service := &ServiceUser{
 		UserRepo: &userRepoMock{

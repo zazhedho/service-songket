@@ -1,18 +1,3 @@
-function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
-  return (
-    <table className="table" style={{ marginTop: 8 }}>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th style={{ width: '35%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ fontWeight: 600 }}>{row.value || '-'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
 type RoleDetailProps = {
   canUpdate: boolean
   navigate: (path: string, options?: any) => void
@@ -30,12 +15,16 @@ export default function RoleDetail({
   selectedId,
   selectedRole,
 }: RoleDetailProps) {
+  const resolvedRole = roleDetail || selectedRole || null
+  const permissionIds = roleDetail?.permission_ids || []
+  const isSystemRole = Boolean(roleDetail?.is_system || selectedRole?.is_system)
+
   return (
     <div>
       <div className="header">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Role Details</div>
-          <div style={{ color: '#64748b' }}>Role profile with related permissions</div>
+          <div style={{ color: '#64748b' }}>Role profile and assigned permission coverage.</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canUpdate && selectedId && (
@@ -48,45 +37,93 @@ export default function RoleDetail({
       </div>
 
       <div className="page">
-        {!selectedRole && !roleDetail && <div className="alert">Role not found.</div>}
+        {!resolvedRole && <div className="alert">Role not found.</div>}
 
-        {(selectedRole || roleDetail) && (
-          <div className="card" style={{ maxWidth: 960 }}>
-            <h3 style={{ marginTop: 0 }}>Role Information</h3>
-            <DetailTable
-              rows={[
-                { label: 'Name', value: roleDetail?.name || selectedRole?.name || '-' },
-                { label: 'Display Name', value: roleDetail?.display_name || selectedRole?.display_name || '-' },
-                { label: 'Description', value: roleDetail?.description || selectedRole?.description || '-' },
-              ]}
-            />
-          </div>
+        {resolvedRole && (
+          <>
+            <div className="business-dealer-grid" style={{ padding: 0 }}>
+              <div className="card business-section">
+                <div className="business-section-head">
+                  <h3 className="business-section-title">Role Information</h3>
+                  <span className="business-section-side">Profile</span>
+                </div>
+                <div className="business-dealer-detail-card">
+                  <div className="business-dealer-detail-grid">
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Name</div>
+                      <div className="business-dealer-detail-value">{resolvedRole.name || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Display Name</div>
+                      <div className="business-dealer-detail-value">{resolvedRole.display_name || '-'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Type</div>
+                      <div className="business-dealer-detail-value">{isSystemRole ? 'System role' : 'Custom role'}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Description</div>
+                      <div className="business-dealer-detail-value">{resolvedRole.description || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card business-section">
+                <div className="business-section-head">
+                  <h3 className="business-section-title">Access Summary</h3>
+                  <span className="business-section-side">Security</span>
+                </div>
+                <div className="business-dealer-detail-card">
+                  <div className="business-dealer-detail-grid">
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Permission Count</div>
+                      <div className="business-dealer-detail-value">{permissionIds.length}</div>
+                    </div>
+                    <div className="business-dealer-detail-item">
+                      <div className="business-dealer-detail-label">Coverage</div>
+                      <div className="business-dealer-detail-value">
+                        {permissionIds.length > 0 ? 'Permissions assigned to this role.' : 'No permissions assigned to this role.'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card business-section">
+              <div className="business-section-head">
+                <h3 className="business-section-title">Permissions</h3>
+                <span className="business-section-side">Access</span>
+              </div>
+              <div className="business-dealer-detail-card">
+                <div className="table-responsive">
+                  <table className="table table-list">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 70 }}>No</th>
+                        <th>Permission</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {permissionIds.map((id: string, index: number) => (
+                        <tr key={id}>
+                          <td>{index + 1}</td>
+                          <td>{permissionLabel(id)}</td>
+                        </tr>
+                      ))}
+                      {permissionIds.length === 0 && (
+                        <tr>
+                          <td colSpan={2}>No permissions assigned.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </>
         )}
-
-        <div className="card" style={{ maxWidth: 960 }}>
-          <h3>Permissions</h3>
-          <table className="table" style={{ marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th style={{ width: 70 }}>No</th>
-                <th>Permission</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(roleDetail?.permission_ids || []).map((id: string, index: number) => (
-                <tr key={id}>
-                  <td>{index + 1}</td>
-                  <td>{permissionLabel(id)}</td>
-                </tr>
-              ))}
-              {(roleDetail?.permission_ids || []).length === 0 && (
-                <tr>
-                  <td colSpan={2}>No permissions assigned.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   )

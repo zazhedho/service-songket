@@ -100,7 +100,7 @@ export default function UserList({
                 className="user-list-table"
                 data={users}
                 keyField="id"
-                onRowClick={(user) => navigate(`/users/${user.id}`, { state: { user } })}
+                onRowClick={canUpdate ? (user) => navigate(`/users/${user.id}/edit`, { state: { user } }) : undefined}
                 emptyMessage="No users found."
                 columns={[
                   {
@@ -156,11 +156,6 @@ export default function UserList({
                     accessor: (user) => (
                       <ActionMenu
                         items={[
-                          {
-                            key: 'view',
-                            label: 'View',
-                            onClick: () => navigate(`/users/${user.id}`, { state: { user } }),
-                          },
                           {
                             key: 'edit',
                             label: 'Edit',
