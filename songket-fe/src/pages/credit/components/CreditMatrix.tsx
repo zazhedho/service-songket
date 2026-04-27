@@ -27,6 +27,7 @@ export default function CreditMatrix({
             <tr>
               <th>Area</th>
               <th>Job</th>
+              <th>Motor Type</th>
               <th>Credit Capability</th>
               <th>Program Suggestion</th>
             </tr>
@@ -34,7 +35,7 @@ export default function CreditMatrix({
           <tbody>
             {matrixPagination.pageItems.length === 0 && (
               <tr>
-                <td colSpan={4}>
+                <td colSpan={5}>
                   <div className="credit-table-empty">
                     <div className="credit-empty-title">No credit matrix rows</div>
                     <div className="credit-empty-note">Adjust the job, area, motor type, or date filter to explore more results.</div>
@@ -60,24 +61,27 @@ export default function CreditMatrix({
                     </div>
                   </td>
                   <td>
-                    <div className="table-stack-primary" title={row.job_name || '-'}>
-                      {row.job_name || '-'}
+                    <div className="credit-matrix-job-cell">
+                      <div className="table-stack-primary" title={row.job_name || '-'}>
+                        {row.job_name || '-'}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="credit-matrix-motor-cell">
+                      <span className="credit-matrix-motor-text" title={row.motor_type_name || '-'}>
+                        {row.motor_type_name || '-'}
+                      </span>
                     </div>
                   </td>
                   <td>
                     <div className="credit-matrix-metric-cell">
-                      <div className="table-stack-secondary" title={row.motor_type_name || '-'}>
-                        {row.motor_type_name || '-'}
-                      </div>
                       <span className="credit-matrix-rate-badge" style={style}>{rate}</span>
                     </div>
                   </td>
                   <td>
                     <div className="credit-matrix-metric-cell">
-                      <div className="table-stack-secondary" title={row.motor_type_name || '-'}>
-                        {row.motor_type_name || '-'}
-                      </div>
-                      <span className="table-metric-pill warning">{suggestion}</span>
+                      <span className="table-metric-pill warning credit-matrix-suggestion-pill">{suggestion}</span>
                     </div>
                   </td>
                 </tr>

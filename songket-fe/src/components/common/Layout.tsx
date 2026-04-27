@@ -86,6 +86,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (!root) return
 
     const applyResponsiveTableLabels = (tables: Iterable<HTMLTableElement>) => {
+      const autoStackDesktopColumnLimit = 4
+      const autoStackMobileColumnLimit = 5
       const isSmallViewport = window.matchMedia('(max-width: 767px)').matches
 
       Array.from(tables).forEach((table) => {
@@ -110,7 +112,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           isListTable
           && preferredMode !== 'scroll'
           && !hasInlineMinWidth
-          && (isSmallViewport || headerLabels.length <= 4)
+          && (
+            headerLabels.length <= autoStackDesktopColumnLimit
+            || (isSmallViewport && headerLabels.length <= autoStackMobileColumnLimit)
+          )
         )
 
         if (isListTable) {
