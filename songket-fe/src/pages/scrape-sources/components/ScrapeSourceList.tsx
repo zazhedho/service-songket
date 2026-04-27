@@ -50,6 +50,15 @@ export default function ScrapeSourceList({
   const activeCount = sources.filter((source) => Boolean(source?.is_active)).length
   const typeCount = new Set(sources.map((source) => String(source?.type || '').trim()).filter(Boolean)).size
   const sourceTypeLabel = (value: string) => typeOptions.find((item) => item.value === value)?.label || value || '-'
+  const sourceHost = (value: string) => {
+    const text = String(value || '').trim()
+    if (!text) return '-'
+    try {
+      return new URL(text).hostname.replace(/^www\./, '') || text
+    } catch {
+      return text
+    }
+  }
 
   return (
     <div>
@@ -122,7 +131,7 @@ export default function ScrapeSourceList({
           {canList && (
             <>
               <Table
-                className="scrape-source-list-table"
+                className="scrape-source-list-table metric-table"
                 data={sources}
                 keyField="id"
                 onRowClick={(source: any) => navigate(`/scrape-sources/${source.id}`, { state: { source } })}
@@ -131,11 +140,11 @@ export default function ScrapeSourceList({
                   {
                     header: 'Source',
                     accessor: (source: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={source.name || '-'}>
+                      <div className="table-stack-cell">
+                        <div className="table-stack-primary" title={source.name || '-'}>
                           {source.name || '-'}
                         </div>
-                        <div className="entity-list-note table-text-ellipsis" title={source.category || '-'}>
+                        <div className="table-stack-secondary" title={source.category || '-'}>
                           {source.category || 'No category'}
                         </div>
                       </div>
@@ -145,23 +154,34 @@ export default function ScrapeSourceList({
                   },
                   {
                     header: 'URL',
-                    accessor: (source: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={source.url || '-'}>
-                          {source.url || '-'}
+                    accessor: (source: any) => {
+                      const url = String(source.url || '').trim()
+                      const host = sourceHost(url)
+                      return (
+                        <div className="table-stack-cell">
+                          {url ? (
+                            <a className="table-url-link table-text-ellipsis" href={url} target="_blank" rel="noreferrer" title={url}>
+                              {host}
+                            </a>
+                          ) : (
+                            <div className="table-stack-primary">-</div>
+                          )}
+                          <div className="table-stack-tertiary" title={url || '-'}>
+                            {url || 'URL not available'}
+                          </div>
                         </div>
-                      </div>
-                    ),
+                      )
+                    },
                     className: 'scrape-source-col-url',
                     headerClassName: 'scrape-source-col-url',
                   },
                   {
                     header: 'Type',
                     accessor: (source: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={sourceTypeLabel(source.type)}>
+                      <div className="table-metric-cell">
+                        <span className="table-metric-pill total" title={sourceTypeLabel(source.type)}>
                           {sourceTypeLabel(source.type)}
-                        </div>
+                        </span>
                       </div>
                     ),
                     className: 'scrape-source-col-type',

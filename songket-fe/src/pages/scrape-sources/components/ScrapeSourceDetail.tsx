@@ -11,6 +11,16 @@ export default function ScrapeSourceDetail({
   selectedId,
   selectedSource,
 }: ScrapeSourceDetailProps) {
+  const sourceUrl = String(selectedSource?.url || '').trim()
+  const sourceHost = (() => {
+    if (!sourceUrl) return '-'
+    try {
+      return new URL(sourceUrl).hostname.replace(/^www\./, '') || sourceUrl
+    } catch {
+      return sourceUrl
+    }
+  })()
+
   return (
     <div>
       <div className="header">
@@ -33,33 +43,42 @@ export default function ScrapeSourceDetail({
         {selectedSource && (
           <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Source Information</h3>
-            <table className="table responsive-detail" style={{ marginTop: 10 }}>
+            <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
               <tbody>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
-                  <td style={{ fontWeight: 600 }}>{selectedSource.name || '-'}</td>
+                  <td><span className="detail-value-strong">{selectedSource.name || '-'}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>URL</th>
-                  <td style={{ fontWeight: 600 }}>
-                    {selectedSource.url ? (
-                      <a className="detail-link" href={selectedSource.url} target="_blank" rel="noreferrer">
-                        {selectedSource.url}
-                      </a>
+                  <td>
+                    {sourceUrl ? (
+                      <div className="table-stack-cell">
+                        <a className="detail-link table-url-link" href={sourceUrl} target="_blank" rel="noreferrer">
+                          {sourceHost}
+                        </a>
+                        <div className="table-stack-secondary table-url-wrap" title={sourceUrl}>
+                          {sourceUrl}
+                        </div>
+                      </div>
                     ) : '-'}
                   </td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Type</th>
-                  <td style={{ fontWeight: 600 }}>{selectedSource.type || '-'}</td>
+                  <td><span className="table-metric-pill total">{selectedSource.type || '-'}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Category</th>
-                  <td style={{ fontWeight: 600 }}>{selectedSource.category || '-'}</td>
+                  <td><span className="detail-value-strong">{selectedSource.category || '-'}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Status</th>
-                  <td style={{ fontWeight: 600 }}>{selectedSource.is_active ? 'Active' : 'Inactive'}</td>
+                  <td>
+                    <span className={`badge ${selectedSource.is_active ? 'success' : 'reject'}`}>
+                      {selectedSource.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>

@@ -376,7 +376,7 @@ export default function FinanceReportDetail({
                   <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
                     <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performance</div>
                     <div className="finance-report-wide-table">
-                      <table className="table" style={{ minWidth: 760 }}>
+                      <table className="table metric-table finance-performance-mini-table" style={{ minWidth: 760 }}>
                         <thead>
                           <tr>
                             <th>Total</th>
@@ -389,12 +389,31 @@ export default function FinanceReportDetail({
                         </thead>
                         <tbody>
                           <tr>
-                            <td>{computedDetailSummary.totalOrders}</td>
-                            <td>{computedDetailSummary.approvedCount}</td>
-                            <td>{computedDetailSummary.rejectedCount}</td>
-                            <td>{(computedDetailSummary.approvalRate * 100).toFixed(1)}%</td>
-                            <td>{computedDetailSummary.leadAvgSeconds != null ? `${computedDetailSummary.leadAvgSeconds.toFixed(1)} s` : '-'}</td>
-                            <td>{computedDetailSummary.rescueFc2}</td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill total">{computedDetailSummary.totalOrders}</span>
+                            </td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill approved">{computedDetailSummary.approvedCount}</span>
+                            </td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill rejected">{computedDetailSummary.rejectedCount}</span>
+                            </td>
+                            <td>
+                              <div className="table-rate-cell">
+                                <div className="table-rate-head">
+                                  <span>{(computedDetailSummary.approvalRate * 100).toFixed(1)}%</span>
+                                </div>
+                                <div className="table-rate-track" aria-hidden="true">
+                                  <div className="table-rate-fill" style={{ width: `${Math.min(100, Math.max(0, computedDetailSummary.approvalRate * 100))}%` }} />
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="table-lead-value">{computedDetailSummary.leadAvgSeconds != null ? `${computedDetailSummary.leadAvgSeconds.toFixed(1)} s` : '-'}</span>
+                            </td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill warning">{computedDetailSummary.rescueFc2}</span>
+                            </td>
                           </tr>
                         </tbody>
                       </table>

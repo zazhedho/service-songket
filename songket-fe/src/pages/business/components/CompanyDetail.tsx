@@ -31,6 +31,42 @@ export default function CompanyDetail({
   const locationSummary = [selectedCompanyDistrictName, selectedCompanyRegencyName, selectedCompanyProvinceName]
     .filter((item) => item && item !== '-')
     .join(', ') || '-'
+  const toSafeNumber = (value: unknown) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const renderDealerMetricName = (name: unknown, total: number) => {
+    const label = String(name || '-')
+
+    return (
+      <div className="table-stack-cell">
+        <div className="table-stack-primary" title={label}>{label}</div>
+        <div className="table-stack-secondary">{total.toLocaleString('id-ID')} total orders</div>
+      </div>
+    )
+  }
+  const renderMetric = (value: number, tone: 'total' | 'approved' | 'rejected' | 'warning') => (
+    <span className={`table-metric-pill ${tone}`}>{value.toLocaleString('id-ID')}</span>
+  )
+  const renderRate = (rate: unknown) => {
+    const pct = Math.max(0, Math.min(100, toSafeNumber(rate) * 100))
+
+    return (
+      <div className="table-rate-cell">
+        <div className="table-rate-head">
+          <span>{pct.toFixed(1)}%</span>
+        </div>
+        <div className="table-rate-track" aria-hidden="true">
+          <div className="table-rate-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    )
+  }
+  const formatLeadTimeHours = (value: unknown) => {
+    const seconds = toSafeNumber(value)
+    if (!seconds) return '-'
+    return `${(seconds / 3600).toFixed(2)} hours`
+  }
 
   return (
     <div>
@@ -180,30 +216,34 @@ export default function CompanyDetail({
                     </div>
 
                     <div className="table-responsive">
-                      <table className="table table-list">
+                      <table className="table metric-table" style={{ minWidth: 720 }}>
                         <thead>
                           <tr>
                             <th>Dealer</th>
                             <th>Total Order</th>
                             <th>Approval Rate</th>
-                            <th>Lead Avg (s)</th>
+                            <th>Lead Avg</th>
                             <th>Rescue FC2</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {companySummary.dealer_rows.map((row: any) => (
-                            <tr key={row.dealer_id}>
-                              <td>{row.dealer_name}</td>
-                              <td>{row.total_orders}</td>
-                              <td>{(row.approval_rate * 100).toFixed(1)}%</td>
-                              <td>{row.lead_time_seconds_avg != null ? row.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                              <td>{row.rescue_approved_fc2}</td>
-                            </tr>
-                          ))}
+                          {companySummary.dealer_rows.map((row: any) => {
+                            const total = toSafeNumber(row.total_orders)
+
+                            return (
+                              <tr key={row.dealer_id}>
+                                <td>{renderDealerMetricName(row.dealer_name, total)}</td>
+                                <td className="table-metric-cell">{renderMetric(total, 'total')}</td>
+                                <td>{renderRate(row.approval_rate)}</td>
+                                <td><span className="table-lead-value">{formatLeadTimeHours(row.lead_time_seconds_avg)}</span></td>
+                                <td className="table-metric-cell">{renderMetric(toSafeNumber(row.rescue_approved_fc2), 'warning')}</td>
+                              </tr>
+                            )
+                          })}
                           {companySummary.dealer_rows.length === 0 && (
                             <tr>
                               <td className="table-state-cell" colSpan={5}>
-                                <div className="business-table-empty">
+                                <div className="table-empty-panel">
                                   <div className="business-empty-title">No dealer performance rows</div>
                                   <div className="business-empty-copy">Dealer performance rows will appear when this finance company has order activity.</div>
                                 </div>

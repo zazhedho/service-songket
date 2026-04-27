@@ -40,6 +40,15 @@ export default function MasterSettingHistory({
   setHistoryPage,
   totalData,
 }: MasterSettingHistoryProps) {
+  const renderHistoryState = (isActive: boolean, interval: number, key: string) => (
+    <div className="table-stack-cell">
+      <div>
+        <span className={`table-metric-pill ${isActive ? 'approved' : 'rejected'}`}>{isActive ? 'ON' : 'OFF'}</span>
+      </div>
+      <div className="table-stack-secondary">{formatHistoryInterval(interval, key)}</div>
+    </div>
+  )
+
   return (
     <>
       <div className="card">
@@ -72,37 +81,45 @@ export default function MasterSettingHistory({
           </div>
         </div>
 
-        <table className="table" style={{ marginTop: 10 }}>
-          <thead>
-            <tr>
-              <th>Setting</th>
-              <th>Time</th>
-              <th>Changed By</th>
-              <th>Previous Status</th>
-              <th>Previous Interval</th>
-              <th>New Status</th>
-              <th>New Interval</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedHistories.map((item) => (
-              <tr key={item.id}>
-                <td>{formatSettingLabel(item.key)}</td>
-                <td>{formatDate(item.created_at)}</td>
-                <td>{item.changed_by_name || '-'}</td>
-                <td>{item.previous_is_active ? 'ON' : 'OFF'}</td>
-                <td>{formatHistoryInterval(item.previous_interval_minutes, item.key)}</td>
-                <td>{item.new_is_active ? 'ON' : 'OFF'}</td>
-                <td>{formatHistoryInterval(item.new_interval_minutes, item.key)}</td>
-              </tr>
-            ))}
-            {!historyLoading && paginatedHistories.length === 0 && (
+        <div className="table-responsive">
+          <table className="table metric-table" style={{ marginTop: 10, minWidth: 760 }}>
+            <thead>
               <tr>
-                <td colSpan={7}>No history yet.</td>
+                <th>Setting</th>
+                <th>Changed</th>
+                <th>Previous</th>
+                <th>New</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {paginatedHistories.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary">{formatSettingLabel(item.key)}</div>
+                      <div className="table-stack-secondary">{item.key || '-'}</div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary">{item.changed_by_name || '-'}</div>
+                      <div className="table-stack-secondary">{formatDate(item.created_at)}</div>
+                    </div>
+                  </td>
+                  <td>{renderHistoryState(item.previous_is_active, item.previous_interval_minutes, item.key)}</td>
+                  <td>{renderHistoryState(item.new_is_active, item.new_interval_minutes, item.key)}</td>
+                </tr>
+              ))}
+              {!historyLoading && paginatedHistories.length === 0 && (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="table-empty-panel">No history yet.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         <Pagination
           page={historyPage}

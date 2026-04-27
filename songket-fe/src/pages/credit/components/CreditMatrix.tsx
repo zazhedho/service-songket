@@ -22,25 +22,19 @@ export default function CreditMatrix({
   return (
     <>
       <div className="credit-matrix-table">
-        <table className="table compact-table">
+        <table className="table compact-table metric-table credit-matrix-enhanced-table">
           <thead>
             <tr>
-              <th rowSpan={2}>Area</th>
-              <th rowSpan={2}>Job</th>
-              <th colSpan={2}>Credit Capability</th>
-              <th colSpan={2}>Program Suggestion</th>
-            </tr>
-            <tr>
-              <th>Motor Type</th>
-              <th>Rate</th>
-              <th>Motor Type</th>
-              <th>Rate</th>
+              <th>Area</th>
+              <th>Job</th>
+              <th>Credit Capability</th>
+              <th>Program Suggestion</th>
             </tr>
           </thead>
           <tbody>
             {matrixPagination.pageItems.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={4}>
                   <div className="credit-table-empty">
                     <div className="credit-empty-title">No credit matrix rows</div>
                     <div className="credit-empty-note">Adjust the job, area, motor type, or date filter to explore more results.</div>
@@ -51,21 +45,41 @@ export default function CreditMatrix({
 
             {matrixPagination.pageItems.map((row, idx) => {
               const style = row.cell ? rateCellStyle(row.cell.capability_rate) : undefined
+              const rate = row.cell ? formatPercent(row.cell.capability_rate) : '-'
+              const suggestion = row.cell ? formatNumber(row.cell.program_suggestion) : '-'
               return (
                 <tr key={`${row.area_key}-${row.job_id || 'all'}-${row.motor_type_id || 'empty'}-${idx}`}>
                   <td>
-                    <div className="credit-matrix-area">
-                      <div style={{ fontWeight: 600 }}>{row.area_regency || row.area_name || '-'}</div>
+                    <div className="credit-matrix-area table-stack-cell">
+                      <div className="table-stack-primary" title={row.area_regency || row.area_name || '-'}>
+                        {row.area_regency || row.area_name || '-'}
+                      </div>
                       {row.area_province && row.area_province !== '-' && (
-                        <div style={{ color: '#64748b', fontSize: 12 }}>{row.area_province}</div>
+                        <div className="table-stack-secondary" title={row.area_province}>{row.area_province}</div>
                       )}
                     </div>
                   </td>
-                  <td>{row.job_name || '-'}</td>
-                  <td>{row.motor_type_name}</td>
-                  <td style={style}>{row.cell ? formatPercent(row.cell.capability_rate) : '-'}</td>
-                  <td>{row.motor_type_name}</td>
-                  <td style={style}>{row.cell ? formatNumber(row.cell.program_suggestion) : '-'}</td>
+                  <td>
+                    <div className="table-stack-primary" title={row.job_name || '-'}>
+                      {row.job_name || '-'}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="credit-matrix-metric-cell">
+                      <div className="table-stack-secondary" title={row.motor_type_name || '-'}>
+                        {row.motor_type_name || '-'}
+                      </div>
+                      <span className="credit-matrix-rate-badge" style={style}>{rate}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="credit-matrix-metric-cell">
+                      <div className="table-stack-secondary" title={row.motor_type_name || '-'}>
+                        {row.motor_type_name || '-'}
+                      </div>
+                      <span className="table-metric-pill warning">{suggestion}</span>
+                    </div>
+                  </td>
                 </tr>
               )
             })}

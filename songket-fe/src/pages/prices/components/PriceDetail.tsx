@@ -9,6 +9,16 @@ export default function PriceDetail({
   navigate,
   selectedPrice,
 }: PriceDetailProps) {
+  const sourceUrl = String(selectedPrice?.source_url || '').trim()
+  const sourceHost = (() => {
+    if (!sourceUrl) return '-'
+    try {
+      return new URL(sourceUrl).hostname.replace(/^www\./, '') || sourceUrl
+    } catch {
+      return sourceUrl
+    }
+  })()
+
   return (
     <div>
       <div className="header">
@@ -24,33 +34,38 @@ export default function PriceDetail({
         {selectedPrice && (
           <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Price Information</h3>
-            <table className="table responsive-detail" style={{ marginTop: 10 }}>
+            <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
               <tbody>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Commodity</th>
-                  <td style={{ fontWeight: 600 }}>{selectedPrice.commodity?.name || '-'}</td>
+                  <td><span className="detail-value-strong">{selectedPrice.commodity?.name || '-'}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Price</th>
-                  <td style={{ fontWeight: 600 }}>{formatRupiah(selectedPrice.price)}</td>
+                  <td><span className="table-metric-pill total">{formatRupiah(selectedPrice.price)}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Unit</th>
-                  <td style={{ fontWeight: 600 }}>{selectedPrice.commodity?.unit || '-'}</td>
+                  <td><span className="detail-value-strong">{selectedPrice.commodity?.unit || '-'}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Source URL</th>
-                  <td style={{ fontWeight: 600 }}>
-                    {selectedPrice.source_url ? (
-                      <a className="detail-link" href={selectedPrice.source_url} target="_blank" rel="noreferrer">
-                        {selectedPrice.source_url}
-                      </a>
+                  <td>
+                    {sourceUrl ? (
+                      <div className="table-stack-cell">
+                        <a className="detail-link table-url-link" href={sourceUrl} target="_blank" rel="noreferrer">
+                          {sourceHost}
+                        </a>
+                        <div className="table-stack-secondary table-url-wrap" title={sourceUrl}>
+                          {sourceUrl}
+                        </div>
+                      </div>
                     ) : '-'}
                   </td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Collected At</th>
-                  <td style={{ fontWeight: 600 }}>{selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('en-US') : '-'}</td>
+                  <td><span className="detail-value-strong">{selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('en-US') : '-'}</span></td>
                 </tr>
               </tbody>
             </table>

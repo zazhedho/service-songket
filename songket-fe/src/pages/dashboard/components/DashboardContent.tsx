@@ -356,38 +356,55 @@ export default function DashboardContent({
             <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Daily Commodity Prices" />
           </div>
           <div className="dashboard-table-shell">
-            <table className="table dashboard-latest-prices-table">
+            <table className="table dashboard-latest-prices-table metric-table">
               <thead>
                 <tr>
                   <th>Commodity</th>
                   <th>Price</th>
-                  <th>Unit</th>
-                  <th>Date</th>
+                  <th>Collected</th>
                 </tr>
               </thead>
               <tbody>
                 {latestCardsLoading && (
                   <tr>
-                    <td colSpan={4}>
+                    <td colSpan={3}>
                       <DashboardEmptyState title="Loading prices" note="Fetching the latest commodity price snapshot." compact />
                     </td>
                   </tr>
                 )}
                 {!latestCardsLoading && latestPriceTableRows.length === 0 && (
                   <tr>
-                    <td colSpan={4}>
+                    <td colSpan={3}>
                       <DashboardEmptyState title="No price data" note="Commodity prices will appear after scrape or manual entry data is available." compact />
                     </td>
                   </tr>
                 )}
-                {!latestCardsLoading && latestPriceTableRows.map((item: any) => (
-                  <tr key={item.id}>
-                    <td>{item.commodity?.name || '-'}</td>
-                    <td>{formatRupiah(Number(item.price || 0))}</td>
-                    <td>{item.commodity?.unit || '-'}</td>
-                    <td>{item.collected_at ? dayjs(item.collected_at).format('DD MMM YYYY HH:mm') : '-'}</td>
-                  </tr>
-                ))}
+                {!latestCardsLoading && latestPriceTableRows.map((item: any) => {
+                  const collectedAt = item.collected_at ? dayjs(item.collected_at) : null
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="table-stack-cell">
+                          <div className="table-stack-primary" title={item.commodity?.name || '-'}>
+                            {item.commodity?.name || '-'}
+                          </div>
+                          <div className="table-stack-secondary" title={item.commodity?.unit || '-'}>
+                            {item.commodity?.unit ? `Unit: ${item.commodity.unit}` : 'Unit not available'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="table-metric-cell">
+                        <span className="table-metric-pill total">{formatRupiah(Number(item.price || 0))}</span>
+                      </td>
+                      <td>
+                        <div className="table-stack-cell">
+                          <div className="table-stack-primary">{collectedAt ? collectedAt.format('DD MMM YYYY') : '-'}</div>
+                          <div className="table-stack-tertiary">{collectedAt ? collectedAt.format('HH:mm') : 'No timestamp'}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

@@ -152,6 +152,36 @@ export default function FinanceReportSummary({
     <span className={`finance-migration-metric ${tone}`}>{value.toLocaleString('id-ID')}</span>
   )
 
+  const renderPerformanceName = (name: unknown, total: number) => {
+    const label = String(name || '-')
+
+    return (
+      <div className="table-stack-cell">
+        <div className="table-stack-primary" title={label}>{truncateTableText(label, 48)}</div>
+        <div className="table-stack-secondary">{total.toLocaleString('id-ID')} total orders</div>
+      </div>
+    )
+  }
+
+  const renderPerformanceMetric = (value: number, tone: 'total' | 'approved' | 'rejected' | 'warning') => (
+    <span className={`table-metric-pill ${tone}`}>{value.toLocaleString('id-ID')}</span>
+  )
+
+  const renderPerformanceRate = (rate: unknown) => {
+    const pct = Math.max(0, Math.min(100, toSafeNumber(rate) * 100))
+
+    return (
+      <div className="table-rate-cell">
+        <div className="table-rate-head">
+          <span>{pct.toFixed(1)}%</span>
+        </div>
+        <div className="table-rate-track" aria-hidden="true">
+          <div className="table-rate-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    )
+  }
+
   const renderMigrationOutcome = (item: any) => {
     const { approvedPct, rejectedPct, pendingPct } = getMigrationStats(item)
 
@@ -398,11 +428,11 @@ export default function FinanceReportSummary({
           {!dealerMetricsLoading && !dealerMetricsError && (
             <div className="business-dealer-grid">
               <div className="finance-report-wide-table">
-                <table className="table" style={{ minWidth: 760 }}>
+                <table className="table metric-table" style={{ minWidth: 860 }}>
                   <thead>
                     <tr>
                       <th>Finance Company</th>
-                      <th>Total Data</th>
+                      <th>Total</th>
                       <th>Approved</th>
                       <th>Rejected</th>
                       <th>Approve %</th>
@@ -418,20 +448,20 @@ export default function FinanceReportSummary({
 
                       return (
                         <tr key={`dealer-metric-${item.finance_company_id}`}>
-                          <td>{item.finance_company_name || '-'}</td>
-                          <td>{total}</td>
-                          <td>{approved}</td>
-                          <td>{rejected}</td>
-                          <td>{(toSafeNumber(item.approval_rate) * 100).toFixed(2)}%</td>
-                          <td>{formatLeadTimeHours(item.lead_time_seconds_avg)}</td>
-                          <td>{toSafeNumber(item.rescue_approved_fc2)}</td>
+                          <td>{renderPerformanceName(item.finance_company_name, total)}</td>
+                          <td className="table-metric-cell">{renderPerformanceMetric(total, 'total')}</td>
+                          <td className="table-metric-cell">{renderPerformanceMetric(approved, 'approved')}</td>
+                          <td className="table-metric-cell">{renderPerformanceMetric(rejected, 'rejected')}</td>
+                          <td>{renderPerformanceRate(item.approval_rate)}</td>
+                          <td><span className="table-lead-value">{formatLeadTimeHours(item.lead_time_seconds_avg)}</span></td>
+                          <td className="table-metric-cell">{renderPerformanceMetric(toSafeNumber(item.rescue_approved_fc2), 'warning')}</td>
                         </tr>
                       )
                     })}
                     {dealerMetricRows.length === 0 && (
                       <tr>
                         <td colSpan={7}>
-                          <div className="business-table-empty">
+                          <div className="table-empty-panel">
                             <div className="business-empty-title">No finance performance rows</div>
                             <div className="business-empty-copy">Choose a dealer or adjust the period to populate this table.</div>
                           </div>

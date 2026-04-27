@@ -44,6 +44,16 @@ export default function NewsScrape({
   sourceOptions,
   urls,
 }: NewsScrapeProps) {
+  const sourceHost = (value: string) => {
+    const text = String(value || '').trim()
+    if (!text) return '-'
+    try {
+      return new URL(text).hostname.replace(/^www\./, '') || text
+    } catch {
+      return text
+    }
+  }
+
   return (
     <div>
       <div className="header">
@@ -98,14 +108,66 @@ export default function NewsScrape({
           <div className="card">
             <h3>Scrape Results Preview</h3>
             <Table
+              className="news-scrape-preview-table metric-table"
               data={pagedScrapedRows}
               keyField="url"
               onRowClick={(row) => navigate(`/news/${encodeURIComponent(row.url)}`, { state: { detail: row } })}
               columns={[
-                { header: 'Title', accessor: 'judul', style: { maxWidth: 320 } },
-                { header: 'Content', accessor: (row) => shortText(row.isi, 180), style: { maxWidth: 360, wordBreak: 'break-word' } },
-                { header: 'Created At', accessor: (row) => row.created_at ? dayjs(row.created_at).format('DD MMM YYYY HH:mm') : '-' },
-                { header: 'Source', accessor: (row) => row.sumber || '-' },
+                {
+                  header: 'Article',
+                  accessor: (row) => (
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary" title={row.judul || '-'}>
+                        {row.judul || '-'}
+                      </div>
+                      <div className="table-stack-tertiary" title={row.url || '-'}>
+                        {sourceHost(row.url)}
+                      </div>
+                    </div>
+                  ),
+                  className: 'news-scrape-col-article',
+                  headerClassName: 'news-scrape-col-article',
+                },
+                {
+                  header: 'Preview',
+                  accessor: (row) => (
+                    <div className="table-preview-text" title={row.isi || '-'}>
+                      {shortText(row.isi, 180) || '-'}
+                    </div>
+                  ),
+                  className: 'news-scrape-col-preview',
+                  headerClassName: 'news-scrape-col-preview',
+                },
+                {
+                  header: 'Source',
+                  accessor: (row) => (
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary" title={row.sumber || '-'}>
+                        {row.sumber || '-'}
+                      </div>
+                      {row.url ? (
+                        <a className="table-url-link table-stack-tertiary" href={row.url} target="_blank" rel="noreferrer" title={row.url}>
+                          {sourceHost(row.url)}
+                        </a>
+                      ) : (
+                        <div className="table-stack-tertiary">URL not available</div>
+                      )}
+                    </div>
+                  ),
+                  className: 'news-scrape-col-source',
+                  headerClassName: 'news-scrape-col-source',
+                },
+                {
+                  header: 'Created At',
+                  accessor: (row) => (
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary">{row.created_at ? dayjs(row.created_at).format('DD MMM YYYY') : '-'}</div>
+                      <div className="table-stack-tertiary">{row.created_at ? dayjs(row.created_at).format('HH:mm') : 'No timestamp'}</div>
+                    </div>
+                  ),
+                  className: 'news-scrape-col-created',
+                  headerClassName: 'news-scrape-col-created',
+                },
                 {
                   header: 'Action',
                   accessor: (row) => (

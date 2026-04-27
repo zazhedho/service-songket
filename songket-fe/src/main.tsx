@@ -6,6 +6,7 @@ import { ConfirmProvider } from './components/common/ConfirmDialog'
 import { ToastProvider } from './components/common/ToastProvider'
 import './styles/app.css'
 import './styles/business.css'
+import './styles/tables.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

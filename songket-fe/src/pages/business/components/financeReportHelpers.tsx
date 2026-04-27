@@ -8,7 +8,7 @@ export function ReportDetailTable({
   wrapValue?: boolean
 }) {
   return (
-    <table className="table">
+    <table className="table responsive-detail polished-detail-table">
       <tbody>
         {rows.map((row) => (
           <tr key={row.label}>
@@ -24,7 +24,7 @@ export function ReportDetailTable({
                   }
                 : undefined}
             >
-              {row.value}
+              <span className="detail-value-strong">{row.value}</span>
             </td>
           </tr>
         ))}

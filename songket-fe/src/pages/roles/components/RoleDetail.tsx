@@ -19,6 +19,16 @@ export default function RoleDetail({
   const permissionIds = roleDetail?.permission_ids || []
   const isSystemRole = Boolean(roleDetail?.is_system || selectedRole?.is_system)
   const roleName = resolvedRole?.display_name || resolvedRole?.name || '-'
+  const renderPermission = (id: string) => {
+    const label = permissionLabel(id)
+
+    return (
+      <div className="table-stack-cell">
+        <div className="table-stack-primary" title={label}>{label}</div>
+        <div className="table-stack-secondary" title={id}>{id}</div>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -89,7 +99,7 @@ export default function RoleDetail({
               </div>
               <div className="business-dealer-detail-card">
                 <div className="table-responsive">
-                  <table className="table table-list">
+                  <table className="table metric-table" style={{ minWidth: 560 }}>
                     <thead>
                       <tr>
                         <th style={{ width: 70 }}>No</th>
@@ -99,13 +109,17 @@ export default function RoleDetail({
                     <tbody>
                       {permissionIds.map((id: string, index: number) => (
                         <tr key={id}>
-                          <td>{index + 1}</td>
-                          <td>{permissionLabel(id)}</td>
+                          <td className="table-metric-cell">
+                            <span className="table-metric-pill total">{index + 1}</span>
+                          </td>
+                          <td>{renderPermission(id)}</td>
                         </tr>
                       ))}
                       {permissionIds.length === 0 && (
                         <tr>
-                          <td colSpan={2}>No permissions assigned.</td>
+                          <td colSpan={2}>
+                            <div className="table-empty-panel">No permissions assigned.</div>
+                          </td>
                         </tr>
                       )}
                     </tbody>

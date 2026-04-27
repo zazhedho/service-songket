@@ -133,6 +133,42 @@ export default function FinanceList({
   const selectedProvinceLabel = provinceOptions.find((option) => option.value === dealerProvinceFilter)?.label || 'All Provinces'
   const selectedFinanceProvinceLabel = provinceOptions.find((option) => option.value === financeProvinceFilter)?.label || 'All Provinces'
   const visibleMappedDealers = dealers.filter((dealer) => hasCoordinate(dealer)).length
+  const toSafeNumber = (value: unknown) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const renderPerformanceName = (name: unknown, total: number) => {
+    const label = String(name || '-')
+
+    return (
+      <div className="table-stack-cell">
+        <div className="table-stack-primary" title={label}>{label}</div>
+        <div className="table-stack-secondary">{total.toLocaleString('id-ID')} total orders</div>
+      </div>
+    )
+  }
+  const renderPerformanceMetric = (value: number, tone: 'total' | 'approved' | 'rejected' | 'warning') => (
+    <span className={`table-metric-pill ${tone}`}>{value.toLocaleString('id-ID')}</span>
+  )
+  const renderPerformanceRate = (rate: unknown) => {
+    const pct = Math.max(0, Math.min(100, toSafeNumber(rate) * 100))
+
+    return (
+      <div className="table-rate-cell">
+        <div className="table-rate-head">
+          <span>{pct.toFixed(1)}%</span>
+        </div>
+        <div className="table-rate-track" aria-hidden="true">
+          <div className="table-rate-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    )
+  }
+  const formatLeadTimeHours = (value: unknown) => {
+    const seconds = toSafeNumber(value)
+    if (!seconds) return '-'
+    return `${(seconds / 3600).toFixed(2)} hours`
+  }
 
   return (
     <div>
@@ -667,42 +703,46 @@ export default function FinanceList({
               {metrics && (
                 <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 12, marginTop: 12 }}>
                   <div>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Finance</th>
-                          <th>Total</th>
-                          <th>Approved</th>
-                          <th>Rejected</th>
-                          <th>Approve %</th>
-                          <th>Lead Avg</th>
-                          <th>Rescue FC2</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dealerFinanceRows.map((fc: any) => {
-                          const total = Number(fc?.total_orders || 0)
-                          const approved = Number(fc?.approved_count || 0)
-                          const rejected = Number(fc?.rejected_count || 0)
-                          return (
-                            <tr key={fc.finance_company_id}>
-                              <td>{fc.finance_company_name}</td>
-                              <td>{total}</td>
-                              <td>{approved}</td>
-                              <td>{rejected}</td>
-                              <td>{((fc.approval_rate || 0) * 100).toFixed(1)}%</td>
-                              <td>{fc.lead_time_seconds_avg ? fc.lead_time_seconds_avg.toFixed(1) : '-'}</td>
-                              <td>{fc.rescue_approved_fc2 || 0}</td>
-                            </tr>
-                          )
-                        })}
-                        {dealerFinanceRows.length === 0 && (
+                    <div className="finance-report-wide-table">
+                      <table className="table metric-table" style={{ minWidth: 860 }}>
+                        <thead>
                           <tr>
-                            <td colSpan={7}>No finance company metric for this dealer.</td>
+                            <th>Finance Company</th>
+                            <th>Total</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                            <th>Approve %</th>
+                            <th>Lead Avg</th>
+                            <th>Rescue FC2</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {dealerFinanceRows.map((fc: any) => {
+                            const total = toSafeNumber(fc?.total_orders)
+                            const approved = toSafeNumber(fc?.approved_count)
+                            const rejected = toSafeNumber(fc?.rejected_count)
+                            return (
+                              <tr key={fc.finance_company_id}>
+                                <td>{renderPerformanceName(fc.finance_company_name, total)}</td>
+                                <td className="table-metric-cell">{renderPerformanceMetric(total, 'total')}</td>
+                                <td className="table-metric-cell">{renderPerformanceMetric(approved, 'approved')}</td>
+                                <td className="table-metric-cell">{renderPerformanceMetric(rejected, 'rejected')}</td>
+                                <td>{renderPerformanceRate(fc.approval_rate)}</td>
+                                <td><span className="table-lead-value">{formatLeadTimeHours(fc.lead_time_seconds_avg)}</span></td>
+                                <td className="table-metric-cell">{renderPerformanceMetric(toSafeNumber(fc.rescue_approved_fc2), 'warning')}</td>
+                              </tr>
+                            )
+                          })}
+                          {dealerFinanceRows.length === 0 && (
+                            <tr>
+                              <td colSpan={7}>
+                                <div className="table-empty-panel">No finance company metric for this dealer.</div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
 
                     <Pagination
                       page={dealerFinancePage}

@@ -50,6 +50,15 @@ export default function PriceList({
       return text
     }
   }
+  const collectedParts = (value?: string) => {
+    if (!value) return { date: '-', time: 'No timestamp' }
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return { date: '-', time: 'No timestamp' }
+    return {
+      date: parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: parsed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+    }
+  }
 
   const commodityCount = new Set(prices.map((price) => String(price?.commodity?.name || '').trim()).filter(Boolean)).size
   const sourceCount = new Set(
@@ -128,7 +137,7 @@ export default function PriceList({
             ) : (
               <>
                 <Table
-                  className="price-list-table"
+                  className="price-list-table metric-table"
                   data={prices}
                   keyField="id"
                   onRowClick={(price) => navigate(`/prices/${price.id}`, { state: { price } })}
@@ -137,11 +146,11 @@ export default function PriceList({
                     {
                       header: 'Commodity',
                       accessor: (price) => (
-                        <div className="entity-list-cell">
-                          <div className="entity-list-title table-text-ellipsis" title={price.commodity?.name || 'Commodity'}>
+                        <div className="table-stack-cell">
+                          <div className="table-stack-primary" title={price.commodity?.name || 'Commodity'}>
                             {price.commodity?.name || 'Commodity'}
                           </div>
-                          <div className="entity-list-note">
+                          <div className="table-stack-secondary">
                             {price.commodity?.unit ? `Unit: ${price.commodity.unit}` : 'Unit not available'}
                           </div>
                         </div>
@@ -152,10 +161,8 @@ export default function PriceList({
                     {
                       header: 'Price',
                       accessor: (price) => (
-                        <div className="entity-list-cell">
-                          <div className="entity-list-title">
-                            {`${formatRupiah(price.price)}${price.commodity?.unit ? ` / ${price.commodity?.unit}` : ''}`}
-                          </div>
+                        <div className="table-metric-cell">
+                          <span className="table-metric-pill total">{formatRupiah(price.price)}</span>
                         </div>
                       ),
                       className: 'price-list-col-price',
@@ -167,9 +174,15 @@ export default function PriceList({
                         const url = String(price.source_url || '-')
                         const host = sourceHost(url)
                         return (
-                          <div className="entity-list-cell">
-                            <div className="entity-list-title table-text-ellipsis" title={host}>{host}</div>
-                            <div className="entity-list-note table-text-ellipsis" title={url}>{url}</div>
+                          <div className="table-stack-cell">
+                            {url && url !== '-' ? (
+                              <a className="table-url-link table-text-ellipsis" href={url} target="_blank" rel="noreferrer" title={url}>
+                                {host}
+                              </a>
+                            ) : (
+                              <div className="table-stack-primary">-</div>
+                            )}
+                            <div className="table-stack-tertiary" title={url}>{url && url !== '-' ? url : 'Source URL not available'}</div>
                           </div>
                         )
                       },
@@ -178,13 +191,15 @@ export default function PriceList({
                     },
                     {
                       header: 'Collected At',
-                      accessor: (price) => (
-                        <div className="entity-list-cell">
-                          <div className="entity-list-title">
-                            {price.collected_at ? new Date(price.collected_at).toLocaleString('en-GB') : '-'}
+                      accessor: (price) => {
+                        const collected = collectedParts(price.collected_at)
+                        return (
+                          <div className="table-stack-cell">
+                            <div className="table-stack-primary">{collected.date}</div>
+                            <div className="table-stack-tertiary">{collected.time}</div>
                           </div>
-                        </div>
-                      ),
+                        )
+                      },
                       className: 'price-list-col-collected',
                       headerClassName: 'price-list-col-collected',
                     },

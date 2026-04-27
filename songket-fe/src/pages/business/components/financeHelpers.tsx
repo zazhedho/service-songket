@@ -87,12 +87,14 @@ export function Metric({ label, value }: { label: string; value: any }) {
 
 export function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
   return (
-    <table className="table" style={{ marginTop: 10 }}>
+    <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
       <tbody>
         {rows.map((row) => (
           <tr key={row.label}>
             <th style={{ width: '36%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ fontWeight: 600, wordBreak: 'break-word' }}>{row.value ?? '-'}</td>
+            <td style={{ wordBreak: 'break-word' }}>
+              <span className="detail-value-strong">{row.value ?? '-'}</span>
+            </td>
           </tr>
         ))}
       </tbody>

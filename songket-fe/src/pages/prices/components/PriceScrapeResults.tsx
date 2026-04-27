@@ -47,6 +47,22 @@ export default function PriceScrapeResults({
   setResultSearch,
   toggleResult,
 }: PriceScrapeResultsProps) {
+  const renderSource = (url: string) => {
+    if (!url) return '-'
+    let host = url
+    try {
+      host = new URL(url).host
+    } catch {
+      host = url
+    }
+
+    return (
+      <a className="detail-link" href={url} target="_blank" rel="noreferrer" title={url}>
+        {host}
+      </a>
+    )
+  }
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -94,28 +110,54 @@ export default function PriceScrapeResults({
         </div>
       ) : (
         <>
-          <Table
-            data={results}
-            keyField="id"
-            onRowClick={(result) => toggleResult(result.id)}
-            columns={[
-              {
-                header: 'Select',
-                accessor: (result) => (
-                  <input
-                    type="checkbox"
-                    checked={selectedResultIds.includes(result.id)}
-                    onChange={() => toggleResult(result.id)}
-                  />
-                ),
-                ignoreRowClick: true,
-              },
-              { header: 'Commodity', accessor: 'commodity_name' },
-              { header: 'Price', accessor: (result) => `${formatRupiah(result.price)}${result.unit ? ` / ${result.unit}` : ''}` },
-              { header: 'Source', accessor: 'source_url', style: { maxWidth: 220, wordBreak: 'break-word' } },
-              { header: 'Scraped At', accessor: (result) => new Date(result.scraped_at).toLocaleString('en-GB') },
-            ]}
-          />
+          <div className="table-responsive">
+            <Table
+              data={results}
+              keyField="id"
+              className="metric-table"
+              style={{ minWidth: 760 }}
+              onRowClick={(result) => toggleResult(result.id)}
+              columns={[
+                {
+                  header: 'Select',
+                  accessor: (result) => (
+                    <input
+                      type="checkbox"
+                      checked={selectedResultIds.includes(result.id)}
+                      onChange={() => toggleResult(result.id)}
+                    />
+                  ),
+                  ignoreRowClick: true,
+                  headerStyle: { width: 80 },
+                  style: { width: 80 },
+                },
+                {
+                  header: 'Commodity',
+                  accessor: (result) => (
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary">{result.commodity_name || '-'}</div>
+                      <div className="table-stack-secondary">{result.unit || '-'}</div>
+                    </div>
+                  ),
+                },
+                {
+                  header: 'Price',
+                  accessor: (result) => <span className="table-metric-pill total">{formatRupiah(result.price)}</span>,
+                  className: 'table-metric-cell',
+                },
+                { header: 'Source', accessor: (result) => renderSource(result.source_url), className: 'wrap-text' },
+                {
+                  header: 'Scraped At',
+                  accessor: (result) => (
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary">{new Date(result.scraped_at).toLocaleDateString('en-GB')}</div>
+                      <div className="table-stack-secondary">{new Date(result.scraped_at).toLocaleTimeString('en-GB')}</div>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
 
           <Pagination
             page={resultPage}

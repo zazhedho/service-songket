@@ -75,25 +75,32 @@ export default function JobDetail({
 
             <h3 style={{ marginTop: 14 }}>Coverage Areas</h3>
             <div className="table-responsive">
-              <table className="table table-list" style={{ marginTop: 10 }}>
+              <table className="table metric-table" style={{ marginTop: 10, minWidth: 520 }}>
                 <thead>
                   <tr>
-                    <th>No</th>
-                    <th>Province</th>
-                    <th>Regency / City</th>
+                    <th style={{ width: 64 }}>No</th>
+                    <th>Area</th>
                   </tr>
                 </thead>
                 <tbody>
                   {detailAreaRows.map((area: any, index: number) => (
                     <tr key={`${area.province_code}-${area.regency_code}-${index}`}>
-                      <td>{index + 1}</td>
-                      <td>{area.province_name || '-'}</td>
-                      <td>{area.regency_name || '-'}</td>
+                      <td className="table-metric-cell">
+                        <span className="table-metric-pill total">{index + 1}</span>
+                      </td>
+                      <td>
+                        <div className="table-stack-cell">
+                          <div className="table-stack-primary">{area.regency_name || '-'}</div>
+                          <div className="table-stack-secondary">{area.province_name || '-'}</div>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {detailAreaRows.length === 0 && (
                     <tr>
-                      <td colSpan={3}>No coverage areas.</td>
+                      <td colSpan={2}>
+                        <div className="table-empty-panel">No coverage areas.</div>
+                      </td>
                     </tr>
                   )}
                 </tbody>

@@ -89,7 +89,7 @@ export default function MasterSettingList({
           <button className="btn-ghost" onClick={() => void onRefresh()} disabled={loading}>Refresh</button>
         </div>
         <Table
-          className="table-list settings-list-table"
+          className="table-list settings-list-table metric-table"
           style={{ marginTop: 10 }}
           data={paginatedSettings}
           keyField="key"
@@ -97,10 +97,10 @@ export default function MasterSettingList({
             {
               header: 'Setting',
               accessor: (row) => (
-                <div className="entity-list-cell">
-                  <div className="entity-list-title">{row.label}</div>
-                  <div className="entity-list-note">
-                    {row.exists ? 'Configuration available for this scheduler.' : 'Configuration has not been created yet.'}
+                <div className="table-stack-cell">
+                  <div className="table-stack-primary">{row.label}</div>
+                  <div className="table-stack-secondary">
+                    {row.exists ? 'Configured scheduler' : 'Configuration required'}
                   </div>
                 </div>
               ),
@@ -110,18 +110,14 @@ export default function MasterSettingList({
             {
               header: 'Status',
               accessor: (row) => (
-                <div className="entity-list-cell">
-                  <div className="entity-list-title">
+                <div className="table-stack-cell">
+                  <div>
                     <span className={`badge ${row.status === 'ON' ? 'success' : 'pending'}`}>
                       {row.status === '-' ? 'Not Configured' : row.status === 'ON' ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  <div className="entity-list-note">
-                    {row.status === 'ON'
-                      ? 'Scheduler is enabled and ready to run.'
-                      : row.exists
-                        ? 'Scheduler is saved but currently disabled.'
-                        : 'Create a scheduler configuration first.'}
+                  <div className="table-stack-tertiary">
+                    {row.exists ? 'Saved configuration' : 'No saved configuration'}
                   </div>
                 </div>
               ),
@@ -131,9 +127,11 @@ export default function MasterSettingList({
             {
               header: 'Interval',
               accessor: (row) => (
-                <div className="entity-list-cell">
-                  <div className="entity-list-title">{row.interval}</div>
-                  <div className="entity-list-note">
+                <div className="table-stack-cell">
+                  <div>
+                    <span className="table-metric-pill warning">{row.interval}</span>
+                  </div>
+                  <div className="table-stack-tertiary">
                     {row.key === 'news' ? 'Runs in minute-based intervals.' : 'Runs in day-based intervals.'}
                   </div>
                 </div>
@@ -144,8 +142,8 @@ export default function MasterSettingList({
             {
               header: 'Updated',
               accessor: (row) => (
-                <div className="entity-list-cell">
-                  <div className="entity-list-title">{row.updatedAt}</div>
+                <div className="table-stack-cell">
+                  <div className="table-stack-primary">{row.updatedAt}</div>
                 </div>
               ),
               className: 'settings-list-col-updated',
