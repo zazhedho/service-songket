@@ -3,7 +3,7 @@ import { fetchQuadrantSummary } from '../../services/quadrantService'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { buildFilterYearOptions } from '../../utils/yearOptions'
 import QuadrantContent from './components/QuadrantContent'
-import { buildAnalysisText, buildAxisTicks, clampPercent, formatAxisPercent, getOrderInGrowth, normalizeToken, quadrantColor } from './components/quadrantHelpers'
+import { clampPercent, getOrderInGrowth, normalizeToken } from './components/quadrantHelpers'
 
 type QuadrantItem = {
   job_id?: string
@@ -45,7 +45,7 @@ type OptionItem = { value: string; label: string }
 const getQuadrantLoadErrorMessage = (error: any) => {
   const status = Number(error?.response?.status || 0)
   const rawMessage = String(error?.response?.data?.error || error?.message || '').trim()
-  const fallbackMessage = 'Failed to load quadrant data. Please try again.'
+  const fallbackMessage = 'Failed to load data. Please try again.'
 
   if (!status || status >= 500) return fallbackMessage
   return rawMessage || fallbackMessage
@@ -210,10 +210,12 @@ export default function QuadrantsPage() {
     const width = isMobile ? 560 : 920
     const height = isMobile ? 360 : 470
     const padding = isMobile ? { top: 24, right: 28, bottom: 60, left: 54 } : { top: 28, right: 40, bottom: 74, left: 84 }
-    const pointInset = 10
+    const pointInset = isMobile ? 16 : 18
     const axisGap = 8
     const splitXPercent = 35
     const splitYGrowthPercent = 0
+    const growthTickStep = 20
+    const growthGridStep = 10
     const borderTicks = Array.from({ length: 11 }, (_, index) => index * 10) // 0..100
 
     const crisp = (value: number) => Math.round(value) + 0.5
@@ -226,22 +228,33 @@ export default function QuadrantsPage() {
     const growthValues = filtered.map((item) => getOrderInGrowth(item)).filter((value) => Number.isFinite(value))
     const observedMin = growthValues.length ? Math.min(...growthValues) : -10
     const observedMax = growthValues.length ? Math.max(...growthValues) : 10
-    let growthMin = Math.min(observedMin, splitYGrowthPercent)
-    let growthMax = Math.max(observedMax, splitYGrowthPercent)
-    if (growthMin === growthMax) {
-      growthMin -= 10
-      growthMax += 10
-    }
-    const growthPadding = Math.max((growthMax - growthMin) * 0.12, 5)
-    growthMin -= growthPadding
-    growthMax += growthPadding
+    const observedGrowthExtent = Math.max(
+      Math.abs(observedMin - splitYGrowthPercent),
+      Math.abs(observedMax - splitYGrowthPercent),
+      50,
+    )
+    const growthPadding = Math.max(observedGrowthExtent * 0.12, 5)
+    const growthExtent = Math.ceil((observedGrowthExtent + growthPadding) / growthTickStep) * growthTickStep
+    const growthMin = splitYGrowthPercent - growthExtent
+    const growthMax = splitYGrowthPercent + growthExtent
 
     const toY = (growthPercent: number) => {
       const clamped = Math.min(Math.max(growthPercent, growthMin), growthMax)
       const ratio = (clamped - growthMin) / Math.max(growthMax - growthMin, 1)
       return bottom - ratio * (bottom - top)
     }
-    const yTicks = buildAxisTicks(growthMin, growthMax)
+    const yTicks = Array.from(
+      { length: Math.floor((growthMax - growthMin) / growthGridStep) + 1 },
+      (_item, index) => Number((growthMin + index * growthGridStep).toFixed(6)),
+    )
+    const yLabelBaseTicks = yTicks.filter((value) => Math.abs(value % growthTickStep) < 0.0001)
+    const visibleYTickValues = new Set<number>([splitYGrowthPercent])
+    growthValues.forEach((value) => {
+      const clamped = Math.min(Math.max(value, growthMin), growthMax)
+      const nearestTick = Number((growthMin + Math.round((clamped - growthMin) / growthTickStep) * growthTickStep).toFixed(6))
+      visibleYTickValues.add(nearestTick)
+    })
+    const yLabelTicks = yLabelBaseTicks.filter((value) => visibleYTickValues.has(value))
 
     const xSplit = crisp(toX(splitXPercent))
     const ySplit = crisp(toY(splitYGrowthPercent))
@@ -249,11 +262,12 @@ export default function QuadrantsPage() {
     const points = filtered.map((item) => {
       const xRaw = clampPercent(item.credit_capability)
       const yRaw = Number(item.order_in_growth_percent || 0)
+      const isCreditBoundary = xRaw <= 0 || xRaw >= 100
 
       let x = toX(xRaw)
       let y = toY(yRaw)
 
-      x = Math.min(Math.max(x, left + pointInset), right - pointInset)
+      x = Math.min(Math.max(x, left), right)
       y = Math.min(Math.max(y, top + pointInset), bottom - pointInset)
 
       if (Math.abs(x - xSplit) < axisGap) {
@@ -277,6 +291,7 @@ export default function QuadrantsPage() {
         creditCapability: item.credit_capability,
         axisOrderValue: yRaw,
         axisCreditValue: xRaw,
+        isCreditBoundary,
       }
     })
 
@@ -291,6 +306,7 @@ export default function QuadrantsPage() {
       splitYGrowthPercent,
       borderTicks,
       yTicks,
+      yLabelTicks,
       left,
       top,
       right,
@@ -309,7 +325,7 @@ export default function QuadrantsPage() {
     const offsetX = 12
     const offsetY = -12
     const width = isMobile ? 240 : 290
-    const height = 88
+    const height = 104
     const x = Math.min(Math.max(activePoint.x + offsetX, chart.left + 4), chart.right - width - 4)
     const y = Math.min(Math.max(activePoint.y + offsetY, chart.top + 4), chart.bottom - height - 4)
     return { x, y, width, height }
@@ -328,12 +344,6 @@ export default function QuadrantsPage() {
 
   return (
     <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Quadrant</div>
-        </div>
-      </div>
-
       <QuadrantContent
         activePoint={activePoint}
         activePointId={activePointId}

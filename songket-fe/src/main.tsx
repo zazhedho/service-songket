@@ -5,6 +5,8 @@ import App from './App'
 import { ConfirmProvider } from './components/common/ConfirmDialog'
 import { ToastProvider } from './components/common/ToastProvider'
 import './styles/app.css'
+import './styles/filters.css'
+import './styles/quadrants.css'
 import './styles/business.css'
 import './styles/tables.css'
 

@@ -67,17 +67,77 @@ export default function QuadrantContent({
   const regencySelectOptions = [{ value: '', label: 'All Regencies' }, ...regencyOptions]
   const yearSelectOptions = [{ value: '', label: 'Latest Year' }, ...yearOptions.map((year) => ({ value: year, label: year }))]
   const monthSelectOptions = [{ value: '', label: 'Latest Month' }, ...monthOptions]
+  const quadrantLegend = [
+    { key: 1, label: 'Q1', name: 'Growth focus', color: quadrantColor(1) },
+    { key: 3, label: 'Q3', name: 'High capability', color: quadrantColor(3) },
+    { key: 2, label: 'Q2', name: 'Needs lift', color: quadrantColor(2) },
+    { key: 4, label: 'Q4', name: 'Priority risk', color: quadrantColor(4) },
+  ]
+  const quadrantRegions = [
+    {
+      key: 1,
+      label: 'Quadrant 1',
+      shortLabel: 'Q1',
+      description: 'Growth focus',
+      color: quadrantColor(1),
+      x: chart.left,
+      y: chart.top,
+      width: chart.xSplit - chart.left,
+      height: chart.ySplit - chart.top,
+      labelX: (chart.left + chart.xSplit) / 2,
+      labelY: (chart.top + chart.ySplit) / 2,
+    },
+    {
+      key: 3,
+      label: 'Quadrant 3',
+      shortLabel: 'Q3',
+      description: 'High capability',
+      color: quadrantColor(3),
+      x: chart.xSplit,
+      y: chart.top,
+      width: chart.right - chart.xSplit,
+      height: chart.ySplit - chart.top,
+      labelX: (chart.xSplit + chart.right) / 2,
+      labelY: (chart.top + chart.ySplit) / 2,
+    },
+    {
+      key: 2,
+      label: 'Quadrant 2',
+      shortLabel: 'Q2',
+      description: 'Needs lift',
+      color: quadrantColor(2),
+      x: chart.left,
+      y: chart.ySplit,
+      width: chart.xSplit - chart.left,
+      height: chart.bottom - chart.ySplit,
+      labelX: (chart.left + chart.xSplit) / 2,
+      labelY: (chart.ySplit + chart.bottom) / 2,
+    },
+    {
+      key: 4,
+      label: 'Quadrant 4',
+      shortLabel: 'Q4',
+      description: 'Priority risk',
+      color: quadrantColor(4),
+      x: chart.xSplit,
+      y: chart.ySplit,
+      width: chart.right - chart.xSplit,
+      height: chart.bottom - chart.ySplit,
+      labelX: (chart.xSplit + chart.right) / 2,
+      labelY: (chart.ySplit + chart.bottom) / 2,
+    },
+  ]
 
   return (
     <div className="page">
       <div className="card">
-        <h3>Quadrant Flow</h3>
+        <h3>Performance Map</h3>
         <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-          Backend-computed job and area points. Vertical axis: Order In Growth (%) vs previous month. Horizontal axis: Credit Capability (%). Period: {referencePeriod}.
+          Compare Order In Growth against Credit Capability for the selected period: {referencePeriod}.
         </div>
 
-        <div className="compact-filter-toolbar" style={{ marginTop: 12 }}>
-          <div className="compact-filter-item narrow">
+        <div className="compact-filter-toolbar quadrant-filter-toolbar" style={{ marginTop: 12 }}>
+          <div className="compact-filter-item narrow quadrant-filter-province">
             <SearchableSelect
               id="quadrant-province-filter"
               value={filter.province}
@@ -89,7 +149,7 @@ export default function QuadrantContent({
             />
           </div>
 
-          <div className="compact-filter-item narrow">
+          <div className="compact-filter-item narrow quadrant-filter-regency">
             <SearchableSelect
               id="quadrant-regency-filter"
               value={filter.regency}
@@ -102,11 +162,11 @@ export default function QuadrantContent({
             />
           </div>
 
-          <div className="compact-filter-item grow-2">
+          <div className="compact-filter-item grow-2 quadrant-filter-search">
             <input value={filter.search} onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))} placeholder="Search job, province, or regency" aria-label="Search quadrant job or area" />
           </div>
 
-          <div className="compact-filter-item narrow">
+          <div className="compact-filter-item narrow quadrant-filter-year">
             <SearchableSelect
               id="quadrant-year-filter"
               value={selectedYear}
@@ -123,7 +183,7 @@ export default function QuadrantContent({
             />
           </div>
 
-          <div className="compact-filter-item narrow">
+          <div className="compact-filter-item narrow quadrant-filter-month">
             <SearchableSelect
               id="quadrant-month-filter"
               value={selectedMonth}
@@ -140,7 +200,7 @@ export default function QuadrantContent({
             />
           </div>
 
-          <div className="compact-filter-action">
+          <div className="compact-filter-action quadrant-filter-reset">
             <button
               className="btn-ghost"
               onClick={() => {
@@ -151,7 +211,7 @@ export default function QuadrantContent({
               disabled={!filter.province && !filter.regency && !filter.search.trim() && !selectedMonth && !selectedYear}
               title="Clear all filters"
               aria-label="Clear all filters"
-              style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
+              style={{ minWidth: 42, paddingInline: 0, justifyContent: 'center' }}
             >
               ×
             </button>
@@ -162,40 +222,129 @@ export default function QuadrantContent({
           <div className="quadrant-status-card error">
             <div className="quadrant-status-icon">!</div>
             <div>
-              <div className="quadrant-status-title">Unable to load quadrant data</div>
+              <div className="quadrant-status-title">Unable to load data</div>
               <div className="quadrant-status-copy">{loadError}</div>
             </div>
           </div>
         )}
 
-        <div style={{ marginTop: 14 }}>
+        <div className="quadrant-chart-panel">
           {isLoading && (
             <div className="quadrant-status-card">
-              <div className="quadrant-status-icon">Q</div>
+              <div className="quadrant-status-icon">•</div>
               <div>
-                <div className="quadrant-status-title">Loading quadrant points</div>
+                <div className="quadrant-status-title">Loading points</div>
                 <div className="quadrant-status-copy">Preparing the latest position for each area and job.</div>
               </div>
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
             <div className="quadrant-status-card">
-              <div className="quadrant-status-icon">Q</div>
+              <div className="quadrant-status-icon">•</div>
               <div>
-                <div className="quadrant-status-title">No quadrant points found</div>
+                <div className="quadrant-status-title">No points found</div>
                 <div className="quadrant-status-copy">Adjust the period, area, or search keyword to explore more results.</div>
               </div>
             </div>
           )}
+          <div className="quadrant-chart-head">
+            <div className="quadrant-chart-title-group">
+              <div className="quadrant-chart-title">Interactive View</div>
+              <div className="quadrant-chart-subtitle">Tap or hover a point to see job, area, and metrics.</div>
+            </div>
+            <div className="quadrant-chart-legend" aria-label="Quadrant legend">
+              {quadrantLegend.map((item) => (
+                <span key={item.key} className="quadrant-legend-item">
+                  <span className="quadrant-legend-swatch" style={{ background: item.color }} />
+                  <span>{item.label}</span>
+                  <span className="quadrant-legend-name">{item.name}</span>
+                </span>
+              ))}
+            </div>
+          </div>
           <svg
+            className="quadrant-flow-chart"
             viewBox={`0 0 ${chart.width} ${chart.height}`}
             width="100%"
-            style={{ display: 'block', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}
+            role="img"
+            aria-label="Quadrant flow chart"
+            onClick={() => setActivePointId('')}
           >
-            <rect x={chart.left} y={chart.top} width={chart.right - chart.left} height={chart.bottom - chart.top} fill="#f8fafc" stroke="#111827" strokeWidth={1.8} strokeDasharray="2 8" rx={10} />
+            <defs>
+              <filter id="quadrant-point-shadow" x="-40%" y="-40%" width="180%" height="180%">
+                <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#0f172a" floodOpacity="0.18" />
+              </filter>
+              <filter id="quadrant-tooltip-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                <feDropShadow dx="0" dy="12" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.28" />
+              </filter>
+              <linearGradient id="quadrant-chart-surface" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="#ffffff" />
+                <stop offset="100%" stopColor="#f8fbff" />
+              </linearGradient>
+            </defs>
 
-            <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
-            <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#111827" strokeWidth={1.8} shapeRendering="crispEdges" />
+            <rect
+              x={chart.left - 10}
+              y={chart.top - 10}
+              width={chart.right - chart.left + 20}
+              height={chart.bottom - chart.top + 20}
+              rx={18}
+              fill="url(#quadrant-chart-surface)"
+            />
+
+            {quadrantRegions.map((region) => (
+              <rect
+                key={`region-${region.key}`}
+                x={region.x}
+                y={region.y}
+                width={Math.max(0, region.width)}
+                height={Math.max(0, region.height)}
+                fill={region.color}
+                opacity={0.075}
+              />
+            ))}
+
+            <rect
+              x={chart.left}
+              y={chart.top}
+              width={chart.right - chart.left}
+              height={chart.bottom - chart.top}
+              fill="none"
+              stroke="#cbd5e1"
+              strokeWidth={1.4}
+              rx={12}
+            />
+
+            {chart.borderTicks.map((value: number) => (
+              <line
+                key={`grid-x-${value}`}
+                x1={chart.toX(value)}
+                y1={chart.top}
+                x2={chart.toX(value)}
+                y2={chart.bottom}
+                stroke="#dbe3ef"
+                strokeWidth={1}
+                opacity={value === chart.splitXPercent ? 0 : 0.72}
+                shapeRendering="crispEdges"
+              />
+            ))}
+
+            {chart.yTicks.map((value: number) => (
+              <line
+                key={`grid-y-${value}`}
+                x1={chart.left}
+                y1={chart.toY(value)}
+                x2={chart.right}
+                y2={chart.toY(value)}
+                stroke="#dbe3ef"
+                strokeWidth={1}
+                opacity={value === chart.splitYGrowthPercent ? 0 : 0.72}
+                shapeRendering="crispEdges"
+              />
+            ))}
+
+            <line x1={chart.xSplit} y1={chart.top} x2={chart.xSplit} y2={chart.bottom} stroke="#334155" strokeWidth={1.6} strokeDasharray="6 6" shapeRendering="crispEdges" />
+            <line x1={chart.left} y1={chart.ySplit} x2={chart.right} y2={chart.ySplit} stroke="#334155" strokeWidth={1.6} strokeDasharray="6 6" shapeRendering="crispEdges" />
 
             {chart.borderTicks.map((value: number) => (
               <text key={`bottom-${value}`} x={chart.toX(value)} y={chart.bottom + (isMobile ? 12 : 16)} textAnchor="middle" fontSize={isMobile ? 7.5 : 10} fontWeight={700} fill="#111827">
@@ -203,52 +352,155 @@ export default function QuadrantContent({
               </text>
             ))}
 
-            {chart.yTicks.map((value: number) => (
+            {chart.yLabelTicks.map((value: number) => (
               <text key={`left-${value}`} x={chart.left - (isMobile ? 4 : 8)} y={chart.toY(value) + 3} textAnchor="end" fontSize={isMobile ? 7.5 : 10} fontWeight={700} fill="#111827">
                 {formatAxisPercent(value)}
               </text>
             ))}
 
-            <text x={chart.xSplit} y={chart.bottom + (isMobile ? 24 : 28)} textAnchor="middle" fontSize={isMobile ? 8 : 11} fontWeight={700} fill="#111827">
-              {chart.splitXPercent}%
+            <g>
+              <rect
+                x={chart.xSplit - (isMobile ? 30 : 44)}
+                y={chart.bottom + (isMobile ? 19 : 24)}
+                width={isMobile ? 60 : 88}
+                height={isMobile ? 18 : 22}
+                rx={999}
+                fill="#f8fafc"
+                stroke="#cbd5e1"
+              />
+              <text
+                x={chart.xSplit}
+                y={chart.bottom + (isMobile ? 31 : 39)}
+                textAnchor="middle"
+                fontSize={isMobile ? 8 : 10}
+                fontWeight={850}
+                fill="#334155"
+              >
+                {isMobile ? `${chart.splitXPercent}%` : `Threshold ${chart.splitXPercent}%`}
+              </text>
+            </g>
+
+            <text
+              x={chart.left - (isMobile ? 38 : 54)}
+              y={(chart.top + chart.bottom) / 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              transform={`rotate(-90 ${chart.left - (isMobile ? 38 : 54)} ${(chart.top + chart.bottom) / 2})`}
+              fontSize={isMobile ? 9 : 11}
+              fontWeight={850}
+              fill="#334155"
+            >
+              Y-axis: Order In Growth
+            </text>
+            <text
+              x={(chart.left + chart.right) / 2}
+              y={chart.bottom + (isMobile ? 53 : 62)}
+              textAnchor="middle"
+              fontSize={isMobile ? 9 : 11}
+              fontWeight={850}
+              fill="#334155"
+            >
+              X-axis: Credit Capability
             </text>
 
-            <text x={chart.left - (isMobile ? 16 : 20)} y={chart.ySplit + 4} textAnchor="end" fontSize={isMobile ? 8 : 11} fontWeight={700} fill="#111827">
-              {chart.splitYGrowthPercent}%
-            </text>
-
-            <text x={chart.xSplit} y={chart.top - (isMobile ? 6 : 10)} textAnchor="middle" fontSize={isMobile ? 12 : 16} fontWeight={700} fill="#111827">
-              Order In Growth
-            </text>
-            <text x={chart.right - 6} y={chart.ySplit - (isMobile ? 10 : 12)} textAnchor="end" fontSize={isMobile ? 12 : 16} fontWeight={700} fill="#111827">
-              Credit Capability
-            </text>
-
-            <text x={(chart.left + chart.xSplit) / 2} y={(chart.top + chart.ySplit) / 2} textAnchor="middle" fontSize={isMobile ? 11 : 20} fontWeight={700} fill="#16a34a">Quadrant 1</text>
-            <text x={(chart.xSplit + chart.right) / 2} y={(chart.top + chart.ySplit) / 2} textAnchor="middle" fontSize={isMobile ? 11 : 20} fontWeight={700} fill="#f97316">Quadrant 3</text>
-            <text x={(chart.left + chart.xSplit) / 2} y={(chart.ySplit + chart.bottom) / 2} textAnchor="middle" fontSize={isMobile ? 11 : 20} fontWeight={700} fill="#f59e0b">Quadrant 2</text>
-            <text x={(chart.xSplit + chart.right) / 2} y={(chart.ySplit + chart.bottom) / 2} textAnchor="middle" fontSize={isMobile ? 11 : 20} fontWeight={700} fill="#ef4444">Quadrant 4</text>
+            {quadrantRegions.map((region) => (
+              <g key={`label-${region.key}`} opacity={0.96}>
+                <text
+                  x={region.labelX}
+                  y={region.labelY}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={isMobile ? 9 : 13}
+                  fontWeight={850}
+                  fill={region.color}
+                  opacity={0.72}
+                >
+                  {isMobile ? region.shortLabel : `${region.shortLabel} ${region.description}`}
+                </text>
+              </g>
+            ))}
 
             {chart.points.map((point: any) => (
               <g key={point.id}>
+                <title>{`${point.jobName} - ${point.areaLabel || '-'}`}</title>
+                {point.id === activePointId && (
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={isMobile ? 13 : 16}
+                    fill={quadrantColor(point.quadrant)}
+                    opacity={0.16}
+                  />
+                )}
+                {point.isCreditBoundary && (
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={point.id === activePointId ? (isMobile ? 10 : 12) : isMobile ? 8 : 9}
+                    fill="none"
+                    stroke={quadrantColor(point.quadrant)}
+                    strokeWidth={1.6}
+                    strokeOpacity={0.36}
+                    strokeDasharray="3 3"
+                  />
+                )}
                 <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={isMobile ? 15 : 11}
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setActivePointId(point.id)
+                  }}
+                />
+                <circle
+                  className="quadrant-point"
                   cx={point.x}
                   cy={point.y}
                   r={point.id === activePointId ? (isMobile ? 7 : 8) : isMobile ? 5 : 6}
                   fill={quadrantColor(point.quadrant)}
                   stroke="#ffffff"
-                  strokeWidth={2}
-                  style={{ cursor: 'default' }}
+                  strokeWidth={point.id === activePointId ? 2.6 : 2}
+                  opacity={point.id === activePointId ? 1 : 0.86}
+                  filter={point.id === activePointId ? 'url(#quadrant-point-shadow)' : undefined}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Inspect ${point.jobName} in ${point.areaLabel || 'selected area'}`}
+                  style={{ cursor: 'pointer' }}
                   onMouseEnter={() => setActivePointId(point.id)}
-                  onMouseLeave={() => setActivePointId('')}
+                  onMouseLeave={() => {
+                    if (!isMobile) setActivePointId('')
+                  }}
+                  onFocus={() => {
+                    if (!isMobile) setActivePointId(point.id)
+                  }}
+                  onBlur={() => {
+                    if (!isMobile) setActivePointId('')
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setActivePointId((current) => {
+                      if (isMobile) return point.id
+                      return current === point.id ? '' : point.id
+                    })
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setActivePointId((current) => current === point.id ? '' : point.id)
+                  }}
                 />
               </g>
             ))}
 
             {activePoint && tooltip && (
               <g pointerEvents="none">
-                <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={6} fill="#0f172a" opacity={0.94} />
-                <text x={tooltip.x + 10} y={tooltip.y + 22} fontSize={isMobile ? 11 : 12} fill="#fff" fontWeight={700}>
+                <rect x={tooltip.x} y={tooltip.y} width={tooltip.width} height={tooltip.height} rx={12} fill="#0f172a" opacity={0.96} filter="url(#quadrant-tooltip-shadow)" />
+                <circle cx={tooltip.x + 14} cy={tooltip.y + 18} r={4} fill={quadrantColor(activePoint.quadrant)} />
+                <text x={tooltip.x + 24} y={tooltip.y + 22} fontSize={isMobile ? 11 : 12} fill="#fff" fontWeight={800}>
                   {`${activePoint.jobName}`}
                 </text>
                 <text x={tooltip.x + 10} y={tooltip.y + 40} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
@@ -258,6 +510,9 @@ export default function QuadrantContent({
                   {`Order In Growth: ${activePoint.orderInGrowthPercent >= 0 ? '+' : ''}${activePoint.orderInGrowthPercent.toFixed(2)}%`}
                 </text>
                 <text x={tooltip.x + 10} y={tooltip.y + 72} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
+                  {`Credit Capability: ${Number(activePoint.creditCapability || 0).toFixed(2)}%`}
+                </text>
+                <text x={tooltip.x + 10} y={tooltip.y + 88} fontSize={isMobile ? 10 : 11} fill="#e2e8f0" fontWeight={600}>
                   {`Area: ${activePoint.areaLabel || '-'}`}
                 </text>
               </g>
@@ -267,7 +522,7 @@ export default function QuadrantContent({
       </div>
 
       <div className="card">
-        <h3>Job Points</h3>
+        <h3>Point Details</h3>
         <div className="table-responsive">
           <table className="table quadrant-job-points-table" style={{ marginTop: 10, minWidth: 980 }}>
             <thead>
@@ -330,7 +585,7 @@ export default function QuadrantContent({
                   <td colSpan={7}>
                     <div className="quadrant-table-empty">
                       <div className="quadrant-status-title">No table rows</div>
-                      <div className="quadrant-status-copy">The current filter does not return any quadrant row.</div>
+                      <div className="quadrant-status-copy">The current filters do not return any row.</div>
                     </div>
                   </td>
                 </tr>
