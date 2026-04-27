@@ -14,6 +14,28 @@ api.interceptors.request.use((config) => {
 let isHandlingUnauthorized = false
 
 const INTERNAL_ERROR_MESSAGE = 'Something went wrong. Please contact support with the log ID.'
+const GENERIC_ERROR_MESSAGES = new Set(['something went wrong'])
+const INTERNAL_ERROR_PATTERNS = [
+  'user=',
+  'database=',
+  'password=',
+  'dial tcp',
+  'read tcp',
+  'write tcp',
+  'failed to connect',
+  'startup message',
+  'connection reset',
+  'no route to host',
+  'pq:',
+  'pgconn',
+  'sql:',
+  'gorm',
+  'syntax error at or near',
+  'violates unique constraint',
+  'panic:',
+  'runtime error',
+  'stack trace',
+]
 
 function isAuthRequest(url?: string) {
   return Boolean(url && ['/api/user/login', '/api/user/register'].some((path) => url.includes(path)))
@@ -25,15 +47,37 @@ function redirectToLogin() {
   window.location.replace('/login')
 }
 
+function getErrorMessage(value: any) {
+  if (typeof value === 'string') return value.trim()
+  if (value && typeof value === 'object' && typeof value.message === 'string') return value.message.trim()
+  return ''
+}
+
+function isGenericErrorMessage(value: string) {
+  return GENERIC_ERROR_MESSAGES.has(value.trim().toLowerCase())
+}
+
+function isInternalErrorMessage(value: string) {
+  const message = value.trim().toLowerCase()
+  return INTERNAL_ERROR_PATTERNS.some((pattern) => message.includes(pattern))
+}
+
 function normalizeInternalError(error: any) {
   const status = Number(error?.response?.status || 0)
   if (!status || status < 500) return
 
   const data = error.response.data || {}
+  const responseMessage = getErrorMessage(data.message)
+  const responseError = getErrorMessage(data.error)
+  const publicMessage =
+    (responseMessage && !isGenericErrorMessage(responseMessage) && !isInternalErrorMessage(responseMessage) && responseMessage) ||
+    (responseError && !isInternalErrorMessage(responseError) && responseError) ||
+    INTERNAL_ERROR_MESSAGE
+
   error.response.data = {
     ...data,
-    message: data.message || INTERNAL_ERROR_MESSAGE,
-    error: data.error?.message || INTERNAL_ERROR_MESSAGE,
+    message: publicMessage,
+    error: publicMessage,
   }
 }
 
