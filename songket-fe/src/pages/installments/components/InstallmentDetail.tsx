@@ -42,20 +42,20 @@ export default function InstallmentDetail({
           <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Motor Type & Installment Information</h3>
             <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
-              <table className="table responsive-detail">
+              <table className="table responsive-detail polished-detail-table">
                 <tbody>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th><td style={{ fontWeight: 600 }}>{motor?.name || '-'}</td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th><td style={{ fontWeight: 600 }}>{motor?.brand || '-'}</td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th><td style={{ fontWeight: 600 }}>{motor?.model || '-'}</td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th><td style={{ fontWeight: 600 }}>{motor?.type || '-'}</td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th><td><span className="detail-value-strong">{motor?.name || '-'}</span></td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th><td><span className="detail-value-strong">{motor?.brand || '-'}</span></td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th><td><span className="detail-value-strong">{motor?.model || '-'}</span></td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th><td><span className="detail-value-strong">{motor?.type || '-'}</span></td></tr>
                 </tbody>
               </table>
-              <table className="table responsive-detail">
+              <table className="table responsive-detail polished-detail-table">
                 <tbody>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th><td style={{ fontWeight: 600 }}>{formatRupiah(Number(motor?.otr || 0))}</td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Installment Amount</th><td style={{ fontWeight: 600 }}>{formatRupiah(Number(selectedItem.amount || 0))}</td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area</th><td style={{ fontWeight: 600 }}>{areaLabel(motor)}</td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th><td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th><td><span className="table-metric-pill total">{formatRupiah(Number(motor?.otr || 0))}</span></td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Installment Amount</th><td><span className="table-metric-pill warning">{formatRupiah(Number(selectedItem.amount || 0))}</span></td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area</th><td><span className="detail-value-strong">{areaLabel(motor)}</span></td></tr>
+                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th><td><span className="detail-value-strong">{formatDate(selectedItem.updated_at)}</span></td></tr>
                 </tbody>
               </table>
             </div>

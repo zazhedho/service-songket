@@ -53,6 +53,15 @@ export default function NewsList({
   ).size
   const selectedCategoryLabel = categoryOptions.find((option) => option.value === category)?.label || 'All Categories'
   const formatDate = (value: unknown) => value ? dayjs(String(value)).format('DD MMM YYYY HH:mm') : '-'
+  const sourceHost = (value: string) => {
+    const text = String(value || '').trim()
+    if (!text) return '-'
+    try {
+      return new URL(text).hostname.replace(/^www\./, '') || text
+    } catch {
+      return text
+    }
+  }
 
   return (
     <div>
@@ -112,7 +121,7 @@ export default function NewsList({
             </div>
             <h3>News List</h3>
             <Table
-              className="news-list-table"
+              className="news-list-table metric-table"
               data={items}
               keyField={(item) => String(item.id || item.url)}
               onRowClick={(item) => navigate(`/news/${item.id}`, { state: { detail: toDetailRow(item) } })}
@@ -121,11 +130,11 @@ export default function NewsList({
                 {
                   header: 'Article',
                   accessor: (item) => (
-                    <div className="entity-list-cell">
-                      <div className="entity-list-title table-text-ellipsis" title={item.title || '-'}>
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary" title={item.title || '-'}>
                         {item.title || '-'}
                       </div>
-                      <div className="entity-list-note">
+                      <div className="table-stack-secondary">
                         {categoryOptions.find((option) => option.value === item.category)?.label || item.category || 'Uncategorized'}
                       </div>
                     </div>
@@ -136,8 +145,8 @@ export default function NewsList({
                 {
                   header: 'Preview',
                   accessor: (item) => (
-                    <div className="entity-list-cell">
-                      <div className="entity-list-title news-list-preview">
+                    <div className="table-stack-cell">
+                      <div className="table-preview-text" title={item.content || '-'}>
                         {shortText(item.content || '', 180) || '-'}
                       </div>
                     </div>
@@ -148,8 +157,8 @@ export default function NewsList({
                 {
                   header: 'Published',
                   accessor: (item) => (
-                    <div className="entity-list-cell">
-                      <div className="entity-list-title">{formatDate(item.published_at || item.created_at)}</div>
+                    <div className="table-stack-cell">
+                      <div className="table-stack-primary">{formatDate(item.published_at || item.created_at)}</div>
                     </div>
                   ),
                   className: 'news-list-col-created',
@@ -160,26 +169,22 @@ export default function NewsList({
                   accessor: (item) => {
                     const detailRow = toDetailRow(item)
                     const sourceLabel = item.source_name || item.source?.name || detailRow.sumber || '-'
+                    const url = String(item.url || '').trim()
                     return (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={sourceLabel}>{sourceLabel}</div>
-                        <div className="entity-list-note table-text-ellipsis" title={item.url || '-'}>
-                          {item.url || '-'}
-                        </div>
+                      <div className="table-stack-cell">
+                        <div className="table-stack-primary" title={sourceLabel}>{sourceLabel}</div>
+                        {url ? (
+                          <a className="table-url-link table-stack-tertiary" href={url} target="_blank" rel="noreferrer" title={url}>
+                            {sourceHost(url)}
+                          </a>
+                        ) : (
+                          <div className="table-stack-tertiary">URL not available</div>
+                        )}
                       </div>
                     )
                   },
                   className: 'news-list-col-source',
                   headerClassName: 'news-list-col-source',
-                },
-                {
-                  header: 'Link',
-                  accessor: (item) => (
-                    <a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer">Open Link</a>
-                  ),
-                  className: 'news-list-col-link',
-                  headerClassName: 'news-list-col-link',
-                  ignoreRowClick: true,
                 },
                 {
                   header: 'Action',
@@ -217,7 +222,7 @@ export default function NewsList({
               ]}
               emptyState={
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     <div className="entity-empty-state">
                       <div className="entity-empty-icon">
                         <i className="bi bi-newspaper"></i>

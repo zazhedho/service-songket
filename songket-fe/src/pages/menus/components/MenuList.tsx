@@ -96,7 +96,7 @@ export default function MenuList({
           {canList && (
             <>
               <Table
-                className="menu-list-table"
+                className="menu-list-table metric-table"
                 data={items}
                 keyField="id"
                 onRowClick={(item: any) => navigate(`/menus/${item.id}`, { state: { menu: item } })}
@@ -105,11 +105,11 @@ export default function MenuList({
                   {
                     header: 'Menu',
                     accessor: (item: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={item.display_name || item.name || '-'}>
+                      <div className="table-stack-cell">
+                        <div className="table-stack-primary" title={item.display_name || item.name || '-'}>
                           {item.display_name || item.name || '-'}
                         </div>
-                        <div className="entity-list-note table-text-ellipsis" title={item.name || '-'}>
+                        <div className="table-stack-secondary" title={item.name || '-'}>
                           {item.name || 'No internal name'}
                         </div>
                       </div>
@@ -120,11 +120,11 @@ export default function MenuList({
                   {
                     header: 'Path',
                     accessor: (item: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title table-text-ellipsis" title={item.path || '-'}>
+                      <div className="table-stack-cell">
+                        <div className="table-code-pill table-text-ellipsis" title={item.path || '-'}>
                           {item.path || '-'}
                         </div>
-                        <div className="entity-list-note">
+                        <div className="table-stack-tertiary">
                           {item.icon ? `Icon: ${item.icon}` : 'No icon selected'}
                         </div>
                       </div>
@@ -138,12 +138,12 @@ export default function MenuList({
                       const parent = item.parent_id ? menuById[String(item.parent_id)] : null
                       const parentLabel = parent?.display_name || parent?.name || parent?.path || 'Root Menu'
                       return (
-                        <div className="entity-list-cell">
-                          <div className="entity-list-title table-text-ellipsis" title={parentLabel}>
+                        <div className="table-stack-cell">
+                          <div className="table-stack-primary" title={parentLabel}>
                             {parentLabel}
                           </div>
-                          <div className="entity-list-note">
-                            Order: {Number(item.order_index || 0)}
+                          <div>
+                            <span className="table-metric-pill warning">Order {Number(item.order_index || 0)}</span>
                           </div>
                         </div>
                       )
@@ -154,14 +154,14 @@ export default function MenuList({
                   {
                     header: 'Status',
                     accessor: (item: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">
+                      <div className="table-stack-cell">
+                        <div>
                           <span className={`badge ${item.is_active ? 'success' : 'pending'}`}>
                             {item.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </div>
-                        <div className="entity-list-note">
-                          {item.is_active ? 'Shown in the current navigation setup.' : 'Hidden from active navigation.'}
+                        <div className="table-stack-tertiary">
+                          {item.is_active ? 'Shown in navigation' : 'Hidden from navigation'}
                         </div>
                       </div>
                     ),
@@ -171,8 +171,8 @@ export default function MenuList({
                   {
                     header: 'Updated',
                     accessor: (item: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">{formatDate(item.updated_at || item.created_at)}</div>
+                      <div className="table-stack-cell">
+                        <div className="table-stack-primary">{formatDate(item.updated_at || item.created_at)}</div>
                       </div>
                     ),
                     className: 'menu-list-col-updated',

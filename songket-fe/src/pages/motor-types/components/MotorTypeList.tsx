@@ -73,6 +73,17 @@ export default function MotorTypeList({
     ...filterRegencies.map((regency: any) => ({ value: regency.code, label: regency.name })),
   ]
 
+  const splitDateTime = (value?: string) => {
+    const label = formatDate(value)
+    if (!label || label === '-') return { date: '-', time: '' }
+    const match = label.match(/^(.*?)(\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)$/i)
+    if (!match) return { date: label, time: '' }
+    return {
+      date: match[1].trim().replace(/,$/, '') || label,
+      time: match[2].trim(),
+    }
+  }
+
   return (
     <div>
       <div className="header">
@@ -156,7 +167,7 @@ export default function MotorTypeList({
           {canList && canView && (
             <>
               <Table
-                className="motor-type-list-table"
+                className="motor-type-list-table metric-table"
                 data={items}
                 keyField="id"
                 onRowClick={(item: any) => navigate(`/motor-types/${item.id}`, { state: { motorType: item } })}
@@ -193,8 +204,8 @@ export default function MotorTypeList({
                   {
                     header: 'OTR',
                     accessor: (item: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">{formatRupiah(item.otr || 0)}</div>
+                      <div className="table-metric-cell">
+                        <span className="table-metric-pill total">{formatRupiah(item.otr || 0)}</span>
                       </div>
                     ),
                     className: 'motor-type-col-otr',
@@ -217,11 +228,15 @@ export default function MotorTypeList({
                   },
                   {
                     header: 'Updated',
-                    accessor: (item: any) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">{formatDate(item.updated_at)}</div>
-                      </div>
-                    ),
+                    accessor: (item: any) => {
+                      const updatedAt = splitDateTime(item.updated_at)
+                      return (
+                        <div className="table-date-cell">
+                          <div className="table-date-primary">{updatedAt.date}</div>
+                          {updatedAt.time && <div className="table-date-secondary">{updatedAt.time}</div>}
+                        </div>
+                      )
+                    },
                     className: 'motor-type-col-updated',
                     headerClassName: 'motor-type-col-updated',
                   },

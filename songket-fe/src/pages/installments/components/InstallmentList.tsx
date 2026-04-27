@@ -77,6 +77,17 @@ export default function InstallmentList({
     ...filterRegencies.map((regency: any) => ({ value: regency.code, label: regency.name })),
   ]
 
+  const splitDateTime = (value?: string) => {
+    const label = formatDate(value)
+    if (!label || label === '-') return { date: '-', time: '' }
+    const match = label.match(/^(.*?)(\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)$/i)
+    if (!match) return { date: label, time: '' }
+    return {
+      date: match[1].trim().replace(/,$/, '') || label,
+      time: match[2].trim(),
+    }
+  }
+
   return (
     <div>
       <div className="header">
@@ -160,7 +171,7 @@ export default function InstallmentList({
           {canList && canView && (
             <>
               <Table
-                className="installment-list-table"
+                className="installment-list-table metric-table"
                 data={items}
                 keyField="id"
                 onRowClick={(item) => navigate(`/installments/${item.id}`, { state: { item } })}
@@ -197,8 +208,8 @@ export default function InstallmentList({
                   {
                     header: 'OTR',
                     accessor: (item) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">{formatRupiah(Number(item.motor_type?.otr || 0))}</div>
+                      <div className="table-metric-cell">
+                        <span className="table-metric-pill total">{formatRupiah(Number(item.motor_type?.otr || 0))}</span>
                       </div>
                     ),
                     className: 'installment-col-otr',
@@ -222,8 +233,8 @@ export default function InstallmentList({
                   {
                     header: 'Installment',
                     accessor: (item) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">{formatRupiah(Number(item.amount || 0))}</div>
+                      <div className="table-metric-cell">
+                        <span className="table-metric-pill warning">{formatRupiah(Number(item.amount || 0))}</span>
                       </div>
                     ),
                     className: 'installment-col-amount',
@@ -231,11 +242,15 @@ export default function InstallmentList({
                   },
                   {
                     header: 'Updated',
-                    accessor: (item) => (
-                      <div className="entity-list-cell">
-                        <div className="entity-list-title">{formatDate(item.updated_at)}</div>
-                      </div>
-                    ),
+                    accessor: (item) => {
+                      const updatedAt = splitDateTime(item.updated_at)
+                      return (
+                        <div className="table-date-cell">
+                          <div className="table-date-primary">{updatedAt.date}</div>
+                          {updatedAt.time && <div className="table-date-secondary">{updatedAt.time}</div>}
+                        </div>
+                      )
+                    },
                     className: 'installment-col-updated',
                     headerClassName: 'installment-col-updated',
                   },

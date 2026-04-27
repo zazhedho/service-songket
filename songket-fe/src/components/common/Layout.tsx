@@ -86,6 +86,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (!root) return
 
     const applyResponsiveTableLabels = (tables: Iterable<HTMLTableElement>) => {
+      const isSmallViewport = window.matchMedia('(max-width: 767px)').matches
+
       Array.from(tables).forEach((table) => {
         const headerCells = Array.from(table.querySelectorAll(':scope > thead > tr > th')) as HTMLTableCellElement[]
         const headerLabels = headerCells.map((cell) => cell.textContent?.trim() || '')
@@ -93,7 +95,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         if (!table.dataset.responsiveMode) {
           if (table.classList.contains('responsive-detail')) {
             table.dataset.responsiveMode = 'detail'
-          } else if (table.classList.contains('responsive-stack')) {
+          } else if (table.classList.contains('responsive-scroll')) {
+            table.dataset.responsiveMode = 'scroll'
+          } else if (table.classList.contains('responsive-stack') && table.dataset.responsiveAutoStack !== 'true') {
             table.dataset.responsiveMode = 'stack'
           }
         }
@@ -102,7 +106,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         const hasInlineMinWidth = Boolean(table.style.minWidth && table.style.minWidth.trim())
         const isDetailTable = hasBodyTh || preferredMode === 'detail'
         const isListTable = headerLabels.length > 0 && !isDetailTable
-        const shouldStackList = preferredMode === 'stack' || (isListTable && !hasInlineMinWidth && headerLabels.length <= 4)
+        const shouldStackList = preferredMode === 'stack' || (
+          isListTable
+          && preferredMode !== 'scroll'
+          && !hasInlineMinWidth
+          && (isSmallViewport || headerLabels.length <= 4)
+        )
 
         if (isListTable) {
           table.classList.add('table-list')
@@ -111,8 +120,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         }
 
         if (shouldStackList) {
+          if (preferredMode !== 'stack' && table.dataset.responsiveAutoStack !== 'true') {
+            table.dataset.responsiveAutoStack = 'true'
+          }
           table.classList.add('responsive-stack')
         } else {
+          if (table.dataset.responsiveAutoStack === 'true') {
+            delete table.dataset.responsiveAutoStack
+          }
           table.classList.remove('responsive-stack')
         }
 

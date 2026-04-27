@@ -51,6 +51,20 @@ function readMaybeValue<T, TValue>(
   return value
 }
 
+function readHeaderStyle<T>(column: TableColumn<T>): CSSProperties | undefined {
+  if (!column.style || typeof column.style === 'function') return column.headerStyle
+
+  const inheritedStyle: CSSProperties = {}
+  const { width, minWidth, maxWidth, textAlign } = column.style
+  if (width !== undefined) inheritedStyle.width = width
+  if (minWidth !== undefined) inheritedStyle.minWidth = minWidth
+  if (maxWidth !== undefined) inheritedStyle.maxWidth = maxWidth
+  if (textAlign !== undefined) inheritedStyle.textAlign = textAlign
+
+  if (Object.keys(inheritedStyle).length === 0) return column.headerStyle
+  return { ...inheritedStyle, ...column.headerStyle }
+}
+
 function TableStateRow({
   colSpan,
   title,
@@ -95,84 +109,86 @@ export default function Table<T>({
   const mergedClassName = ['table', className].filter(Boolean).join(' ')
 
   return (
-    <table className={mergedClassName} style={style}>
-      <thead>
-        <tr>
-          {columns.map((column, index) => (
-            <th
-              key={`header-${index}`}
-              className={column.headerClassName}
-              style={column.headerStyle}
-            >
-              {column.header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {isLoading && (
-          <TableStateRow
-            colSpan={columns.length}
-            title={loadingMessage}
-            note="Please wait while the latest rows are prepared."
-            tone="loading"
-          />
-        )}
-
-        {!isLoading && data.length === 0 && (
-          emptyState || (
+    <div className="table-scroll common-table-scroll">
+      <table className={mergedClassName} style={style}>
+        <thead>
+          <tr>
+            {columns.map((column, index) => (
+              <th
+                key={`header-${index}`}
+                className={column.headerClassName}
+                style={readHeaderStyle(column)}
+              >
+                {column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading && (
             <TableStateRow
               colSpan={columns.length}
-              title={emptyMessage}
-              note="Try adjusting the search, filters, or selected period."
+              title={loadingMessage}
+              note="Please wait while the latest rows are prepared."
+              tone="loading"
             />
-          )
-        )}
+          )}
 
-        {!isLoading && data.map((item, rowIndex) => {
-          const rowProps = onRowClick
-            ? getClickableTableRowProps(() => onRowClick(item, rowIndex), {
-                ariaLabel: rowAriaLabel?.(item, rowIndex),
-                className: typeof rowClassName === 'function' ? rowClassName(item, rowIndex) : rowClassName,
-              })
-            : {
-                className: typeof rowClassName === 'function' ? rowClassName(item, rowIndex) : rowClassName,
-              }
+          {!isLoading && data.length === 0 && (
+            emptyState || (
+              <TableStateRow
+                colSpan={columns.length}
+                title={emptyMessage}
+                note="Try adjusting the search, filters, or selected period."
+              />
+            )
+          )}
 
-          const computedRowStyle = rowStyle
-            ? readMaybeValue(rowStyle, item, rowIndex)
-            : undefined
+          {!isLoading && data.map((item, rowIndex) => {
+            const rowProps = onRowClick
+              ? getClickableTableRowProps(() => onRowClick(item, rowIndex), {
+                  ariaLabel: rowAriaLabel?.(item, rowIndex),
+                  className: typeof rowClassName === 'function' ? rowClassName(item, rowIndex) : rowClassName,
+                })
+              : {
+                  className: typeof rowClassName === 'function' ? rowClassName(item, rowIndex) : rowClassName,
+                }
 
-          return (
-            <tr
-              key={String(readKey(keyField, item, rowIndex))}
-              {...rowProps}
-              style={computedRowStyle}
-            >
-              {columns.map((column, colIndex) => {
-                const computedCellClassName = column.cellClassName
-                  ? readMaybeValue(column.cellClassName, item, rowIndex)
-                  : undefined
-                const computedStyle = column.style
-                  ? readMaybeValue(column.style, item, rowIndex)
-                  : undefined
-                const cellClassName = [column.className, computedCellClassName].filter(Boolean).join(' ')
+            const computedRowStyle = rowStyle
+              ? readMaybeValue(rowStyle, item, rowIndex)
+              : undefined
 
-                return (
-                  <td
-                    key={`cell-${colIndex}`}
-                    className={cellClassName || undefined}
-                    style={computedStyle}
-                    data-row-click-ignore={column.ignoreRowClick ? 'true' : undefined}
-                  >
-                    {readCellValue(column, item, rowIndex)}
-                  </td>
-                )
-              })}
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+            return (
+              <tr
+                key={String(readKey(keyField, item, rowIndex))}
+                {...rowProps}
+                style={computedRowStyle}
+              >
+                {columns.map((column, colIndex) => {
+                  const computedCellClassName = column.cellClassName
+                    ? readMaybeValue(column.cellClassName, item, rowIndex)
+                    : undefined
+                  const computedStyle = column.style
+                    ? readMaybeValue(column.style, item, rowIndex)
+                    : undefined
+                  const cellClassName = [column.className, computedCellClassName].filter(Boolean).join(' ')
+
+                  return (
+                    <td
+                      key={`cell-${colIndex}`}
+                      className={cellClassName || undefined}
+                      style={computedStyle}
+                      data-row-click-ignore={column.ignoreRowClick ? 'true' : undefined}
+                    >
+                      {readCellValue(column, item, rowIndex)}
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

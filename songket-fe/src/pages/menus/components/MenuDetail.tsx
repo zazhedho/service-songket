@@ -57,45 +57,45 @@ export default function MenuDetail({
             <div className="card" style={{ width: '100%' }}>
               <h3 style={{ marginTop: 0 }}>Menu Information</h3>
               <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
-                <table className="table responsive-detail">
+                <table className="table responsive-detail polished-detail-table">
                   <tbody>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
-                      <td style={{ fontWeight: 600 }}>{selectedItem.name || '-'}</td>
+                      <td><span className="detail-value-strong">{selectedItem.name || '-'}</span></td>
                     </tr>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Display Name</th>
-                      <td style={{ fontWeight: 600 }}>{selectedItem.display_name || '-'}</td>
+                      <td><span className="detail-value-strong">{selectedItem.display_name || '-'}</span></td>
                     </tr>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Path</th>
-                      <td style={{ fontWeight: 600 }}>{selectedItem.path || '-'}</td>
+                      <td><span className="table-code-pill">{selectedItem.path || '-'}</span></td>
                     </tr>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Icon</th>
-                      <td style={{ fontWeight: 600 }}>{selectedItem.icon || '-'}</td>
+                      <td><span className="detail-value-strong">{selectedItem.icon || '-'}</span></td>
                     </tr>
                   </tbody>
                 </table>
-                <table className="table responsive-detail">
+                <table className="table responsive-detail polished-detail-table">
                   <tbody>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Parent Menu</th>
-                      <td style={{ fontWeight: 600 }}>
-                        {parentMenu?.display_name || parentMenu?.name || parentMenu?.path || 'Root Menu'}
+                      <td>
+                        <span className="detail-value-strong">{parentMenu?.display_name || parentMenu?.name || parentMenu?.path || 'Root Menu'}</span>
                       </td>
                     </tr>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Order Index</th>
-                      <td style={{ fontWeight: 600 }}>{String(selectedItem.order_index ?? 0)}</td>
+                      <td><span className="table-metric-pill warning">{String(selectedItem.order_index ?? 0)}</span></td>
                     </tr>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
-                      <td style={{ fontWeight: 600 }}>{formatDateTime(selectedItem.created_at)}</td>
+                      <td><span className="detail-value-strong">{formatDateTime(selectedItem.created_at)}</span></td>
                     </tr>
                     <tr>
                       <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                      <td style={{ fontWeight: 600 }}>{formatDateTime(selectedItem.updated_at)}</td>
+                      <td><span className="detail-value-strong">{formatDateTime(selectedItem.updated_at)}</span></td>
                     </tr>
                   </tbody>
                 </table>

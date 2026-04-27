@@ -43,19 +43,19 @@ export default function NetIncomeDetail({
         {selectedItem && (
           <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Net Income Information</h3>
-            <table className="table responsive-detail" style={{ marginTop: 10 }}>
+            <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
               <tbody>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Job</th>
-                  <td style={{ fontWeight: 600 }}>{jobName(selectedItem.job_id, selectedItem.job_name)}</td>
+                  <td><span className="detail-value-strong">{jobName(selectedItem.job_id, selectedItem.job_name)}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Net Income</th>
-                  <td style={{ fontWeight: 600 }}>{formatRupiah(Number(selectedItem.net_income || 0))}</td>
+                  <td><span className="table-metric-pill total">{formatRupiah(Number(selectedItem.net_income || 0))}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area Coverage</th>
-                  <td style={{ fontWeight: 600 }}>
+                  <td>
                     {areaRows.length > 0 ? (
                       <div className="detail-chip-list">
                         {areaRows.map((area: any, index: number) => (
@@ -69,11 +69,11 @@ export default function NetIncomeDetail({
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
-                  <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.created_at)}</td>
+                  <td><span className="detail-value-strong">{formatDate(selectedItem.created_at)}</span></td>
                 </tr>
                 <tr>
                   <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                  <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
+                  <td><span className="detail-value-strong">{formatDate(selectedItem.updated_at)}</span></td>
                 </tr>
               </tbody>
             </table>

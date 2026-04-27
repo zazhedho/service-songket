@@ -38,43 +38,43 @@ export default function MotorTypeDetail({
           <div className="card" style={{ width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Motor Type Information</h3>
             <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
-              <table className="table responsive-detail">
+              <table className="table responsive-detail polished-detail-table">
                 <tbody>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.name || '-'}</td>
+                    <td><span className="detail-value-strong">{selectedItem.name || '-'}</span></td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.brand || '-'}</td>
+                    <td><span className="detail-value-strong">{selectedItem.brand || '-'}</span></td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.model || '-'}</td>
+                    <td><span className="detail-value-strong">{selectedItem.model || '-'}</span></td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.type || '-'}</td>
+                    <td><span className="detail-value-strong">{selectedItem.type || '-'}</span></td>
                   </tr>
                 </tbody>
               </table>
-              <table className="table responsive-detail">
+              <table className="table responsive-detail polished-detail-table">
                 <tbody>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th>
-                    <td style={{ fontWeight: 600 }}>{formatRupiah(selectedItem.otr || 0)}</td>
+                    <td><span className="table-metric-pill total">{formatRupiah(selectedItem.otr || 0)}</span></td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Province</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.province_name || '-'}</td>
+                    <td><span className="detail-value-strong">{selectedItem.province_name || '-'}</span></td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Regency / City</th>
-                    <td style={{ fontWeight: 600 }}>{selectedItem.regency_name || '-'}</td>
+                    <td><span className="detail-value-strong">{selectedItem.regency_name || '-'}</span></td>
                   </tr>
                   <tr>
                     <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                    <td style={{ fontWeight: 600 }}>{formatDate(selectedItem.updated_at)}</td>
+                    <td><span className="detail-value-strong">{formatDate(selectedItem.updated_at)}</span></td>
                   </tr>
                 </tbody>
               </table>

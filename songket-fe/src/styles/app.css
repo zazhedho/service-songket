@@ -4033,7 +4033,7 @@ h4 {
 
   .table {
     width: 100% !important;
-    min-width: 0 !important;
+    min-width: 0;
     max-width: 100% !important;
     table-layout: auto;
     font-size: 11px;
@@ -4048,8 +4048,12 @@ h4 {
     min-width: 640px;
   }
 
-  .table.table-list {
+  .table.table-list:not(.responsive-stack) {
     min-width: 640px;
+  }
+
+  .table.table-list.responsive-stack {
+    min-width: 0 !important;
   }
 
   .table th,
@@ -4138,6 +4142,10 @@ h4 {
     overflow: visible;
     text-overflow: clip;
     word-break: break-word;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box;
   }
 
   .table.responsive-stack tbody td:last-child {

@@ -39,6 +39,11 @@ export default function UserList({
 }: UserListProps) {
   const rolesCount = new Set(users.map((user) => String(user?.role || '').trim()).filter(Boolean)).size
   const usersWithPhone = users.filter((user) => String(user?.phone || '').trim()).length
+  const initials = (name: string) => {
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean)
+    if (words.length === 0) return '?'
+    return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('')
+  }
 
   return (
     <div>
@@ -97,18 +102,29 @@ export default function UserList({
           {canList && (
             <>
               <Table
-                className="user-list-table"
+                className="user-list-table metric-table responsive-stack"
                 data={users}
                 keyField="id"
                 onRowClick={canUpdate ? (user) => navigate(`/users/${user.id}/edit`, { state: { user } }) : undefined}
                 emptyMessage="No users found."
                 columns={[
                   {
+                    header: 'No',
+                    accessor: (_user, index) => (
+                      <span className="table-metric-pill total">{(page - 1) * limit + index + 1}</span>
+                    ),
+                    className: 'user-list-col-number table-metric-cell',
+                    headerClassName: 'user-list-col-number',
+                  },
+                  {
                     header: 'User',
                     accessor: (user) => (
-                      <div className="user-list-cell">
-                        <div className="user-list-title table-text-ellipsis" title={user.name || '-'}>
-                          {user.name || '-'}
+                      <div className="user-identity-cell">
+                        <span className="user-identity-avatar">{initials(user.name)}</span>
+                        <div className="table-stack-cell">
+                          <div className="table-stack-primary" title={user.name || '-'}>
+                            {user.name || '-'}
+                          </div>
                         </div>
                       </div>
                     ),
@@ -118,8 +134,8 @@ export default function UserList({
                   {
                     header: 'Phone',
                     accessor: (user) => (
-                      <div className="user-list-cell">
-                        <div className="user-list-title table-text-ellipsis" title={user.phone || '-'}>
+                      <div className="table-stack-cell">
+                        <div className="table-stack-primary" title={user.phone || '-'}>
                           {user.phone || '-'}
                         </div>
                       </div>
@@ -130,10 +146,14 @@ export default function UserList({
                   {
                     header: 'Email',
                     accessor: (user) => (
-                      <div className="user-list-cell">
-                        <div className="user-list-title table-text-ellipsis" title={user.email || '-'}>
-                          {user.email || '-'}
-                        </div>
+                      <div className="table-stack-cell">
+                        {user.email ? (
+                          <a className="table-url-link table-text-ellipsis" href={`mailto:${user.email}`} title={user.email}>
+                            {user.email}
+                          </a>
+                        ) : (
+                          <div className="table-stack-primary">-</div>
+                        )}
                       </div>
                     ),
                     className: 'user-list-col-email',
@@ -142,10 +162,10 @@ export default function UserList({
                   {
                     header: 'Role',
                     accessor: (user) => (
-                      <div className="user-list-cell">
-                        <div className="user-list-role-row">
-                          <span className="badge pending">{user.role || '-'}</span>
-                        </div>
+                      <div className="table-stack-cell">
+                        <span className="table-role-pill" title={user.role || '-'}>
+                          {user.role || '-'}
+                        </span>
                       </div>
                     ),
                     className: 'user-list-col-role',
@@ -175,12 +195,11 @@ export default function UserList({
                     className: 'action-cell',
                     ignoreRowClick: true,
                     headerClassName: 'user-list-col-action',
-                    style: { width: '1%' },
                   },
                 ]}
                 emptyState={
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <div className="user-empty-state">
                         <div className="user-empty-icon">
                           <i className="bi bi-people"></i>
