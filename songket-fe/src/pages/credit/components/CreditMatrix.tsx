@@ -40,7 +40,12 @@ export default function CreditMatrix({
           <tbody>
             {matrixPagination.pageItems.length === 0 && (
               <tr>
-                <td colSpan={6}>No data for current filter.</td>
+                <td colSpan={6}>
+                  <div className="credit-table-empty">
+                    <div className="credit-empty-title">No credit matrix rows</div>
+                    <div className="credit-empty-note">Adjust the job, area, motor type, or date filter to explore more results.</div>
+                  </div>
+                </td>
               </tr>
             )}
 

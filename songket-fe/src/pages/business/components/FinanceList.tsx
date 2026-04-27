@@ -153,18 +153,18 @@ export default function FinanceList({
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Total Dealers</div>
                   <div className="dealer-summary-value">{dealerTotalData || dealers.length}</div>
-                  <div className="dealer-summary-note">Current result count for the dealer directory.</div>
+                  <div className="dealer-summary-note">Dealers matching the active filters.</div>
                 </div>
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Map Ready</div>
                   <div className="dealer-summary-value">{dealerPoints.length || visibleMappedDealers}</div>
-                  <div className="dealer-summary-note">Dealers with valid coordinates that can appear on the map.</div>
+                  <div className="dealer-summary-note">Ready to appear on the map.</div>
                 </div>
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Province Scope</div>
                   <div className="dealer-summary-value dealer-summary-value-text">{selectedProvinceLabel}</div>
                   <div className="dealer-summary-note">
-                    {selectedDealerId ? `Focused dealer: ${selectedDealerName}` : 'No dealer is currently focused.'}
+                    {selectedDealerId ? `Focused: ${selectedDealerName}` : 'Choose a row or map marker to focus performance.'}
                   </div>
                 </div>
               </div>
@@ -412,17 +412,17 @@ export default function FinanceList({
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Total Finance Companies</div>
                   <div className="dealer-summary-value">{financeTotalData || financeCompanies.length}</div>
-                  <div className="dealer-summary-note">Current result count for finance company data.</div>
+                  <div className="dealer-summary-note">Finance companies matching the active filters.</div>
                 </div>
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Province Scope</div>
                   <div className="dealer-summary-value dealer-summary-value-text">{selectedFinanceProvinceLabel}</div>
-                  <div className="dealer-summary-note">Current province filter applied to the finance company table.</div>
+                  <div className="dealer-summary-note">Filtered finance company coverage.</div>
                 </div>
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Focused Dealer</div>
                   <div className="dealer-summary-value dealer-summary-value-text">{selectedDealerName}</div>
-                  <div className="dealer-summary-note">The finance performance card below follows this selected dealer.</div>
+                  <div className="dealer-summary-note">Performance context uses this dealer.</div>
                 </div>
               </div>
 
@@ -621,8 +621,24 @@ export default function FinanceList({
                 />
               </div>
 
-              {!selectedDealerId && <div style={{ marginTop: 12, color: '#64748b' }}>Select a dealer to view finance company performance.</div>}
-              {selectedDealerId && !metrics && <div style={{ marginTop: 12, color: '#64748b' }}>No metrics available for selected dealer.</div>}
+              {!selectedDealerId && (
+                <div className="business-empty-focus">
+                  <div className="business-empty-icon">⌁</div>
+                  <div>
+                    <div className="business-empty-title">No dealer selected</div>
+                    <div className="business-empty-copy">Choose a dealer to compare finance company performance.</div>
+                  </div>
+                </div>
+              )}
+              {selectedDealerId && !metrics && (
+                <div className="business-empty-focus">
+                  <div className="business-empty-icon">!</div>
+                  <div>
+                    <div className="business-empty-title">No metrics available</div>
+                    <div className="business-empty-copy">This dealer has no finance company performance data yet.</div>
+                  </div>
+                </div>
+              )}
 
               {metrics && (
                 <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 12, marginTop: 12 }}>
@@ -679,7 +695,15 @@ export default function FinanceList({
 
                   <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
                     <div style={{ fontWeight: 700, marginBottom: 8 }}>Summary Chart</div>
-                    {financeMetricRows.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No summary data yet.</div>}
+                    {financeMetricRows.length === 0 && (
+                      <div className="business-empty-focus compact">
+                        <div className="business-empty-icon">≋</div>
+                        <div>
+                          <div className="business-empty-title">Chart is waiting for data</div>
+                          <div className="business-empty-copy">Finance company bars will appear once dealer metrics are available.</div>
+                        </div>
+                      </div>
+                    )}
                     {financeMetricRows.map((fc: any) => {
                       const total = Number(fc?.total_orders || 0)
                       const approved = Number(fc?.approved_count || 0)

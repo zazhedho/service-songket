@@ -152,7 +152,7 @@ export default function FinanceReportSummary({
             <div className="business-map-head">
               <h3>Dealer Map</h3>
               <div className="business-map-meta">
-                <span className="muted">Focus Dealer:</span>
+                <span className="muted">Focused Dealer</span>
                 <span style={{ fontWeight: 700 }}>{activeDealerName}</span>
               </div>
             </div>
@@ -175,13 +175,15 @@ export default function FinanceReportSummary({
               </DeferredMount>
             </div>
             {dealerPoints.length === 0 && (
-              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                No dealer coordinates found. Set latitude/longitude in dealer data.
+              <div className="business-map-hint">
+                <span className="business-map-hint-dot" />
+                Add dealer coordinates to show markers on the map.
               </div>
             )}
             {dealerPoints.length > 0 && (
-              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                Click a dealer marker to focus on that dealer's performance.
+              <div className="business-map-hint">
+                <span className="business-map-hint-dot" />
+                Marker selection updates dealer details and performance.
               </div>
             )}
           </div>
@@ -190,14 +192,18 @@ export default function FinanceReportSummary({
             <div className="business-map-head">
               <h3>Dealer Details</h3>
               <div className="business-map-meta">
-                <span className="muted">Source:</span>
+                <span className="muted">Selection</span>
                 <span style={{ fontWeight: 700 }}>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</span>
               </div>
             </div>
 
             {!activeDealerPoint && (
-              <div className="muted" style={{ fontSize: 12 }}>
-                Click a dealer marker on the map to show dealer details.
+              <div className="business-empty-focus compact">
+                <div className="business-empty-icon">⌖</div>
+                <div>
+                  <div className="business-empty-title">No dealer selected</div>
+                  <div className="business-empty-copy">Choose a map marker to preview dealer profile and location.</div>
+                </div>
               </div>
             )}
 
@@ -285,9 +291,6 @@ export default function FinanceReportSummary({
               <button className="btn-ghost" onClick={resetFilters}>Reset</button>
             </div>
           </div>
-          <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-            The filters above apply to the Summary and Finance Company Migration sections. A dealer selected from the map will focus the dealer performance card.
-          </div>
         </div>
 
         <div className="card business-section">
@@ -297,16 +300,23 @@ export default function FinanceReportSummary({
           </div>
 
           <div style={{ padding: 12 }}>
-            <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-              This card follows the dealer selected from the filter above or the most recently selected dealer on the map.
-            </div>
             {!selectedDealerId && !dealerInput && (
-              <div style={{ marginTop: 10, color: '#64748b' }}>
-                Select a dealer from the filter above or click a dealer marker on the map to view performance.
+              <div className="finance-report-empty-focus">
+                <div className="finance-report-empty-icon">⌖</div>
+                <div>
+                  <div className="finance-report-empty-title">No dealer selected</div>
+                  <div className="finance-report-empty-copy">Choose a dealer from the filter or map to show focused performance metrics.</div>
+                </div>
               </div>
             )}
             {activeDealerName !== 'All Dealers' && !dealerMetrics && (
-              <div style={{ marginTop: 10, color: '#64748b' }}>No metrics available for selected dealer.</div>
+              <div className="finance-report-empty-focus">
+                <div className="finance-report-empty-icon">!</div>
+                <div>
+                  <div className="finance-report-empty-title">No metrics available</div>
+                  <div className="finance-report-empty-copy">This dealer has no performance data for the selected period.</div>
+                </div>
+              </div>
             )}
 
             {dealerMetrics && (
@@ -376,7 +386,12 @@ export default function FinanceReportSummary({
                     })}
                     {dealerMetricRows.length === 0 && (
                       <tr>
-                        <td colSpan={7}>No dealer metric data.</td>
+                        <td colSpan={7}>
+                          <div className="business-table-empty">
+                            <div className="business-empty-title">No finance performance rows</div>
+                            <div className="business-empty-copy">Choose a dealer or adjust the period to populate this table.</div>
+                          </div>
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -385,7 +400,15 @@ export default function FinanceReportSummary({
 
               <div className="business-summary-chart">
                 <div style={{ fontWeight: 700, marginBottom: 10 }}>Summary Chart</div>
-                {dealerMetricRows.length === 0 && <div className="muted">No summary data.</div>}
+                {dealerMetricRows.length === 0 && (
+                  <div className="business-empty-focus compact">
+                    <div className="business-empty-icon">≋</div>
+                    <div>
+                      <div className="business-empty-title">Chart is waiting for data</div>
+                      <div className="business-empty-copy">Finance company bars will appear once dealer metrics are available.</div>
+                    </div>
+                  </div>
+                )}
                 {dealerMetricRows.map((item) => {
                   const total = toSafeNumber(item.total_orders)
                   const width = Math.max(8, (total / dealerMetricMaxTotal) * 100)

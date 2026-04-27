@@ -91,11 +91,33 @@ export function KpiCard({
   )
 }
 
+export function DashboardEmptyState({
+  title,
+  note,
+  icon = 'i',
+  compact = false,
+}: {
+  title: string
+  note: string
+  icon?: string
+  compact?: boolean
+}) {
+  return (
+    <div className={compact ? 'dashboard-empty-state with-icon compact' : 'dashboard-empty-state with-icon'}>
+      <div className="dashboard-empty-icon">{icon}</div>
+      <div>
+        <div className="dashboard-empty-title">{title}</div>
+        <div className="dashboard-empty-note">{note}</div>
+      </div>
+    </div>
+  )
+}
+
 export function PriceTrendChart({ labels, values, dates }: { labels: string[]; values: number[]; dates?: string[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   if (!labels.length || !values.length) {
-    return <div style={{ color: '#64748b', fontSize: 12 }}>No price trend data.</div>
+    return <DashboardEmptyState title="No price trend data" note="Select another commodity or period to populate the trend line." compact />
   }
 
   const width = Math.max(420, labels.length * 44 + 84)
@@ -211,7 +233,7 @@ export function BarLineChart({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   if (!labels.length || !barValues.length) {
-    return <div style={{ color: '#64748b', fontSize: 12 }}>No chart data.</div>
+    return <DashboardEmptyState title="Chart is waiting for data" note="Adjust the period or filters to show daily movement." compact />
   }
 
   const maxLabel = labels.length
@@ -470,7 +492,7 @@ export function DonutCard({ title, subtitle, items }: { title: string; subtitle:
               <div style={{ fontWeight: 700 }}>{formatInteger(slice.total)}</div>
             </div>
           ))}
-          {slices.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No data.</div>}
+          {slices.length === 0 && <DashboardEmptyState title="No breakdown data" note="Segment details will appear when the selected period has data." compact />}
         </div>
       </div>
     </div>

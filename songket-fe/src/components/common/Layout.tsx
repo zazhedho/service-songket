@@ -435,7 +435,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
             <div>
               <div className="topbar-title">{getMenuLabel(activeMenu)}</div>
-              <div className="topbar-subtitle">Admin workspace for Songket operational flow</div>
+              <div className="topbar-subtitle">Workspace for Songket operational flow</div>
             </div>
           </div>
           <div className="topbar-actions" ref={profileMenuRef}>

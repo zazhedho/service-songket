@@ -77,9 +77,21 @@ export default function PriceScrapeResults({
       </div>
 
       {loadingResults ? (
-        <div>Loading results...</div>
+        <div className="table-state-panel loading" style={{ marginTop: 12 }}>
+          <div className="table-state-icon">...</div>
+          <div>
+            <div className="table-state-title">Loading scrape results</div>
+            <div className="table-state-note">Fetching the latest rows for this scrape job.</div>
+          </div>
+        </div>
       ) : results.length === 0 ? (
-        <div className="muted">No results found for this job.</div>
+        <div className="table-state-panel" style={{ marginTop: 12 }}>
+          <div className="table-state-icon">i</div>
+          <div>
+            <div className="table-state-title">No results found</div>
+            <div className="table-state-note">Try another scrape job or adjust the search keyword.</div>
+          </div>
+        </div>
       ) : (
         <>
           <Table

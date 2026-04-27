@@ -133,8 +133,24 @@ export default function CompanyDetail({
                 <span className="business-section-side">Performance</span>
               </div>
               <div className="business-dealer-detail-card">
-                {companySummaryLoading && <div className="muted">Loading performance summary...</div>}
-                {!companySummaryLoading && !companySummary && <div className="muted">No performance data yet.</div>}
+                {companySummaryLoading && (
+                  <div className="business-empty-focus compact">
+                    <div className="business-empty-icon">...</div>
+                    <div>
+                      <div className="business-empty-title">Loading performance summary</div>
+                      <div className="business-empty-copy">Preparing dealer coverage and finance performance metrics.</div>
+                    </div>
+                  </div>
+                )}
+                {!companySummaryLoading && !companySummary && (
+                  <div className="business-empty-focus compact">
+                    <div className="business-empty-icon">i</div>
+                    <div>
+                      <div className="business-empty-title">No performance data yet</div>
+                      <div className="business-empty-copy">Performance metrics will appear after matching order data is available.</div>
+                    </div>
+                  </div>
+                )}
 
                 {!companySummaryLoading && companySummary && (
                   <>
@@ -186,7 +202,12 @@ export default function CompanyDetail({
                           ))}
                           {companySummary.dealer_rows.length === 0 && (
                             <tr>
-                              <td colSpan={5}>No dealer performance data yet.</td>
+                              <td className="table-state-cell" colSpan={5}>
+                                <div className="business-table-empty">
+                                  <div className="business-empty-title">No dealer performance rows</div>
+                                  <div className="business-empty-copy">Dealer performance rows will appear when this finance company has order activity.</div>
+                                </div>
+                              </td>
                             </tr>
                           )}
                         </tbody>

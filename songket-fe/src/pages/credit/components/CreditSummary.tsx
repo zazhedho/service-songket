@@ -7,6 +7,18 @@ type CreditSummaryProps = {
   maxInstallmentTotal: number
 }
 
+function CreditEmptyState({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="credit-empty-state">
+      <div className="credit-empty-icon">i</div>
+      <div>
+        <div className="credit-empty-title">{title}</div>
+        <div className="credit-empty-note">{note}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function CreditSummary({
   dpRanges,
   installmentRanges,
@@ -51,7 +63,9 @@ export default function CreditSummary({
                 </div>
               )
             })}
-            {installmentRanges.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No installment range data.</div>}
+            {installmentRanges.length === 0 && (
+              <CreditEmptyState title="No installment range data" note="Installment distribution will appear when matching order data is available." />
+            )}
           </div>
 
           <div className="credit-summary-table-shell">
@@ -71,7 +85,12 @@ export default function CreditSummary({
                 ))}
                 {installmentRanges.length === 0 && (
                   <tr>
-                    <td colSpan={2}>No data.</td>
+                    <td colSpan={2}>
+                      <div className="credit-table-empty">
+                        <div className="credit-empty-title">No approval rate rows</div>
+                        <div className="credit-empty-note">Range approval rates will appear with installment data.</div>
+                      </div>
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -115,7 +134,9 @@ export default function CreditSummary({
                 </div>
               )
             })}
-            {dpRanges.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No DP range data.</div>}
+            {dpRanges.length === 0 && (
+              <CreditEmptyState title="No DP range data" note="DP distribution will appear when matching finance data is available." />
+            )}
           </div>
 
           <div className="credit-summary-table-shell">
@@ -135,7 +156,12 @@ export default function CreditSummary({
                 ))}
                 {dpRanges.length === 0 && (
                   <tr>
-                    <td colSpan={2}>No data.</td>
+                    <td colSpan={2}>
+                      <div className="credit-table-empty">
+                        <div className="credit-empty-title">No approval rate rows</div>
+                        <div className="credit-empty-note">Range approval rates will appear with DP data.</div>
+                      </div>
+                    </td>
                   </tr>
                 )}
               </tbody>

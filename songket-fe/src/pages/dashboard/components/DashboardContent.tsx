@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import { formatRupiah } from '../../../utils/currency'
-import { BarLineChart, DonutCard, KpiCard, colorBySign, formatFixed, formatGrowthPercent, formatInteger, formatPercent } from './dashboardHelpers'
+import { BarLineChart, DashboardEmptyState, DonutCard, KpiCard, colorBySign, formatFixed, formatGrowthPercent, formatInteger, formatPercent } from './dashboardHelpers'
 
 type DashboardContentProps = {
   activeNewsIndex: number
@@ -166,7 +166,9 @@ export default function DashboardContent({
             <tbody>
               {summary.order_decision_snapshot.length === 0 && (
                 <tr>
-                  <td colSpan={7}>No summary data.</td>
+                  <td colSpan={7}>
+                    <DashboardEmptyState title="No summary data" note="Order decision comparison will appear when the selected period has data." compact />
+                  </td>
                 </tr>
               )}
               {summary.order_decision_snapshot.map((row: any, idx: number) => {
@@ -232,7 +234,7 @@ export default function DashboardContent({
               <div style={{ textAlign: 'right', color: '#64748b', fontSize: 12 }}>{Number(item.percent || 0).toFixed(1)}%</div>
             </div>
           ))}
-          {summary.dp_range.length === 0 && <div style={{ color: '#64748b', fontSize: 12 }}>No DP range data.</div>}
+          {summary.dp_range.length === 0 && <DashboardEmptyState title="No DP range data" note="DP distribution will appear when finance data is available." compact />}
         </div>
       </div>
 
@@ -366,12 +368,16 @@ export default function DashboardContent({
               <tbody>
                 {latestCardsLoading && (
                   <tr>
-                    <td colSpan={4}>Loading prices...</td>
+                    <td colSpan={4}>
+                      <DashboardEmptyState title="Loading prices" note="Fetching the latest commodity price snapshot." compact />
+                    </td>
                   </tr>
                 )}
                 {!latestCardsLoading && latestPriceTableRows.length === 0 && (
                   <tr>
-                    <td colSpan={4}>No price data.</td>
+                    <td colSpan={4}>
+                      <DashboardEmptyState title="No price data" note="Commodity prices will appear after scrape or manual entry data is available." compact />
+                    </td>
                   </tr>
                 )}
                 {!latestCardsLoading && latestPriceTableRows.map((item: any) => (

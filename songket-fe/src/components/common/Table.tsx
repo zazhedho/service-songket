@@ -51,6 +51,32 @@ function readMaybeValue<T, TValue>(
   return value
 }
 
+function TableStateRow({
+  colSpan,
+  title,
+  note,
+  tone = 'empty',
+}: {
+  colSpan: number
+  title: string
+  note: string
+  tone?: 'empty' | 'loading'
+}) {
+  return (
+    <tr>
+      <td className="table-state-cell" colSpan={colSpan}>
+        <div className={`table-state-panel ${tone}`} role="status" aria-live="polite">
+          <div className="table-state-icon">{tone === 'loading' ? '...' : 'i'}</div>
+          <div>
+            <div className="table-state-title">{title}</div>
+            <div className="table-state-note">{note}</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
 export default function Table<T>({
   className,
   columns,
@@ -85,16 +111,21 @@ export default function Table<T>({
       </thead>
       <tbody>
         {isLoading && (
-          <tr>
-            <td colSpan={columns.length}>{loadingMessage}</td>
-          </tr>
+          <TableStateRow
+            colSpan={columns.length}
+            title={loadingMessage}
+            note="Please wait while the latest rows are prepared."
+            tone="loading"
+          />
         )}
 
         {!isLoading && data.length === 0 && (
           emptyState || (
-            <tr>
-              <td colSpan={columns.length}>{emptyMessage}</td>
-            </tr>
+            <TableStateRow
+              colSpan={columns.length}
+              title={emptyMessage}
+              note="Try adjusting the search, filters, or selected period."
+            />
           )
         )}
 

@@ -158,11 +158,35 @@ export default function QuadrantContent({
           </div>
         </div>
 
-        {loadError && <div style={{ marginTop: 8, color: '#b91c1c', fontSize: 12 }}>{loadError}</div>}
+        {loadError && (
+          <div className="quadrant-status-card error">
+            <div className="quadrant-status-icon">!</div>
+            <div>
+              <div className="quadrant-status-title">Unable to load quadrant data</div>
+              <div className="quadrant-status-copy">{loadError}</div>
+            </div>
+          </div>
+        )}
 
         <div style={{ marginTop: 14 }}>
-          {isLoading && <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>Loading quadrant points...</div>}
-          {!isLoading && filtered.length === 0 && <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>No quadrant points for selected period/filter.</div>}
+          {isLoading && (
+            <div className="quadrant-status-card">
+              <div className="quadrant-status-icon">Q</div>
+              <div>
+                <div className="quadrant-status-title">Loading quadrant points</div>
+                <div className="quadrant-status-copy">Preparing the latest position for each area and job.</div>
+              </div>
+            </div>
+          )}
+          {!isLoading && filtered.length === 0 && (
+            <div className="quadrant-status-card">
+              <div className="quadrant-status-icon">Q</div>
+              <div>
+                <div className="quadrant-status-title">No quadrant points found</div>
+                <div className="quadrant-status-copy">Adjust the period, area, or search keyword to explore more results.</div>
+              </div>
+            </div>
+          )}
           <svg
             viewBox={`0 0 ${chart.width} ${chart.height}`}
             width="100%"
@@ -303,7 +327,12 @@ export default function QuadrantContent({
               })}
               {paged.length === 0 && (
                 <tr>
-                  <td colSpan={7}>No data found.</td>
+                  <td colSpan={7}>
+                    <div className="quadrant-table-empty">
+                      <div className="quadrant-status-title">No table rows</div>
+                      <div className="quadrant-status-copy">The current filter does not return any quadrant row.</div>
+                    </div>
+                  </td>
                 </tr>
               )}
             </tbody>

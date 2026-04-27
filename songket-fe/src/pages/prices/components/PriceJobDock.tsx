@@ -81,7 +81,15 @@ export default function PriceJobDock({
           </div>
 
           <div style={{ maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {jobs.length === 0 && <div className="muted">No jobs found.</div>}
+            {jobs.length === 0 && (
+              <div className="table-state-panel">
+                <div className="table-state-icon">i</div>
+                <div>
+                  <div className="table-state-title">No scrape jobs found</div>
+                  <div className="table-state-note">Start a scrape job or adjust the search keyword.</div>
+                </div>
+              </div>
+            )}
             {jobs.map((job) => (
               <button
                 key={job.id}
