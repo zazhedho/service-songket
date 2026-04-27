@@ -181,8 +181,8 @@ export default function OrderListView({
             </div>
           </div>
 
-          <div className="compact-filter-toolbar">
-            <div className="compact-filter-item grow-2">
+          <div className="compact-filter-toolbar order-filter-toolbar">
+            <div className="compact-filter-item grow-2 order-filter-search">
               <input
                 placeholder="Search consumer or pooling number"
                 value={filters.search}
@@ -190,7 +190,7 @@ export default function OrderListView({
                 aria-label="Search orders"
               />
             </div>
-            <div className="compact-filter-item narrow">
+            <div className="compact-filter-item narrow order-filter-status">
               <SearchableSelect
                 value={filters.status}
                 onChange={(value) => onFilterChange((prev) => ({ ...prev, status: value }))}
@@ -199,8 +199,8 @@ export default function OrderListView({
                 searchPlaceholder="Search status..."
               />
             </div>
-            <div className="compact-filter-item narrow">
-              <div className="credit-date-field">
+            <div className="compact-filter-item order-date-range">
+              <div className="credit-date-field order-date-field">
                 <span className="credit-date-label">From</span>
                 <input
                   type="date"
@@ -209,9 +209,8 @@ export default function OrderListView({
                   aria-label="Export from date"
                 />
               </div>
-            </div>
-            <div className="compact-filter-item narrow">
-              <div className="credit-date-field">
+              <div className="order-date-separator">-</div>
+              <div className="credit-date-field order-date-field">
                 <span className="credit-date-label">To</span>
                 <input
                   type="date"
@@ -221,7 +220,7 @@ export default function OrderListView({
                 />
               </div>
             </div>
-            <div className="compact-filter-action">
+            <div className="compact-filter-action order-filter-action">
               <button
                 className="btn-ghost"
                 type="button"
