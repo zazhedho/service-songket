@@ -782,28 +782,6 @@ export default function FinancePage() {
 
   return (
     <div>
-      {isBusinessTabMode && (
-        <div className="business-tabs-pane">
-          <button type="button" className="business-tab-btn" onClick={() => navigate('/business')}>
-            Summary
-          </button>
-          <button
-            type="button"
-            className={`business-tab-btn ${listSection === 'finance' ? 'active' : ''}`}
-            onClick={() => navigate('/business/finance')}
-          >
-            Finance
-          </button>
-          <button
-            type="button"
-            className={`business-tab-btn ${listSection === 'dealer' ? 'active' : ''}`}
-            onClick={() => navigate('/business/dealer')}
-          >
-            Dealer
-          </button>
-        </div>
-      )}
-
       <FinanceList
         canCreate={canCreate}
         canDelete={canDelete}
@@ -835,6 +813,7 @@ export default function FinancePage() {
         financeSearch={financeSearch}
         financeTotalData={financeTotalData}
         financeTotalPages={financeTotalPages}
+        isBusinessTabMode={isBusinessTabMode}
         listSection={listSection}
         metrics={metrics}
         navigate={navigate}

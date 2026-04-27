@@ -40,6 +40,7 @@ type FinanceListProps = {
   financeSearch: string
   financeTotalData: number
   financeTotalPages: number
+  isBusinessTabMode: boolean
   listSection: 'dealer' | 'finance'
   metrics: any
   navigate: (path: string, options?: any) => void
@@ -92,6 +93,7 @@ export default function FinanceList({
   financeSearch,
   financeTotalData,
   financeTotalPages,
+  isBusinessTabMode,
   listSection,
   metrics,
   navigate,
@@ -144,6 +146,28 @@ export default function FinanceList({
           </div>
         </div>
       </div>
+
+      {isBusinessTabMode && (
+        <div className="business-tabs-pane">
+          <button type="button" className="business-tab-btn" onClick={() => navigate('/business')}>
+            Summary
+          </button>
+          <button
+            type="button"
+            className={`business-tab-btn ${listSection === 'finance' ? 'active' : ''}`}
+            onClick={() => navigate('/business/finance')}
+          >
+            Finance
+          </button>
+          <button
+            type="button"
+            className={`business-tab-btn ${listSection === 'dealer' ? 'active' : ''}`}
+            onClick={() => navigate('/business/dealer')}
+          >
+            Dealer
+          </button>
+        </div>
+      )}
 
       <div className="page" style={{ display: 'grid', gap: 14 }}>
         {listSection === 'dealer' && (
