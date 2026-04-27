@@ -125,6 +125,50 @@ export default function FinanceReportSummary({
     label: String(item.name || item.code || '-'),
   }))]
 
+  const renderMigrationParty = (name: unknown, status: string) => {
+    const fullName = String(name || '-')
+
+    return (
+      <div className="finance-migration-party">
+        <div className="finance-migration-party-name" title={fullName}>{truncateTableText(fullName, 56)}</div>
+        <div className="finance-migration-party-status">{statusBadge(status)}</div>
+      </div>
+    )
+  }
+
+  const getMigrationStats = (item: any) => {
+    const total = toSafeNumber(item.transition_total_data)
+    const approved = toSafeNumber(item.total_approve_finance_2)
+    const rejected = toSafeNumber(item.total_reject_finance_2)
+    const pending = Math.max(0, total - approved - rejected)
+    const approvedPct = total > 0 ? (approved / total) * 100 : 0
+    const rejectedPct = total > 0 ? (rejected / total) * 100 : 0
+    const pendingPct = total > 0 ? Math.max(0, 100 - approvedPct - rejectedPct) : 0
+
+    return { total, approved, rejected, pending, approvedPct, rejectedPct, pendingPct }
+  }
+
+  const renderMigrationMetric = (value: number, tone: 'total' | 'approved' | 'rejected' | 'pending') => (
+    <span className={`finance-migration-metric ${tone}`}>{value.toLocaleString('id-ID')}</span>
+  )
+
+  const renderMigrationOutcome = (item: any) => {
+    const { approvedPct, rejectedPct, pendingPct } = getMigrationStats(item)
+
+    return (
+      <div className="finance-migration-outcome">
+        <div className="finance-migration-outcome-head">
+          <span>{approvedPct.toFixed(1)}% approved</span>
+        </div>
+        <div className="finance-migration-outcome-track" aria-hidden="true">
+          <span className="finance-migration-outcome-segment approved" style={{ width: `${approvedPct}%` }} />
+          <span className="finance-migration-outcome-segment rejected" style={{ width: `${rejectedPct}%` }} />
+          <span className="finance-migration-outcome-segment pending" style={{ width: `${pendingPct}%` }} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ overflowX: 'hidden' }}>
       <div className="header">
@@ -439,7 +483,10 @@ export default function FinanceReportSummary({
 
         <div className="card business-section">
           <div className="business-section-head">
-            <h3 className="business-section-title">Finance Company Migration</h3>
+            <div>
+              <h3 className="business-section-title">Finance Company Migration</h3>
+              <div className="finance-migration-subtitle">Grouped by Finance 2 migration outcome.</div>
+            </div>
             <div className="finance-report-filter-field">
               <label style={{ marginBottom: 4 }}>Finance Company 1</label>
               <SearchableSelect
@@ -489,10 +536,11 @@ export default function FinanceReportSummary({
                 data={rows}
                 keyField={(item, idx) => `${item.order_id}-${idx}`}
                 className="table-list"
-                style={{ minWidth: 980, tableLayout: 'fixed' }}
+                style={{ minWidth: 1090, tableLayout: 'fixed' }}
                 isLoading={loading}
                 loadingMessage="Loading finance migration data..."
                 emptyMessage="No finance migration data."
+                rowAriaLabel={(item) => `Open migration detail for ${item.finance_2_name || 'Finance 2'} from ${item.finance_1_name || 'Finance 1'}`}
                 onRowClick={(item) =>
                   navigate(`/business/migrations/${item.order_id}`, {
                     state: {
@@ -502,39 +550,54 @@ export default function FinanceReportSummary({
                   })}
                 columns={[
                   { header: 'No', accessor: (_item, idx) => (page - 1) * limit + idx + 1, headerStyle: { width: 56 }, style: { width: 56 } },
-                  { header: 'Finance 2 Name', accessor: (item) => truncateTableText(item.finance_2_name), headerStyle: { width: 170 }, style: { width: 170 } },
-                  { header: 'Latest Finance 2 Status', accessor: (item) => statusBadge(item.finance_2_status), headerStyle: { width: 190 }, style: { width: 190 } },
-                  { header: 'Total Records', accessor: (item) => toSafeNumber(item.transition_total_data), headerStyle: { width: 120 }, style: { width: 120 } },
-                  { header: 'Rejected Records', accessor: (item) => toSafeNumber(item.total_reject_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
-                  { header: 'Approved Records', accessor: (item) => toSafeNumber(item.total_approve_finance_2), headerStyle: { width: 150 }, style: { width: 150 } },
-                  { header: 'Finance 1 Name', accessor: (item) => truncateTableText(item.finance_1_name), headerStyle: { width: 170 }, style: { width: 170 } },
-                  { header: 'Finance 1 Status', accessor: (item) => statusBadge(item.finance_1_status), headerStyle: { width: 120 }, style: { width: 120 } },
                   {
-                    header: 'Action',
-                    accessor: (item) => (
-                      <button
-                        type="button"
-                        className="btn-ghost table-action-button"
-                        onClick={() =>
-                          navigate(`/business/migrations/${item.order_id}`, {
-                            state: {
-                              row: item,
-                              context: { finance1: finance1Input },
-                            },
-                          })
-                        }
-                      >
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" />
-                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                        </svg>
-                        View
-                      </button>
-                    ),
-                    className: 'action-cell',
-                    ignoreRowClick: true,
-                    headerStyle: { width: 108 },
-                    style: { width: 108 },
+                    header: 'Finance 2',
+                    accessor: (item) => renderMigrationParty(item.finance_2_name, item.finance_2_status),
+                    className: 'wrap-text finance-migration-party-col',
+                    headerStyle: { width: 220 },
+                    style: { width: 220 },
+                  },
+                  {
+                    header: 'Finance 1',
+                    accessor: (item) => renderMigrationParty(item.finance_1_name, item.finance_1_status),
+                    className: 'wrap-text finance-migration-party-col',
+                    headerStyle: { width: 220 },
+                    style: { width: 220 },
+                  },
+                  {
+                    header: 'Total',
+                    accessor: (item) => renderMigrationMetric(getMigrationStats(item).total, 'total'),
+                    className: 'wrap-text finance-migration-metric-col',
+                    headerStyle: { width: 104 },
+                    style: { width: 104 },
+                  },
+                  {
+                    header: 'Approved',
+                    accessor: (item) => renderMigrationMetric(getMigrationStats(item).approved, 'approved'),
+                    className: 'wrap-text finance-migration-metric-col',
+                    headerStyle: { width: 112 },
+                    style: { width: 112 },
+                  },
+                  {
+                    header: 'Rejected',
+                    accessor: (item) => renderMigrationMetric(getMigrationStats(item).rejected, 'rejected'),
+                    className: 'wrap-text finance-migration-metric-col',
+                    headerStyle: { width: 112 },
+                    style: { width: 112 },
+                  },
+                  {
+                    header: 'Pending',
+                    accessor: (item) => renderMigrationMetric(getMigrationStats(item).pending, 'pending'),
+                    className: 'wrap-text finance-migration-metric-col',
+                    headerStyle: { width: 112 },
+                    style: { width: 112 },
+                  },
+                  {
+                    header: 'Approval',
+                    accessor: (item) => renderMigrationOutcome(item),
+                    className: 'wrap-text finance-migration-outcome-col',
+                    headerStyle: { width: 150 },
+                    style: { width: 150 },
                   },
                 ]}
               />

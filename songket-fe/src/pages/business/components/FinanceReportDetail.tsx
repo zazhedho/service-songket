@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react'
 import Pagination from '../../../components/common/Pagination'
 import Table from '../../../components/common/Table'
 import { formatRupiah } from '../../../utils/currency'
-import { ReportDetailTable, summarizeLocation } from './financeReportHelpers'
+import { summarizeLocation } from './financeReportHelpers'
 
 type FinanceReportDetailProps = {
   applyDetailOrderInFilters: () => void
@@ -32,6 +33,38 @@ type FinanceReportDetailProps = {
   setSelectedOrderInRow: React.Dispatch<React.SetStateAction<any>>
   statusBadge: (status: string) => React.ReactNode
   truncateTableText: (value: unknown, max?: number) => string
+}
+
+function ModalDetailSection({
+  children,
+  title,
+}: {
+  children: ReactNode
+  title: string
+}) {
+  return (
+    <section className="finance-order-modal-section">
+      <div className="finance-order-modal-section-title">{title}</div>
+      {children}
+    </section>
+  )
+}
+
+function ModalDetailField({
+  label,
+  value,
+  wide,
+}: {
+  label: string
+  value: ReactNode
+  wide?: boolean
+}) {
+  return (
+    <div className={`finance-order-modal-field${wide ? ' wide' : ''}`}>
+      <div className="finance-order-modal-label">{label}</div>
+      <div className="finance-order-modal-value">{value || '-'}</div>
+    </div>
+  )
 }
 
 export default function FinanceReportDetail({
@@ -95,6 +128,106 @@ export default function FinanceReportDetail({
   const motorTypeDonutSlices = buildDonutSlices(computedDetailSummary?.motorTypeTotals || [], 6)
   const dealerDonutGradient = buildDonutGradient(dealerDonutSlices)
   const motorTypeDonutGradient = buildDonutGradient(motorTypeDonutSlices)
+  const renderDetailOrderCell = (row: any) => (
+    <div className="finance-detail-order-cell">
+      <div className="finance-detail-primary" title={row.pooling_number || '-'}>
+        {row.pooling_number || '-'}
+      </div>
+      <div className="finance-detail-secondary">{formatDateTime(row.pooling_at)}</div>
+    </div>
+  )
+  const renderDetailPersonCell = (row: any) => (
+    <div className="finance-detail-order-cell">
+      <div className="finance-detail-primary" title={row.consumer_name || '-'}>
+        {truncateTableText(row.consumer_name || '-', 38)}
+      </div>
+      <div className="finance-detail-secondary" title={row.dealer_name || '-'}>
+        {truncateTableText(row.dealer_name || '-', 42)}
+      </div>
+    </div>
+  )
+  const renderDetailLocationCell = (row: any) => {
+    const namedLocation = locationNamesByOrderId[row.order_id] || {}
+    const areaLocation = summarizeLocation([
+      namedLocation.district,
+      namedLocation.regency,
+    ])
+    const province = namedLocation.province || '-'
+    const detailLocation = summarizeLocation([
+      row.village,
+      row.address,
+    ])
+    const primaryLocation = areaLocation !== '-' ? areaLocation : detailLocation
+
+    return (
+      <div className="finance-detail-order-cell">
+        <div className="finance-detail-primary" title={primaryLocation}>
+          {truncateTableText(primaryLocation, 46)}
+        </div>
+        {province !== '-' && (
+          <div className="finance-detail-secondary" title={String(province)}>
+            {truncateTableText(province, 42)}
+          </div>
+        )}
+        {areaLocation !== '-' && detailLocation !== '-' && (
+          <div className="finance-detail-tertiary" title={detailLocation}>
+            {truncateTableText(detailLocation, 52)}
+          </div>
+        )}
+      </div>
+    )
+  }
+  const renderDetailMotorCell = (row: any) => (
+    <div className="finance-detail-order-cell">
+      <div className="finance-detail-primary" title={row.motor_type_name || '-'}>
+        {truncateTableText(row.motor_type_name || '-', 42)}
+      </div>
+      <div className="finance-detail-secondary">{formatRupiah(Number(row.otr || 0))}</div>
+    </div>
+  )
+  const renderDetailFinanceCell = (
+    row: any,
+    statusKey: 'finance_1_status' | 'finance_2_status',
+    notesKey: 'finance_1_notes' | 'finance_2_notes',
+  ) => {
+    const notes = String(row[notesKey] || '-')
+
+    return (
+      <div className="finance-detail-decision-cell">
+        <div className="finance-detail-decision-top">
+          {statusBadge(row[statusKey] || '')}
+        </div>
+        <div className="finance-detail-note" title={notes}>
+          {truncateTableText(notes, 58)}
+        </div>
+      </div>
+    )
+  }
+  const renderFinanceDecisionCard = (
+    title: string,
+    company: unknown,
+    status: unknown,
+    decisionAt: unknown,
+    notes: unknown,
+  ) => (
+    <div className="finance-order-modal-decision">
+      <div className="finance-order-modal-decision-head">
+        <div>
+          <div className="finance-order-modal-decision-title">{title}</div>
+          <div className="finance-order-modal-decision-company">{String(company || '-')}</div>
+        </div>
+        {statusBadge(String(status || ''))}
+      </div>
+      <div className="finance-order-modal-decision-meta">
+        <span>Decision</span>
+        <strong>{formatDateTime(String(decisionAt || ''))}</strong>
+      </div>
+      <div className="finance-order-modal-notes">
+        <span>Notes</span>
+        <p>{String(notes || '-')}</p>
+      </div>
+    </div>
+  )
 
   return (
     <div style={{ overflowX: 'hidden' }}>
@@ -169,34 +302,37 @@ export default function FinanceReportDetail({
                   data={detailOrderInRows}
                   keyField={(row) => `detail-order-in-${row.order_id}`}
                   className="table-list finance-report-detail-order-table"
-                  style={{ minWidth: 1120, tableLayout: 'fixed' }}
+                  style={{ minWidth: 1200, tableLayout: 'fixed' }}
                   isLoading={detailOrderInLoading}
                   loadingMessage="Loading order in data..."
                   emptyMessage="No order in data found for this migration."
+                  rowAriaLabel={(row) => `Open order in detail for ${row.pooling_number || row.consumer_name || 'selected row'}`}
                   onRowClick={(row) => setSelectedOrderInRow(row)}
                   columns={[
-                    { header: 'Pooling Number', accessor: (row) => row.pooling_number || '-', headerStyle: { width: 140 }, style: { width: 140 } },
-                    { header: 'Pooling Date', accessor: (row) => formatDateTime(row.pooling_at), headerStyle: { width: 140 }, style: { width: 140 } },
-                    { header: 'Dealer', accessor: (row) => row.dealer_name || '-', headerStyle: { width: 140 }, style: { width: 140 } },
-                    { header: 'Consumer', accessor: (row) => row.consumer_name || '-', headerStyle: { width: 140 }, style: { width: 140 } },
+                    { header: 'Order', accessor: (row) => renderDetailOrderCell(row), className: 'wrap-text', headerStyle: { width: 160 }, style: { width: 160 } },
+                    { header: 'Consumer / Dealer', accessor: (row) => renderDetailPersonCell(row), className: 'wrap-text', headerStyle: { width: 190 }, style: { width: 190 } },
                     {
                       header: 'Location',
-                      accessor: (row) => summarizeLocation([
-                        locationNamesByOrderId[row.order_id]?.province,
-                        locationNamesByOrderId[row.order_id]?.regency,
-                        locationNamesByOrderId[row.order_id]?.district,
-                        row.village,
-                        row.address,
-                      ]),
+                      accessor: (row) => renderDetailLocationCell(row),
                       className: 'wrap-text',
-                      headerStyle: { width: 200 },
-                      style: { width: 200 },
+                      headerStyle: { width: 220 },
+                      style: { width: 220 },
                     },
-                    { header: 'Motor / OTR', accessor: (row) => `${row.motor_type_name || '-'} | ${formatRupiah(Number(row.otr || 0))}`, headerStyle: { width: 180 }, style: { width: 180 } },
-                    { header: 'Status 1', accessor: (row) => statusBadge(row.finance_1_status || ''), headerStyle: { width: 110 }, style: { width: 110 } },
-                    { header: 'Finance 1 Notes', accessor: (row) => truncateTableText(row.finance_1_notes || '-'), headerStyle: { width: 180 }, style: { width: 180 } },
-                    { header: 'Status 2', accessor: (row) => statusBadge(row.finance_2_status || ''), headerStyle: { width: 110 }, style: { width: 110 } },
-                    { header: 'Finance 2 Notes', accessor: (row) => truncateTableText(row.finance_2_notes || '-'), headerStyle: { width: 180 }, style: { width: 180 } },
+                    { header: 'Motor / OTR', accessor: (row) => renderDetailMotorCell(row), className: 'wrap-text', headerStyle: { width: 180 }, style: { width: 180 } },
+                    {
+                      header: 'Finance 1',
+                      accessor: (row) => renderDetailFinanceCell(row, 'finance_1_status', 'finance_1_notes'),
+                      className: 'wrap-text',
+                      headerStyle: { width: 225 },
+                      style: { width: 225 },
+                    },
+                    {
+                      header: 'Finance 2',
+                      accessor: (row) => renderDetailFinanceCell(row, 'finance_2_status', 'finance_2_notes'),
+                      className: 'wrap-text',
+                      headerStyle: { width: 225 },
+                      style: { width: 225 },
+                    },
                   ]}
                 />
               </div>
@@ -355,43 +491,71 @@ export default function FinanceReportDetail({
 
       {selectedOrderInRow && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Order In Detail" onClick={() => setSelectedOrderInRow(null)}>
-          <div className="modal" style={{ width: 'min(880px, 100%)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <h3>Order In Detail</h3>
-              <button className="btn-ghost" onClick={() => setSelectedOrderInRow(null)}>Close</button>
+          <div className="modal finance-order-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="finance-order-modal-head">
+              <div className="finance-order-modal-title-wrap">
+                <div className="finance-order-modal-kicker">Order In Detail</div>
+                <h3>{selectedOrderInRow.pooling_number || '-'}</h3>
+                <div className="finance-order-modal-subtitle">
+                  {selectedOrderInRow.consumer_name || '-'} / {selectedOrderInRow.dealer_name || '-'}
+                </div>
+              </div>
+              <div className="finance-order-modal-head-actions">
+                <button className="btn-ghost" onClick={() => setSelectedOrderInRow(null)}>Close</button>
+              </div>
             </div>
-            <ReportDetailTable
-              wrapValue
-              rows={[
-                { label: 'Pooling Number', value: selectedOrderInRow.pooling_number || '-' },
-                { label: 'Pooling Date', value: formatDateTime(selectedOrderInRow.pooling_at) },
-                { label: 'Result Date', value: formatDateTime(selectedOrderInRow.result_at) },
-                { label: 'Created At', value: formatDateTime(selectedOrderInRow.order_created_at) },
-                { label: 'Updated At', value: formatDateTime(selectedOrderInRow.order_updated_at) },
-                { label: 'Dealer', value: selectedOrderInRow.dealer_name || '-' },
-                { label: 'Consumer Name', value: selectedOrderInRow.consumer_name || '-' },
-                { label: 'Consumer Phone', value: selectedOrderInRow.consumer_phone || '-' },
-                { label: 'Location', value: modalLocationText },
-                { label: 'Job', value: selectedOrderInRow.job_name || '-' },
-                { label: 'Motor Type / OTR', value: modalMotorOtrText },
-                { label: 'Installment', value: formatRupiah(Number(selectedOrderInRow.installment_amount || 0)) },
-                { label: 'Net Income', value: formatRupiah(Number(selectedOrderInRow.net_income || 0)) },
-                { label: 'DP Gross', value: formatRupiah(Number(selectedOrderInRow.dp_gross || 0)) },
-                { label: 'DP Paid', value: formatRupiah(Number(selectedOrderInRow.dp_paid || 0)) },
-                { label: 'DP Percentage', value: `${Number(selectedOrderInRow.dp_pct || 0).toFixed(2)}%` },
-                { label: 'Tenor', value: `${Number(selectedOrderInRow.tenor || 0)} months` },
-                { label: 'Order Status', value: statusBadge(selectedOrderInRow.order_result_status || '') },
-                { label: 'Order Notes', value: selectedOrderInRow.order_result_notes || '-' },
-                { label: 'Finance 1', value: selectedOrderInRow.finance_1_name || '-' },
-                { label: 'Status 1', value: statusBadge(selectedOrderInRow.finance_1_status || '') },
-                { label: 'Decision At 1', value: formatDateTime(selectedOrderInRow.finance_1_decision_at) },
-                { label: 'Notes Finance 1', value: selectedOrderInRow.finance_1_notes || '-' },
-                { label: 'Finance 2', value: selectedOrderInRow.finance_2_name || '-' },
-                { label: 'Status 2', value: statusBadge(selectedOrderInRow.finance_2_status || '') },
-                { label: 'Decision At 2', value: formatDateTime(selectedOrderInRow.finance_2_decision_at) },
-                { label: 'Notes Finance 2', value: selectedOrderInRow.finance_2_notes || '-' },
-              ]}
-            />
+            <div className="finance-order-modal-content">
+              <ModalDetailSection title="Order & Customer">
+                <div className="finance-order-modal-grid">
+                  <ModalDetailField label="Pooling Date" value={formatDateTime(selectedOrderInRow.pooling_at)} />
+                  <ModalDetailField label="Result Date" value={formatDateTime(selectedOrderInRow.result_at)} />
+                  <ModalDetailField label="Dealer" value={selectedOrderInRow.dealer_name || '-'} />
+                  <ModalDetailField label="Consumer" value={selectedOrderInRow.consumer_name || '-'} />
+                  <ModalDetailField label="Phone" value={selectedOrderInRow.consumer_phone || '-'} />
+                  <ModalDetailField label="Job" value={selectedOrderInRow.job_name || '-'} />
+                  <ModalDetailField label="Location" value={modalLocationText} wide />
+                  <ModalDetailField label="Order Notes" value={selectedOrderInRow.order_result_notes || '-'} wide />
+                </div>
+              </ModalDetailSection>
+
+              <ModalDetailSection title="Unit & Credit">
+                <div className="finance-order-modal-grid compact">
+                  <ModalDetailField label="Motor / OTR" value={modalMotorOtrText} wide />
+                  <ModalDetailField label="Installment" value={formatRupiah(Number(selectedOrderInRow.installment_amount || 0))} />
+                  <ModalDetailField label="Net Income" value={formatRupiah(Number(selectedOrderInRow.net_income || 0))} />
+                  <ModalDetailField label="DP Gross" value={formatRupiah(Number(selectedOrderInRow.dp_gross || 0))} />
+                  <ModalDetailField label="DP Paid" value={formatRupiah(Number(selectedOrderInRow.dp_paid || 0))} />
+                  <ModalDetailField label="DP Percentage" value={`${Number(selectedOrderInRow.dp_pct || 0).toFixed(2)}%`} />
+                  <ModalDetailField label="Tenor" value={`${Number(selectedOrderInRow.tenor || 0)} months`} />
+                </div>
+              </ModalDetailSection>
+
+              <ModalDetailSection title="Finance Decisions">
+                <div className="finance-order-modal-decision-grid">
+                  {renderFinanceDecisionCard(
+                    'Finance 1',
+                    selectedOrderInRow.finance_1_name,
+                    selectedOrderInRow.finance_1_status,
+                    selectedOrderInRow.finance_1_decision_at,
+                    selectedOrderInRow.finance_1_notes,
+                  )}
+                  {renderFinanceDecisionCard(
+                    'Finance 2',
+                    selectedOrderInRow.finance_2_name,
+                    selectedOrderInRow.finance_2_status,
+                    selectedOrderInRow.finance_2_decision_at,
+                    selectedOrderInRow.finance_2_notes,
+                  )}
+                </div>
+              </ModalDetailSection>
+
+              <ModalDetailSection title="Audit">
+                <div className="finance-order-modal-grid compact">
+                  <ModalDetailField label="Created At" value={formatDateTime(selectedOrderInRow.order_created_at)} />
+                  <ModalDetailField label="Updated At" value={formatDateTime(selectedOrderInRow.order_updated_at)} />
+                </div>
+              </ModalDetailSection>
+            </div>
           </div>
         </div>
       )}

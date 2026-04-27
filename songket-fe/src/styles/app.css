@@ -2083,6 +2083,76 @@ h4 {
     table-layout: fixed;
   }
 
+  .finance-detail-order-cell {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .finance-detail-primary {
+    min-width: 0;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-detail-secondary {
+    min-width: 0;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-detail-tertiary {
+    min-width: 0;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-detail-decision-cell {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .finance-detail-decision-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .finance-detail-decision-top span:not(.badge) {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .finance-detail-note {
+    min-width: 0;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .finance-report-approval-table {
     min-width: 560px;
   }
@@ -2149,6 +2219,175 @@ h4 {
     color: #64748b;
     font-size: 12px;
     line-height: 1.45;
+  }
+
+  .finance-migration-subtitle {
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .finance-migration-party {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .finance-migration-party-name {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-migration-party-status {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .finance-migration-party-status .badge {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-migration-metric-col {
+    text-align: center;
+  }
+
+  .finance-migration-metric {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 58px;
+    max-width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #dbe3ef;
+    border-radius: 999px;
+    color: #334155;
+    background: #f8fafc;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .finance-migration-metric.total {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .finance-migration-metric.approved {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+  }
+
+  .finance-migration-metric.rejected {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #991b1b;
+  }
+
+  .finance-migration-metric.pending {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+  }
+
+  .finance-migration-outcome {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .finance-migration-outcome-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .finance-migration-outcome-head span {
+    white-space: nowrap;
+  }
+
+  .finance-migration-outcome-head span:last-child {
+    color: #2563eb;
+    white-space: nowrap;
+  }
+
+  .finance-migration-outcome-track {
+    display: flex;
+    width: 100%;
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e2e8f0;
+  }
+
+  .finance-migration-outcome-segment {
+    min-width: 0;
+    height: 100%;
+  }
+
+  .finance-migration-outcome-segment.approved {
+    background: #16a34a;
+  }
+
+  .finance-migration-outcome-segment.rejected {
+    background: #ef4444;
+  }
+
+  .finance-migration-outcome-segment.pending {
+    background: #f59e0b;
+  }
+
+  .finance-migration-outcome-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .finance-migration-outcome-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .finance-migration-outcome-meta i {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+
+  .finance-migration-outcome-meta i.approved {
+    background: #16a34a;
+  }
+
+  .finance-migration-outcome-meta i.rejected {
+    background: #ef4444;
+  }
+
+  .finance-migration-outcome-meta i.pending {
+    background: #f59e0b;
   }
 
   .business-empty-focus {
@@ -3974,6 +4213,210 @@ h4 {
     padding: 16px;
   }
 
+  .finance-order-modal {
+    width: min(980px, 100%);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .finance-order-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.12), transparent 32%),
+      linear-gradient(135deg, #f8fbff, #ffffff);
+  }
+
+  .finance-order-modal-title-wrap {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .finance-order-modal-kicker {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .finance-order-modal-title-wrap h3 {
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .finance-order-modal-subtitle {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .finance-order-modal-head-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+  }
+
+  .finance-order-modal-content {
+    display: grid;
+    gap: 12px;
+    max-height: calc(100vh - 150px);
+    overflow: auto;
+    padding: 14px;
+    background: #f8fafc;
+  }
+
+  .finance-order-modal-section {
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 12px;
+  }
+
+  .finance-order-modal-section-title {
+    margin-bottom: 10px;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .finance-order-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .finance-order-modal-grid.compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .finance-order-modal-field {
+    min-width: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    padding: 9px 10px;
+  }
+
+  .finance-order-modal-field.wide {
+    grid-column: 1 / -1;
+  }
+
+  .finance-order-modal-label {
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .finance-order-modal-value {
+    min-width: 0;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .finance-order-modal-decision-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .finance-order-modal-decision {
+    min-width: 0;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background:
+      linear-gradient(135deg, #f8fafc, #ffffff);
+    padding: 12px;
+  }
+
+  .finance-order-modal-decision-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .finance-order-modal-decision-title {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .finance-order-modal-decision-company {
+    margin-top: 4px;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .finance-order-modal-decision-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px dashed #dbe3ef;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .finance-order-modal-decision-meta strong {
+    color: #0f172a;
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .finance-order-modal-notes {
+    margin-top: 10px;
+    display: grid;
+    gap: 4px;
+  }
+
+  .finance-order-modal-notes span {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .finance-order-modal-notes p {
+    margin: 0;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
   .modal-inline-field-row {
     display: flex;
     gap: 8px;
@@ -4895,6 +5338,35 @@ h4 {
   .modal-inline-field-row {
     flex-wrap: wrap;
     align-items: stretch;
+  }
+
+  .modal-backdrop {
+    padding: 10px;
+  }
+
+  .finance-order-modal-head {
+    flex-wrap: wrap;
+    padding: 12px;
+  }
+
+  .finance-order-modal-title-wrap h3 {
+    font-size: 18px;
+  }
+
+  .finance-order-modal-head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .finance-order-modal-content {
+    max-height: calc(100vh - 132px);
+    padding: 10px;
+  }
+
+  .finance-order-modal-grid,
+  .finance-order-modal-grid.compact,
+  .finance-order-modal-decision-grid {
+    grid-template-columns: 1fr;
   }
 
   .business-filter-row {
