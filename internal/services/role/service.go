@@ -61,13 +61,23 @@ func (s *RoleService) Create(ctx context.Context, req dto.RoleCreate) (domainrol
 }
 
 func (s *RoleService) GetByID(ctx context.Context, id string) (domainrole.Role, error) {
-	return s.RoleRepo.GetByID(ctx, id)
+	role, err := s.RoleRepo.GetByID(ctx, id)
+	if err != nil {
+		return domainrole.Role{}, err
+	}
+	if role.Name == utils.RoleSuperAdmin && authscope.FromContext(ctx).Role != utils.RoleSuperAdmin {
+		return domainrole.Role{}, errors.New("role not found")
+	}
+	return role, nil
 }
 
 func (s *RoleService) GetByIDWithDetails(ctx context.Context, id string) (dto.RoleWithDetails, error) {
 	role, err := s.RoleRepo.GetByID(ctx, id)
 	if err != nil {
 		return dto.RoleWithDetails{}, err
+	}
+	if role.Name == utils.RoleSuperAdmin && authscope.FromContext(ctx).Role != utils.RoleSuperAdmin {
+		return dto.RoleWithDetails{}, errors.New("role not found")
 	}
 
 	permissionIds, err := s.RoleRepo.GetRolePermissions(ctx, id)
@@ -209,10 +219,6 @@ func sanitizeUUIDList(fieldName string, values []string) ([]string, error) {
 		}
 		seen[trimmed] = struct{}{}
 		out = append(out, trimmed)
-	}
-
-	if len(out) == 0 {
-		return nil, fmt.Errorf("%s must contain at least 1 valid UUID", fieldName)
 	}
 
 	return out, nil

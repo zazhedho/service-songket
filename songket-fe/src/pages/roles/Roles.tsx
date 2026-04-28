@@ -11,6 +11,7 @@ import {
 import { listPermissions } from '../../services/permissionService'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import RoleDetail from './components/RoleDetail'
 import RoleForm from './components/RoleForm'
 import RoleList from './components/RoleList'
@@ -156,6 +157,8 @@ export default function RolesPage() {
     return grouped
   }, [sortedPerms])
 
+  const allPermissionIds = useMemo(() => sanitizeIdList(sortedPerms.map((perm) => perm.id)), [sortedPerms])
+
   useEffect(() => {
     if (isCreate) {
       setForm(empty)
@@ -213,6 +216,29 @@ export default function RolesPage() {
     setPermDraft((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
   }
 
+  const selectAllPermissions = () => {
+    setPermDraft(allPermissionIds)
+  }
+
+  const clearAllPermissions = () => {
+    setPermDraft([])
+  }
+
+  const setResourcePermissions = (resource: string, shouldSelect: boolean) => {
+    const resourceIds = sanitizeIdList((groupedPerms[resource] || []).map((permission) => permission.id))
+    setPermDraft((prev) => {
+      const current = new Set(prev)
+      resourceIds.forEach((id) => {
+        if (shouldSelect) {
+          current.add(id)
+        } else {
+          current.delete(id)
+        }
+      })
+      return Array.from(current)
+    })
+  }
+
   const saveRole = async () => {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
@@ -268,11 +294,11 @@ export default function RolesPage() {
         newlyCreated = true
       }
 
-      if (!roleId && canAssignPerms && permissionPayload.length > 0) {
+      if (!roleId && canAssignPerms) {
         throw new Error('Role saved successfully, but the role ID was not found for access assignment.')
       }
 
-      if (roleId && canAssignPerms && permissionPayload.length > 0) {
+      if (roleId && canAssignPerms) {
         await assignRolePermissions(roleId, permissionPayload)
       }
 
@@ -284,7 +310,7 @@ export default function RolesPage() {
       setPermDraft([])
       navigate('/roles')
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Failed to save role.'
+      const message = resolveErrorMessage(err, 'Failed to save role.')
 
       if (newlyCreated && roleId) {
         const partialMessage = `Role was created, but permission assignment failed: ${message}`
@@ -321,43 +347,84 @@ export default function RolesPage() {
       )
     }
 
+    const allSelected = allPermissionIds.length > 0 && allPermissionIds.every((id) => permDraft.includes(id))
+
     return (
-      <div className="role-permission-groups">
-        {resources.map((resource) => (
-          <section key={resource} className="role-permission-group">
-            <div className="role-permission-group-head">
-              <div>
-                <div className="role-permission-group-kicker">Resource</div>
-                <div className="perm-resource">{resource.replace(/_/g, ' ')}</div>
-              </div>
-              <span className="role-permission-group-count">{groupedPerms[resource].length} rules</span>
-            </div>
-            <div className="role-permission-option-list">
-              {groupedPerms[resource].map((permission) => {
-                const checked = permDraft.includes(permission.id)
+      <>
+        <div className="role-permission-toolbar">
+          <div className="role-permission-toolbar-copy">
+            <div className="role-permission-toolbar-title">Bulk selection</div>
+            <div className="role-permission-toolbar-note">Select everything or clear all before adjusting each resource.</div>
+          </div>
+          <div className="role-permission-toolbar-actions">
+            <button
+              type="button"
+              className="btn-ghost role-permission-bulk-btn"
+              onClick={allSelected ? clearAllPermissions : selectAllPermissions}
+              disabled={loading || allPermissionIds.length === 0}
+            >
+              {allSelected ? 'Uncheck All' : 'Check All'}
+            </button>
+          </div>
+        </div>
+        <div className="role-permission-groups">
+          {resources.map((resource) => (
+            <section key={resource} className="role-permission-group">
+              {(() => {
+                const resourcePermissions = groupedPerms[resource]
+                const resourceIds = resourcePermissions.map((permission) => permission.id)
+                const selectedCount = resourceIds.filter((id) => permDraft.includes(id)).length
+                const isResourceSelected = resourceIds.length > 0 && selectedCount === resourceIds.length
+
                 return (
-                  <label key={permission.id} className={`role-permission-option ${checked ? 'selected' : ''}`}>
-                    <div className="role-permission-option-copy">
-                      <div className="perm-title">{permission.display_name || permission.name}</div>
-                      <div className="perm-meta">{permission.action || '-'}</div>
+                  <>
+                    <div className="role-permission-group-head">
+                      <div>
+                        <div className="role-permission-group-kicker">Resource</div>
+                        <div className="perm-resource">{resource.replace(/_/g, ' ')}</div>
+                      </div>
+                      <div className="role-permission-group-actions">
+                        <span className="role-permission-group-count">{selectedCount}/{resourcePermissions.length}</span>
+                        <button
+                          type="button"
+                          className="role-permission-resource-btn"
+                          onClick={() => setResourcePermissions(resource, !isResourceSelected)}
+                          disabled={loading}
+                        >
+                          {isResourceSelected ? 'Uncheck Resource' : 'Check Resource'}
+                        </button>
+                      </div>
                     </div>
-                    <div className="role-permission-option-control">
-                      <input
-                        type="checkbox"
-                        className="perm-checkbox"
-                        checked={checked}
-                        onChange={() => togglePermDraft(permission.id)}
-                        disabled={loading}
-                        title={permission.display_name || permission.name}
-                      />
+                    <div className="role-permission-option-list">
+                      {resourcePermissions.map((permission) => {
+                        const checked = permDraft.includes(permission.id)
+                        return (
+                          <label key={permission.id} className={`role-permission-option ${checked ? 'selected' : ''}`}>
+                            <div className="role-permission-option-copy">
+                              <div className="perm-title">{permission.display_name || permission.name}</div>
+                              <div className="perm-meta">{permission.action || '-'}</div>
+                            </div>
+                            <div className="role-permission-option-control">
+                              <input
+                                type="checkbox"
+                                className="perm-checkbox"
+                                checked={checked}
+                                onChange={() => togglePermDraft(permission.id)}
+                                disabled={loading}
+                                title={permission.display_name || permission.name}
+                              />
+                            </div>
+                          </label>
+                        )
+                      })}
                     </div>
-                  </label>
+                  </>
                 )
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
+              })()}
+            </section>
+          ))}
+        </div>
+      </>
     )
   }
 

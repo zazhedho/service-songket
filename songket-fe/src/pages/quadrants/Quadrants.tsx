@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchQuadrantSummary } from '../../services/quadrantService'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { buildFilterYearOptions } from '../../utils/yearOptions'
 import QuadrantContent from './components/QuadrantContent'
 import { clampPercent, getOrderInGrowth, normalizeToken } from './components/quadrantHelpers'
@@ -44,7 +45,7 @@ type OptionItem = { value: string; label: string }
 
 const getQuadrantLoadErrorMessage = (error: any) => {
   const status = Number(error?.response?.status || 0)
-  const rawMessage = String(error?.response?.data?.error || error?.message || '').trim()
+  const rawMessage = resolveErrorMessage(error, '').trim()
   const fallbackMessage = 'Failed to load data. Please try again.'
 
   if (!status || status >= 500) return fallbackMessage

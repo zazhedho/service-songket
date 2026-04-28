@@ -15,6 +15,8 @@ import (
 
 type roleRepoMock struct {
 	role                domainrole.Role
+	roles               []domainrole.Role
+	total               int64
 	rolePermissions     []string
 	assignedPermissions []string
 }
@@ -27,7 +29,7 @@ func (m *roleRepoMock) GetByName(ctx context.Context, name string) (domainrole.R
 	return domainrole.Role{}, errors.New("not implemented")
 }
 func (m *roleRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainrole.Role, int64, error) {
-	return nil, 0, nil
+	return append([]domainrole.Role{}, m.roles...), m.total, nil
 }
 func (m *roleRepoMock) Update(ctx context.Context, data domainrole.Role) error { return nil }
 func (m *roleRepoMock) Delete(ctx context.Context, id string) error            { return nil }
@@ -165,6 +167,92 @@ func TestAssignPermissionsAllowsSystemRoleWhenPermissionPresent(t *testing.T) {
 	}
 	if len(roleRepo.assignedPermissions) != 1 || roleRepo.assignedPermissions[0] != "22222222-2222-2222-2222-222222222222" {
 		t.Fatalf("expected assigned permission to be stored, got %v", roleRepo.assignedPermissions)
+	}
+}
+
+func TestAssignPermissionsAllowsEmptyListToClearRolePermissions(t *testing.T) {
+	roleRepo := &roleRepoMock{
+		role: domainrole.Role{Id: "role-1", Name: "custom", IsSystem: false},
+	}
+	service := &RoleService{
+		RoleRepo:       roleRepo,
+		PermissionRepo: &permissionRepoMock{},
+		MenuRepo:       &menuRepoMock{},
+	}
+
+	err := service.AssignPermissions(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleAdmin, []string{"roles:assign_permissions"})), "11111111-1111-1111-1111-111111111111", dto.AssignPermissions{
+		PermissionIds: []string{},
+	})
+	if err != nil {
+		t.Fatalf("expected empty permission list to clear role permissions, got %v", err)
+	}
+	if len(roleRepo.assignedPermissions) != 0 {
+		t.Fatalf("expected no assigned permissions, got %v", roleRepo.assignedPermissions)
+	}
+}
+
+func TestGetAllHidesSuperadminRoleForNonSuperadmin(t *testing.T) {
+	service := &RoleService{
+		RoleRepo: &roleRepoMock{
+			roles: []domainrole.Role{
+				{Id: "role-superadmin", Name: utils.RoleSuperAdmin},
+				{Id: "role-admin", Name: utils.RoleAdmin},
+				{Id: "role-dealer", Name: utils.RoleDealer},
+			},
+			total: 3,
+		},
+		PermissionRepo: &permissionRepoMock{},
+		MenuRepo:       &menuRepoMock{},
+	}
+
+	roles, total, err := service.GetAll(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleAdmin, []string{"roles:list"})), filter.BaseParams{})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected total 2 after hiding superadmin, got %d", total)
+	}
+	for _, role := range roles {
+		if role.Name == utils.RoleSuperAdmin {
+			t.Fatalf("expected superadmin to be hidden, got %+v", roles)
+		}
+	}
+}
+
+func TestGetAllShowsSuperadminRoleForSuperadmin(t *testing.T) {
+	service := &RoleService{
+		RoleRepo: &roleRepoMock{
+			roles: []domainrole.Role{
+				{Id: "role-superadmin", Name: utils.RoleSuperAdmin},
+				{Id: "role-admin", Name: utils.RoleAdmin},
+			},
+			total: 2,
+		},
+		PermissionRepo: &permissionRepoMock{},
+		MenuRepo:       &menuRepoMock{},
+	}
+
+	roles, total, err := service.GetAll(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleSuperAdmin, nil)), filter.BaseParams{})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if total != 2 || len(roles) != 2 {
+		t.Fatalf("expected superadmin to see all roles, got total=%d roles=%+v", total, roles)
+	}
+}
+
+func TestGetByIDWithDetailsHidesSuperadminRoleForNonSuperadmin(t *testing.T) {
+	service := &RoleService{
+		RoleRepo: &roleRepoMock{
+			role: domainrole.Role{Id: "role-superadmin", Name: utils.RoleSuperAdmin},
+		},
+		PermissionRepo: &permissionRepoMock{},
+		MenuRepo:       &menuRepoMock{},
+	}
+
+	_, err := service.GetByIDWithDetails(authscope.WithContext(context.Background(), authscope.New("user-1", utils.RoleAdmin, []string{"roles:view"})), "role-superadmin")
+	if err == nil || err.Error() != "role not found" {
+		t.Fatalf("expected role not found, got %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@ package repositoryrole
 
 import (
 	"context"
+	"service-songket/internal/authscope"
 	domainrole "service-songket/internal/domain/role"
 	interfacerole "service-songket/internal/interfaces/role"
 	repositorygeneric "service-songket/internal/repositories/generic"
@@ -25,6 +26,12 @@ func (r *repo) GetByName(ctx context.Context, name string) (ret domainrole.Role,
 
 func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) (ret []domainrole.Role, totalData int64, err error) {
 	return r.GenericRepository.GetAll(ctx, params, repositorygeneric.QueryOptions{
+		BaseQuery: func(query *gorm.DB) *gorm.DB {
+			if authscope.FromContext(ctx).Role == utils.RoleSuperAdmin {
+				return query
+			}
+			return query.Where("name <> ?", utils.RoleSuperAdmin)
+		},
 		Search:         repositorygeneric.BuildSearchFunc("name", "display_name", "description"),
 		AllowedFilters: []string{"id", "name", "display_name", "is_system", "created_at", "updated_at"},
 		AllowedOrderColumns: []string{

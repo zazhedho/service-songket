@@ -2,10 +2,12 @@ package repositoryuser
 
 import (
 	"context"
+	"service-songket/internal/authscope"
 	domainuser "service-songket/internal/domain/user"
 	interfaceuser "service-songket/internal/interfaces/user"
 	repositorygeneric "service-songket/internal/repositories/generic"
 	"service-songket/pkg/filter"
+	"service-songket/utils"
 	"strings"
 
 	"gorm.io/gorm"
@@ -37,6 +39,12 @@ func (r *repo) GetByPhone(ctx context.Context, phone string) (ret domainuser.Use
 
 func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) (ret []domainuser.Users, totalData int64, err error) {
 	return r.GenericRepository.GetAll(ctx, params, repositorygeneric.QueryOptions{
+		BaseQuery: func(query *gorm.DB) *gorm.DB {
+			if authscope.FromContext(ctx).Role == utils.RoleSuperAdmin {
+				return query
+			}
+			return query.Where("role <> ?", utils.RoleSuperAdmin)
+		},
 		Search:         repositorygeneric.BuildSearchFunc("name", "email", "phone"),
 		AllowedFilters: []string{"id", "name", "email", "phone", "role", "role_id", "created_at", "updated_at"},
 		AllowedOrderColumns: []string{

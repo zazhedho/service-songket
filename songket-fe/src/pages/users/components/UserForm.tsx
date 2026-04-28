@@ -1,5 +1,6 @@
 import { EyeIcon, EyeOffIcon, PasswordRulesGuide, roleLabel } from './userHelpers'
 import SearchableSelect from '../../../components/common/SearchableSelect'
+import { normalizeEmailInput } from '../../../utils/email'
 import { sanitizeDigits } from '../../../utils/input'
 
 type UserFormProps = {
@@ -78,7 +79,7 @@ export default function UserForm({
               </div>
               <div data-field="email">
                 <label>Email</label>
-                <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="user@example.com" required />
+                <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', normalizeEmailInput(e.target.value))} placeholder="user@example.com" required />
               </div>
               <div data-field="phone">
                 <label>Phone</label>
@@ -101,7 +102,9 @@ export default function UserForm({
             <div className="form-section-head">
               <div>
                 <h3>Security</h3>
-                <div className="form-section-note">Password and confirmation for the user account.</div>
+                <div className="form-section-note">
+                  {isEdit ? 'Leave password blank to keep the current password.' : 'Password and confirmation for the user account.'}
+                </div>
               </div>
             </div>
 
@@ -116,8 +119,9 @@ export default function UserForm({
                     onChange={(e) => set('password', e.target.value)}
                     autoComplete="new-password"
                     minLength={8}
-                    placeholder="Enter password"
-                    required
+                    maxLength={64}
+                    placeholder={isEdit ? 'Leave blank to keep current password' : 'Enter password'}
+                    required={isCreate}
                   />
                   <button
                     className="user-password-toggle"
@@ -142,8 +146,9 @@ export default function UserForm({
                     onChange={(e) => set('confirmPassword', e.target.value)}
                     autoComplete="new-password"
                     minLength={8}
-                    placeholder="Confirm password"
-                    required
+                    maxLength={64}
+                    placeholder={isEdit ? 'Confirm only if changing password' : 'Confirm password'}
+                    required={isCreate}
                   />
                   <button
                     className="user-password-toggle"
@@ -156,7 +161,7 @@ export default function UserForm({
                 </div>
                 {isPasswordConfirmationMismatch && (
                   <div className="user-password-mismatch">
-                    Password and password confirmation do not match.
+                    Passwords do not match.
                   </div>
                 )}
               </div>

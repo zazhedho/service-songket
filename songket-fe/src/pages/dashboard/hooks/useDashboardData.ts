@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import dayjs from 'dayjs'
 import { fetchDashboardSummary, listDashboardNewsItems, listDashboardPrices } from '../../../services/dashboardService'
 import { fetchLookups } from '../../../services/lookupService'
+import { resolveErrorMessage } from '../../../utils/errorMessage'
 import { buildFilterYearOptions } from '../../../utils/yearOptions'
 
 export type DashboardAnalysis = 'yearly' | 'monthly' | 'daily' | 'custom'
@@ -705,7 +706,7 @@ export function useDashboardData() {
       .catch((err: any) => {
         if (controller.signal.aborted || dashboardSummaryRequestIdRef.current !== requestId) return
         setSummary(emptySummary)
-        setError(err?.response?.data?.error || err?.message || 'Failed to load dashboard summary.')
+        setError(resolveErrorMessage(err, 'Failed to load dashboard summary.'))
       })
       .finally(() => {
         if (controller.signal.aborted || dashboardSummaryRequestIdRef.current !== requestId) return

@@ -22,6 +22,7 @@ import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { parseRupiahInput } from '../../utils/currency'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import OrderList from './components/OrderList'
 import { getAttempt, lookupOptionName, resolveOptionCode } from './components/orderHelpers'
@@ -268,7 +269,7 @@ export default function OrdersPage() {
         }
       })
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Failed to download export file'
+      const message = resolveErrorMessage(err, 'Failed to download export file')
       setExportJob((prev) => {
         if (!prev) return prev
         return {
@@ -310,7 +311,7 @@ export default function OrdersPage() {
           }
         })
         .catch((err: any) => {
-          const message = err?.response?.data?.error || err?.message || 'Failed to fetch export status'
+          const message = resolveErrorMessage(err, 'Failed to fetch export status')
           setExportJob((prev) => {
             if (!prev) return prev
             return {
@@ -373,7 +374,7 @@ export default function OrdersPage() {
       })
       pollOrderExportStatus(jobID)
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Failed to create export job'
+      const message = resolveErrorMessage(err, 'Failed to create export job')
       setExportJob({
         id: '',
         status: 'failed',
@@ -599,7 +600,7 @@ export default function OrdersPage() {
       setForm(defaultForm)
       navigate('/orders')
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Failed to save order.'
+      const message = resolveErrorMessage(err, 'Failed to save order.')
       setError(message)
       await showAlert(message)
     } finally {
@@ -631,7 +632,7 @@ export default function OrdersPage() {
         to_date: filters.export_to || undefined,
       })
     } catch (err: any) {
-      const message = err?.response?.data?.error || err?.message || 'Failed to delete order.'
+      const message = resolveErrorMessage(err, 'Failed to delete order.')
       await showAlert(message)
     } finally {
       setLoading(false)

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../../services/authService'
 import { getMyPermissions } from '../../services/permissionService'
 import { useAuth } from '../../store'
+import { normalizeEmailInput } from '../../utils/email'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import { sanitizeDigits } from '../../utils/input'
 
@@ -251,7 +252,7 @@ export default function LoginPage() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(normalizeEmailInput(e.target.value))}
                 required
               />
             </div>

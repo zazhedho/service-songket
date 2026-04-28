@@ -9,6 +9,7 @@ import {
 import { listRoles } from '../../services/roleService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import UserForm from './components/UserForm'
 import UserList from './components/UserList'
@@ -20,6 +21,13 @@ import {
 const emptyForm = { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'dealer' }
 const userRequiredMessage = 'Please complete the required user information before saving.'
 type RoleItem = { id: string; name?: string; display_name?: string }
+
+function resolveArrayResponse(value: any) {
+  if (Array.isArray(value?.data?.data)) return value.data.data
+  if (Array.isArray(value?.data)) return value.data
+  if (Array.isArray(value)) return value
+  return []
+}
 
 function parseMode(pathname: string) {
   if (pathname.endsWith('/create')) return 'create'
@@ -78,7 +86,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     listRoles({ page: 1, limit: 500 })
-      .then((res: any) => setRoleOptions(res.data.data || res.data || []))
+      .then((res: any) => setRoleOptions(resolveArrayResponse(res)))
       .catch(() => setRoleOptions([]))
   }, [])
 
@@ -136,6 +144,7 @@ export default function UsersPage() {
     const role = String(form.role || '').trim()
     const trimmedPassword = String(form.password || '').trim()
     const confirmPassword = String(form.confirmPassword || '')
+    const shouldValidatePassword = isCreate || Boolean(trimmedPassword || confirmPassword)
 
     if (name.length < 3) {
       focusFirstInvalidField('name')
@@ -165,7 +174,7 @@ export default function UsersPage() {
       return
     }
 
-    if (!trimmedPassword) {
+    if (isCreate && !trimmedPassword) {
       const message = 'Password is required.'
       focusFirstInvalidField('password')
       setError(message)
@@ -173,15 +182,17 @@ export default function UsersPage() {
       return
     }
 
-    const passwordRuleError = validatePasswordByBackendRule(trimmedPassword)
-    if (passwordRuleError) {
-      focusFirstInvalidField('password')
-      setError(passwordRuleError)
-      await showAlert(passwordRuleError)
-      return
+    if (shouldValidatePassword) {
+      const passwordRuleError = validatePasswordByBackendRule(trimmedPassword)
+      if (passwordRuleError) {
+        focusFirstInvalidField('password')
+        setError(passwordRuleError)
+        await showAlert(passwordRuleError)
+        return
+      }
     }
 
-    if (!confirmPassword) {
+    if (shouldValidatePassword && !confirmPassword) {
       const message = 'Password confirmation is required.'
       focusFirstInvalidField('confirmPassword')
       setError(message)
@@ -189,8 +200,8 @@ export default function UsersPage() {
       return
     }
 
-    if (trimmedPassword !== confirmPassword) {
-      const message = 'Password and password confirmation do not match.'
+    if (shouldValidatePassword && trimmedPassword !== confirmPassword) {
+      const message = 'Passwords do not match.'
       focusFirstInvalidField('confirmPassword')
       setError(message)
       await showAlert(message)
@@ -205,8 +216,10 @@ export default function UsersPage() {
         name,
         email,
         phone,
-        password: trimmedPassword,
         role,
+      }
+      if (trimmedPassword) {
+        body.password = trimmedPassword
       }
 
       if (editingId) {
@@ -223,7 +236,7 @@ export default function UsersPage() {
       setEditingId(null)
       navigate('/users')
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Failed to save user'
+      const message = resolveErrorMessage(err, 'Failed to save user')
       setError(message)
       await showAlert(message)
     } finally {

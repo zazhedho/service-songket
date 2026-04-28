@@ -12,6 +12,7 @@ import {
 } from '../../services/locationService'
 import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { usePermissions } from '../../hooks/usePermissions'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import FinanceReportDetail from './components/FinanceReportDetail'
 import FinanceReportSummary from './components/FinanceReportSummary'
 import { useFinanceReportSummaryData } from './hooks/useFinanceReportSummaryData'
@@ -245,7 +246,7 @@ export default function FinanceReportPage() {
       .catch((err: any) => {
         if (!mounted) return
         setDetailRow(stateRow && stateRow.order_id === selectedId ? stateRow : null)
-        setError(err?.response?.data?.error || 'Failed to load finance migration detail.')
+        setError(resolveErrorMessage(err, 'Failed to load finance migration detail.'))
       })
       .finally(() => {
         if (mounted) setLoading(false)
@@ -299,7 +300,7 @@ export default function FinanceReportPage() {
         setDetailOrderInRows([])
         setDetailOrderInTotalPages(1)
         setDetailOrderInTotalData(0)
-        setDetailOrderInError(err?.response?.data?.error || 'Failed to load order in detail data.')
+        setDetailOrderInError(resolveErrorMessage(err, 'Failed to load order in detail data.'))
       })
       .finally(() => {
         if (mounted) setDetailOrderInLoading(false)
@@ -363,7 +364,7 @@ export default function FinanceReportPage() {
       .catch((err: any) => {
         if (!mounted) return
         setDetailFinanceSummary(null)
-        setDetailFinanceSummaryError(err?.response?.data?.error || 'Failed to load finance summary.')
+        setDetailFinanceSummaryError(resolveErrorMessage(err, 'Failed to load finance summary.'))
       })
       .finally(() => {
         if (mounted) setDetailFinanceSummaryLoading(false)

@@ -14,6 +14,7 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useToast } from '../../components/common/ToastProvider'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah } from '../../utils/currency'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import ScrapeSourceDetail from './components/ScrapeSourceDetail'
 import ScrapeSourceForm from './components/ScrapeSourceForm'
@@ -159,7 +160,7 @@ export default function ScrapeSourcesPage() {
       showToast(isEdit ? 'Source updated successfully.' : 'Source saved successfully.', { tone: 'success' })
       navigate('/scrape-sources')
     } catch (err: any) {
-      const text = err?.response?.data?.error || 'Failed to save source.'
+      const text = resolveErrorMessage(err, 'Failed to save source.')
       await showAlert(text)
     } finally {
       setLoading(false)
@@ -195,7 +196,7 @@ export default function ScrapeSourcesPage() {
       showToast('Scrape started successfully.', { tone: 'success' })
       await loadPrices()
     } catch (err: any) {
-      showToast(err?.response?.data?.error || 'Scrape failed.', { tone: 'error' })
+      showToast(resolveErrorMessage(err, 'Scrape failed.'), { tone: 'error' })
     } finally {
       setLoading(false)
     }

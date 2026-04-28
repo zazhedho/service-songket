@@ -915,8 +915,8 @@ h4 {
 
   .profile-password-rules {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 4px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 10px;
     padding: 12px;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -924,6 +924,7 @@ h4 {
   }
 
   .profile-password-rules-title {
+    grid-column: 1 / -1;
     margin-bottom: 6px;
     font-size: 12px;
     font-weight: 700;
@@ -939,6 +940,10 @@ h4 {
     font-weight: 600;
     line-height: 1.4;
     padding: 0;
+  }
+
+  .profile-password-rule span:last-child {
+    min-width: 0;
   }
 
   .profile-password-rule-icon {
@@ -3085,6 +3090,10 @@ h4 {
   .form-actions-row .btn,
   .form-actions-row .btn-ghost {
     width: 100%;
+  }
+
+  .profile-password-rules {
+    grid-template-columns: 1fr;
   }
 }
 
