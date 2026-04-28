@@ -20,6 +20,8 @@ import './styles/master-settings.css'
 import './styles/orders.css'
 import './styles/credit.css'
 import './styles/dashboard.css'
+import './styles/roles.css'
+import './styles/users.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

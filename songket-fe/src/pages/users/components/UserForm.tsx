@@ -1,4 +1,4 @@
-import { EyeIcon, EyeOffIcon, PasswordRulesGuide, passwordInputWrapStyle, passwordToggleButtonStyle, roleLabel } from './userHelpers'
+import { EyeIcon, EyeOffIcon, PasswordRulesGuide, roleLabel } from './userHelpers'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import { sanitizeDigits } from '../../../utils/input'
 
@@ -49,20 +49,21 @@ export default function UserForm({
   }))
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit User' : 'Create User'}</div>
-          <div style={{ color: '#64748b' }}>User form separated from the user list page</div>
+    <div className="user-shell">
+      <div className="header user-header">
+        <div className="user-heading">
+          <div className="user-eyebrow">Account Setup</div>
+          <div className="user-title">{isEdit ? 'Edit User' : 'Create User'}</div>
+          <div className="user-subtitle">Set identity, contact details, role, and password access.</div>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/users')}>Back to List</button>
       </div>
-      <div className="page">
+      <div className="page user-page">
         {!canCreate && isCreate && <div className="alert">You do not have permission to create users.</div>}
         {!canUpdate && isEdit && <div className="alert">You do not have permission to update users.</div>}
 
-        <div className="form-layout" style={{ width: '100%' }}>
-          <div className="card form-section">
+        <div className="form-layout user-form-layout">
+          <div className="card form-section user-form-card">
             <div className="form-section-head">
               <div>
                 <h3>Basic Info</h3>
@@ -96,7 +97,7 @@ export default function UserForm({
             </div>
           </div>
 
-          <div className="card form-section">
+          <div className="card form-section user-form-card">
             <div className="form-section-head">
               <div>
                 <h3>Security</h3>
@@ -107,50 +108,50 @@ export default function UserForm({
             <div className="form-section-grid">
               <div>
                 <label>Password</label>
-                <div style={passwordInputWrapStyle}>
+                <div className="user-password-wrap">
                   <input
+                    className="user-password-input"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
                     onChange={(e) => set('password', e.target.value)}
                     autoComplete="new-password"
-                    style={{ paddingRight: 42 }}
                     placeholder="Enter password"
                   />
                   <button
+                    className="user-password-toggle"
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    style={passwordToggleButtonStyle}
                   >
                     {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
-                <div style={{ marginTop: 8 }}>
+                <div className="user-password-guide-wrap">
                   <PasswordRulesGuide password={form.password} />
                 </div>
               </div>
               <div>
                 <label>Password Confirmation</label>
-                <div style={passwordInputWrapStyle}>
+                <div className="user-password-wrap">
                   <input
+                    className="user-password-input"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={form.confirmPassword}
                     onChange={(e) => set('confirmPassword', e.target.value)}
                     autoComplete="new-password"
-                    style={{ paddingRight: 42 }}
                     placeholder="Confirm password"
                   />
                   <button
+                    className="user-password-toggle"
                     type="button"
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
                     aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
-                    style={passwordToggleButtonStyle}
                   >
                     {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
                 {isPasswordConfirmationMismatch && (
-                  <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+                  <div className="user-password-mismatch">
                     Password and password confirmation do not match.
                   </div>
                 )}
@@ -160,7 +161,7 @@ export default function UserForm({
 
           {error && <div className="alert">{error}</div>}
 
-          <div className="card form-section">
+          <div className="card form-section user-form-card">
             <div className="form-actions-row">
               <button className="btn" onClick={() => void save()} disabled={loading}>{loading ? 'Saving...' : 'Save User'}</button>
               <button

@@ -1,5 +1,3 @@
-import { CSSProperties } from 'react'
-
 export function detailValue(value: unknown) {
   if (value == null || value === '') return '-'
   return String(value)
@@ -51,27 +49,6 @@ export function getPasswordRuleChecks(password: string) {
   ]
 }
 
-export const passwordInputWrapStyle: CSSProperties = {
-  position: 'relative',
-}
-
-export const passwordToggleButtonStyle: CSSProperties = {
-  position: 'absolute',
-  right: 8,
-  top: '50%',
-  transform: 'translateY(-50%)',
-  width: 26,
-  height: 26,
-  border: 0,
-  borderRadius: 8,
-  background: 'transparent',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  color: '#374151',
-}
-
 export function formatDateTime(value: unknown) {
   if (!value) return '-'
   const date = new Date(String(value))
@@ -101,19 +78,11 @@ export function PasswordRulesGuide({ password }: { password: string }) {
   if (!password) return null
   const checks = getPasswordRuleChecks(password)
   return (
-    <div
-      style={{
-        border: '1px solid #d7e0ef',
-        borderRadius: 8,
-        background: '#f8fafc',
-        padding: '10px 12px',
-        fontSize: 12,
-        lineHeight: 1.5,
-      }}
-    >
+    <div className="user-password-rules">
       {checks.map((rule) => (
-        <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
-          {rule.valid ? 'PASS' : 'FAIL'} {rule.label}
+        <div key={rule.label} className={`user-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
+          <span className="user-password-rule-icon">{rule.valid ? '✓' : '×'}</span>
+          <span>{rule.label}</span>
         </div>
       ))}
     </div>

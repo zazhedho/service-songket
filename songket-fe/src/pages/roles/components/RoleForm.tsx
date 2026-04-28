@@ -31,21 +31,22 @@ export default function RoleForm({
   set,
 }: RoleFormProps) {
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Role & Permissions' : 'Create Role & Permissions'}</div>
-          <div style={{ color: '#64748b' }}>Role and permissions are managed from a single form.</div>
+    <div className="role-shell">
+      <div className="header role-header">
+        <div className="role-heading">
+          <div className="role-eyebrow">Role Setup</div>
+          <div className="role-title">{isEdit ? 'Edit Role & Permissions' : 'Create Role & Permissions'}</div>
+          <div className="role-subtitle">Role identity and permission access are managed in one place.</div>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/roles')}>Back to List</button>
       </div>
 
-      <div className="page">
-        <div className="card" style={{ width: '100%' }}>
+      <div className="page role-page">
+        <div className="card role-form-card">
           {!canCreate && isCreate && <div className="alert">You do not have permission to create roles.</div>}
           {!canUpdate && isEdit && <div className="alert">You do not have permission to update roles.</div>}
 
-          <div className="grid" style={{ gap: 10 }}>
+          <div className="grid role-form-grid">
             <div>
               <label>Name</label>
               <input
@@ -54,7 +55,7 @@ export default function RoleForm({
                 disabled={isEdit}
                 placeholder={isEdit ? 'Role name cannot be changed' : 'Enter role name'}
               />
-              {isEdit && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Role name cannot be changed after creation.</div>}
+              {isEdit && <div className="role-form-help">Role name cannot be changed after creation.</div>}
             </div>
             <div>
               <label>Display Name</label>
@@ -66,26 +67,22 @@ export default function RoleForm({
             </div>
 
             {canAssignPerms && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+              <div className="role-permission-section">
+                <div className="role-form-help">
                   Permissions will be saved together when you click {isEdit ? 'Update Role' : 'Create Role'}.
                 </div>
-                <div className="card" style={{ background: '#f8fafc' }}>
+                <div className="card role-permission-card">
                   <h4>Assign Permissions</h4>
-                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-                    Select the permissions to assign to this role.
-                  </div>
+                  <div className="role-form-help">Select the permissions to assign to this role.</div>
                   {renderPermissionTable()}
-                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>
-                    {permDraft.length} permissions selected.
-                  </div>
+                  <div className="role-permission-count">{permDraft.length} permissions selected.</div>
                 </div>
               </div>
             )}
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
+            {error && <div className="role-form-error">{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div className="role-form-actions">
               <button className="btn" onClick={() => void saveRole()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update Role' : 'Create Role'}
               </button>

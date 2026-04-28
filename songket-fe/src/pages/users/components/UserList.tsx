@@ -46,33 +46,32 @@ export default function UserList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>User Management</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Manage user accounts and their access roles.
-          </div>
+    <div className="user-shell">
+      <div className="header user-header">
+        <div className="user-heading">
+          <div className="user-eyebrow">Account Access</div>
+          <div className="user-title">User Management</div>
+          <div className="user-subtitle">Manage user accounts and assigned access roles.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="user-actions">
           {canCreate && <button className="btn" onClick={() => navigate('/users/create')}>Create User</button>}
         </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page user-page">
+        <div className="card user-card">
           <div className="user-list-summary">
-            <div className="user-summary-card">
+            <div className="user-summary-card tone-blue">
               <div className="user-summary-label">Total Users</div>
               <div className="user-summary-value">{totalData || users.length}</div>
               <div className="user-summary-note">Current result count for user accounts.</div>
             </div>
-            <div className="user-summary-card">
+            <div className="user-summary-card tone-emerald">
               <div className="user-summary-label">Role Groups</div>
               <div className="user-summary-value">{rolesCount}</div>
               <div className="user-summary-note">Distinct role assignments in this result set.</div>
             </div>
-            <div className="user-summary-card">
+            <div className="user-summary-card tone-amber">
               <div className="user-summary-label">Phone Ready</div>
               <div className="user-summary-value">{usersWithPhone}</div>
               <div className="user-summary-note">Users with phone numbers filled in.</div>
@@ -85,24 +84,28 @@ export default function UserList({
             </div>
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost user-clear-btn"
                 onClick={() => setSearch('')}
                 disabled={!search.trim()}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <h3>User List</h3>
+          <div className="user-section-head">
+            <div>
+              <h3>User List</h3>
+              <span>Click a row to edit the selected account.</span>
+            </div>
+          </div>
           {!canList && <div className="alert">You do not have permission to view data.</div>}
           {canList && (
             <>
               <Table
-                className="user-list-table metric-table responsive-stack"
+                className="user-list-table metric-table"
                 data={users}
                 keyField="id"
                 onRowClick={canUpdate ? (user) => navigate(`/users/${user.id}/edit`, { state: { user } }) : undefined}

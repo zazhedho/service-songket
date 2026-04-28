@@ -41,31 +41,30 @@ export default function RoleList({
   const customCount = roles.filter((role) => !role?.is_system).length
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Roles & Access</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Manage access groups and permission templates for each user type.
-          </div>
+    <div className="role-shell">
+      <div className="header role-header">
+        <div className="role-heading">
+          <div className="role-eyebrow">Access Control</div>
+          <div className="role-title">Roles & Access</div>
+          <div className="role-subtitle">Manage access groups and permission templates for each user type.</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/roles/create')}>Create Role</button>}
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page role-page">
+        <div className="card role-card">
           <div className="role-list-summary">
-            <div className="role-summary-card">
+            <div className="role-summary-card tone-blue">
               <div className="role-summary-label">Total Roles</div>
               <div className="role-summary-value">{totalData || roles.length}</div>
               <div className="role-summary-note">Available access groups in the current workspace.</div>
             </div>
-            <div className="role-summary-card">
+            <div className="role-summary-card tone-amber">
               <div className="role-summary-label">System Roles</div>
               <div className="role-summary-value">{systemCount}</div>
               <div className="role-summary-note">Protected roles managed by the application.</div>
             </div>
-            <div className="role-summary-card">
+            <div className="role-summary-card tone-emerald">
               <div className="role-summary-label">Custom Roles</div>
               <div className="role-summary-value">{customCount}</div>
               <div className="role-summary-note">Editable roles created for your own access setup.</div>
@@ -78,19 +77,23 @@ export default function RoleList({
             </div>
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost role-clear-btn"
                 onClick={() => setSearch('')}
                 disabled={!search.trim()}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <h3>Role List</h3>
+          <div className="role-section-head">
+            <div>
+              <h3>Role List</h3>
+              <span>Click a row to review role details.</span>
+            </div>
+          </div>
           {!canList && <div className="alert">You do not have permission to view roles.</div>}
           {canList && (
             <>

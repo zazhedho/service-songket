@@ -101,14 +101,19 @@ export default function RolesPage() {
     setPage(1)
   }, [search])
 
+  const activeRoleDetail = useMemo(() => {
+    if (!selectedId || String(roleDetail?.id || '') !== selectedId) return null
+    return roleDetail
+  }, [roleDetail, selectedId])
+
   const selectedRole = useMemo(() => {
     if (!selectedId) return null
-    return roles.find((r) => r.id === selectedId) || (stateRole?.id === selectedId ? stateRole : null) || roleDetail
-  }, [roleDetail, roles, selectedId, stateRole])
+    return roles.find((r) => r.id === selectedId) || (stateRole?.id === selectedId ? stateRole : null) || activeRoleDetail
+  }, [activeRoleDetail, roles, selectedId, stateRole])
 
   const isSystemRole = useMemo(() => {
-    return Boolean(roleDetail?.is_system || selectedRole?.is_system)
-  }, [roleDetail?.is_system, selectedRole?.is_system])
+    return Boolean(activeRoleDetail?.is_system || selectedRole?.is_system)
+  }, [activeRoleDetail?.is_system, selectedRole?.is_system])
 
   const sortedPerms = useMemo(
     () => [...perms].sort((a, b) => (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '')),
@@ -125,9 +130,18 @@ export default function RolesPage() {
 
   const permissionLabel = (id: string) => {
     const perm = permById[id]
-    if (!perm) return 'Permission not found'
-    const base = perm.display_name || perm.name || 'Permission'
-    return perm.action ? `${base} (${perm.action})` : base
+    if (!perm) return 'Permission data unavailable'
+    return perm.display_name || perm.name || 'Permission'
+  }
+
+  const permissionMeta = (id: string) => {
+    const perm = permById[id]
+
+    return {
+      action: perm?.action || '',
+      label: perm?.display_name || perm?.name || 'Permission data unavailable',
+      resource: perm?.resource || '',
+    }
   }
 
   const groupedPerms = useMemo(() => {
@@ -149,7 +163,12 @@ export default function RolesPage() {
     }
 
     if (selectedId && (isEdit || isDetail)) {
-      const preview = selectedRole
+      let isActive = true
+      const preview = roles.find((r) => r.id === selectedId) || (stateRole?.id === selectedId ? stateRole : null)
+
+      setRoleDetail(null)
+      setPermDraft([])
+
       if (preview) {
         setForm({
           name: preview.name || '',
@@ -161,6 +180,7 @@ export default function RolesPage() {
       setLoading(true)
       getRoleById(selectedId)
         .then((res) => {
+          if (!isActive) return
           const detail = res.data?.data || res.data || null
           setRoleDetail(detail)
           setPermDraft(sanitizeIdList(detail?.permission_ids || []))
@@ -171,12 +191,19 @@ export default function RolesPage() {
           })
         })
         .catch(() => {
+          if (!isActive) return
           setRoleDetail(null)
           setPermDraft([])
         })
-        .finally(() => setLoading(false))
+        .finally(() => {
+          if (isActive) setLoading(false)
+        })
+
+      return () => {
+        isActive = false
+      }
     }
-  }, [isCreate, isDetail, isEdit, selectedId, selectedRole])
+  }, [isCreate, isDetail, isEdit, roles, selectedId, stateRole])
 
   const togglePermDraft = (id: string) => {
     setPermDraft((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
@@ -260,17 +287,17 @@ export default function RolesPage() {
 
     if (!resources.length) {
       return (
-        <div style={{ color: '#64748b', fontSize: 12 }}>
+        <div className="role-permission-empty">
           No permissions available yet.
         </div>
       )
     }
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+      <div className="role-permission-groups">
         {resources.map((resource) => (
-          <div key={resource} style={{ border: '1px solid #dde4ee', borderRadius: 10, padding: 8, background: '#f8fafc' }}>
-            <div className="perm-resource" style={{ marginBottom: 6 }}>{resource.replace(/_/g, ' ')}</div>
+          <div key={resource} className="role-permission-group">
+            <div className="perm-resource">{resource.replace(/_/g, ' ')}</div>
             <div className="perm-table">
               <div className="perm-row perm-head">
                 <div>Permission</div>
@@ -323,9 +350,11 @@ export default function RolesPage() {
     return (
       <RoleDetail
         canUpdate={canUpdate}
+        loading={loading}
         navigate={navigate}
         permissionLabel={permissionLabel}
-        roleDetail={roleDetail}
+        permissionMeta={permissionMeta}
+        roleDetail={activeRoleDetail}
         selectedId={selectedId}
         selectedRole={selectedRole}
       />
