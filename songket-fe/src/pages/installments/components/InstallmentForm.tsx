@@ -74,17 +74,17 @@ export default function InstallmentForm({
           </div>
 
           <div className="form-section-grid">
-            <div><label>Motor Type</label><input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" /></div>
-            <div><label>Brand</label><input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" /></div>
-            <div><label>Model</label><input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" /></div>
-            <div><label>Variant</label><input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} placeholder="Enter variant" /></div>
+            <div data-field="name"><label>Motor Type</label><input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" required /></div>
+            <div data-field="brand"><label>Brand</label><input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" required /></div>
+            <div data-field="model"><label>Model</label><input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" required /></div>
+            <div data-field="type"><label>Variant</label><input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} placeholder="Enter variant" required /></div>
 
-            <div>
+            <div data-field="otr">
               <label>OTR</label>
               <input type="text" value={formatRupiah(form.otr)} onChange={(e) => setForm((prev: any) => ({ ...prev, otr: parseRupiahInput(e.target.value) }))} inputMode="numeric" maxLength={MAX_CURRENCY_INPUT_LENGTH + 3} placeholder="Enter OTR amount" />
             </div>
 
-            <div>
+            <div data-field="province_code">
               <label>Province</label>
               <SearchableSelect
                 value={form.province_code}
@@ -95,7 +95,7 @@ export default function InstallmentForm({
               />
             </div>
 
-            <div>
+            <div data-field="regency_code">
               <label>Regency/City</label>
               <SearchableSelect
                 value={form.regency_code}
@@ -107,7 +107,7 @@ export default function InstallmentForm({
               />
             </div>
 
-            <div>
+            <div data-field="amount">
               <label>Installment Amount</label>
               <input type="text" value={formatRupiah(form.amount)} onChange={(e) => setForm((prev: any) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))} inputMode="numeric" maxLength={MAX_CURRENCY_INPUT_LENGTH + 3} placeholder="Enter installment amount" />
             </div>

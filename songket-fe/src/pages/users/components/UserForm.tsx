@@ -72,19 +72,19 @@ export default function UserForm({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="name">
                 <label>Name</label>
-                <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter full name" />
+                <input value={form.name} onChange={(e) => set('name', e.target.value)} minLength={3} placeholder="Enter full name" required />
               </div>
-              <div>
+              <div data-field="email">
                 <label>Email</label>
-                <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="user@example.com" />
+                <input type="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="user@example.com" required />
               </div>
-              <div>
+              <div data-field="phone">
                 <label>Phone</label>
-                <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" />
+                <input type="tel" inputMode="numeric" autoComplete="tel" minLength={9} maxLength={15} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" />
               </div>
-              <div>
+              <div data-field="role">
                 <label>Role</label>
                 <SearchableSelect
                   value={form.role}
@@ -106,7 +106,7 @@ export default function UserForm({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="password">
                 <label>Password</label>
                 <div className="user-password-wrap">
                   <input
@@ -115,7 +115,9 @@ export default function UserForm({
                     value={form.password}
                     onChange={(e) => set('password', e.target.value)}
                     autoComplete="new-password"
+                    minLength={8}
                     placeholder="Enter password"
+                    required
                   />
                   <button
                     className="user-password-toggle"
@@ -130,7 +132,7 @@ export default function UserForm({
                   <PasswordRulesGuide password={form.password} />
                 </div>
               </div>
-              <div>
+              <div data-field="confirmPassword">
                 <label>Password Confirmation</label>
                 <div className="user-password-wrap">
                   <input
@@ -139,7 +141,9 @@ export default function UserForm({
                     value={form.confirmPassword}
                     onChange={(e) => set('confirmPassword', e.target.value)}
                     autoComplete="new-password"
+                    minLength={8}
                     placeholder="Confirm password"
+                    required
                   />
                   <button
                     className="user-password-toggle"

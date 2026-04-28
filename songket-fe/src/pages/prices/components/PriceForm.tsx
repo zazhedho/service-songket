@@ -52,15 +52,15 @@ export default function PriceForm({
           </div>
 
           <div className="form-section-grid">
-            <div>
+            <div data-field="name">
               <label>Commodity Name</label>
-              <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Example: Medium Rice" />
+              <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Example: Medium Rice" required />
             </div>
-            <div>
+            <div data-field="unit">
               <label>Unit</label>
-              <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/bundle" />
+              <input value={manual.unit} onChange={(e) => setManual((m) => ({ ...m, unit: e.target.value }))} placeholder="kg/liter/bundle" required />
             </div>
-            <div>
+            <div data-field="price">
               <label>Price (IDR)</label>
               <input
                 inputMode="numeric"
@@ -68,9 +68,10 @@ export default function PriceForm({
                 onChange={(e) => setManual((m) => ({ ...m, price: formatRupiahInput(e.target.value) }))}
                 maxLength={MAX_CURRENCY_INPUT_LENGTH}
                 placeholder="IDR 10,000"
+                required
               />
             </div>
-            <div>
+            <div data-field="source_url">
               <label>Source URL</label>
               <input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
             </div>

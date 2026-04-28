@@ -60,7 +60,7 @@ export default function CompanyForm({
       </div>
 
       <div className="page business-form-page">
-        <form onSubmit={(e) => void submitFinance(e)} className="form-layout business-form-layout">
+        <form onSubmit={(e) => void submitFinance(e)} className="form-layout business-form-layout" noValidate>
           <div className="card form-section business-form-section">
             <div className="form-section-head">
               <div>
@@ -70,7 +70,7 @@ export default function CompanyForm({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="name">
                 <label>Finance Company Name</label>
                 <input
                   value={financeForm.name}
@@ -80,7 +80,7 @@ export default function CompanyForm({
                   required
                 />
               </div>
-              <div>
+              <div data-field="phone">
                 <label>Phone Number</label>
                 <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={financeForm.phone} onChange={(e) => setFinanceForm((prev) => ({ ...prev, phone: sanitizeDigits(e.target.value) }))} placeholder="Enter phone number" required />
               </div>
@@ -96,7 +96,7 @@ export default function CompanyForm({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="province">
                 <label>Province</label>
                 <SearchableSelect
                   id="company-form-province"
@@ -109,7 +109,7 @@ export default function CompanyForm({
                 />
               </div>
 
-              <div>
+              <div data-field="regency">
                 <label>Regency / City</label>
                 <SearchableSelect
                   id="company-form-regency"
@@ -123,7 +123,7 @@ export default function CompanyForm({
                 />
               </div>
 
-              <div>
+              <div data-field="district">
                 <label>District</label>
                 <SearchableSelect
                   id="company-form-district"

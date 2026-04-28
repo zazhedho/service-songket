@@ -4,6 +4,7 @@ import { addCommodityPrice, commitScrapeResults, createScrapeJob, deletePrice, f
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import PriceDetail from './components/PriceDetail'
 import PriceForm from './components/PriceForm'
 import PriceJobDock from './components/PriceJobDock'
@@ -199,18 +200,42 @@ export default function PricesPage() {
 
   const submitManual = async () => {
     if (!canImport) return
-    if (!manual.name) {
+    const commodityName = manual.name.trim()
+    const unit = manual.unit.trim()
+    const sourceUrl = manual.source_url.trim()
+    const numeric = parseRupiahInput(manual.price)
+
+    if (!commodityName) {
+      focusFirstInvalidField('name')
       await showAlert('Commodity name is required.')
       return
     }
+    if (!unit) {
+      focusFirstInvalidField('unit')
+      await showAlert('Unit is required.')
+      return
+    }
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      focusFirstInvalidField('price')
+      await showAlert('Price must be a number greater than 0.')
+      return
+    }
+    if (sourceUrl) {
+      try {
+        new URL(sourceUrl)
+      } catch {
+        focusFirstInvalidField('source_url')
+        await showAlert('Source URL must be a valid URL.')
+        return
+      }
+    }
 
     try {
-      const numeric = parseRupiahInput(manual.price)
       await addCommodityPrice({
-        commodity_name: manual.name,
-        unit: manual.unit,
+        commodity_name: commodityName,
+        unit,
         price: numeric,
-        source_url: manual.source_url,
+        source_url: sourceUrl,
       })
       setManual({ name: '', unit: '', price: '', source_url: '' })
       loadPrices()

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../../services/authService'
 import { getMyPermissions } from '../../services/permissionService'
 import { useAuth } from '../../store'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import { sanitizeDigits } from '../../utils/input'
 
 function validatePasswordByBackendRule(password: string) {
@@ -24,6 +25,10 @@ function getPasswordRuleChecks(password: string) {
     { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
     { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
   ]
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 }
 
 export default function LoginPage() {
@@ -55,35 +60,66 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
 
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+    const trimmedPhone = phone.trim()
+
+    if (isRegister && !trimmedName) {
+      setError('Name is required.')
+      focusFirstInvalidField('name')
+      return
+    }
+
+    if (isRegister && !trimmedPhone) {
+      setError('Phone number is required.')
+      focusFirstInvalidField('phone')
+      return
+    }
+
+    if (!trimmedEmail || !isValidEmail(trimmedEmail)) {
+      setError('A valid email address is required.')
+      focusFirstInvalidField('email')
+      return
+    }
+
+    if (!password) {
+      setError('Password is required.')
+      focusFirstInvalidField('password')
+      return
+    }
+
     try {
+      setLoading(true)
       if (isRegister) {
         const passwordRuleError = validatePasswordByBackendRule(password)
         if (passwordRuleError) {
           setError(passwordRuleError)
+          focusFirstInvalidField('password')
           return
         }
 
         if (!confirmPassword) {
           setError('Password confirmation is required.')
+          focusFirstInvalidField('confirm_password')
           return
         }
 
         if (password !== confirmPassword) {
           setError('Passwords do not match.')
+          focusFirstInvalidField('confirm_password')
           return
         }
 
-        await register({ name, email, phone, password })
+        await register({ name: trimmedName, email: trimmedEmail, phone: trimmedPhone, password })
         setIsRegister(false)
         setPassword('')
         setConfirmPassword('')
         setShowPassword(false)
         setShowConfirmPassword(false)
       } else {
-        const { data } = await login(email, password)
+        const { data } = await login(trimmedEmail, password)
         const token = data?.data?.token || data?.token || data?.data
         setToken(token)
 
@@ -184,37 +220,43 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleSubmit} className="auth-form" noValidate>
             {isRegister && (
               <div className="auth-register-grid">
-                <input className="auth-input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-                <input
-                  className="auth-input"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  maxLength={20}
-                  placeholder="Phone"
-                  value={phone}
-                  onChange={(e) => setPhone(sanitizeDigits(e.target.value))}
-                  required
-                />
+                <div data-field="name">
+                  <input className="auth-input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <div data-field="phone">
+                  <input
+                    className="auth-input"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={20}
+                    placeholder="Phone"
+                    value={phone}
+                    onChange={(e) => setPhone(sanitizeDigits(e.target.value))}
+                    required
+                  />
+                </div>
               </div>
             )}
 
-            <input
-              className="auth-input"
-              placeholder="Email"
-              type="email"
-              autoComplete={isRegister ? 'email' : 'username'}
-              autoCapitalize="none"
-              autoCorrect="off"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <div data-field="email">
+              <input
+                className="auth-input"
+                placeholder="Email"
+                type="email"
+                autoComplete={isRegister ? 'email' : 'username'}
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
 
-            <div className="auth-password-wrap">
+            <div className="auth-password-wrap" data-field="password">
               <input
                 className="auth-password-input"
                 type={showPassword ? 'text' : 'password'}
@@ -237,7 +279,7 @@ export default function LoginPage() {
             {isRegister && <PasswordRulesGuide password={password} />}
 
             {isRegister && (
-              <div className="auth-password-wrap">
+              <div className="auth-password-wrap" data-field="confirm_password">
                 <input
                   className="auth-password-input"
                   type={showConfirmPassword ? 'text' : 'password'}

@@ -72,12 +72,12 @@ export default function JobForm({
           </div>
 
           <div className="form-section-grid">
-            <div>
+            <div data-field="name">
               <label>Job Name</label>
-              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter job name" />
+              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter job name" required />
             </div>
 
-            <div>
+            <div data-field="net_income">
               <label>Net Income</label>
               <input
                 type="text"
@@ -98,7 +98,7 @@ export default function JobForm({
                 <span>{form.selected_areas.length} selected</span>
               </div>
               <div className="job-net-area-picker">
-                <div>
+                <div data-field="province_code">
                   <label>Province</label>
                   <SearchableSelect
                     value={form.province_code}
@@ -109,7 +109,7 @@ export default function JobForm({
                   />
                 </div>
 
-                <div>
+                <div data-field="regency_code">
                   <label>Regency / City</label>
                   <SearchableSelect
                     value={form.regency_code}

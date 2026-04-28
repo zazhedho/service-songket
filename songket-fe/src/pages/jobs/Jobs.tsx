@@ -18,6 +18,7 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import JobDetail from './components/JobDetail'
 import JobForm from './components/JobForm'
 import JobList from './components/JobList'
@@ -369,10 +370,12 @@ export default function JobsPage() {
     const regency = kabupaten.find((item) => item.code === form.regency_code)
 
     if (!province) {
+      focusFirstInvalidField('province_code')
       setError('Province is required')
       return
     }
     if (!regency) {
+      focusFirstInvalidField('regency_code')
       setError('Regency/City is required')
       return
     }
@@ -416,14 +419,17 @@ export default function JobsPage() {
     const areas = normalizeAreaInput(form.selected_areas)
 
     if (!name) {
+      focusFirstInvalidField('name')
       setError('Job name is required')
       return
     }
     if (Number.isNaN(netIncome) || netIncome < 0) {
+      focusFirstInvalidField('net_income')
       setError('Net income must be a number >= 0')
       return
     }
     if (areas.length === 0) {
+      focusFirstInvalidField('province_code')
       setError('At least one area is required')
       return
     }

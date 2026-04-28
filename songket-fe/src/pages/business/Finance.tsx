@@ -16,6 +16,7 @@ import {
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import { reverseGeocodedPlace } from '../../utils/geocoding'
 import FinanceList from './components/FinanceList'
 import {
@@ -577,7 +578,18 @@ export default function FinancePage() {
     const dealerName = dealerForm.name.trim()
 
     if (dealerName.length < 3) {
+      focusFirstInvalidField('name')
       await showAlert('Dealer name must be at least 3 characters long.')
+      return
+    }
+    if (!dealerForm.phone.trim()) {
+      focusFirstInvalidField('phone')
+      await showAlert('Phone number is required.')
+      return
+    }
+    if (!dealerForm.province || !dealerForm.regency || !dealerForm.district) {
+      focusFirstInvalidField(!dealerForm.province ? 'province' : !dealerForm.regency ? 'regency' : 'district')
+      await showAlert('Province, regency / city, and district are required.')
       return
     }
 
@@ -585,6 +597,7 @@ export default function FinancePage() {
     const lng = parseCoordinateValue(dealerForm.lng)
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      focusFirstInvalidField(!Number.isFinite(lat) ? 'lat' : 'lng')
       await showAlert('Latitude/Longitude tidak valid')
       return
     }
@@ -621,7 +634,18 @@ export default function FinancePage() {
     const financeCompanyName = financeForm.name.trim()
 
     if (financeCompanyName.length < 3) {
+      focusFirstInvalidField('name')
       await showAlert('Finance company name must be at least 3 characters long.')
+      return
+    }
+    if (!financeForm.phone.trim()) {
+      focusFirstInvalidField('phone')
+      await showAlert('Phone number is required.')
+      return
+    }
+    if (!financeForm.province || !financeForm.regency || !financeForm.district) {
+      focusFirstInvalidField(!financeForm.province ? 'province' : !financeForm.regency ? 'regency' : 'district')
+      await showAlert('Province, regency / city, and district are required.')
       return
     }
 

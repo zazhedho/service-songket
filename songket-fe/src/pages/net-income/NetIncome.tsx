@@ -12,6 +12,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import NetIncomeDetail from './components/NetIncomeDetail'
 import NetIncomeForm from './components/NetIncomeForm'
 import NetIncomeList from './components/NetIncomeList'
@@ -263,10 +264,12 @@ export default function NetIncomePage() {
     const regency = kabupaten.find((item) => item.code === form.regency_code)
 
     if (!province) {
+      focusFirstInvalidField('province_code')
       setError('Province must be selected.')
       return
     }
     if (!regency) {
+      focusFirstInvalidField('regency_code')
       setError('Regency / city must be selected.')
       return
     }
@@ -309,14 +312,17 @@ export default function NetIncomePage() {
     const areas = normalizeAreaInput(form.selected_areas)
 
     if (!form.job_id) {
+      focusFirstInvalidField('job_id')
       setError('Job must be selected.')
       return
     }
     if (Number.isNaN(netIncome) || netIncome < 0) {
+      focusFirstInvalidField('net_income')
       setError('Net income must be a number greater than or equal to 0.')
       return
     }
     if (areas.length === 0) {
+      focusFirstInvalidField('province_code')
       setError('At least one net income area is required.')
       return
     }

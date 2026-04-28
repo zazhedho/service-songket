@@ -14,6 +14,7 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useToast } from '../../components/common/ToastProvider'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import ScrapeSourceDetail from './components/ScrapeSourceDetail'
 import ScrapeSourceForm from './components/ScrapeSourceForm'
 import ScrapeSourceList from './components/ScrapeSourceList'
@@ -121,10 +122,36 @@ export default function ScrapeSourcesPage() {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
 
+    const nextForm = {
+      ...form,
+      name: String(form.name || '').trim(),
+      url: String(form.url || '').trim(),
+      type: String(form.type || '').trim(),
+      category: String(form.category || '').trim(),
+    }
+
+    if (nextForm.name.length < 3) {
+      focusFirstInvalidField('name')
+      await showAlert('Source name is required and must be at least 3 characters.')
+      return
+    }
+    try {
+      new URL(nextForm.url)
+    } catch {
+      focusFirstInvalidField('url')
+      await showAlert('A valid source URL is required.')
+      return
+    }
+    if (!nextForm.type) {
+      focusFirstInvalidField('type')
+      await showAlert('Source type is required.')
+      return
+    }
+
     setLoading(true)
     try {
-      if (isEdit && selectedId) await updateScrapeSource(selectedId, form)
-      else await createScrapeSource(form)
+      if (isEdit && selectedId) await updateScrapeSource(selectedId, nextForm)
+      else await createScrapeSource(nextForm)
       if (canList) {
         await load().catch(() => undefined)
       }

@@ -22,6 +22,7 @@ import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { parseRupiahInput } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import OrderList from './components/OrderList'
 import { getAttempt, lookupOptionName, resolveOptionCode } from './components/orderHelpers'
 
@@ -518,11 +519,64 @@ export default function OrdersPage() {
     payload.result_status3 = ''
     payload.result_notes3 = ''
 
+    const requiredFields: Array<[string, string]> = [
+      ['pooling_number', 'Pooling Number'],
+      ['pooling_at', 'Pooling Time'],
+      ['finance_company_id', 'Finance Company 1'],
+      ['consumer_name', 'Consumer Name'],
+      ['consumer_phone', 'Phone Number'],
+      ['province', 'Province'],
+      ['regency', 'Regency / City'],
+      ['district', 'District'],
+      ['address', 'Address'],
+      ['job_id', 'Job'],
+      ['motor_type_id', 'Motor Type'],
+      ['result_status', 'Result'],
+    ]
+    const missingField = requiredFields.find(([key]) => !String(payload[key] || '').trim())
+
+    if (missingField) {
+      const message = `${missingField[1]} is required.`
+      focusFirstInvalidField(missingField[0])
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!Number.isFinite(Number(payload.installment)) || Number(payload.installment) < 0) {
+      const message = 'Installment must be a number greater than or equal to 0.'
+      focusFirstInvalidField('installment')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!Number.isFinite(Number(payload.dp_gross)) || Number(payload.dp_gross) < 0) {
+      const message = 'DP Gross must be a number greater than or equal to 0.'
+      focusFirstInvalidField('dp_gross')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!Number.isFinite(Number(payload.dp_paid)) || Number(payload.dp_paid) < 0) {
+      const message = 'DP Paid must be a number greater than or equal to 0.'
+      focusFirstInvalidField('dp_paid')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!Number.isFinite(Number(payload.tenor)) || Number(payload.tenor) < 1 || Number(payload.tenor) > 60) {
+      const message = 'Tenor must be between 1 and 60 months.'
+      focusFirstInvalidField('tenor')
+      setError(message)
+      await showAlert(message)
+      return
+    }
     if (payload.finance_company2_id && !payload.result_status2) {
+      focusFirstInvalidField('result_status2')
       await showAlert('Select a result for Finance Company 2.')
       return
     }
     if (!payload.finance_company2_id && payload.result_status2) {
+      focusFirstInvalidField('finance_company2_id')
       await showAlert('Select Finance Company 2 before filling Finance Result 2.')
       return
     }

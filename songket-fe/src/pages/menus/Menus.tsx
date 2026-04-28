@@ -4,6 +4,7 @@ import { listMenus, updateMenu } from '../../services/menuService'
 import { normalizeIconName } from '../../components/common/AppIcon'
 import { useAlert } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import MenuDetail from './components/MenuDetail'
 import MenuForm from './components/MenuForm'
 import MenuList from './components/MenuList'
@@ -140,6 +141,32 @@ export default function MenusPage() {
   const save = async () => {
     if (!canUpdate) return
 
+    const nextName = String(form.name || '').trim()
+    const nextDisplayName = String(form.display_name || '').trim()
+    const nextPath = String(form.path || '').trim()
+
+    if (nextName.length < 2) {
+      const message = 'Menu name is required and must be at least 2 characters.'
+      focusFirstInvalidField('name')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (nextDisplayName.length < 2) {
+      const message = 'Display Name is required and must be at least 2 characters.'
+      focusFirstInvalidField('display_name')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!nextPath) {
+      const message = 'Path is required.'
+      focusFirstInvalidField('path')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -148,6 +175,9 @@ export default function MenusPage() {
       const icon = normalizeIconName(form.icon, { path: form.path, icon: form.icon })
       const body = {
         ...form,
+        name: nextName,
+        display_name: nextDisplayName,
+        path: nextPath,
         icon,
         order_index: Number(form.order_index),
         parent_id: parentId || null,

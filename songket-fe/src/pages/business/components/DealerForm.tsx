@@ -75,7 +75,7 @@ export default function DealerForm({
       </div>
 
       <div className="page business-form-page">
-        <form onSubmit={(e) => void submitDealer(e)} className="form-layout business-form-layout">
+        <form onSubmit={(e) => void submitDealer(e)} className="form-layout business-form-layout" noValidate>
           <div className="card form-section business-form-section">
             <div className="form-section-head">
               <div>
@@ -85,7 +85,7 @@ export default function DealerForm({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="name">
                 <label>Dealer Name</label>
                 <input
                   value={dealerForm.name}
@@ -95,7 +95,7 @@ export default function DealerForm({
                   required
                 />
               </div>
-              <div>
+              <div data-field="phone">
                 <label>Phone Number</label>
                 <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: sanitizeDigits(e.target.value) }))} placeholder="Enter phone number" required />
               </div>
@@ -111,7 +111,7 @@ export default function DealerForm({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="province">
                 <label>Province</label>
                 <SearchableSelect
                   id="dealer-form-province"
@@ -124,7 +124,7 @@ export default function DealerForm({
                 />
               </div>
 
-              <div>
+              <div data-field="regency">
                 <label>Regency / City</label>
                 <SearchableSelect
                   id="dealer-form-regency"
@@ -138,7 +138,7 @@ export default function DealerForm({
                 />
               </div>
 
-              <div>
+              <div data-field="district">
                 <label>District</label>
                 <SearchableSelect
                   id="dealer-form-district"
@@ -157,7 +157,7 @@ export default function DealerForm({
                 <input value={dealerForm.village} onChange={(e) => setDealerForm((prev) => ({ ...prev, village: e.target.value }))} placeholder="Enter village" />
               </div>
 
-              <div>
+              <div data-field="lat">
                 <label>Latitude</label>
                 <input
                   type="text"
@@ -170,7 +170,7 @@ export default function DealerForm({
                 />
               </div>
 
-              <div>
+              <div data-field="lng">
                 <label>Longitude</label>
                 <input
                   type="text"

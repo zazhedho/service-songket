@@ -16,6 +16,7 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import InstallmentDetail from './components/InstallmentDetail'
 import InstallmentForm from './components/InstallmentForm'
 import InstallmentList from './components/InstallmentList'
@@ -260,18 +261,22 @@ export default function InstallmentsPage() {
     const variantType = form.type.trim()
 
     if (!name || !brand || !model || !variantType) {
+      focusFirstInvalidField(!name ? 'name' : !brand ? 'brand' : !model ? 'model' : 'type')
       setError('Motor type fields are required')
       return
     }
     if (!form.province_code || !form.regency_code) {
+      focusFirstInvalidField(!form.province_code ? 'province_code' : 'regency_code')
       setError('Province and regency are required')
       return
     }
     if (form.otr < 0) {
+      focusFirstInvalidField('otr')
       setError('OTR must be >= 0')
       return
     }
     if (form.amount < 0) {
+      focusFirstInvalidField('amount')
       setError('Installment amount must be >= 0')
       return
     }

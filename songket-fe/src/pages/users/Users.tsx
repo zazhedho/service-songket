@@ -9,6 +9,7 @@ import {
 import { listRoles } from '../../services/roleService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import UserForm from './components/UserForm'
 import UserList from './components/UserList'
 import {
@@ -17,6 +18,7 @@ import {
 } from './components/userHelpers'
 
 const emptyForm = { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'dealer' }
+const userRequiredMessage = 'Please complete the required user information before saving.'
 type RoleItem = { id: string; name?: string; display_name?: string }
 
 function parseMode(pathname: string) {
@@ -128,10 +130,44 @@ export default function UsersPage() {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
 
+    const name = String(form.name || '').trim()
+    const email = String(form.email || '').trim()
+    const phone = String(form.phone || '').trim()
+    const role = String(form.role || '').trim()
     const trimmedPassword = String(form.password || '').trim()
     const confirmPassword = String(form.confirmPassword || '')
+
+    if (name.length < 3) {
+      focusFirstInvalidField('name')
+      setError('Name is required and must be at least 3 characters.')
+      await showAlert('Name is required and must be at least 3 characters.')
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      focusFirstInvalidField('email')
+      setError('A valid email address is required.')
+      await showAlert('A valid email address is required.')
+      return
+    }
+
+    if (phone && (phone.length < 9 || phone.length > 15)) {
+      focusFirstInvalidField('phone')
+      setError('Phone number must be between 9 and 15 digits.')
+      await showAlert('Phone number must be between 9 and 15 digits.')
+      return
+    }
+
+    if (!role) {
+      focusFirstInvalidField('role')
+      setError('Role is required.')
+      await showAlert('Role is required.')
+      return
+    }
+
     if (!trimmedPassword) {
       const message = 'Password is required.'
+      focusFirstInvalidField('password')
       setError(message)
       await showAlert(message)
       return
@@ -139,6 +175,7 @@ export default function UsersPage() {
 
     const passwordRuleError = validatePasswordByBackendRule(trimmedPassword)
     if (passwordRuleError) {
+      focusFirstInvalidField('password')
       setError(passwordRuleError)
       await showAlert(passwordRuleError)
       return
@@ -146,6 +183,7 @@ export default function UsersPage() {
 
     if (!confirmPassword) {
       const message = 'Password confirmation is required.'
+      focusFirstInvalidField('confirmPassword')
       setError(message)
       await showAlert(message)
       return
@@ -153,6 +191,7 @@ export default function UsersPage() {
 
     if (trimmedPassword !== confirmPassword) {
       const message = 'Password and password confirmation do not match.'
+      focusFirstInvalidField('confirmPassword')
       setError(message)
       await showAlert(message)
       return
@@ -163,11 +202,11 @@ export default function UsersPage() {
 
     try {
       const body: any = {
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
+        name,
+        email,
+        phone,
         password: trimmedPassword,
-        role: form.role,
+        role,
       }
 
       if (editingId) {
@@ -206,7 +245,12 @@ export default function UsersPage() {
     await loadUsers()
   }
 
-  const set = (key: keyof typeof emptyForm, value: string) => setForm((prev) => ({ ...prev, [key]: value }))
+  const set = (key: keyof typeof emptyForm, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    if (error === userRequiredMessage || error.includes('required') || error.includes('valid email') || error.includes('Phone number')) {
+      setError('')
+    }
+  }
 
   if (isCreate || isEdit) {
     return (

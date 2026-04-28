@@ -70,7 +70,7 @@ export default function NetIncomeForm({
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
           <div className="grid" style={{ gap: 10 }}>
-            <div>
+            <div data-field="job_id">
               <label>Job</label>
               <SearchableSelect
                 value={form.job_id}
@@ -81,7 +81,7 @@ export default function NetIncomeForm({
               />
             </div>
 
-            <div>
+            <div data-field="net_income">
               <label>Net Income</label>
               <input
                 type="text"
@@ -96,7 +96,7 @@ export default function NetIncomeForm({
             <div style={{ border: '1px solid #dde4ee', borderRadius: 10, padding: 12, background: '#f8fafc' }}>
               <div style={{ fontWeight: 700, marginBottom: 10 }}>Add Net Income Area</div>
               <div className="grid" style={{ gap: 10 }}>
-                <div>
+                <div data-field="province_code">
                   <label>Province</label>
                   <SearchableSelect
                     value={form.province_code}
@@ -107,7 +107,7 @@ export default function NetIncomeForm({
                   />
                 </div>
 
-                <div>
+                <div data-field="regency_code">
                   <label>Regency / City</label>
                   <SearchableSelect
                     value={form.regency_code}

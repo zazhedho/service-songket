@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { changeMyPassword, getMe, updateMe } from '../../services/authService'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import { sanitizeDigits } from '../../utils/input'
 
 const initialProfile = {
@@ -17,6 +18,10 @@ const initialPassword = {
   current_password: '',
   new_password: '',
   confirm_password: '',
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 }
 
 export default function ProfilePage() {
@@ -102,15 +107,31 @@ export default function ProfilePage() {
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault()
-    setSavingProfile(true)
     setProfileMessage('')
     setError('')
 
+    const trimmedName = profile.name.trim()
+    const trimmedEmail = profile.email.trim()
+    const trimmedPhone = profile.phone.trim()
+
+    if (!trimmedName) {
+      setError('Name is required.')
+      focusFirstInvalidField('profile_name')
+      return
+    }
+
+    if (!trimmedEmail || !isValidEmail(trimmedEmail)) {
+      setError('A valid email address is required.')
+      focusFirstInvalidField('profile_email')
+      return
+    }
+
+    setSavingProfile(true)
     try {
       await updateMe({
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
+        name: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone,
       })
       setProfileMessage('Profile updated successfully.')
       await loadProfile()
@@ -126,12 +147,27 @@ export default function ProfilePage() {
     setPasswordMessage('')
     setError('')
 
-    if (!passwordForm.current_password || !passwordForm.new_password) {
-      setError('Current and new password are required.')
+    if (!passwordForm.current_password) {
+      setError('Current password is required.')
+      focusFirstInvalidField('current_password')
       return
     }
+
+    if (!passwordForm.new_password) {
+      setError('New password is required.')
+      focusFirstInvalidField('new_password')
+      return
+    }
+
+    if (!passwordForm.confirm_password) {
+      setError('Password confirmation is required.')
+      focusFirstInvalidField('confirm_password')
+      return
+    }
+
     if (passwordForm.new_password !== passwordForm.confirm_password) {
       setError('Password confirmation does not match.')
+      focusFirstInvalidField('confirm_password')
       return
     }
 
@@ -232,8 +268,8 @@ export default function ProfilePage() {
 
             {loadingProfile && <div style={{ marginTop: 8, color: '#64748b' }}>Loading profile...</div>}
             {!loadingProfile && (
-              <form onSubmit={saveProfile} className="profile-form-grid">
-                <div>
+              <form onSubmit={saveProfile} className="profile-form-grid" noValidate>
+                <div data-field="profile_name">
                   <label>Name</label>
                   <input
                     value={profile.name}
@@ -242,7 +278,7 @@ export default function ProfilePage() {
                     required
                   />
                 </div>
-                <div>
+                <div data-field="profile_email">
                   <label>Email</label>
                   <input
                     type="email"
@@ -255,7 +291,7 @@ export default function ProfilePage() {
                     required
                   />
                 </div>
-                <div>
+                <div data-field="profile_phone">
                   <label>Phone</label>
                   <input
                     type="tel"
@@ -300,8 +336,8 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <form onSubmit={savePassword} className="profile-form-grid" style={{ marginTop: 12 }}>
-              <div>
+            <form onSubmit={savePassword} className="profile-form-grid" style={{ marginTop: 12 }} noValidate>
+              <div data-field="current_password">
                 <label>Current Password</label>
                 <div className="password-input-wrap">
                   <input
@@ -322,7 +358,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
               </div>
-              <div>
+              <div data-field="new_password">
                 <label>New Password</label>
                 <div className="password-input-wrap">
                   <input
@@ -343,7 +379,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
               </div>
-              <div>
+              <div data-field="confirm_password">
                 <label>Confirm New Password</label>
                 <div className="password-input-wrap">
                   <input

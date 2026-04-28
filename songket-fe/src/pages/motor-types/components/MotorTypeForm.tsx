@@ -74,27 +74,27 @@ export default function MotorTypeForm({
           </div>
 
           <div className="form-section-grid">
-            <div>
+            <div data-field="name">
               <label>Motor Type</label>
-              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" />
+              <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" required />
             </div>
 
-            <div>
+            <div data-field="brand">
               <label>Brand</label>
-              <input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" />
+              <input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" required />
             </div>
 
-            <div>
+            <div data-field="model">
               <label>Model</label>
-              <input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" />
+              <input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" required />
             </div>
 
-            <div>
+            <div data-field="type">
               <label>Type</label>
-              <input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} placeholder="Enter variant type" />
+              <input value={form.type} onChange={(e) => setForm((prev: any) => ({ ...prev, type: e.target.value }))} placeholder="Enter variant type" required />
             </div>
 
-            <div>
+            <div data-field="otr">
               <label>OTR</label>
               <input
                 type="text"
@@ -103,10 +103,11 @@ export default function MotorTypeForm({
                 inputMode="numeric"
                 maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                 placeholder="Enter OTR amount"
+                required
               />
             </div>
 
-            <div>
+            <div data-field="province_code">
               <label>Province</label>
               <SearchableSelect
                 value={form.province_code}
@@ -117,7 +118,7 @@ export default function MotorTypeForm({
               />
             </div>
 
-            <div>
+            <div data-field="regency_code">
               <label>Regency / City</label>
               <SearchableSelect
                 value={form.regency_code}

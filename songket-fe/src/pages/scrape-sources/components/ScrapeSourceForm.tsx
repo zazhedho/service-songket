@@ -59,9 +59,9 @@ export default function ScrapeSourceForm({
           </div>
 
           <div className="form-section-grid">
-            <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter source name" /></div>
-            <div className="form-field-span-full"><label>URL</label><input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={form.url} onChange={(e) => set('url', e.target.value)} placeholder="https://example.com/source" /></div>
-            <div>
+            <div data-field="name"><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} minLength={3} placeholder="Enter source name" required /></div>
+            <div className="form-field-span-full" data-field="url"><label>URL</label><input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={form.url} onChange={(e) => set('url', e.target.value)} placeholder="https://example.com/source" required /></div>
+            <div data-field="type">
               <label>Type</label>
               <SearchableSelect
                 value={form.type}

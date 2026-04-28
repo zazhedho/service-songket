@@ -59,9 +59,9 @@ export default function MenuForm({
           {!canUpdate && <div className="alert">No permission to update menu.</div>}
 
           <div className="grid menu-form-grid">
-            <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter menu name" /></div>
-            <div><label>Display Name</label><input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} placeholder="Enter display name" /></div>
-            <div><label>Path</label><input value={form.path} onChange={(e) => set('path', e.target.value)} placeholder="/example-path" /></div>
+            <div data-field="name"><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} minLength={2} placeholder="Enter menu name" required /></div>
+            <div data-field="display_name"><label>Display Name</label><input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} minLength={2} placeholder="Enter display name" required /></div>
+            <div data-field="path"><label>Path</label><input value={form.path} onChange={(e) => set('path', e.target.value)} placeholder="/example-path" required /></div>
             <div>
               <label>Parent Menu</label>
               <SearchableSelect

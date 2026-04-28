@@ -11,6 +11,7 @@ import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, parseRupiahInput } from '../../utils/currency'
+import { focusFirstInvalidField } from '../../utils/formFocus'
 import MotorTypeDetail from './components/MotorTypeDetail'
 import MotorTypeForm from './components/MotorTypeForm'
 import MotorTypeList from './components/MotorTypeList'
@@ -202,14 +203,44 @@ export default function MotorTypesPage() {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
 
+    const nextForm = {
+      ...form,
+      name: form.name.trim(),
+      brand: form.brand.trim(),
+      model: form.model.trim(),
+      type: form.type.trim(),
+    }
+
+    if (!nextForm.name || !nextForm.brand || !nextForm.model || !nextForm.type) {
+      const message = 'Motor type, brand, model, and type are required.'
+      focusFirstInvalidField(!nextForm.name ? 'name' : !nextForm.brand ? 'brand' : !nextForm.model ? 'model' : 'type')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!nextForm.province_code || !nextForm.regency_code) {
+      const message = 'Province and regency / city are required.'
+      focusFirstInvalidField(!nextForm.province_code ? 'province_code' : 'regency_code')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+    if (!Number.isFinite(Number(nextForm.otr)) || Number(nextForm.otr) < 0) {
+      const message = 'OTR must be a number greater than or equal to 0.'
+      focusFirstInvalidField('otr')
+      setError(message)
+      await showAlert(message)
+      return
+    }
+
     setLoading(true)
     setError('')
 
     try {
       if (isEdit && selectedId) {
-        await updateMotorType(selectedId, form)
+        await updateMotorType(selectedId, nextForm)
       } else {
-        await createMotorType(form)
+        await createMotorType(nextForm)
       }
       if (canList) {
         await load().catch(() => undefined)

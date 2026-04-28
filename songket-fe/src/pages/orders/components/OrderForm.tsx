@@ -110,7 +110,7 @@ export default function OrderFormView({
         {isEdit && !canUpdate && <div className="alert">You do not have permission to update orders.</div>}
         {error && <div className="alert">{error}</div>}
 
-        <form className="form-layout order-form-layout" onSubmit={submit}>
+        <form className="form-layout order-form-layout" onSubmit={submit} noValidate>
           <div className="card form-section order-form-section">
             <div className="form-section-head">
               <div>
@@ -120,7 +120,7 @@ export default function OrderFormView({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="dealer_id">
                 <label>Dealer</label>
                 <SearchableSelect
                   value={form.dealer_id}
@@ -132,12 +132,12 @@ export default function OrderFormView({
                 />
               </div>
 
-              <div>
+              <div data-field="pooling_number">
                 <label>Pooling Number</label>
                 <input value={form.pooling_number} onChange={(e) => set('pooling_number', e.target.value)} placeholder="Enter pooling number" required />
               </div>
 
-              <div>
+              <div data-field="pooling_at">
                 <label>Pooling Time</label>
                 <input
                   type="datetime-local"
@@ -158,7 +158,7 @@ export default function OrderFormView({
                 />
               </div>
 
-              <div>
+              <div data-field="finance_company_id">
                 <label>Finance Company 1</label>
                 <SearchableSelect
                   value={form.finance_company_id}
@@ -180,17 +180,17 @@ export default function OrderFormView({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="consumer_name">
                 <label>Consumer Name</label>
                 <input value={form.consumer_name} onChange={(e) => set('consumer_name', e.target.value)} placeholder="Enter consumer name" required />
               </div>
 
-              <div>
+              <div data-field="consumer_phone">
                 <label>Phone Number</label>
-                <input type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} value={form.consumer_phone} onChange={(e) => set('consumer_phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" required />
+                <input type="tel" inputMode="numeric" autoComplete="tel" minLength={9} maxLength={15} value={form.consumer_phone} onChange={(e) => set('consumer_phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" required />
               </div>
 
-              <div>
+              <div data-field="province">
                 <label>Province</label>
                 <SearchableSelect
                   value={form.province}
@@ -201,7 +201,7 @@ export default function OrderFormView({
                 />
               </div>
 
-              <div>
+              <div data-field="regency">
                 <label>Regency / City</label>
                 <SearchableSelect
                   value={form.regency}
@@ -213,7 +213,7 @@ export default function OrderFormView({
                 />
               </div>
 
-              <div>
+              <div data-field="district">
                 <label>District</label>
                 <SearchableSelect
                   value={form.district}
@@ -230,9 +230,9 @@ export default function OrderFormView({
                 <input value={form.village} onChange={(e) => set('village', e.target.value)} placeholder="Enter village" />
               </div>
 
-              <div className="form-field-span-full">
+              <div className="form-field-span-full" data-field="address">
                 <label>Address</label>
-                <input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Enter address" />
+                <input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Enter address" required />
               </div>
             </div>
           </div>
@@ -246,7 +246,7 @@ export default function OrderFormView({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="job_id">
                 <label>Job</label>
                 <SearchableSelect
                   value={form.job_id}
@@ -257,7 +257,7 @@ export default function OrderFormView({
                 />
               </div>
 
-              <div>
+              <div data-field="motor_type_id">
                 <label>Motor Type</label>
                 <SearchableSelect
                   value={form.motor_type_id}
@@ -273,7 +273,7 @@ export default function OrderFormView({
                 <input value={selectedMotor?.otr ? formatRupiah(selectedMotor.otr) : ''} readOnly placeholder="Filled automatically from motor type" />
               </div>
 
-              <div>
+              <div data-field="dp_gross">
                 <label>DP Gross</label>
                 <input
                   type="text"
@@ -282,10 +282,11 @@ export default function OrderFormView({
                   inputMode="numeric"
                   maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                   placeholder="Enter DP gross"
+                  required
                 />
               </div>
 
-              <div>
+              <div data-field="dp_paid">
                 <label>DP Paid</label>
                 <input
                   type="text"
@@ -294,6 +295,7 @@ export default function OrderFormView({
                   inputMode="numeric"
                   maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                   placeholder="Enter DP paid"
+                  required
                 />
               </div>
 
@@ -303,7 +305,7 @@ export default function OrderFormView({
                 <div className="order-form-help">Calculated automatically from DP Paid and OTR.</div>
               </div>
 
-              <div>
+              <div data-field="tenor">
                 <label>Tenor</label>
                 <input
                   type="text"
@@ -312,10 +314,11 @@ export default function OrderFormView({
                   onChange={(e) => set('tenor', Math.min(60, Number(sanitizeDigits(e.target.value) || '0')))}
                   maxLength={2}
                   placeholder="Enter tenor in months"
+                  required
                 />
               </div>
 
-              <div>
+              <div data-field="installment">
                 <label>Installment</label>
                 <input
                   type="text"
@@ -324,6 +327,7 @@ export default function OrderFormView({
                   inputMode="numeric"
                   maxLength={MAX_CURRENCY_INPUT_LENGTH + 3}
                   placeholder="Enter installment amount"
+                  required
                 />
               </div>
             </div>
@@ -338,7 +342,7 @@ export default function OrderFormView({
             </div>
 
             <div className="form-section-grid">
-              <div>
+              <div data-field="result_status">
                 <label>Result</label>
                 <SearchableSelect
                   value={form.result_status}
@@ -367,7 +371,7 @@ export default function OrderFormView({
                     <div className="order-form-help">Attempt 2 appears when attempt 1 result is reject.</div>
                   </div>
 
-                  <div>
+                  <div data-field="finance_company2_id">
                     <label>Finance Company 2</label>
                     <SearchableSelect
                       value={form.finance_company2_id}
@@ -378,7 +382,7 @@ export default function OrderFormView({
                     />
                   </div>
 
-                  <div>
+                  <div data-field="result_status2">
                     <label>Finance 2 Result</label>
                     <SearchableSelect
                       value={form.result_status2}
