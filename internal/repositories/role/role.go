@@ -1,9 +1,10 @@
 package repositoryrole
 
 import (
-	"fmt"
+	"context"
 	domainrole "service-songket/internal/domain/role"
 	interfacerole "service-songket/internal/interfaces/role"
+	repositorygeneric "service-songket/internal/repositories/generic"
 	"service-songket/pkg/filter"
 	"service-songket/utils"
 
@@ -11,94 +12,33 @@ import (
 )
 
 type repo struct {
-	DB *gorm.DB
+	*repositorygeneric.GenericRepository[domainrole.Role]
 }
 
 func NewRoleRepo(db *gorm.DB) interfacerole.RepoRoleInterface {
-	return &repo{DB: db}
+	return &repo{GenericRepository: repositorygeneric.New[domainrole.Role](db)}
 }
 
-func (r *repo) Store(m domainrole.Role) error {
-	return r.DB.Create(&m).Error
+func (r *repo) GetByName(ctx context.Context, name string) (ret domainrole.Role, err error) {
+	return r.GetOneByField(ctx, "name", name)
 }
 
-func (r *repo) GetByID(id string) (ret domainrole.Role, err error) {
-	if err = r.DB.Where("id = ?", id).First(&ret).Error; err != nil {
-		return domainrole.Role{}, err
-	}
-	return ret, nil
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) (ret []domainrole.Role, totalData int64, err error) {
+	return r.GenericRepository.GetAll(ctx, params, repositorygeneric.QueryOptions{
+		Search:         repositorygeneric.BuildSearchFunc("name", "display_name", "description"),
+		AllowedFilters: []string{"id", "name", "display_name", "is_system", "created_at", "updated_at"},
+		AllowedOrderColumns: []string{
+			"name",
+			"display_name",
+			"is_system",
+			"created_at",
+			"updated_at",
+		},
+	})
 }
 
-func (r *repo) GetByName(name string) (ret domainrole.Role, err error) {
-	if err = r.DB.Where("name = ?", name).First(&ret).Error; err != nil {
-		return domainrole.Role{}, err
-	}
-	return ret, nil
-}
-
-func (r *repo) GetAll(params filter.BaseParams) (ret []domainrole.Role, totalData int64, err error) {
-	query := r.DB.Model(&domainrole.Role{}).Debug()
-
-	if params.Search != "" {
-		searchPattern := "%" + params.Search + "%"
-		query = query.Where("LOWER(name) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?)", searchPattern, searchPattern, searchPattern)
-	}
-
-	for key, value := range params.Filters {
-		if value == nil {
-			continue
-		}
-
-		switch v := value.(type) {
-		case string:
-			if v == "" {
-				continue
-			}
-			query = query.Where(fmt.Sprintf("%s = ?", key), v)
-		case []string, []int:
-			query = query.Where(fmt.Sprintf("%s IN ?", key), v)
-		default:
-			query = query.Where(fmt.Sprintf("%s = ?", key), v)
-		}
-	}
-
-	if err := query.Count(&totalData).Error; err != nil {
-		return nil, 0, err
-	}
-
-	if params.OrderBy != "" && params.OrderDirection != "" {
-		validColumns := map[string]bool{
-			"name":         true,
-			"display_name": true,
-			"is_system":    true,
-			"created_at":   true,
-			"updated_at":   true,
-		}
-
-		if _, ok := validColumns[params.OrderBy]; !ok {
-			return nil, 0, fmt.Errorf("invalid orderBy column: %s", params.OrderBy)
-		}
-
-		query = query.Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection))
-	}
-
-	if err := query.Offset(params.Offset).Limit(params.Limit).Find(&ret).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return ret, totalData, nil
-}
-
-func (r *repo) Update(m domainrole.Role) error {
-	return r.DB.Save(&m).Error
-}
-
-func (r *repo) Delete(id string) error {
-	return r.DB.Where("id = ?", id).Delete(&domainrole.Role{}).Error
-}
-
-func (r *repo) AssignPermissions(roleId string, permissionIds []string) error {
-	tx := r.DB.Begin()
+func (r *repo) AssignPermissions(ctx context.Context, roleId string, permissionIds []string) error {
+	tx := r.DB.WithContext(ctx).Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -125,13 +65,13 @@ func (r *repo) AssignPermissions(roleId string, permissionIds []string) error {
 	return tx.Commit().Error
 }
 
-func (r *repo) RemovePermissions(roleId string, permissionIds []string) error {
-	return r.DB.Where("role_id = ? AND permission_id IN ?", roleId, permissionIds).Delete(&domainrole.RolePermission{}).Error
+func (r *repo) RemovePermissions(ctx context.Context, roleId string, permissionIds []string) error {
+	return r.DB.WithContext(ctx).Where("role_id = ? AND permission_id IN ?", roleId, permissionIds).Delete(&domainrole.RolePermission{}).Error
 }
 
-func (r *repo) GetRolePermissions(roleId string) ([]string, error) {
+func (r *repo) GetRolePermissions(ctx context.Context, roleId string) ([]string, error) {
 	var rolePermissions []domainrole.RolePermission
-	if err := r.DB.Where("role_id = ?", roleId).Find(&rolePermissions).Error; err != nil {
+	if err := r.DB.WithContext(ctx).Where("role_id = ?", roleId).Find(&rolePermissions).Error; err != nil {
 		return nil, err
 	}
 
@@ -141,50 +81,4 @@ func (r *repo) GetRolePermissions(roleId string) ([]string, error) {
 	}
 
 	return permissionIds, nil
-}
-
-func (r *repo) AssignMenus(roleId string, menuIds []string) error {
-	tx := r.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	if err := tx.Where("role_id = ?", roleId).Delete(&domainrole.RoleMenu{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	for _, menuId := range menuIds {
-		roleMenu := domainrole.RoleMenu{
-			Id:         utils.CreateUUID(),
-			RoleId:     roleId,
-			MenuItemId: menuId,
-		}
-		if err := tx.Create(&roleMenu).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-
-	return tx.Commit().Error
-}
-
-func (r *repo) RemoveMenus(roleId string, menuIds []string) error {
-	return r.DB.Where("role_id = ? AND menu_item_id IN ?", roleId, menuIds).Delete(&domainrole.RoleMenu{}).Error
-}
-
-func (r *repo) GetRoleMenus(roleId string) ([]string, error) {
-	var roleMenus []domainrole.RoleMenu
-	if err := r.DB.Where("role_id = ?", roleId).Find(&roleMenus).Error; err != nil {
-		return nil, err
-	}
-
-	menuIds := make([]string, len(roleMenus))
-	for i, rm := range roleMenus {
-		menuIds[i] = rm.MenuItemId
-	}
-
-	return menuIds, nil
 }

@@ -13,9 +13,6 @@ const (
 const (
 	RoleSuperAdmin = "superadmin"
 	RoleAdmin      = "admin"
-	RoleStaff      = "staff"
-	RoleMember     = "member"
-	RoleViewer     = "viewer"
-	RoleMainDealer = "main_dealer"
+	RoleMainDealer = "maindealer"
 	RoleDealer     = "dealer"
 )

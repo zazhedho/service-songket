@@ -1,0 +1,97 @@
+package repositorymotor
+
+import (
+	"context"
+	"strings"
+
+	domaininstallment "service-songket/internal/domain/installment"
+	domainmotor "service-songket/internal/domain/motor"
+	domainorder "service-songket/internal/domain/order"
+	interfacemotor "service-songket/internal/interfaces/motor"
+	repositorygeneric "service-songket/internal/repositories/generic"
+	"service-songket/pkg/filter"
+
+	"gorm.io/gorm"
+)
+
+type repo struct {
+	*repositorygeneric.GenericRepository[domainmotor.MotorType]
+}
+
+func NewMotorRepo(db *gorm.DB) interfacemotor.RepoMotorInterface {
+	return &repo{GenericRepository: repositorygeneric.New[domainmotor.MotorType](db)}
+}
+
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainmotor.MotorType, int64, error) {
+	return r.GenericRepository.GetAll(ctx, params, repositorygeneric.QueryOptions{
+		Search: repositorygeneric.BuildSearchFunc(
+			"name",
+			"brand",
+			"model",
+			"variant_type",
+			"province_name",
+			"regency_name",
+		),
+		AllowedFilters: []string{"province_code", "regency_code"},
+		AllowedOrderColumns: []string{
+			"id",
+			"name",
+			"brand",
+			"model",
+			"variant_type",
+			"otr",
+			"province_code",
+			"province_name",
+			"regency_code",
+			"regency_name",
+			"created_at",
+			"updated_at",
+		},
+		DefaultOrders: []string{"created_at desc"},
+	})
+}
+
+func (r *repo) GetByUniqueKey(ctx context.Context, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error) {
+	var ret domainmotor.MotorType
+	err := r.DB.WithContext(ctx).
+		Where(
+			"LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?",
+			strings.TrimSpace(name),
+			strings.TrimSpace(brand),
+			strings.TrimSpace(model),
+			strings.TrimSpace(variantType),
+			strings.TrimSpace(provinceCode),
+			strings.TrimSpace(regencyCode),
+		).
+		First(&ret).Error
+	return ret, err
+}
+
+func (r *repo) GetDuplicateForUpdate(ctx context.Context, id, name, brand, model, variantType, provinceCode, regencyCode string) (domainmotor.MotorType, error) {
+	var ret domainmotor.MotorType
+	err := r.DB.WithContext(ctx).
+		Where(
+			"id <> ? AND LOWER(name) = LOWER(?) AND LOWER(brand) = LOWER(?) AND LOWER(model) = LOWER(?) AND LOWER(variant_type) = LOWER(?) AND province_code = ? AND regency_code = ?",
+			id,
+			strings.TrimSpace(name),
+			strings.TrimSpace(brand),
+			strings.TrimSpace(model),
+			strings.TrimSpace(variantType),
+			strings.TrimSpace(provinceCode),
+			strings.TrimSpace(regencyCode),
+		).
+		First(&ret).Error
+	return ret, err
+}
+
+func (r *repo) CountOrdersByMotorType(ctx context.Context, id string) (int64, error) {
+	var count int64
+	err := r.DB.WithContext(ctx).Model(&domainorder.Order{}).Where("motor_type_id = ?", id).Count(&count).Error
+	return count, err
+}
+
+func (r *repo) CountInstallmentsByMotorType(ctx context.Context, id string) (int64, error) {
+	var count int64
+	err := r.DB.WithContext(ctx).Model(&domaininstallment.Installment{}).Where("motor_type_id = ?", id).Count(&count).Error
+	return count, err
+}

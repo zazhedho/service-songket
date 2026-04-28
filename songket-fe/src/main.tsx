@@ -2,17 +2,34 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
-import { ConfirmProvider } from './components/ConfirmDialog'
-import './styles.css'
-import { startUiTranslationObserver } from './utils/uiText'
-
-startUiTranslationObserver()
+import { ConfirmProvider } from './components/common/ConfirmDialog'
+import { ToastProvider } from './components/common/ToastProvider'
+import './styles/app.css'
+import './styles/auth.css'
+import './styles/filters.css'
+import './styles/quadrants.css'
+import './styles/business.css'
+import './styles/jobs.css'
+import './styles/scrape-sources.css'
+import './styles/motor-installments.css'
+import './styles/prices.css'
+import './styles/tables.css'
+import './styles/news.css'
+import './styles/menus.css'
+import './styles/master-settings.css'
+import './styles/orders.css'
+import './styles/credit.css'
+import './styles/dashboard.css'
+import './styles/roles.css'
+import './styles/users.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <ConfirmProvider>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </ConfirmProvider>
     </BrowserRouter>
   </React.StrictMode>

@@ -1,0 +1,7 @@
+DROP INDEX IF EXISTS idx_orders_created_by_pooling_active;
+DROP INDEX IF EXISTS idx_orders_dealer_status_pooling_active;
+DROP INDEX IF EXISTS idx_orders_pooling_dealer_created_active;
+DROP INDEX IF EXISTS idx_order_finance_attempts_order_attempt_latest;
+DROP INDEX IF EXISTS idx_order_finance_attempts_attempt_finance_order;
+DROP INDEX IF EXISTS idx_order_finance_attempts_attempt_status_order;
+DROP INDEX IF EXISTS idx_installments_motor_type_latest_active;

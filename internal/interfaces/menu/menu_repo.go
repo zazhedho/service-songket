@@ -1,18 +1,15 @@
 package interfacemenu
 
 import (
+	"context"
 	domainmenu "service-songket/internal/domain/menu"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type RepoMenuInterface interface {
-	Store(m domainmenu.MenuItem) error
-	GetByID(id string) (domainmenu.MenuItem, error)
-	GetByName(name string) (domainmenu.MenuItem, error)
-	GetAll(params filter.BaseParams) ([]domainmenu.MenuItem, int64, error)
-	Update(m domainmenu.MenuItem) error
-	Delete(id string) error
+	interfacegeneric.GenericRepository[domainmenu.MenuItem]
 
-	GetActiveMenus() ([]domainmenu.MenuItem, error)
-	GetUserMenus(userId string) ([]domainmenu.MenuItem, error)
+	GetByName(ctx context.Context, name string) (domainmenu.MenuItem, error)
+	GetActiveMenus(ctx context.Context) ([]domainmenu.MenuItem, error)
+	GetUserMenus(ctx context.Context, userId string) ([]domainmenu.MenuItem, error)
 }

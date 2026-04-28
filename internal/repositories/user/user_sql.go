@@ -1,9 +1,10 @@
 package repositoryuser
 
 import (
-	"fmt"
+	"context"
 	domainuser "service-songket/internal/domain/user"
 	interfaceuser "service-songket/internal/interfaces/user"
+	repositorygeneric "service-songket/internal/repositories/generic"
 	"service-songket/pkg/filter"
 	"strings"
 
@@ -11,22 +12,18 @@ import (
 )
 
 type repo struct {
-	DB *gorm.DB
+	*repositorygeneric.GenericRepository[domainuser.Users]
 }
 
 func NewUserRepo(db *gorm.DB) interfaceuser.RepoUserInterface {
-	return &repo{DB: db}
+	return &repo{GenericRepository: repositorygeneric.New[domainuser.Users](db)}
 }
 
-func (r *repo) Store(m domainuser.Users) error {
-	return r.DB.Create(&m).Error
-}
-
-func (r *repo) GetByEmail(email string) (domainuser.Users, error) {
+func (r *repo) GetByEmail(ctx context.Context, email string) (domainuser.Users, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	var ret domainuser.Users
-	if err := r.DB.
+	if err := r.DB.WithContext(ctx).
 		Where("LOWER(email) = ?", email).
 		First(&ret).Error; err != nil {
 		return domainuser.Users{}, err
@@ -34,79 +31,23 @@ func (r *repo) GetByEmail(email string) (domainuser.Users, error) {
 	return ret, nil
 }
 
-func (r *repo) GetByPhone(phone string) (ret domainuser.Users, err error) {
-	if err = r.DB.Where("phone = ?", phone).First(&ret).Error; err != nil {
-		return domainuser.Users{}, err
-	}
-
-	return ret, nil
+func (r *repo) GetByPhone(ctx context.Context, phone string) (ret domainuser.Users, err error) {
+	return r.GetOneByField(ctx, "phone", phone)
 }
 
-func (r *repo) GetByID(id string) (ret domainuser.Users, err error) {
-	if err = r.DB.Where("id = ?", id).First(&ret).Error; err != nil {
-		return domainuser.Users{}, err
-	}
-	return ret, nil
-}
-
-func (r *repo) GetAll(params filter.BaseParams) (ret []domainuser.Users, totalData int64, err error) {
-	query := r.DB.Model(&domainuser.Users{}).Debug()
-
-	if params.Search != "" {
-		searchPattern := "%" + params.Search + "%"
-		query = query.Where("LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?) OR LOWER(phone) LIKE LOWER(?)", searchPattern, searchPattern, searchPattern)
-	}
-
-	for key, value := range params.Filters {
-		if value == nil {
-			continue
-		}
-
-		switch v := value.(type) {
-		case string:
-			if v == "" {
-				continue
-			}
-			query = query.Where(fmt.Sprintf("%s = ?", key), v)
-		case []string, []int:
-			query = query.Where(fmt.Sprintf("%s IN ?", key), v)
-		default:
-			query = query.Where(fmt.Sprintf("%s = ?", key), v)
-		}
-	}
-
-	if err := query.Count(&totalData).Error; err != nil {
-		return nil, 0, err
-	}
-
-	if params.OrderBy != "" && params.OrderDirection != "" {
-		validColumns := map[string]bool{
-			"name":       true,
-			"email":      true,
-			"phone":      true,
-			"role":       true,
-			"created_at": true,
-			"updated_at": true,
-		}
-
-		if _, ok := validColumns[params.OrderBy]; !ok {
-			return nil, 0, fmt.Errorf("invalid orderBy column: %s", params.OrderBy)
-		}
-
-		query = query.Order(fmt.Sprintf("%s %s", params.OrderBy, params.OrderDirection))
-	}
-
-	if err := query.Offset(params.Offset).Limit(params.Limit).Find(&ret).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return ret, totalData, nil
-}
-
-func (r *repo) Update(m domainuser.Users) error {
-	return r.DB.Save(&m).Error
-}
-
-func (r *repo) Delete(id string) error {
-	return r.DB.Where("id = ?", id).Delete(&domainuser.Users{}).Error
+func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) (ret []domainuser.Users, totalData int64, err error) {
+	return r.GenericRepository.GetAll(ctx, params, repositorygeneric.QueryOptions{
+		Search:         repositorygeneric.BuildSearchFunc("name", "email", "phone"),
+		AllowedFilters: []string{"id", "name", "email", "phone", "role", "role_id", "created_at", "updated_at"},
+		AllowedOrderColumns: []string{
+			"name",
+			"email",
+			"phone",
+			"role",
+			"last_login_at",
+			"login_provider",
+			"created_at",
+			"updated_at",
+		},
+	})
 }

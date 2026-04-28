@@ -1,0 +1,374 @@
+.motor-type-col-type {
+  width: 22%;
+}
+
+.motor-type-col-brand {
+  width: 21%;
+}
+
+.motor-type-col-otr {
+  width: 15%;
+}
+
+.motor-type-col-area {
+  width: 20%;
+}
+
+.motor-type-col-updated {
+  width: 14%;
+}
+
+.motor-type-col-action {
+  width: 8%;
+}
+
+.motor-type-list-table .action-cell,
+.motor-type-list-table th.motor-type-col-action {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.motor-type-list-table .action-cell {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.motor-installment-shell {
+  overflow-x: hidden;
+}
+
+.motor-installment-page {
+  display: grid;
+  gap: 14px;
+}
+
+.motor-installment-header {
+  position: relative;
+  overflow: hidden;
+  align-items: flex-start;
+  border-color: #d7e3f4;
+  background:
+    radial-gradient(circle at 7% 18%, rgba(37, 99, 235, 0.13), transparent 31%),
+    radial-gradient(circle at 96% 0%, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(135deg, #ffffff 0%, #f4f8ff 48%, #f0f9ff 100%);
+}
+
+.motor-installment-heading {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.motor-installment-eyebrow {
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.motor-installment-title {
+  color: #0f172a;
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+}
+
+.motor-installment-subtitle {
+  max-width: 720px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.motor-installment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.motor-installment-card,
+.motor-installment-form-card,
+.motor-installment-detail-card {
+  overflow: hidden;
+  border-color: #dbe7f3;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.06), transparent 30%),
+    #ffffff;
+}
+
+.motor-installment-summary-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0%, var(--motor-installment-summary-glow, rgba(37, 99, 235, 0.1)), transparent 38%),
+    linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.motor-installment-summary-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--motor-installment-summary-accent, #2563eb);
+}
+
+.motor-installment-summary-card.tone-blue {
+  --motor-installment-summary-accent: #2563eb;
+  --motor-installment-summary-glow: rgba(37, 99, 235, 0.13);
+}
+
+.motor-installment-summary-card.tone-emerald {
+  --motor-installment-summary-accent: #16a34a;
+  --motor-installment-summary-glow: rgba(22, 163, 74, 0.13);
+}
+
+.motor-installment-summary-card.tone-amber {
+  --motor-installment-summary-accent: #d97706;
+  --motor-installment-summary-glow: rgba(217, 119, 6, 0.13);
+}
+
+.motor-installment-filter-toolbar {
+  margin-bottom: 0;
+}
+
+.motor-installment-clear-btn {
+  min-width: 44px;
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.motor-installment-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.motor-installment-section-head h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.motor-installment-section-head span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.motor-installment-form-card {
+  width: 100%;
+}
+
+.motor-installment-form-error {
+  grid-column: 1 / -1;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.motor-installment-form-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.motor-installment-detail-card {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
+.motor-installment-detail-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.13), transparent 30%),
+    linear-gradient(135deg, #eff6ff, #ffffff);
+}
+
+.motor-installment-detail-kicker {
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.motor-installment-detail-name {
+  margin-top: 5px;
+  color: #0f172a;
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.motor-installment-detail-note {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.motor-installment-detail-price {
+  display: grid;
+  gap: 4px;
+  min-width: min(260px, 100%);
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.motor-installment-detail-price span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.motor-installment-detail-price strong {
+  color: #1d4ed8;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.motor-installment-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.motor-installment-detail-item {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.motor-installment-detail-label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.motor-installment-detail-value {
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.motor-type-list-table td.motor-type-col-updated,
+.motor-type-list-table th.motor-type-col-updated,
+.installment-list-table td.installment-col-updated,
+.installment-list-table th.installment-col-updated {
+  max-width: none;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.installment-col-type {
+  width: 20%;
+}
+
+.installment-col-brand {
+  width: 18%;
+}
+
+.installment-col-otr {
+  width: 14%;
+}
+
+.installment-col-area {
+  width: 16%;
+}
+
+.installment-col-amount {
+  width: 16%;
+}
+
+.installment-col-updated {
+  width: 10%;
+}
+
+.installment-col-action {
+  width: 6%;
+}
+
+.installment-list-table .action-cell,
+.installment-list-table th.installment-col-action {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.installment-list-table .action-cell {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+@media (max-width: 1023px) {
+  .motor-installment-title {
+    font-size: 22px;
+  }
+
+  .motor-installment-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .motor-installment-actions .btn,
+  .motor-installment-actions .btn-ghost {
+    flex: 1 1 160px;
+  }
+
+  .motor-installment-section-head {
+    align-items: stretch;
+  }
+
+  .motor-installment-section-head span {
+    width: fit-content;
+  }
+
+  .motor-installment-form-actions {
+    justify-content: stretch;
+  }
+
+  .motor-installment-form-actions .btn,
+  .motor-installment-form-actions .btn-ghost {
+    flex: 1 1 160px;
+  }
+
+  .motor-installment-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

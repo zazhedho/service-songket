@@ -1,0 +1,534 @@
+.metric-table {
+  table-layout: fixed;
+}
+
+.common-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.common-table-scroll > .table {
+  min-width: 720px;
+}
+
+.common-table-scroll > .finance-company-table,
+.common-table-scroll > .finance-dealer-table,
+.common-table-scroll > .installment-list-table,
+.common-table-scroll > .motor-type-list-table {
+  min-width: 880px;
+}
+
+.common-table-scroll > .installment-list-table {
+  min-width: 960px;
+}
+
+.common-table-scroll > .table.responsive-stack {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.metric-table th,
+.metric-table td {
+  vertical-align: middle;
+}
+
+.table:not(.responsive-stack) th[class*="col-action"],
+.table:not(.responsive-stack) td.action-cell {
+  width: 76px !important;
+  min-width: 76px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.table:not(.responsive-stack) td.action-cell {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.table.table-list:not(.responsive-stack) td:has(+ td.action-cell),
+.metric-table:not(.responsive-stack) td:has(+ td.action-cell) {
+  padding-right: 14px;
+}
+
+.table-stack-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.table-stack-primary {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-stack-secondary {
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-stack-tertiary {
+  min-width: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-metric-cell {
+  text-align: center;
+}
+
+.table-metric-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.table-metric-pill.total {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.table-metric-pill.approved {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.table-metric-pill.rejected {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.table-metric-pill.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.table-role-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 72px;
+  padding: 5px 9px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-date-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.table-date-primary {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-date-secondary {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.table-rate-cell {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.table-rate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.table-rate-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.table-rate-fill {
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #22c55e);
+}
+
+.table-lead-value {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.table-empty-panel {
+  padding: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.polished-detail-table {
+  table-layout: fixed;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.polished-detail-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.polished-detail-table td {
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.detail-value-strong {
+  color: #0f172a;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.table-url-link {
+  min-width: 0;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.table-url-link:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+.table-url-link.table-stack-tertiary {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.table-url-wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.table-code-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.table-preview-text {
+  display: -webkit-box;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dashboard-latest-prices-table th:nth-child(1),
+.dashboard-latest-prices-table td:nth-child(1) {
+  width: 42%;
+}
+
+.dashboard-latest-prices-table th:nth-child(2),
+.dashboard-latest-prices-table td:nth-child(2) {
+  width: 28%;
+}
+
+.dashboard-latest-prices-table th:nth-child(3),
+.dashboard-latest-prices-table td:nth-child(3) {
+  width: 30%;
+}
+
+.price-list-table .table-metric-pill,
+.dashboard-latest-prices-table .table-metric-pill {
+  max-width: 100%;
+}
+
+.scrape-source-list-table th.scrape-source-col-type,
+.scrape-source-list-table td.scrape-source-col-type,
+.scrape-source-list-table th.scrape-source-col-status,
+.scrape-source-list-table td.scrape-source-col-status {
+  text-align: center;
+}
+
+.scrape-source-list-table td.scrape-source-col-type .table-metric-cell {
+  width: 100%;
+}
+
+.motor-type-list-table th.motor-type-col-otr,
+.motor-type-list-table td.motor-type-col-otr,
+.installment-list-table th.installment-col-otr,
+.installment-list-table td.installment-col-otr,
+.installment-list-table th.installment-col-amount,
+.installment-list-table td.installment-col-amount {
+  text-align: center;
+}
+
+.motor-type-list-table th.motor-type-col-updated,
+.motor-type-list-table td.motor-type-col-updated,
+.installment-list-table th.installment-col-updated,
+.installment-list-table td.installment-col-updated {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.motor-type-list-table td.motor-type-col-otr .table-metric-cell,
+.installment-list-table td.installment-col-otr .table-metric-cell,
+.installment-list-table td.installment-col-amount .table-metric-cell {
+  width: 100%;
+}
+
+.user-list-table {
+  table-layout: fixed;
+}
+
+.common-table-scroll > .user-list-table {
+  min-width: 0;
+}
+
+.user-identity-cell {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.user-identity-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.user-list-col-number {
+  width: 60px;
+}
+
+.user-list-col-user {
+  width: 24%;
+}
+
+.user-list-col-phone {
+  width: 17%;
+}
+
+.user-list-col-email {
+  width: 31%;
+}
+
+.user-list-col-role {
+  width: 16%;
+}
+
+.user-list-col-action {
+  width: 76px !important;
+  min-width: 76px;
+}
+
+.user-list-table .action-cell,
+.user-list-table th.user-list-col-action {
+  width: 76px !important;
+  min-width: 76px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.user-list-table td.action-cell {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.finance-performance-mini-table th,
+.finance-performance-mini-table td {
+  text-align: center;
+}
+
+.finance-performance-mini-table th:nth-child(4),
+.finance-performance-mini-table td:nth-child(4) {
+  text-align: left;
+}
+
+@media (max-width: 767px) {
+  .polished-detail-table {
+    border-radius: 12px;
+  }
+
+  .common-table-scroll:has(> .table.responsive-stack) {
+    overflow-x: visible;
+  }
+
+  .table.responsive-stack,
+  .table.responsive-stack.table-list,
+  .common-table-scroll > .table.responsive-stack.table-list {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .table.responsive-stack tbody td,
+  .table.responsive-stack tbody th {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box;
+    text-align: left !important;
+  }
+
+  .table.responsive-stack tbody td > * {
+    min-width: 0;
+  }
+
+  .table.responsive-stack .table-stack-primary,
+  .table.responsive-stack .table-stack-secondary,
+  .table.responsive-stack .table-stack-tertiary {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .table.responsive-stack .table-metric-cell {
+    justify-self: start;
+    text-align: left !important;
+  }
+
+  .table.responsive-stack .table-metric-pill,
+  .table.responsive-stack .table-role-pill,
+  .table.responsive-stack .table-code-pill,
+  .table.responsive-stack .table-url-link {
+    max-width: 100%;
+  }
+
+  .table.responsive-stack.user-list-table tbody td,
+  .table.responsive-stack.user-list-table tbody td.user-list-col-number,
+  .table.responsive-stack.user-list-table tbody td.user-list-col-user,
+  .table.responsive-stack.user-list-table tbody td.user-list-col-phone,
+  .table.responsive-stack.user-list-table tbody td.user-list-col-email,
+  .table.responsive-stack.user-list-table tbody td.user-list-col-role,
+  .table.responsive-stack.user-list-table tbody td.action-cell {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .table.responsive-stack.user-list-table tbody td.action-cell {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .table.responsive-stack.user-list-table .user-identity-cell {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .table.responsive-stack.user-list-table .user-identity-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+
+  .table.responsive-stack.user-list-table .table-url-link,
+  .table.responsive-stack.user-list-table .table-role-pill {
+    max-width: 100%;
+  }
+}

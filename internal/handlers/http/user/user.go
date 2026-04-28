@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"service-songket/infrastructure/database"
+	"service-songket/internal/authscope"
 	"service-songket/internal/dto"
 	interfaceuser "service-songket/internal/interfaces/user"
 	sessionRepo "service-songket/internal/repositories/session"
@@ -53,7 +54,8 @@ func (h *HandlerUser) Register(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.RegisterUser(req)
+	reqCtx := ctx.Request.Context()
+	data, err := h.Service.RegisterUser(reqCtx, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.RegisterUser; Error: %+v", logPrefix, err))
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -89,16 +91,7 @@ func (h *HandlerUser) AdminCreateUser(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	// Get creator's role from auth data
-	authData := utils.GetAuthData(ctx)
-	if authData == nil {
-		res := response.Response(http.StatusUnauthorized, "Unauthorized", logId, nil)
-		ctx.JSON(http.StatusUnauthorized, res)
-		return
-	}
-	creatorRole := authData["role"].(string)
-
-	data, err := h.Service.AdminCreateUser(req, creatorRole)
+	data, err := h.Service.AdminCreateUser(ctx.Request.Context(), req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AdminCreateUser; Error: %+v", logPrefix, err))
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "already exists") {
@@ -146,7 +139,8 @@ func (h *HandlerUser) Login(ctx *gin.Context) {
 		}
 	}
 
-	token, err := h.Service.LoginUser(req, logId.String())
+	reqCtx := ctx.Request.Context()
+	token, err := h.Service.LoginUser(reqCtx, req, logId.String())
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.LoginUser; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) || err.Error() == messages.ErrHashPassword {
@@ -182,7 +176,7 @@ func (h *HandlerUser) Login(ctx *gin.Context) {
 
 	// Create session if Redis is available
 	if redisClient := database.GetRedisClient(); redisClient != nil {
-		user, errUser := h.Service.GetUserByEmail(req.Email)
+		user, errUser := h.Service.GetUserByEmail(reqCtx, req.Email)
 		if errUser == nil {
 			sRepo := sessionRepo.NewSessionRepository(redisClient)
 			sSvc := sessionSvc.NewSessionService(sRepo)
@@ -242,7 +236,7 @@ func (h *HandlerUser) Logout(ctx *gin.Context) {
 		}
 	}
 
-	if err := h.Service.LogoutUser(token.(string)); err != nil {
+	if err := h.Service.LogoutUser(ctx.Request.Context(), token.(string)); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.LogoutUser; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -264,7 +258,7 @@ func (h *HandlerUser) GetUserById(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.GetUserById(id)
+	data, err := h.Service.GetUserById(ctx.Request.Context(), id)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetUserByID; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -291,7 +285,7 @@ func (h *HandlerUser) GetUserByAuth(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][GetUserByAuth]"
 
-	data, err := h.Service.GetUserByAuth(userId)
+	data, err := h.Service.GetUserByAuth(ctx.Request.Context(), userId)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetUserByAuth; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -316,13 +310,10 @@ func (h *HandlerUser) GetAllUsers(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][GetAllUsers]"
 
-	authData := utils.GetAuthData(ctx)
-	currentUserRole := utils.InterfaceString(authData["role"])
-
 	params, _ := filter.GetBaseParams(ctx, "updated_at", "desc", 10)
 	params.Filters = filter.WhitelistFilter(params.Filters, []string{"role"})
 
-	users, totalData, err := h.Service.GetAllUsers(params, currentUserRole)
+	users, totalData, err := h.Service.GetAllUsers(ctx.Request.Context(), params)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; GetAllUsers; ERROR: %+v;", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
@@ -338,11 +329,9 @@ func (h *HandlerUser) GetAllUsers(ctx *gin.Context) {
 
 func (h *HandlerUser) Update(ctx *gin.Context) {
 	var req dto.UserUpdate
-	authData := utils.GetAuthData(ctx)
-	userId := utils.InterfaceString(authData["user_id"])
-	role := utils.InterfaceString(authData["role"])
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][Update]"
+	scope := authscope.FromContext(ctx.Request.Context())
 
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
@@ -353,7 +342,10 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.Update(userId, role, req)
+	// Self-profile update must not change role.
+	req.Role = ""
+
+	data, err := h.Service.Update(ctx.Request.Context(), scope.UserID, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -376,8 +368,6 @@ func (h *HandlerUser) Update(ctx *gin.Context) {
 
 func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 	var req dto.UserUpdate
-	authData := utils.GetAuthData(ctx)
-	role := utils.InterfaceString(authData["role"])
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[UserHandler][UpdateUserById]"
 
@@ -396,14 +386,7 @@ func (h *HandlerUser) UpdateUserById(ctx *gin.Context) {
 	}
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	if strings.TrimSpace(req.Password) == "" {
-		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
-		res.Error = response.Errors{Code: http.StatusBadRequest, Message: "password is required"}
-		ctx.JSON(http.StatusBadRequest, res)
-		return
-	}
-
-	data, err := h.Service.Update(id, role, req)
+	data, err := h.Service.Update(ctx.Request.Context(), id, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -440,7 +423,7 @@ func (h *HandlerUser) ChangePassword(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.ChangePassword(userId, req)
+	data, err := h.Service.ChangePassword(ctx.Request.Context(), userId, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.ChangePassword; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -481,7 +464,7 @@ func (h *HandlerUser) ForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	token, err := h.Service.ForgotPassword(req)
+	token, err := h.Service.ForgotPassword(ctx.Request.Context(), req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.ForgotPassword; ERROR: %s;", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
@@ -509,7 +492,7 @@ func (h *HandlerUser) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.ResetPassword(req); err != nil {
+	if err := h.Service.ResetPassword(ctx.Request.Context(), req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.ResetPassword; ERROR: %s;", logPrefix, err))
 		res := response.Response(http.StatusBadRequest, messages.MsgFail, logId, nil)
 		res.Error = err.Error()
@@ -527,7 +510,7 @@ func (h *HandlerUser) Delete(ctx *gin.Context) {
 	authData := utils.GetAuthData(ctx)
 	userId := utils.InterfaceString(authData["user_id"])
 
-	if err := h.Service.Delete(userId); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), userId); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logId, nil)
@@ -556,7 +539,7 @@ func (h *HandlerUser) DeleteUserById(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.Delete(id); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; ERROR: %s;", logPrefix, err))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			res := response.Response(http.StatusNotFound, messages.MsgNotFound, logId, nil)

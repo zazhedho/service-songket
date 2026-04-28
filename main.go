@@ -3,15 +3,20 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"service-songket/infrastructure/database"
+	repositorycommodity "service-songket/internal/repositories/commodity"
+	repositorymastersetting "service-songket/internal/repositories/mastersetting"
+	repositorynews "service-songket/internal/repositories/news"
 	"service-songket/internal/router"
-	"service-songket/internal/songket"
+	"service-songket/internal/scheduler"
+	servicecommodity "service-songket/internal/services/commodity"
+	servicemastersetting "service-songket/internal/services/mastersetting"
+	servicenews "service-songket/internal/services/news"
 	"service-songket/pkg/config"
 	"service-songket/pkg/logger"
 	"service-songket/utils"
@@ -32,8 +37,9 @@ func FailOnError(err error, msg string) {
 
 func main() {
 	var (
-		err   error
-		sqlDb *sql.DB
+		err        error
+		sqlDb      *sql.DB
+		runMigrate bool
 	)
 	if timeZone, err := time.LoadLocation("Asia/Jakarta"); err != nil {
 		logger.WriteLog(logger.LogLevelError, "time.LoadLocation - Error: "+err.Error())
@@ -63,21 +69,27 @@ func main() {
 	var port, appName string
 	flag.StringVar(&port, "port", os.Getenv("PORT"), "port of the service")
 	flag.StringVar(&appName, "appname", os.Getenv("APP_NAME"), "service name")
+	flag.BoolVar(&runMigrate, "migrate", utils.GetEnv("RUN_MIGRATION", true).(bool), "run database migration before starting server")
 	flag.Parse()
 	logger.WriteLog(logger.LogLevelInfo, "APP: "+appName+"; PORT: "+port)
 
 	confID := config.GetAppConf("CONFIG_ID", "", nil)
 	logger.WriteLog(logger.LogLevelDebug, fmt.Sprintf("ConfigID: %s", confID))
 
-	// Jalankan migrasi otomatis saat service start
-	//runMigration()
+	if runMigrate {
+		runMigration()
+	}
 
 	// Initialize Redis for session management (optional)
 	redisClient, err := database.InitRedis()
 	if err != nil {
 		logger.WriteLog(logger.LogLevelDebug, "Redis not available, session management will be disabled")
 	} else {
-		defer database.CloseRedis()
+		defer func() {
+			if closeErr := database.CloseRedis(); closeErr != nil {
+				logger.WriteLog(logger.LogLevelError, "Failed to close redis connection: "+closeErr.Error())
+			}
+		}()
 		logger.WriteLog(logger.LogLevelInfo, "Redis initialized, session management enabled")
 	}
 
@@ -87,22 +99,33 @@ func main() {
 	FailOnError(err, "Failed to open db")
 	defer sqlDb.Close()
 
-	//if err := database.AutoMigrate(routes.DB); err != nil {
-	//	FailOnError(err, "Failed to automigrate")
-	//}
+	masterSettingService := servicemastersetting.NewMasterSettingService(repositorymastersetting.NewMasterSettingRepo(routes.DB))
+	newsService := servicenews.NewNewsService(repositorynews.NewNewsRepo(routes.DB))
+	commodityService := servicecommodity.NewCommodityService(repositorycommodity.NewCommodityRepo(routes.DB))
 
-	songketService := songket.NewService(routes.DB)
-	newsCronScheduler := songket.NewNewsScrapeCronScheduler(songketService)
+	newsCronScheduler := scheduler.NewNewsScrapeCronScheduler(masterSettingService, newsService)
 	newsCronScheduler.Start(context.Background())
-	priceCronScheduler := songket.NewPriceScrapeCronScheduler(songketService)
+	priceCronScheduler := scheduler.NewPriceScrapeCronScheduler(masterSettingService, commodityService)
 	priceCronScheduler.Start(context.Background())
 
 	routes.UserRoutes()
 	routes.RoleRoutes()
 	routes.PermissionRoutes()
 	routes.MenuRoutes()
-	routes.MasterRoutes()
-	routes.SongketRoutes()
+	routes.LocationRoutes()
+	routes.OrderRoutes()
+	routes.MotorRoutes()
+	routes.InstallmentRoutes()
+	routes.MasterSettingRoutes()
+	routes.FinanceRoutes()
+	routes.JobRoutes()
+	routes.NetIncomeRoutes()
+	routes.CreditRoutes()
+	routes.QuadrantRoutes()
+	routes.NewsRoutes()
+	routes.CommodityRoutes()
+	routes.LookupRoutes()
+	routes.ScrapeSourceRoutes()
 
 	// Register session routes if Redis is available
 	if redisClient != nil {
@@ -133,19 +156,7 @@ func runMigration() {
 	}
 
 	if err := m.Up(); err != nil && err.Error() != "no change" {
-		var derr migrate.ErrDirty
-		if errors.As(err, &derr) {
-			v, _, _ := m.Version()
-			log.Printf("migration dirty at version %d, forcing clean and retrying", v)
-			if err := m.Force(int(v)); err != nil {
-				log.Fatal(err)
-			}
-			if err := m.Up(); err != nil && err.Error() != "no change" {
-				log.Fatal(err)
-			}
-		} else {
-			log.Fatal(err)
-		}
+		log.Fatal(err)
 	}
 	logger.WriteLog(logger.LogLevelInfo, "Migration Success")
 }

@@ -39,7 +39,7 @@ func (h *RoleHandler) Create(ctx *gin.Context) {
 
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.Create(req)
+	data, err := h.Service.Create(ctx.Request.Context(), req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Create; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, err.Error(), logId, nil)
@@ -61,7 +61,7 @@ func (h *RoleHandler) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.Service.GetByIDWithDetails(id)
+	data, err := h.Service.GetByIDWithDetails(ctx.Request.Context(), id)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetByIDWithDetails; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusNotFound, "Role not found", logId, nil)
@@ -79,9 +79,6 @@ func (h *RoleHandler) GetAll(ctx *gin.Context) {
 	logId := utils.GenerateLogId(ctx)
 	logPrefix := "[RoleHandler][GetAll]"
 
-	authData := utils.GetAuthData(ctx)
-	currentUserRole := utils.InterfaceString(authData["role"])
-
 	params, err := filter.GetBaseParams(ctx, "name", "asc", 10)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; GetBaseParams; Error: %+v", logPrefix, err))
@@ -91,7 +88,7 @@ func (h *RoleHandler) GetAll(ctx *gin.Context) {
 		return
 	}
 
-	data, total, err := h.Service.GetAll(params, currentUserRole)
+	data, total, err := h.Service.GetAll(ctx.Request.Context(), params)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.GetAll; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, messages.MsgFail, logId, nil)
@@ -124,7 +121,7 @@ func (h *RoleHandler) Update(ctx *gin.Context) {
 
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	data, err := h.Service.Update(id, req)
+	data, err := h.Service.Update(ctx.Request.Context(), id, req)
 	if err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Update; Error: %+v", logPrefix, err))
 		statusCode := http.StatusInternalServerError
@@ -156,7 +153,7 @@ func (h *RoleHandler) Delete(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.Service.Delete(id); err != nil {
+	if err := h.Service.Delete(ctx.Request.Context(), id); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.Delete; Error: %+v", logPrefix, err))
 		res := response.Response(http.StatusInternalServerError, err.Error(), logId, nil)
 		res.Error = err.Error()
@@ -178,9 +175,6 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 		return
 	}
 
-	authData := utils.GetAuthData(ctx)
-	currentUserRole := utils.InterfaceString(authData["role"])
-
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
 		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
@@ -191,7 +185,7 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
 
-	if err := h.Service.AssignPermissions(id, req, currentUserRole); err != nil {
+	if err := h.Service.AssignPermissions(ctx.Request.Context(), id, req); err != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AssignPermissions; Error: %+v", logPrefix, err))
 		statusCode := http.StatusInternalServerError
 		if strings.HasPrefix(err.Error(), "access denied") {
@@ -205,44 +199,5 @@ func (h *RoleHandler) AssignPermissions(ctx *gin.Context) {
 
 	res := response.Response(http.StatusOK, "Permissions assigned successfully", logId, nil)
 	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Permissions assigned", logPrefix))
-	ctx.JSON(http.StatusOK, res)
-}
-
-func (h *RoleHandler) AssignMenus(ctx *gin.Context) {
-	var req dto.AssignMenus
-	logId := utils.GenerateLogId(ctx)
-	logPrefix := "[RoleHandler][AssignMenus]"
-	id, err := utils.ValidateUUID(ctx, logId)
-	if err != nil {
-		return
-	}
-
-	authData := utils.GetAuthData(ctx)
-	currentUserRole := utils.InterfaceString(authData["role"])
-
-	if err := ctx.BindJSON(&req); err != nil {
-		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; BindJSON ERROR: %s;", logPrefix, err.Error()))
-		res := response.Response(http.StatusBadRequest, messages.InvalidRequest, logId, nil)
-		res.Error = utils.ValidateError(err, reflect.TypeOf(req), "json")
-		ctx.JSON(http.StatusBadRequest, res)
-		return
-	}
-
-	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Request: %+v;", logPrefix, utils.JsonEncode(req)))
-
-	if err := h.Service.AssignMenus(id, req, currentUserRole); err != nil {
-		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("%s; Service.AssignMenus; Error: %+v", logPrefix, err))
-		statusCode := http.StatusInternalServerError
-		if strings.HasPrefix(err.Error(), "access denied") {
-			statusCode = http.StatusForbidden
-		}
-		res := response.Response(statusCode, err.Error(), logId, nil)
-		res.Error = err.Error()
-		ctx.JSON(statusCode, res)
-		return
-	}
-
-	res := response.Response(http.StatusOK, "Menus assigned successfully", logId, nil)
-	logger.WriteLogWithContext(ctx, logger.LogLevelDebug, fmt.Sprintf("%s; Menus assigned", logPrefix))
 	ctx.JSON(http.StatusOK, res)
 }

@@ -1,6 +1,7 @@
 package servicepermission
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	domainpermission "service-songket/internal/domain/permission"
@@ -24,8 +25,8 @@ func NewPermissionService(permissionRepo interfacepermission.RepoPermissionInter
 	}
 }
 
-func (s *PermissionService) Create(req dto.PermissionCreate) (domainpermission.Permission, error) {
-	existing, _ := s.PermissionRepo.GetByName(req.Name)
+func (s *PermissionService) Create(ctx context.Context, req dto.PermissionCreate) (domainpermission.Permission, error) {
+	existing, _ := s.PermissionRepo.GetByName(ctx, req.Name)
 	if existing.Id != "" {
 		return domainpermission.Permission{}, errors.New("permission with this name already exists")
 	}
@@ -40,34 +41,34 @@ func (s *PermissionService) Create(req dto.PermissionCreate) (domainpermission.P
 		CreatedAt:   time.Now(),
 	}
 
-	if err := s.PermissionRepo.Store(data); err != nil {
+	if err := s.PermissionRepo.Store(ctx, data); err != nil {
 		return domainpermission.Permission{}, err
 	}
 
 	return data, nil
 }
 
-func (s *PermissionService) GetByID(id string) (domainpermission.Permission, error) {
-	return s.PermissionRepo.GetByID(id)
+func (s *PermissionService) GetByID(ctx context.Context, id string) (domainpermission.Permission, error) {
+	return s.PermissionRepo.GetByID(ctx, id)
 }
 
-func (s *PermissionService) GetAll(params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
-	return s.PermissionRepo.GetAll(params)
+func (s *PermissionService) GetAll(ctx context.Context, params filter.BaseParams) ([]domainpermission.Permission, int64, error) {
+	return s.PermissionRepo.GetAll(ctx, params)
 }
 
-func (s *PermissionService) GetByResource(resource string) ([]domainpermission.Permission, error) {
-	return s.PermissionRepo.GetByResource(resource)
+func (s *PermissionService) GetByResource(ctx context.Context, resource string) ([]domainpermission.Permission, error) {
+	return s.PermissionRepo.GetByResource(ctx, resource)
 }
 
-func (s *PermissionService) GetUserPermissions(userId string) ([]domainpermission.Permission, error) {
-	return s.PermissionRepo.GetUserPermissions(userId)
+func (s *PermissionService) GetUserPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
+	return s.PermissionRepo.GetUserPermissions(ctx, userId)
 }
 
-func (s *PermissionService) GetUserDirectPermissions(userId string) ([]domainpermission.Permission, error) {
-	return s.PermissionRepo.GetUserDirectPermissions(userId)
+func (s *PermissionService) GetUserDirectPermissions(ctx context.Context, userId string) ([]domainpermission.Permission, error) {
+	return s.PermissionRepo.GetUserDirectPermissions(ctx, userId)
 }
 
-func (s *PermissionService) SetUserPermissions(userId string, permissionIDs []string) error {
+func (s *PermissionService) SetUserPermissions(ctx context.Context, userId string, permissionIDs []string) error {
 	trimmedUserID := strings.TrimSpace(userId)
 	if _, err := uuid.Parse(trimmedUserID); err != nil {
 		return errors.New("invalid user ID")
@@ -98,20 +99,20 @@ func (s *PermissionService) SetUserPermissions(userId string, permissionIDs []st
 	}
 
 	for _, permissionID := range normalizedPermissionIDs {
-		if _, err := s.PermissionRepo.GetByID(permissionID); err != nil {
+		if _, err := s.PermissionRepo.GetByID(ctx, permissionID); err != nil {
 			return errors.New("invalid permission ID: " + permissionID)
 		}
 	}
 
-	return s.PermissionRepo.SetUserPermissions(trimmedUserID, normalizedPermissionIDs)
+	return s.PermissionRepo.SetUserPermissions(ctx, trimmedUserID, normalizedPermissionIDs)
 }
 
-func (s *PermissionService) ListUserPermissionIDs(userId string) ([]string, error) {
-	return s.PermissionRepo.ListUserPermissionIDs(userId)
+func (s *PermissionService) ListUserPermissionIDs(ctx context.Context, userId string) ([]string, error) {
+	return s.PermissionRepo.ListUserPermissionIDs(ctx, userId)
 }
 
-func (s *PermissionService) Update(id string, req dto.PermissionUpdate) (domainpermission.Permission, error) {
-	permission, err := s.PermissionRepo.GetByID(id)
+func (s *PermissionService) Update(ctx context.Context, id string, req dto.PermissionUpdate) (domainpermission.Permission, error) {
+	permission, err := s.PermissionRepo.GetByID(ctx, id)
 	if err != nil {
 		return domainpermission.Permission{}, err
 	}
@@ -129,15 +130,15 @@ func (s *PermissionService) Update(id string, req dto.PermissionUpdate) (domainp
 	now := time.Now()
 	permission.UpdatedAt = &now
 
-	if err := s.PermissionRepo.Update(permission); err != nil {
+	if err := s.PermissionRepo.Update(ctx, permission); err != nil {
 		return domainpermission.Permission{}, err
 	}
 
 	return permission, nil
 }
 
-func (s *PermissionService) Delete(id string) error {
-	return s.PermissionRepo.Delete(id)
+func (s *PermissionService) Delete(ctx context.Context, id string) error {
+	return s.PermissionRepo.Delete(ctx, id)
 }
 
 var _ interfacepermission.ServicePermissionInterface = (*PermissionService)(nil)

@@ -29,7 +29,7 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
   /api/user/register:
     post:
-      summary: Register user (role default viewer)
+      summary: Register user (role default dealer)
       requestBody:
         required: true
         content:
@@ -43,7 +43,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-  /api/songket/orders:
+  /api/order:
     post:
       summary: Buat Order In
       security:
@@ -61,6 +61,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+  /api/orders:
     get:
       summary: List/Search Order In
       security:
@@ -97,7 +98,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderListResponse'
-  /api/songket/orders/{id}:
+  /api/order/{id}:
     put:
       summary: Update Order In
       security:
@@ -121,7 +122,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
-  /api/songket/finance/dealers:
+  /api/finance/dealers:
     get:
       summary: Daftar dealer (untuk peta)
       security:
@@ -135,7 +136,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Dealer'
-  /api/songket/finance/dealers/{id}/metrics:
+  /api/finance/dealers/{id}/metrics:
     get:
       summary: Performa finance per dealer
       security:
@@ -167,7 +168,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DealerMetrics'
-  /api/songket/credit:
+  /api/credits:
     get:
       summary: List credit capabilities
       security:
@@ -181,6 +182,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CreditCapability'
+  /api/credit:
     post:
       summary: Upsert credit capability
       security:
@@ -198,7 +200,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CreditCapability'
-  /api/songket/quadrants:
+  /api/quadrants:
     get:
       summary: List quadrants
       security:
@@ -212,7 +214,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Quadrant'
-  /api/songket/quadrants/recompute:
+  /api/quadrant/recompute:
     post:
       summary: Recompute quadrants
       security:
@@ -232,7 +234,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Quadrant'
-  /api/songket/news/sources:
+  /api/news/sources:
     post:
       summary: Upsert portal berita
       security:
@@ -250,7 +252,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NewsSource'
-  /api/songket/news/latest:
+  /api/news/latest:
     get:
       summary: Headline per portal
       security:
@@ -270,7 +272,7 @@ paths:
                 type: object
                 additionalProperties:
                   $ref: '#/components/schemas/NewsItem'
-  /api/songket/commodities:
+  /api/commodity:
     post:
       summary: Upsert komoditas
       security:
@@ -288,7 +290,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Commodity'
-  /api/songket/commodities/price:
+  /api/commodity/price:
     post:
       summary: Tambah harga komoditas manual
       security:
@@ -306,7 +308,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommodityPrice'
-  /api/songket/commodities/prices/latest:
+  /api/commodity/prices/latest:
     get:
       summary: Harga terbaru per komoditas
       security:
@@ -320,7 +322,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CommodityPrice'
-  /api/songket/commodities/prices/scrape:
+  /api/commodity/prices/scrape:
     post:
       summary: Scrape harga pangan dari panel harga
       security:
@@ -344,7 +346,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CommodityPrice'
-  /api/songket/scrape-sources:
+  /api/scrape-sources:
     get:
       summary: List scrape sources
       security:
@@ -352,6 +354,7 @@ paths:
       responses:
         '200':
           description: Sources
+  /api/scrape-source:
     post:
       summary: Create scrape source
       security:
@@ -363,7 +366,7 @@ paths:
             schema: { $ref: '#/components/schemas/ScrapeSource' }
       responses:
         '201': { description: Created }
-  /api/songket/scrape-sources/{id}:
+  /api/scrape-source/{id}:
     put:
       summary: Update scrape source
       security:

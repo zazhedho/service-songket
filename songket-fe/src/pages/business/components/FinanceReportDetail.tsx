@@ -1,0 +1,644 @@
+import { useState, type ReactNode } from 'react'
+import Pagination from '../../../components/common/Pagination'
+import Table from '../../../components/common/Table'
+import { formatRupiah } from '../../../utils/currency'
+import { summarizeLocation } from './financeReportHelpers'
+
+type FinanceReportDetailProps = {
+  applyDetailOrderInFilters: () => void
+  buildDonutSlices: (rows: any[], maxSlices?: number) => any[]
+  detailFinanceSummary: any
+  detailFinanceSummaryError: string
+  detailFinanceSummaryLoading: boolean
+  detailOrderInError: string
+  detailOrderInLimit: number
+  detailOrderInLoading: boolean
+  detailOrderInPage: number
+  detailOrderInRows: any[]
+  detailOrderInSearchInput: string
+  detailOrderInTotalData: number
+  detailOrderInTotalPages: number
+  detailRow: any
+  error: string
+  formatDateTime: (value?: string) => string
+  loading: boolean
+  locationNamesByOrderId: Record<string, any>
+  navigate: (path: string, options?: any) => void
+  resetDetailOrderInFilters: () => void
+  selectedOrderInRow: any
+  setDetailOrderInLimit: React.Dispatch<React.SetStateAction<number>>
+  setDetailOrderInPage: React.Dispatch<React.SetStateAction<number>>
+  setDetailOrderInSearchInput: React.Dispatch<React.SetStateAction<string>>
+  setSelectedOrderInRow: React.Dispatch<React.SetStateAction<any>>
+  statusBadge: (status: string) => React.ReactNode
+  truncateTableText: (value: unknown, max?: number) => string
+}
+
+type FinanceMigrationDonutSlice = {
+  label: string
+  total: number
+  percent: number
+  color: string
+}
+
+function ModalDetailSection({
+  children,
+  title,
+}: {
+  children: ReactNode
+  title: string
+}) {
+  return (
+    <section className="finance-order-modal-section">
+      <div className="finance-order-modal-section-title">{title}</div>
+      {children}
+    </section>
+  )
+}
+
+function ModalDetailField({
+  label,
+  value,
+  wide,
+}: {
+  label: string
+  value: ReactNode
+  wide?: boolean
+}) {
+  return (
+    <div className={`finance-order-modal-field${wide ? ' wide' : ''}`}>
+      <div className="finance-order-modal-label">{label}</div>
+      <div className="finance-order-modal-value">{value || '-'}</div>
+    </div>
+  )
+}
+
+function formatCount(value: unknown) {
+  return Number(value || 0).toLocaleString('id-ID')
+}
+
+function FinanceMigrationDonutCard({
+  centerLabel,
+  emptyMessage,
+  slices,
+  title,
+  total,
+  truncateTableText,
+}: {
+  centerLabel: string
+  emptyMessage: string
+  slices: FinanceMigrationDonutSlice[]
+  title: string
+  total: number
+  truncateTableText: (value: unknown, max?: number) => string
+}) {
+  const [hoveredSliceIdx, setHoveredSliceIdx] = useState<number | null>(null)
+  const [selectedSliceIdx, setSelectedSliceIdx] = useState<number | null>(null)
+  const ringSize = 132
+  const ringStroke = 24
+  const ringRadius = (ringSize - ringStroke) / 2
+  const ringCircumference = 2 * Math.PI * ringRadius
+  const activeSliceIdx = hoveredSliceIdx ?? selectedSliceIdx
+  const activeSlice = activeSliceIdx != null ? slices[activeSliceIdx] : null
+  const hasSingleSlice = slices.length === 1
+
+  let consumed = 0
+  const ringSlices = slices.map((slice) => {
+    const length = (slice.percent / 100) * ringCircumference
+    const item = { ...slice, length, offset: consumed }
+    consumed += length
+    return item
+  })
+
+  return (
+    <div className="finance-migration-donut-card">
+      <div className="finance-migration-donut-title">{title}</div>
+      {slices.length === 0 ? (
+        <div className="finance-migration-donut-empty">{emptyMessage}</div>
+      ) : (
+        <div className="finance-migration-donut-layout">
+          <div className="finance-migration-donut-visual">
+            <div className={`finance-migration-donut-ring${hasSingleSlice ? ' single' : ''}`}>
+              <svg viewBox={`0 0 ${ringSize} ${ringSize}`} width={ringSize} height={ringSize} className="finance-migration-donut-svg">
+                <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke="#e2e8f0" strokeWidth={ringStroke} />
+                {ringSlices.map((slice, idx) => (
+                  <circle
+                    key={`${title}-${slice.label}-${idx}`}
+                    cx={ringSize / 2}
+                    cy={ringSize / 2}
+                    r={ringRadius}
+                    fill="none"
+                    stroke={slice.color}
+                    strokeWidth={ringStroke}
+                    strokeDasharray={`${slice.length} ${ringCircumference}`}
+                    strokeDashoffset={-slice.offset}
+                    transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                    className={activeSliceIdx == null || activeSliceIdx === idx ? 'finance-migration-donut-slice active' : 'finance-migration-donut-slice'}
+                    onMouseEnter={() => setHoveredSliceIdx(idx)}
+                    onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+                    onClick={() => setSelectedSliceIdx((current) => (current === idx ? null : idx))}
+                    onTouchStart={() => setSelectedSliceIdx(idx)}
+                  >
+                    <title>{`${slice.label}: ${formatCount(slice.total)} (${slice.percent.toFixed(1)}%)`}</title>
+                  </circle>
+                ))}
+              </svg>
+              <div className="finance-migration-donut-center">
+                <div className="finance-migration-donut-center-content">
+                  <div className="finance-migration-donut-center-label">{activeSlice ? 'Selected' : centerLabel}</div>
+                  <div className="finance-migration-donut-center-value">{activeSlice ? `${activeSlice.percent.toFixed(1)}%` : formatCount(total)}</div>
+                  <div className="finance-migration-donut-center-note">{activeSlice ? formatCount(activeSlice.total) : 'orders'}</div>
+                </div>
+              </div>
+            </div>
+            {activeSlice && (
+              <div className="finance-migration-donut-active-label" title={activeSlice.label}>
+                {truncateTableText(activeSlice.label, 34)}
+              </div>
+            )}
+          </div>
+          <div className="finance-migration-donut-legend">
+            {slices.map((slice, idx) => (
+              <button
+                key={`${title}-legend-${slice.label}-${idx}`}
+                type="button"
+                className={activeSliceIdx === idx ? 'finance-migration-donut-legend-row active' : 'finance-migration-donut-legend-row'}
+                onMouseEnter={() => setHoveredSliceIdx(idx)}
+                onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+                onClick={() => setSelectedSliceIdx((current) => (current === idx ? null : idx))}
+              >
+                <span className="finance-migration-donut-legend-dot" style={{ background: slice.color }} />
+                <span className="finance-migration-donut-legend-name" title={slice.label}>{truncateTableText(slice.label, 70)}</span>
+                <span className="finance-migration-donut-legend-percent">{slice.percent.toFixed(1)}%</span>
+                <span className="finance-migration-donut-legend-total">{formatCount(slice.total)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function FinanceReportDetail({
+  applyDetailOrderInFilters,
+  buildDonutSlices,
+  detailFinanceSummary,
+  detailFinanceSummaryError,
+  detailFinanceSummaryLoading,
+  detailOrderInError,
+  detailOrderInLimit,
+  detailOrderInLoading,
+  detailOrderInPage,
+  detailOrderInRows,
+  detailOrderInSearchInput,
+  detailOrderInTotalData,
+  detailOrderInTotalPages,
+  detailRow,
+  error,
+  formatDateTime,
+  loading,
+  locationNamesByOrderId,
+  navigate,
+  resetDetailOrderInFilters,
+  selectedOrderInRow,
+  setDetailOrderInLimit,
+  setDetailOrderInPage,
+  setDetailOrderInSearchInput,
+  setSelectedOrderInRow,
+  statusBadge,
+  truncateTableText,
+}: FinanceReportDetailProps) {
+  const item = detailRow
+  const financePairText = item ? `${item.finance_1_name || '-'} -> ${item.finance_2_name || '-'}` : '-'
+  const modalLocationNamed = selectedOrderInRow ? locationNamesByOrderId[selectedOrderInRow.order_id] : null
+  const modalLocationText = selectedOrderInRow
+    ? summarizeLocation([
+        modalLocationNamed?.province,
+        modalLocationNamed?.regency,
+        modalLocationNamed?.district,
+        selectedOrderInRow.village,
+        selectedOrderInRow.address,
+      ])
+    : '-'
+  const modalMotorOtrText = selectedOrderInRow
+    ? `${selectedOrderInRow.motor_type_name || '-'} | ${formatRupiah(Number(selectedOrderInRow.otr || 0))}`
+    : '-'
+  const computedDetailSummary = detailFinanceSummary || {
+    totalOrders: 0,
+    totalDealers: 0,
+    dealerCoveragePercent: 0,
+    approvedCount: 0,
+    rejectedCount: 0,
+    approvalRate: 0,
+    leadAvgSeconds: null,
+    rescueFc2: 0,
+    dealerTotals: [],
+    motorTypeTotals: [],
+  }
+  const dealerDonutSlices = buildDonutSlices(computedDetailSummary?.dealerTotals || [], 6)
+  const motorTypeDonutSlices = buildDonutSlices(computedDetailSummary?.motorTypeTotals || [], 6)
+  const renderDetailOrderCell = (row: any) => (
+    <div className="finance-detail-order-cell">
+      <div className="finance-detail-primary" title={row.pooling_number || '-'}>
+        {row.pooling_number || '-'}
+      </div>
+      <div className="finance-detail-secondary">{formatDateTime(row.pooling_at)}</div>
+    </div>
+  )
+  const renderDetailPersonCell = (row: any) => (
+    <div className="finance-detail-order-cell">
+      <div className="finance-detail-primary" title={row.consumer_name || '-'}>
+        {truncateTableText(row.consumer_name || '-', 38)}
+      </div>
+      <div className="finance-detail-secondary" title={row.dealer_name || '-'}>
+        {truncateTableText(row.dealer_name || '-', 42)}
+      </div>
+    </div>
+  )
+  const renderDetailLocationCell = (row: any) => {
+    const namedLocation = locationNamesByOrderId[row.order_id] || {}
+    const areaLocation = summarizeLocation([
+      namedLocation.district,
+      namedLocation.regency,
+    ])
+    const province = namedLocation.province || '-'
+    const detailLocation = summarizeLocation([
+      row.village,
+      row.address,
+    ])
+    const primaryLocation = areaLocation !== '-' ? areaLocation : detailLocation
+
+    return (
+      <div className="finance-detail-order-cell">
+        <div className="finance-detail-primary" title={primaryLocation}>
+          {truncateTableText(primaryLocation, 46)}
+        </div>
+        {province !== '-' && (
+          <div className="finance-detail-secondary" title={String(province)}>
+            {truncateTableText(province, 42)}
+          </div>
+        )}
+        {areaLocation !== '-' && detailLocation !== '-' && (
+          <div className="finance-detail-tertiary" title={detailLocation}>
+            {truncateTableText(detailLocation, 52)}
+          </div>
+        )}
+      </div>
+    )
+  }
+  const renderDetailMotorCell = (row: any) => (
+    <div className="finance-detail-order-cell">
+      <div className="finance-detail-primary" title={row.motor_type_name || '-'}>
+        {truncateTableText(row.motor_type_name || '-', 42)}
+      </div>
+      <div className="finance-detail-secondary">{formatRupiah(Number(row.otr || 0))}</div>
+    </div>
+  )
+  const renderDetailFinanceCell = (
+    row: any,
+    statusKey: 'finance_1_status' | 'finance_2_status',
+    notesKey: 'finance_1_notes' | 'finance_2_notes',
+  ) => {
+    const notes = String(row[notesKey] || '-')
+
+    return (
+      <div className="finance-detail-decision-cell">
+        <div className="finance-detail-decision-top">
+          {statusBadge(row[statusKey] || '')}
+        </div>
+        <div className="finance-detail-note" title={notes}>
+          {truncateTableText(notes, 58)}
+        </div>
+      </div>
+    )
+  }
+  const renderFinanceDecisionCard = (
+    title: string,
+    company: unknown,
+    status: unknown,
+    decisionAt: unknown,
+    notes: unknown,
+  ) => (
+    <div className="finance-order-modal-decision">
+      <div className="finance-order-modal-decision-head">
+        <div>
+          <div className="finance-order-modal-decision-title">{title}</div>
+          <div className="finance-order-modal-decision-company">{String(company || '-')}</div>
+        </div>
+        {statusBadge(String(status || ''))}
+      </div>
+      <div className="finance-order-modal-decision-meta">
+        <span>Decision</span>
+        <strong>{formatDateTime(String(decisionAt || ''))}</strong>
+      </div>
+      <div className="finance-order-modal-notes">
+        <span>Notes</span>
+        <p>{String(notes || '-')}</p>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="finance-migration-detail-shell">
+      <div className="header finance-migration-detail-header">
+        <div className="finance-migration-detail-heading">
+          <div className="finance-migration-detail-eyebrow">Finance Migration</div>
+          <div className="finance-migration-detail-title">Finance Migration Detail</div>
+          <div className="finance-migration-detail-subtitle">{financePairText}</div>
+        </div>
+        <button className="btn-ghost" onClick={() => navigate('/business')}>
+          Back
+        </button>
+      </div>
+
+      <div className="page finance-migration-detail-page">
+        {error && <div className="alert">{error}</div>}
+        {loading && !item && <div className="card"><div className="muted">Loading detail...</div></div>}
+        {!loading && !item && <div className="card"><div className="alert">Finance migration detail not found.</div></div>}
+
+        {item && (
+          <>
+            <div className="card finance-migration-identity-card">
+              <div className="finance-migration-section-head">
+                <div>
+                  <h3>Finance Detail Identity</h3>
+                  <div className="finance-migration-section-note">Current finance pair and decision status.</div>
+                </div>
+              </div>
+              <div className="finance-migration-identity-grid">
+                <div className="finance-migration-identity-item finance-migration-identity-item-wide">
+                  <div className="finance-migration-identity-label">Finance Pair</div>
+                  <div className="finance-migration-pair-line">
+                    <span title={item.finance_1_name || '-'}>{item.finance_1_name || '-'}</span>
+                    <b>to</b>
+                    <span title={item.finance_2_name || '-'}>{item.finance_2_name || '-'}</span>
+                  </div>
+                </div>
+                <div className="finance-migration-identity-item">
+                  <div className="finance-migration-identity-label">Finance 1 Status</div>
+                  <div className="finance-migration-identity-value">{statusBadge(item.finance_1_status || '')}</div>
+                </div>
+                <div className="finance-migration-identity-item">
+                  <div className="finance-migration-identity-label">Finance 2 Status</div>
+                  <div className="finance-migration-identity-value">{statusBadge(item.finance_2_status || '')}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Order In Data</h3>
+              <div className="compact-filter-toolbar" style={{ marginTop: 10, marginBottom: 12 }}>
+                <div className="compact-filter-item grow-2">
+                  <input
+                    placeholder="Pooling number, dealer, consumer..."
+                    value={detailOrderInSearchInput}
+                    onChange={(e) => setDetailOrderInSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') applyDetailOrderInFilters()
+                    }}
+                    aria-label="Search order in detail"
+                  />
+                </div>
+                <div className="compact-filter-action">
+                  <button className="btn" onClick={applyDetailOrderInFilters}>Apply</button>
+                  <button className="btn-ghost" onClick={resetDetailOrderInFilters}>Reset</button>
+                </div>
+              </div>
+
+              {detailOrderInError && <div className="alert" style={{ marginTop: 10 }}>{detailOrderInError}</div>}
+
+              <div className="finance-report-wide-table">
+                <Table
+                  data={detailOrderInRows}
+                  keyField={(row) => `detail-order-in-${row.order_id}`}
+                  className="table-list finance-report-detail-order-table"
+                  style={{ minWidth: 1200, tableLayout: 'fixed' }}
+                  isLoading={detailOrderInLoading}
+                  loadingMessage="Loading order in data..."
+                  emptyMessage="No order in data found for this migration."
+                  rowAriaLabel={(row) => `Open order in detail for ${row.pooling_number || row.consumer_name || 'selected row'}`}
+                  onRowClick={(row) => setSelectedOrderInRow(row)}
+                  columns={[
+                    { header: 'Order', accessor: (row) => renderDetailOrderCell(row), className: 'wrap-text', headerStyle: { width: 160 }, style: { width: 160 } },
+                    { header: 'Consumer / Dealer', accessor: (row) => renderDetailPersonCell(row), className: 'wrap-text', headerStyle: { width: 190 }, style: { width: 190 } },
+                    {
+                      header: 'Location',
+                      accessor: (row) => renderDetailLocationCell(row),
+                      className: 'wrap-text',
+                      headerStyle: { width: 220 },
+                      style: { width: 220 },
+                    },
+                    { header: 'Motor / OTR', accessor: (row) => renderDetailMotorCell(row), className: 'wrap-text', headerStyle: { width: 180 }, style: { width: 180 } },
+                    {
+                      header: 'Finance 1',
+                      accessor: (row) => renderDetailFinanceCell(row, 'finance_1_status', 'finance_1_notes'),
+                      className: 'wrap-text',
+                      headerStyle: { width: 225 },
+                      style: { width: 225 },
+                    },
+                    {
+                      header: 'Finance 2',
+                      accessor: (row) => renderDetailFinanceCell(row, 'finance_2_status', 'finance_2_notes'),
+                      className: 'wrap-text',
+                      headerStyle: { width: 225 },
+                      style: { width: 225 },
+                    },
+                  ]}
+                />
+              </div>
+              <Pagination
+                page={detailOrderInPage}
+                totalPages={detailOrderInTotalPages}
+                totalData={detailOrderInTotalData}
+                limit={detailOrderInLimit}
+                onPageChange={setDetailOrderInPage}
+                onLimitChange={(next) => {
+                  setDetailOrderInLimit(next)
+                  setDetailOrderInPage(1)
+                }}
+                disabled={detailOrderInLoading}
+              />
+            </div>
+
+            <div className="card finance-migration-result-card">
+              <div className="finance-migration-section-head">
+                <div>
+                  <h3>Finance Result Summary</h3>
+                  <div className="finance-migration-section-note">Order result, dealer coverage, and finance decision performance.</div>
+                </div>
+              </div>
+              {detailFinanceSummaryError && <div className="alert" style={{ marginTop: 10 }}>{detailFinanceSummaryError}</div>}
+              {detailFinanceSummaryLoading && <div className="muted" style={{ marginTop: 10 }}>Loading summary...</div>}
+
+              {!detailFinanceSummaryLoading && computedDetailSummary && (
+                <>
+                  <div className="finance-report-summary-kpi-grid finance-migration-summary-kpi-grid">
+                    <div className="finance-migration-summary-kpi-card tone-blue">
+                      <div className="finance-migration-summary-kpi-label">Total Order Data</div>
+                      <div className="finance-migration-summary-kpi-value">{computedDetailSummary.totalOrders}</div>
+                      <div className="finance-migration-summary-kpi-note">Orders in this migration group</div>
+                    </div>
+                    <div className="finance-migration-summary-kpi-card tone-cyan">
+                      <div className="finance-migration-summary-kpi-label">Total Dealer</div>
+                      <div className="finance-migration-summary-kpi-value">{computedDetailSummary.totalDealers}</div>
+                      <div className="finance-migration-summary-kpi-note">Unique dealer count</div>
+                    </div>
+                    <div className="finance-migration-summary-kpi-card tone-emerald">
+                      <div className="finance-migration-summary-kpi-label">Dealer Coverage</div>
+                      <div className="finance-migration-summary-kpi-value">{computedDetailSummary.dealerCoveragePercent.toFixed(1)}%</div>
+                      <div className="finance-migration-summary-kpi-note">Unique dealer / total order data</div>
+                    </div>
+                  </div>
+
+                  <div className="finance-migration-performance-panel">
+                    <div className="finance-migration-performance-head">
+                      <div>
+                        <div className="finance-migration-performance-title">Finance Performance</div>
+                        <div className="finance-migration-performance-note">Approval, rejection, lead time, and rescue outcome.</div>
+                      </div>
+                      <span className="finance-migration-performance-pill">{(computedDetailSummary.approvalRate * 100).toFixed(1)}% approve</span>
+                    </div>
+                    <div className="finance-report-wide-table">
+                      <table className="table metric-table finance-performance-mini-table finance-migration-performance-table">
+                        <thead>
+                          <tr>
+                            <th>Total</th>
+                            <th>Approve</th>
+                            <th>Rejected</th>
+                            <th>Approve %</th>
+                            <th>Lead Avg</th>
+                            <th>Rescue FC2</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill total">{computedDetailSummary.totalOrders}</span>
+                            </td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill approved">{computedDetailSummary.approvedCount}</span>
+                            </td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill rejected">{computedDetailSummary.rejectedCount}</span>
+                            </td>
+                            <td>
+                              <div className="table-rate-cell">
+                                <div className="table-rate-head">
+                                  <span>{(computedDetailSummary.approvalRate * 100).toFixed(1)}%</span>
+                                </div>
+                                <div className="table-rate-track" aria-hidden="true">
+                                  <div className="table-rate-fill" style={{ width: `${Math.min(100, Math.max(0, computedDetailSummary.approvalRate * 100))}%` }} />
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="table-lead-value">{computedDetailSummary.leadAvgSeconds != null ? `${computedDetailSummary.leadAvgSeconds.toFixed(1)} s` : '-'}</span>
+                            </td>
+                            <td className="table-metric-cell">
+                              <span className="table-metric-pill warning">{computedDetailSummary.rescueFc2}</span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="finance-report-summary-split-grid finance-migration-donut-grid">
+                    <FinanceMigrationDonutCard
+                      centerLabel="Dealer"
+                      emptyMessage="No dealer summary."
+                      slices={dealerDonutSlices}
+                      title="Dealer Summary"
+                      total={computedDetailSummary.totalOrders}
+                      truncateTableText={truncateTableText}
+                    />
+                    <FinanceMigrationDonutCard
+                      centerLabel="Motor Type"
+                      emptyMessage="No motor type summary."
+                      slices={motorTypeDonutSlices}
+                      title="Motor Type Summary"
+                      total={computedDetailSummary.totalOrders}
+                      truncateTableText={truncateTableText}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {selectedOrderInRow && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Order In Detail" onClick={() => setSelectedOrderInRow(null)}>
+          <div className="modal finance-order-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="finance-order-modal-head">
+              <div className="finance-order-modal-title-wrap">
+                <div className="finance-order-modal-kicker">Order In Detail</div>
+                <h3>{selectedOrderInRow.pooling_number || '-'}</h3>
+                <div className="finance-order-modal-subtitle">
+                  {selectedOrderInRow.consumer_name || '-'} / {selectedOrderInRow.dealer_name || '-'}
+                </div>
+              </div>
+              <div className="finance-order-modal-head-actions">
+                <button className="btn-ghost" onClick={() => setSelectedOrderInRow(null)}>Close</button>
+              </div>
+            </div>
+            <div className="finance-order-modal-content">
+              <ModalDetailSection title="Order & Customer">
+                <div className="finance-order-modal-grid">
+                  <ModalDetailField label="Pooling Date" value={formatDateTime(selectedOrderInRow.pooling_at)} />
+                  <ModalDetailField label="Result Date" value={formatDateTime(selectedOrderInRow.result_at)} />
+                  <ModalDetailField label="Dealer" value={selectedOrderInRow.dealer_name || '-'} />
+                  <ModalDetailField label="Consumer" value={selectedOrderInRow.consumer_name || '-'} />
+                  <ModalDetailField label="Phone" value={selectedOrderInRow.consumer_phone || '-'} />
+                  <ModalDetailField label="Job" value={selectedOrderInRow.job_name || '-'} />
+                  <ModalDetailField label="Location" value={modalLocationText} wide />
+                  <ModalDetailField label="Order Notes" value={selectedOrderInRow.order_result_notes || '-'} wide />
+                </div>
+              </ModalDetailSection>
+
+              <ModalDetailSection title="Unit & Credit">
+                <div className="finance-order-modal-grid compact">
+                  <ModalDetailField label="Motor / OTR" value={modalMotorOtrText} wide />
+                  <ModalDetailField label="Installment" value={formatRupiah(Number(selectedOrderInRow.installment_amount || 0))} />
+                  <ModalDetailField label="Net Income" value={formatRupiah(Number(selectedOrderInRow.net_income || 0))} />
+                  <ModalDetailField label="DP Gross" value={formatRupiah(Number(selectedOrderInRow.dp_gross || 0))} />
+                  <ModalDetailField label="DP Paid" value={formatRupiah(Number(selectedOrderInRow.dp_paid || 0))} />
+                  <ModalDetailField label="DP Percentage" value={`${Number(selectedOrderInRow.dp_pct || 0).toFixed(2)}%`} />
+                  <ModalDetailField label="Tenor" value={`${Number(selectedOrderInRow.tenor || 0)} months`} />
+                </div>
+              </ModalDetailSection>
+
+              <ModalDetailSection title="Finance Decisions">
+                <div className="finance-order-modal-decision-grid">
+                  {renderFinanceDecisionCard(
+                    'Finance 1',
+                    selectedOrderInRow.finance_1_name,
+                    selectedOrderInRow.finance_1_status,
+                    selectedOrderInRow.finance_1_decision_at,
+                    selectedOrderInRow.finance_1_notes,
+                  )}
+                  {renderFinanceDecisionCard(
+                    'Finance 2',
+                    selectedOrderInRow.finance_2_name,
+                    selectedOrderInRow.finance_2_status,
+                    selectedOrderInRow.finance_2_decision_at,
+                    selectedOrderInRow.finance_2_notes,
+                  )}
+                </div>
+              </ModalDetailSection>
+
+              <ModalDetailSection title="Audit">
+                <div className="finance-order-modal-grid compact">
+                  <ModalDetailField label="Created At" value={formatDateTime(selectedOrderInRow.order_created_at)} />
+                  <ModalDetailField label="Updated At" value={formatDateTime(selectedOrderInRow.order_updated_at)} />
+                </div>
+              </ModalDetailSection>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

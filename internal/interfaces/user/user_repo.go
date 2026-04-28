@@ -1,16 +1,14 @@
 package interfaceuser
 
 import (
+	"context"
 	domainuser "service-songket/internal/domain/user"
-	"service-songket/pkg/filter"
+	interfacegeneric "service-songket/internal/interfaces/generic"
 )
 
 type RepoUserInterface interface {
-	Store(m domainuser.Users) error
-	GetByEmail(email string) (domainuser.Users, error)
-	GetByPhone(phone string) (domainuser.Users, error)
-	GetByID(id string) (domainuser.Users, error)
-	GetAll(params filter.BaseParams) ([]domainuser.Users, int64, error)
-	Update(m domainuser.Users) error
-	Delete(id string) error
+	interfacegeneric.GenericRepository[domainuser.Users]
+
+	GetByEmail(ctx context.Context, email string) (domainuser.Users, error)
+	GetByPhone(ctx context.Context, phone string) (domainuser.Users, error)
 }

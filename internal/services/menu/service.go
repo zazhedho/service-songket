@@ -1,13 +1,14 @@
 package servicemenu
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	domainmenu "service-songket/internal/domain/menu"
 	"service-songket/internal/dto"
 	interfacemenu "service-songket/internal/interfaces/menu"
+	interfacepermission "service-songket/internal/interfaces/permission"
+	serviceshared "service-songket/internal/services/shared"
 	"service-songket/pkg/filter"
-	"service-songket/utils"
 	"strings"
 	"time"
 
@@ -15,68 +16,53 @@ import (
 )
 
 type MenuService struct {
-	MenuRepo interfacemenu.RepoMenuInterface
+	MenuRepo       interfacemenu.RepoMenuInterface
+	PermissionRepo interfacepermission.RepoPermissionInterface
 }
 
-func NewMenuService(menuRepo interfacemenu.RepoMenuInterface) *MenuService {
+func NewMenuService(menuRepo interfacemenu.RepoMenuInterface, permissionRepo interfacepermission.RepoPermissionInterface) *MenuService {
 	return &MenuService{
-		MenuRepo: menuRepo,
+		MenuRepo:       menuRepo,
+		PermissionRepo: permissionRepo,
 	}
 }
 
-func (s *MenuService) Create(req dto.MenuCreate) (domainmenu.MenuItem, error) {
-	existing, _ := s.MenuRepo.GetByName(req.Name)
-	if existing.Id != "" {
-		return domainmenu.MenuItem{}, errors.New("menu with this name already exists")
-	}
+func (s *MenuService) GetByID(ctx context.Context, id string) (domainmenu.MenuItem, error) {
+	return s.MenuRepo.GetByID(ctx, id)
+}
 
-	isActive := true
-	if req.IsActive != nil {
-		isActive = *req.IsActive
-	}
+func (s *MenuService) GetAll(ctx context.Context, params filter.BaseParams) ([]domainmenu.MenuItem, int64, error) {
+	return s.MenuRepo.GetAll(ctx, params)
+}
 
-	parentId, err := normalizeOptionalParentID(req.ParentId)
+func (s *MenuService) GetActiveMenus(ctx context.Context) ([]domainmenu.MenuItem, error) {
+	return s.MenuRepo.GetActiveMenus(ctx)
+}
+
+func (s *MenuService) GetUserMenus(ctx context.Context, userId string) ([]domainmenu.MenuItem, error) {
+	activeMenus, err := s.MenuRepo.GetActiveMenus(ctx)
 	if err != nil {
-		return domainmenu.MenuItem{}, err
+		return nil, err
 	}
 
-	data := domainmenu.MenuItem{
-		Id:          utils.CreateUUID(),
-		Name:        req.Name,
-		DisplayName: req.DisplayName,
-		Path:        req.Path,
-		Icon:        req.Icon,
-		ParentId:    parentId,
-		OrderIndex:  req.OrderIndex,
-		IsActive:    isActive,
-		CreatedAt:   time.Now(),
+	permissions, err := s.PermissionRepo.GetUserPermissions(ctx, userId)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := s.MenuRepo.Store(data); err != nil {
-		return domainmenu.MenuItem{}, err
+	resources := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		if permission.Resource == "" {
+			continue
+		}
+		resources = append(resources, permission.Resource)
 	}
 
-	return data, nil
+	return serviceshared.ResolveAccessibleMenus(activeMenus, resources), nil
 }
 
-func (s *MenuService) GetByID(id string) (domainmenu.MenuItem, error) {
-	return s.MenuRepo.GetByID(id)
-}
-
-func (s *MenuService) GetAll(params filter.BaseParams) ([]domainmenu.MenuItem, int64, error) {
-	return s.MenuRepo.GetAll(params)
-}
-
-func (s *MenuService) GetActiveMenus() ([]domainmenu.MenuItem, error) {
-	return s.MenuRepo.GetActiveMenus()
-}
-
-func (s *MenuService) GetUserMenus(userId string) ([]domainmenu.MenuItem, error) {
-	return s.MenuRepo.GetUserMenus(userId)
-}
-
-func (s *MenuService) Update(id string, req dto.MenuUpdate) (domainmenu.MenuItem, error) {
-	menu, err := s.MenuRepo.GetByID(id)
+func (s *MenuService) Update(ctx context.Context, id string, req dto.MenuUpdate) (domainmenu.MenuItem, error) {
+	menu, err := s.MenuRepo.GetByID(ctx, id)
 	if err != nil {
 		return domainmenu.MenuItem{}, err
 	}
@@ -106,7 +92,7 @@ func (s *MenuService) Update(id string, req dto.MenuUpdate) (domainmenu.MenuItem
 	now := time.Now()
 	menu.UpdatedAt = &now
 
-	if err := s.MenuRepo.Update(menu); err != nil {
+	if err := s.MenuRepo.Update(ctx, menu); err != nil {
 		return domainmenu.MenuItem{}, err
 	}
 
@@ -128,10 +114,6 @@ func normalizeOptionalParentID(parentID *string) (*string, error) {
 	}
 
 	return &trimmed, nil
-}
-
-func (s *MenuService) Delete(id string) error {
-	return s.MenuRepo.Delete(id)
 }
 
 var _ interfacemenu.ServiceMenuInterface = (*MenuService)(nil)

@@ -16,7 +16,7 @@ type Users struct {
 	Email     string         `json:"email,omitempty" gorm:"column:email;type:varchar(255);uniqueIndex;not null"`
 	Phone     string         `json:"phone,omitempty" gorm:"column:phone;type:varchar(20);uniqueIndex"`
 	Password  string         `json:"-" gorm:"column:password;type:varchar(255);not null"`
-	Role      string         `json:"role,omitempty" gorm:"column:role;type:varchar(50);default:'viewer'"`
+	Role      string         `json:"role,omitempty" gorm:"column:role;type:varchar(50);default:'dealer'"`
 	RoleId    *string        `json:"role_id,omitempty" gorm:"column:role_id;type:uuid"`
 	CreatedAt time.Time      `json:"created_at,omitempty" gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt *time.Time     `json:"updated_at,omitempty" gorm:"column:updated_at;autoUpdateTime"`
