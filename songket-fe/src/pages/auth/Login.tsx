@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMe, login, register } from '../../services/authService'
 import { getMyPermissions } from '../../services/permissionService'
@@ -7,6 +7,7 @@ import { sanitizeDigits } from '../../utils/input'
 
 function validatePasswordByBackendRule(password: string) {
   if (password.length < 8) return 'Password must be at least 8 characters long.'
+  if (password.length > 64) return 'Password must be at most 64 characters long.'
   if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
   if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
   if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
@@ -17,6 +18,7 @@ function validatePasswordByBackendRule(password: string) {
 function getPasswordRuleChecks(password: string) {
   return [
     { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'Maximum 64 characters', valid: password.length <= 64 },
     { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
     { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
     { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
@@ -35,13 +37,21 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isNarrow, setIsNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false))
 
   const navigate = useNavigate()
   const setToken = useAuth((s) => s.setToken)
   const setRoleStore = useAuth((s) => s.setRole)
   const setPermissions = useAuth((s) => s.setPermissions)
   const isRegisterPasswordMismatch = isRegister && confirmPassword.length > 0 && password !== confirmPassword
+
+  const switchMode = (nextRegisterMode: boolean) => {
+    setIsRegister(nextRegisterMode)
+    setError('')
+    setPassword('')
+    setConfirmPassword('')
+    setShowPassword(false)
+    setShowConfirmPassword(false)
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -62,7 +72,7 @@ export default function LoginPage() {
         }
 
         if (password !== confirmPassword) {
-          setError('Password and password confirmation do not match.')
+          setError('Passwords do not match.')
           return
         }
 
@@ -106,137 +116,80 @@ export default function LoginPage() {
     }
   }
 
-  const inputStyle = {
-    width: '100%',
-    borderRadius: 12,
-    border: '1px solid #d0d8e7',
-    background: '#f9fbff',
-    color: '#0f172a',
-    padding: '11px 12px',
-    fontSize: 14,
-    outline: 'none',
-  }
-
-  useEffect(() => {
-    const handleResize = () => setIsNarrow(window.innerWidth < 1024)
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#f4f6fb',
-        display: 'grid',
-        gridTemplateColumns: isNarrow ? '1fr' : 'minmax(0, 2.2fr) minmax(320px, 1fr)',
-      }}
-    >
-      <div
-        style={{
-          position: 'relative',
-          padding: 'clamp(24px, 4vw, 44px)',
-          background:
-            'radial-gradient(circle at 12% 88%, rgba(103, 232, 249, 0.85), transparent 40%), radial-gradient(circle at 84% 12%, rgba(217, 70, 239, 0.48), transparent 34%), linear-gradient(140deg, #312eeb 0%, #4f46e5 40%, #6d28d9 70%, #db2777 100%)',
-          color: '#f8fafc',
-          overflow: 'hidden',
-          minHeight: isNarrow ? '52vh' : '100vh',
-          display: 'grid',
-          alignContent: 'center',
-          justifyItems: 'center',
-          gap: 20,
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 'clamp(34px, 4.5vw, 52px)', lineHeight: 1.14, textAlign: 'center', fontWeight: 700 }}>
-          Songket Business Console
-        </h1>
-        <div style={{ maxWidth: 720, textAlign: 'center', color: 'rgba(248, 250, 252, 0.92)', fontSize: 16, lineHeight: 1.6 }}>
-          Monitoring order in, approval finance, dan performa dealer dalam satu dashboard operasional yang terintegrasi.
-        </div>
+    <div className={`auth-shell${isRegister ? ' auth-shell-register' : ''}`}>
+      <section className="auth-hero" aria-label="Songket overview">
+        <div className="auth-hero-inner">
+          <div className="auth-eyebrow">Operational Intelligence</div>
+          <h1 className="auth-hero-title">Songket Business Console</h1>
+          <div className="auth-hero-copy">
+            Monitor order-in movement, finance decisions, and dealer performance from one focused workspace.
+          </div>
 
-        <div
-          style={{
-            width: 'min(760px, 100%)',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              borderRadius: 14,
-              border: '1px solid rgba(226, 232, 240, 0.38)',
-              background: 'rgba(15, 23, 42, 0.26)',
-              backdropFilter: 'blur(4px)',
-              padding: 14,
-            }}
-          >
-            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Dashboard</div>
-            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>Daily Order In Trend</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
-              Monitor daily order-in movement across dealers in real time.
+          <div className="auth-feature-grid">
+            <div className="auth-feature-card">
+              <div className="auth-feature-kicker">Dashboard</div>
+              <div className="auth-feature-title">Daily Order In Trend</div>
+              <div className="auth-feature-copy">Track daily order movement across dealer coverage and active periods.</div>
             </div>
-          </div>
-          <div
-            style={{
-              borderRadius: 14,
-              border: '1px solid rgba(226, 232, 240, 0.38)',
-              background: 'rgba(15, 23, 42, 0.26)',
-              backdropFilter: 'blur(4px)',
-              padding: 14,
-            }}
-          >
-            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Finance</div>
-            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>Approve vs Reject</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
-              Review finance decisions and company breakdown in one view.
+            <div className="auth-feature-card">
+              <div className="auth-feature-kicker">Finance</div>
+              <div className="auth-feature-title">Approve vs Reject</div>
+              <div className="auth-feature-copy">Review finance outcomes with company, dealer, and status context.</div>
             </div>
-          </div>
-          <div
-            style={{
-              borderRadius: 14,
-              border: '1px solid rgba(226, 232, 240, 0.38)',
-              background: 'rgba(15, 23, 42, 0.26)',
-              backdropFilter: 'blur(4px)',
-              padding: 14,
-            }}
-          >
-            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.86 }}>Analysis</div>
-            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>YTD Summary</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(226, 232, 240, 0.9)', lineHeight: 1.5 }}>
-              Compare current-period performance with the previous period.
+            <div className="auth-feature-card">
+              <div className="auth-feature-kicker">Analysis</div>
+              <div className="auth-feature-title">YTD Summary</div>
+              <div className="auth-feature-copy">Compare current performance against previous matching periods.</div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div
-        style={{
-          minHeight: isNarrow ? '48vh' : '100vh',
-          display: 'grid',
-          alignContent: 'center',
-          justifyItems: 'center',
-          padding: 'clamp(18px, 3vw, 30px)',
-          background: '#f3f4f6',
-        }}
-      >
-        <div style={{ width: 'min(360px, 100%)', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-            <img src="/songket-logo.jpeg" alt="SONGKET Logo" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover' }} />
-            <div style={{ fontSize: 'clamp(34px, 5vw, 42px)', fontWeight: 700, lineHeight: 1, color: '#4b5563' }}>S.O.N.G.K.E.T</div>
+      <section className="auth-form-panel" aria-label={isRegister ? 'Register form' : 'Login form'}>
+        <div className="auth-card">
+          <div className="auth-brand">
+            <img src="/songket-logo.jpeg" alt="SONGKET Logo" className="auth-logo" />
+            <div>
+              <div className="auth-brand-name">S.O.N.G.K.E.T</div>
+              <div className="auth-brand-subtitle">Business access portal</div>
+            </div>
           </div>
 
-          <h2 style={{ margin: '0 0 20px', color: '#1f2937', fontSize: 22, lineHeight: 1.1, fontWeight: 500 }}>
-            {isRegister ? 'Register' : 'Log in'}
-          </h2>
+          <div className="auth-mode-switch" role="tablist" aria-label="Authentication mode">
+            <button
+              type="button"
+              className={`auth-mode-button${!isRegister ? ' active' : ''}`}
+              onClick={() => switchMode(false)}
+              aria-pressed={!isRegister}
+            >
+              Log in
+            </button>
+            <button
+              type="button"
+              className={`auth-mode-button${isRegister ? ' active' : ''}`}
+              onClick={() => switchMode(true)}
+              aria-pressed={isRegister}
+            >
+              Register
+            </button>
+          </div>
 
-          <form onSubmit={handleSubmit} className="grid" style={{ gap: 12, textAlign: 'left' }}>
+          <div className="auth-heading">
+            <h2>{isRegister ? 'Create your account' : 'Welcome back'}</h2>
+            <p>
+              {isRegister
+                ? 'Set up your access using a secure password.'
+                : 'Sign in to continue managing Songket operations.'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="auth-form">
             {isRegister && (
-              <>
-                <input style={inputStyle} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <div className="auth-register-grid">
+                <input className="auth-input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
                 <input
-                  style={inputStyle}
+                  className="auth-input"
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel"
@@ -246,17 +199,12 @@ export default function LoginPage() {
                   onChange={(e) => setPhone(sanitizeDigits(e.target.value))}
                   required
                 />
-                {/*<select style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)}>*/}
-                {/*  <option value="dealer">Dealer</option>*/}
-                {/*  <option value="main_dealer">Main Dealer</option>*/}
-                {/*  <option value="superadmin">Super Admin</option>*/}
-                {/*</select>*/}
-              </>
+              </div>
             )}
 
             <input
-              style={inputStyle}
-              placeholder="E-mail"
+              className="auth-input"
+              placeholder="Email"
               type="email"
               autoComplete={isRegister ? 'email' : 'username'}
               autoCapitalize="none"
@@ -266,151 +214,66 @@ export default function LoginPage() {
               required
             />
 
-            <div style={{ position: 'relative' }}>
+            <div className="auth-password-wrap">
               <input
+                className="auth-password-input"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 placeholder="Password"
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={isRegister ? 'new-password' : 'current-password'}
                 required
-                style={{ ...inputStyle, paddingRight: 42 }}
               />
               <button
                 type="button"
+                className="auth-password-toggle"
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                style={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 26,
-                  height: 26,
-                  border: '0',
-                  borderRadius: 8,
-                  background: 'transparent',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#374151',
-                }}
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
 
-            {isRegister && (
-              <PasswordRulesGuide password={password} />
-            )}
+            {isRegister && <PasswordRulesGuide password={password} />}
 
             {isRegister && (
-              <div style={{ position: 'relative' }}>
+              <div className="auth-password-wrap">
                 <input
+                  className="auth-password-input"
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   placeholder="Password confirmation"
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
                   required
-                  style={{ ...inputStyle, paddingRight: 42 }}
                 />
                 <button
                   type="button"
+                  className="auth-password-toggle"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
                   aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
-                  style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 26,
-                    height: 26,
-                    border: '0',
-                    borderRadius: 8,
-                    background: 'transparent',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: '#374151',
-                  }}
                 >
                   {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             )}
 
-            {isRegisterPasswordMismatch && (
-              <div style={{ color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>
-                Password and password confirmation do not match.
-              </div>
-            )}
+            {isRegisterPasswordMismatch && <div className="auth-inline-error">Passwords do not match.</div>}
 
-            {error && (
-              <div
-                style={{
-                  color: '#991b1b',
-                  fontSize: 13,
-                  background: '#fee2e2',
-                  border: '1px solid #fecaca',
-                  borderRadius: 10,
-                  padding: '8px 10px',
-                }}
-              >
-                {error}
-              </div>
-            )}
+            {error && <div className="auth-alert">{error}</div>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                border: 0,
-                borderRadius: 8,
-                padding: '11px 12px',
-                fontSize: 18,
-                fontWeight: 600,
-                color: '#eff6ff',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                background: '#3b82f6',
-                opacity: loading ? 0.75 : 1,
-              }}
-            >
-              {loading ? 'Loading...' : isRegister ? 'Register' : 'Log in'}
+            <button type="submit" disabled={loading} className="auth-submit-button">
+              {loading ? 'Loading...' : isRegister ? 'Create Account' : 'Log In'}
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() =>
-              setIsRegister((value) => {
-                const next = !value
-                setError('')
-                setPassword('')
-                setConfirmPassword('')
-                setShowPassword(false)
-                setShowConfirmPassword(false)
-                return next
-              })
-            }
-            style={{
-              marginTop: 16,
-              width: '100%',
-              border: '1px solid #3b82f6',
-              borderRadius: 8,
-              background: 'transparent',
-              color: '#3b82f6',
-              padding: '10px 12px',
-              fontSize: 17,
-              cursor: 'pointer',
-            }}
-          >
-            {isRegister ? 'Back to login' : 'Create an account'}
-          </button>
+          <div className="auth-helper">
+            {isRegister
+              ? 'Already have access? Switch to Log in above.'
+              : 'Need a new account? Switch to Register above.'}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   )
 }
@@ -437,19 +300,14 @@ function PasswordRulesGuide({ password }: { password: string }) {
   if (!password) return null
   const checks = getPasswordRuleChecks(password)
   return (
-    <div
-      style={{
-        border: '1px solid #d7e0ef',
-        borderRadius: 10,
-        background: '#f8fafc',
-        fontSize: 12,
-        lineHeight: 1.5,
-        padding: '10px 12px',
-      }}
-    >
+    <div className="profile-password-rules">
+      <div className="profile-password-rules-title">Password Requirements:</div>
       {checks.map((rule) => (
-        <div key={rule.label} style={{ color: rule.valid ? '#15803d' : '#b91c1c', fontWeight: 600 }}>
-          {rule.valid ? 'PASS' : 'FAIL'} {rule.label}
+        <div key={rule.label} className={`profile-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
+          <span className="profile-password-rule-icon" aria-hidden="true">
+            {rule.valid ? '✓' : '×'}
+          </span>
+          <span>{rule.label}</span>
         </div>
       ))}
     </div>
