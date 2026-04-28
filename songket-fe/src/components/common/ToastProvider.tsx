@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 
 export type ToastTone = 'success' | 'error' | 'warning' | 'info'
 
@@ -13,7 +14,7 @@ type ToastItem = {
   tone: ToastTone
 }
 
-type ToastContextValue = (message: string, options?: ToastOptions) => void
+type ToastContextValue = (message: unknown, options?: ToastOptions) => void
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
@@ -25,14 +26,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((item) => item.id !== id))
   }, [])
 
-  const showToast = useCallback((message: string, options?: ToastOptions) => {
+  const showToast = useCallback((message: unknown, options?: ToastOptions) => {
     const id = nextIdRef.current
     nextIdRef.current += 1
 
     const tone = options?.tone || 'info'
     const durationMs = options?.durationMs ?? 2800
+    const safeMessage = resolveErrorMessage(message, 'Something went wrong.')
 
-    setToasts((prev) => [...prev, { id, message, tone }])
+    setToasts((prev) => [...prev, { id, message: safeMessage, tone }])
 
     if (durationMs > 0) {
       window.setTimeout(() => {

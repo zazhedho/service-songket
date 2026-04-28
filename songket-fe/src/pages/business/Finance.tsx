@@ -16,6 +16,7 @@ import {
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { useLocationOptions } from '../../hooks/useLocationOptions'
 import { usePermissions } from '../../hooks/usePermissions'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import { reverseGeocodedPlace } from '../../utils/geocoding'
 import FinanceList from './components/FinanceList'
@@ -621,7 +622,7 @@ export default function FinancePage() {
       await reloadBusinessData()
       navigate(dealerBasePath)
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to save dealer.')
+      await showAlert(resolveErrorMessage(err, 'Failed to save dealer.'))
     } finally {
       setSavingDealer(false)
     }
@@ -666,7 +667,7 @@ export default function FinancePage() {
       await reloadBusinessData()
       navigate(financeBasePath)
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to save finance company.')
+      await showAlert(resolveErrorMessage(err, 'Failed to save finance company.'))
     } finally {
       setSavingFinance(false)
     }
@@ -686,7 +687,7 @@ export default function FinancePage() {
       await deleteDealer(id)
       await reloadBusinessData()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to delete dealer.')
+      await showAlert(resolveErrorMessage(err, 'Failed to delete dealer.'))
     }
   }
 
@@ -704,7 +705,7 @@ export default function FinancePage() {
       await deleteFinanceCompany(id)
       await reloadBusinessData()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to delete finance company.')
+      await showAlert(resolveErrorMessage(err, 'Failed to delete finance company.'))
     }
   }
 

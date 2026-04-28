@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type ServiceUser struct {
@@ -244,7 +245,14 @@ func hasUserPermission(permissions []domainpermission.Permission, resource, acti
 }
 
 func (s *ServiceUser) GetUserById(ctx context.Context, id string) (domainuser.Users, error) {
-	return s.UserRepo.GetByID(ctx, id)
+	user, err := s.UserRepo.GetByID(ctx, id)
+	if err != nil {
+		return domainuser.Users{}, err
+	}
+	if user.Role == utils.RoleSuperAdmin && authscope.FromContext(ctx).Role != utils.RoleSuperAdmin {
+		return domainuser.Users{}, gorm.ErrRecordNotFound
+	}
+	return user, nil
 }
 
 func (s *ServiceUser) GetUserByEmail(ctx context.Context, email string) (domainuser.Users, error) {

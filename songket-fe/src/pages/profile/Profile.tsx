@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { changeMyPassword, getMe, updateMe } from '../../services/authService'
+import { normalizeEmailInput } from '../../utils/email'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import { sanitizeDigits } from '../../utils/input'
 
@@ -95,7 +97,7 @@ export default function ProfilePage() {
       })
       setRole(data.role || '-')
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to load profile')
+      setError(resolveErrorMessage(err, 'Failed to load profile'))
     } finally {
       setLoadingProfile(false)
     }
@@ -136,7 +138,7 @@ export default function ProfilePage() {
       setProfileMessage('Profile updated successfully.')
       await loadProfile()
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to update profile')
+      setError(resolveErrorMessage(err, 'Failed to update profile'))
     } finally {
       setSavingProfile(false)
     }
@@ -183,7 +185,7 @@ export default function ProfilePage() {
       setShowNewPassword(false)
       setShowConfirmPassword(false)
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to change password')
+      setError(resolveErrorMessage(err, 'Failed to change password'))
     } finally {
       setSavingPassword(false)
     }
@@ -286,7 +288,7 @@ export default function ProfilePage() {
                     autoCapitalize="none"
                     autoCorrect="off"
                     value={profile.email}
-                    onChange={(event) => setProfile((prev) => ({ ...prev, email: event.target.value }))}
+                    onChange={(event) => setProfile((prev) => ({ ...prev, email: normalizeEmailInput(event.target.value) }))}
                     placeholder="user@example.com"
                     required
                   />

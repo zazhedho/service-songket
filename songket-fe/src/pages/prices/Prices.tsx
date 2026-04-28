@@ -4,6 +4,7 @@ import { addCommodityPrice, commitScrapeResults, createScrapeJob, deletePrice, f
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '../../utils/currency'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import PriceDetail from './components/PriceDetail'
 import PriceForm from './components/PriceForm'
@@ -241,7 +242,7 @@ export default function PricesPage() {
       loadPrices()
       navigate('/prices')
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to save price.')
+      await showAlert(resolveErrorMessage(err, 'Failed to save price.'))
     }
   }
 
@@ -254,7 +255,7 @@ export default function PricesPage() {
       setUrls([''])
       loadJobs()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to create scrape job.')
+      await showAlert(resolveErrorMessage(err, 'Failed to create scrape job.'))
     } finally {
       setStartingJob(false)
     }
@@ -274,7 +275,7 @@ export default function PricesPage() {
       await showAlert('Data imported successfully.', { title: 'Success', confirmText: 'OK' })
       loadPrices()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to import data.')
+      await showAlert(resolveErrorMessage(err, 'Failed to import data.'))
     }
   }
 
@@ -292,7 +293,7 @@ export default function PricesPage() {
       await deletePrice(id)
       loadPrices()
     } catch (err: any) {
-      await showAlert(err?.response?.data?.error || 'Failed to delete price.')
+      await showAlert(resolveErrorMessage(err, 'Failed to delete price.'))
     }
   }
 

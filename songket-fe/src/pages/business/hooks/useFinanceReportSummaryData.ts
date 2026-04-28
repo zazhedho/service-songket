@@ -13,6 +13,7 @@ import {
   toSafeNumber,
 } from '../components/financeReportHelpers'
 import { buildFilterYearOptions } from '../../../utils/yearOptions'
+import { resolveErrorMessage } from '../../../utils/errorMessage'
 
 const MASTER_DATA_CACHE_TTL_MS = 5 * 60 * 1000
 const DEALER_METRICS_CACHE_TTL_MS = 2 * 60 * 1000
@@ -274,7 +275,7 @@ export function useFinanceReportSummaryData({
       setTotalPages(1)
       setTotalData(0)
       setMigrationSummary(emptyMigrationSummary)
-      setError(err?.response?.data?.error || 'Failed to load finance migration report.')
+      setError(resolveErrorMessage(err, 'Failed to load finance migration report.'))
     } finally {
       setLoading(false)
     }
@@ -357,7 +358,7 @@ export function useFinanceReportSummaryData({
         setDealerRows([])
         setDealerOptions([])
         setFinance1Options([])
-        setMasterError(err?.response?.data?.error || 'Failed to load dealer/finance data.')
+        setMasterError(resolveErrorMessage(err, 'Failed to load dealer/finance data.'))
       })
       .finally(() => {
         if (!cancelled) setMasterLoading(false)
@@ -434,7 +435,7 @@ export function useFinanceReportSummaryData({
       .catch((err: any) => {
         if (cancelled) return
         setDealerMetrics(null)
-        setDealerMetricsError(err?.response?.data?.error || 'Failed to load dealer performance.')
+        setDealerMetricsError(resolveErrorMessage(err, 'Failed to load dealer performance.'))
       })
       .finally(() => {
         if (!cancelled) setDealerMetricsLoading(false)

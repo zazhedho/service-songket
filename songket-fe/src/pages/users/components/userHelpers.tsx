@@ -20,7 +20,9 @@ export function roleLabel(value: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
-export function roleNames(items: Array<{ name?: string }>) {
+export function roleNames(items: Array<{ name?: string }> | unknown) {
+  if (!Array.isArray(items)) return []
+
   return Array.from(
     new Set(
       items
@@ -32,6 +34,7 @@ export function roleNames(items: Array<{ name?: string }>) {
 
 export function validatePasswordByBackendRule(password: string) {
   if (password.length < 8) return 'Password must be at least 8 characters long.'
+  if (password.length > 64) return 'Password must be at most 64 characters long.'
   if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
   if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
   if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
@@ -42,6 +45,7 @@ export function validatePasswordByBackendRule(password: string) {
 export function getPasswordRuleChecks(password: string) {
   return [
     { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'Maximum 64 characters', valid: password.length <= 64 },
     { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
     { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
     { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
@@ -78,10 +82,13 @@ export function PasswordRulesGuide({ password }: { password: string }) {
   if (!password) return null
   const checks = getPasswordRuleChecks(password)
   return (
-    <div className="user-password-rules">
+    <div className="profile-password-rules user-password-rules">
+      <div className="profile-password-rules-title">Password Requirements:</div>
       {checks.map((rule) => (
-        <div key={rule.label} className={`user-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
-          <span className="user-password-rule-icon">{rule.valid ? '✓' : '×'}</span>
+        <div key={rule.label} className={`profile-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
+          <span className="profile-password-rule-icon" aria-hidden="true">
+            {rule.valid ? '✓' : '×'}
+          </span>
           <span>{rule.label}</span>
         </div>
       ))}

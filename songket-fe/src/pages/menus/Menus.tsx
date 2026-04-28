@@ -4,6 +4,7 @@ import { listMenus, updateMenu } from '../../services/menuService'
 import { normalizeIconName } from '../../components/common/AppIcon'
 import { useAlert } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import { focusFirstInvalidField } from '../../utils/formFocus'
 import MenuDetail from './components/MenuDetail'
 import MenuForm from './components/MenuForm'
@@ -189,7 +190,7 @@ export default function MenusPage() {
       setForm(empty)
       navigate('/menus')
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Failed to save menu'
+      const message = resolveErrorMessage(err, 'Failed to save menu')
       setError(message)
       await showAlert(message)
     } finally {

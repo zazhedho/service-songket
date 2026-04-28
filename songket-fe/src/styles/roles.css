@@ -343,6 +343,53 @@
   font-size: 12px;
 }
 
+.role-permission-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.08), transparent 42%),
+    linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+}
+
+.role-permission-toolbar-copy {
+  min-width: 0;
+}
+
+.role-permission-toolbar-title {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.role-permission-toolbar-note {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.role-permission-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.role-permission-bulk-btn {
+  min-height: 32px;
+  padding: 7px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .role-permission-groups {
   column-count: 2;
   column-gap: 12px;
@@ -391,6 +438,37 @@
   font-size: 11px;
   font-weight: 850;
   white-space: nowrap;
+}
+
+.role-permission-group-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.role-permission-resource-btn {
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.role-permission-resource-btn:hover {
+  background: #eff6ff;
+}
+
+.role-permission-resource-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .role-permission-option-list {
@@ -731,5 +809,28 @@
   .role-permission-detail-item {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
+  }
+
+  .role-permission-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .role-permission-toolbar-actions,
+  .role-permission-bulk-btn {
+    width: 100%;
+  }
+
+  .role-permission-bulk-btn {
+    justify-content: center;
+  }
+
+  .role-permission-group-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .role-permission-group-actions {
+    justify-content: space-between;
   }
 }

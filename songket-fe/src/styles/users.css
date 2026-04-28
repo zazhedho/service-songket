@@ -236,44 +236,9 @@
 }
 
 .user-password-rules {
-  display: grid;
-  gap: 7px;
-  padding: 10px 12px;
-  border: 1px solid #d7e0ef;
-  border-radius: 10px;
-  background: #f8fafc;
-}
-
-.user-password-rule {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.user-password-rule.valid {
-  color: #15803d;
-}
-
-.user-password-rule.invalid {
-  color: #b91c1c;
-}
-
-.user-password-rule-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: currentColor;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 900;
-  line-height: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 10px;
+  border-radius: 14px;
 }
 
 .user-password-mismatch {
@@ -303,5 +268,9 @@
   .user-actions .btn,
   .user-header > .btn-ghost {
     justify-content: center;
+  }
+
+  .user-password-rules {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,6 +1,7 @@
 -- Align RBAC and menu data with the current SONGKET modules.
 
 INSERT INTO roles (id, name, display_name, description, is_system) VALUES
+    (gen_random_uuid(), 'admin', 'Administrator', 'Full system access', TRUE),
     (gen_random_uuid(), 'main_dealer', 'Main Dealer', 'Operational access for main dealer users', TRUE),
     (gen_random_uuid(), 'dealer', 'Dealer', 'Operational access for dealer users', TRUE)
 ON CONFLICT (name) DO UPDATE
@@ -12,8 +13,11 @@ SET display_name = EXCLUDED.display_name,
 
 WITH permission_data(name, display_name, resource, action) AS (
     VALUES
+        ('assign_menus', 'Assign Menus', 'roles', 'assign_menus'),
+
         ('list_orders', 'List Orders', 'orders', 'list'),
         ('list_all_orders', 'List All Orders', 'orders', 'list_all'),
+        ('view_orders', 'View Order Detail', 'orders', 'view'),
         ('create_orders', 'Create Orders', 'orders', 'create'),
         ('update_orders', 'Update Orders', 'orders', 'update'),
         ('update_all_orders', 'Update All Orders', 'orders', 'update_all'),
@@ -52,6 +56,9 @@ WITH permission_data(name, display_name, resource, action) AS (
         ('view_business_metrics', 'View Business Metrics', 'business', 'view_metrics'),
         ('view_metrics_all_business', 'View All Business Metrics', 'business', 'view_metrics_all'),
 
+        ('list_finance_dealers', 'List Finance Dealers', 'finance', 'list_dealers'),
+        ('view_finance_metrics', 'View Finance Metrics', 'finance', 'view_metrics'),
+
         ('list_credit', 'List Credit Capability', 'credit', 'list'),
         ('list_all_credit', 'List All Credit Analytics', 'credit', 'list_all'),
         ('upsert_credit', 'Create Or Update Credit Capability', 'credit', 'upsert'),
@@ -60,15 +67,20 @@ WITH permission_data(name, display_name, resource, action) AS (
         ('recompute_quadrants', 'Recompute Quadrants', 'quadrants', 'recompute'),
 
         ('list_news', 'List News', 'news', 'list'),
+        ('view_news', 'View Latest News', 'news', 'view'),
         ('upsert_news', 'Create Or Update News Sources', 'news', 'upsert'),
+        ('upsert_news_source', 'Upsert News Source', 'news', 'upsert_source'),
         ('delete_news', 'Delete News Items', 'news', 'delete'),
         ('scrape_news', 'Scrape News', 'news', 'scrape'),
 
+        ('add_commodity_price', 'Add Commodity Price', 'commodities', 'add_price'),
         ('list_commodities', 'List Commodity Prices', 'commodities', 'list'),
+        ('list_prices', 'List Latest Prices', 'commodities', 'list_prices'),
         ('create_commodities', 'Create Commodity Prices', 'commodities', 'create'),
         ('upsert_commodities', 'Create Or Update Commodities', 'commodities', 'upsert'),
         ('delete_commodities', 'Delete Commodity Prices', 'commodities', 'delete'),
         ('scrape_commodities', 'Scrape Commodity Prices', 'commodities', 'scrape'),
+        ('scrape_prices', 'Scrape Prices', 'commodities', 'scrape_prices'),
 
         ('view_master_settings', 'View Master Settings', 'master_settings', 'view'),
         ('create_master_settings', 'Create Master Settings', 'master_settings', 'create'),
@@ -89,6 +101,14 @@ SET display_name = EXCLUDED.display_name,
     action = EXCLUDED.action,
     deleted_at = NULL,
     updated_at = NOW();
+
+DELETE FROM permissions
+WHERE name IN (
+    'assign_role_users',
+    'view_user_permissions',
+    'assign_user_permissions',
+    'manage_system_roles'
+);
 
 DELETE FROM menu_items
 WHERE name IN (
@@ -171,6 +191,9 @@ JOIN permissions p ON p.name IN (
     'update_password_profile',
     'delete_profile',
     'list_orders',
+    'view_orders',
+    'list_prices',
+    'view_news',
     'create_orders',
     'update_orders',
     'delete_orders'
@@ -194,6 +217,7 @@ JOIN permissions p ON p.name IN (
     'update_all_orders',
     'delete_orders',
     'delete_all_orders',
+    'view_orders',
     'list_motor_types',
     'view_motor_types',
     'create_motor_types',
@@ -221,15 +245,19 @@ JOIN permissions p ON p.name IN (
     'delete_business',
     'view_business_metrics',
     'view_metrics_all_business',
+    'list_finance_dealers',
+    'view_finance_metrics',
     'list_credit',
     'upsert_credit',
     'list_quadrants',
     'recompute_quadrants',
     'list_news',
+    'view_news',
     'upsert_news',
     'delete_news',
     'scrape_news',
     'list_commodities',
+    'list_prices',
     'create_commodities',
     'upsert_commodities',
     'delete_commodities',

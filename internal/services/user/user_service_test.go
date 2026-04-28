@@ -18,6 +18,8 @@ import (
 
 type userRepoMock struct {
 	user      domainuser.Users
+	users     []domainuser.Users
+	total     int64
 	usersByID map[string]domainuser.Users
 	updated   domainuser.Users
 	emailUser domainuser.Users
@@ -57,7 +59,7 @@ func (m *userRepoMock) GetByID(ctx context.Context, id string) (domainuser.Users
 }
 
 func (m *userRepoMock) GetAll(ctx context.Context, params filter.BaseParams) ([]domainuser.Users, int64, error) {
-	return nil, 0, nil
+	return append([]domainuser.Users{}, m.users...), m.total, nil
 }
 
 func (m *userRepoMock) Update(ctx context.Context, data domainuser.Users) error {
@@ -290,6 +292,74 @@ func TestUpdateAllowsNonRoleChangesWithoutAssignRole(t *testing.T) {
 	}
 	if user.Phone != "628123456789" {
 		t.Fatalf("expected normalized phone, got %q", user.Phone)
+	}
+}
+
+func TestGetAllUsersHidesSuperadminForNonSuperadmin(t *testing.T) {
+	service := &ServiceUser{
+		UserRepo: &userRepoMock{
+			users: []domainuser.Users{
+				{Id: "user-superadmin", Role: utils.RoleSuperAdmin},
+				{Id: "user-admin", Role: utils.RoleAdmin},
+				{Id: "user-dealer", Role: utils.RoleDealer},
+			},
+			total: 3,
+		},
+		BlacklistRepo:  &authRepoMock{},
+		RoleRepo:       &roleRepoMock{},
+		PermissionRepo: &permissionRepoMock{},
+	}
+
+	users, total, err := service.GetAllUsers(authscope.WithContext(context.Background(), authscope.New("viewer-1", utils.RoleAdmin, []string{"users:list"})), filter.BaseParams{})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected total 2 after hiding superadmin, got %d", total)
+	}
+	for _, user := range users {
+		if user.Role == utils.RoleSuperAdmin {
+			t.Fatalf("expected superadmin user to be hidden, got %+v", users)
+		}
+	}
+}
+
+func TestGetAllUsersShowsSuperadminForSuperadmin(t *testing.T) {
+	service := &ServiceUser{
+		UserRepo: &userRepoMock{
+			users: []domainuser.Users{
+				{Id: "user-superadmin", Role: utils.RoleSuperAdmin},
+				{Id: "user-admin", Role: utils.RoleAdmin},
+			},
+			total: 2,
+		},
+		BlacklistRepo:  &authRepoMock{},
+		RoleRepo:       &roleRepoMock{},
+		PermissionRepo: &permissionRepoMock{},
+	}
+
+	users, total, err := service.GetAllUsers(authscope.WithContext(context.Background(), authscope.New("viewer-1", utils.RoleSuperAdmin, nil)), filter.BaseParams{})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if total != 2 || len(users) != 2 {
+		t.Fatalf("expected superadmin to see all users, got total=%d users=%+v", total, users)
+	}
+}
+
+func TestGetUserByIDHidesSuperadminForNonSuperadmin(t *testing.T) {
+	service := &ServiceUser{
+		UserRepo: &userRepoMock{
+			user: domainuser.Users{Id: "user-superadmin", Role: utils.RoleSuperAdmin},
+		},
+		BlacklistRepo:  &authRepoMock{},
+		RoleRepo:       &roleRepoMock{},
+		PermissionRepo: &permissionRepoMock{},
+	}
+
+	_, err := service.GetUserById(authscope.WithContext(context.Background(), authscope.New("viewer-1", utils.RoleAdmin, []string{"users:view"})), "user-superadmin")
+	if err == nil {
+		t.Fatal("expected hidden superadmin user to return error")
 	}
 }
 

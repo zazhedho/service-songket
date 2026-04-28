@@ -5,6 +5,10 @@ type ClickableTableRowOptions = {
   className?: string
 }
 
+type ClickableTableCellAttributes = HTMLAttributes<HTMLTableCellElement> & {
+  'data-cell-clickable': string
+}
+
 const BASE_INTERACTIVE_SELECTOR = [
   'button',
   'a',
@@ -61,7 +65,7 @@ export function getClickableTableRowProps(
 export function getClickableTableCellProps(
   onActivate: () => void,
   options: ClickableTableRowOptions = {},
-): HTMLAttributes<HTMLTableCellElement> {
+): ClickableTableCellAttributes {
   const className = ['table-cell-clickable', options.className].filter(Boolean).join(' ')
 
   return {

@@ -5,6 +5,7 @@ import { listScrapeSources } from '../../services/scrapeSourceService'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useToast } from '../../components/common/ToastProvider'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 import NewsDetail from './components/NewsDetail'
 import { normalizeNewsUrl, type ScrapedNews, toDetailRow } from './components/newsHelpers'
 import NewsList from './components/NewsList'
@@ -121,7 +122,7 @@ export default function NewsPage() {
       showToast('News item added successfully.', { tone: 'success' })
       await load()
     } catch (err: any) {
-      const message = String(err?.response?.data?.error || err?.message || 'Failed to add news item.')
+      const message = resolveErrorMessage(err, 'Failed to add news item.')
       const lower = message.toLowerCase()
       if (lower.includes('duplicate') || lower.includes('already exists') || lower.includes('already exist') || lower.includes('unique')) {
         showToast('news already added', { tone: 'warning' })
@@ -149,7 +150,7 @@ export default function NewsPage() {
       showToast('News item deleted successfully.', { tone: 'success' })
       await load()
     } catch (err: any) {
-      showToast(String(err?.response?.data?.error || err?.message || 'Failed to delete news item.'), { tone: 'error' })
+      showToast(resolveErrorMessage(err, 'Failed to delete news item.'), { tone: 'error' })
     } finally {
       setDeleting((prev) => ({ ...prev, [id]: false }))
     }

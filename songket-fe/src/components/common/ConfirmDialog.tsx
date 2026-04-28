@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import ConfirmationModal from './ConfirmationModal'
+import { resolveErrorMessage } from '../../utils/errorMessage'
 
 type ConfirmTone = 'default' | 'danger'
 
@@ -13,7 +14,7 @@ type ConfirmOptions = {
 }
 
 type ConfirmContextValue = (options: ConfirmOptions) => Promise<boolean>
-type AlertContextValue = (message: string, options?: Omit<ConfirmOptions, 'description' | 'showCancel' | 'cancelText'>) => Promise<boolean>
+type AlertContextValue = (message: unknown, options?: Omit<ConfirmOptions, 'description' | 'showCancel' | 'cancelText'>) => Promise<boolean>
 
 type ConfirmState = ConfirmOptions & {
   open: boolean
@@ -60,10 +61,10 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const alertDialog = useCallback(
-    (message: string, options?: Omit<ConfirmOptions, 'description' | 'showCancel' | 'cancelText'>) => {
+    (message: unknown, options?: Omit<ConfirmOptions, 'description' | 'showCancel' | 'cancelText'>) => {
       return confirm({
         title: options?.title || 'Notice',
-        description: message,
+        description: resolveErrorMessage(message, 'Something went wrong.'),
         confirmText: options?.confirmText || 'OK',
         tone: options?.tone || 'default',
         showCancel: false,

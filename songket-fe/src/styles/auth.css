@@ -288,6 +288,7 @@
 }
 
 .auth-card .profile-password-rules {
+  grid-template-columns: 1fr;
   padding: 10px;
   border-radius: 14px;
 }
