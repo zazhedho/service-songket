@@ -38,13 +38,23 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-shell">
-      <div className="header">
+      <div className="header dashboard-hero-panel">
         <div className="dashboard-hero-copy">
           <div className="dashboard-hero-eyebrow">Operations Overview</div>
-          <div className="dashboard-hero-title">Dashboard Songket</div>
+          <div className="dashboard-hero-title">Songket Dashboard</div>
           <div className="dashboard-hero-subtitle">
-            Monitor order inflow, approval performance, finance mix, and commodity movement with cutoff-based period comparison.
+            Track order inflow, finance outcomes, dealer movement, and commodity updates from one focused view.
           </div>
+          <div className="dashboard-context-row">
+            <span className="dashboard-context-pill">Order In</span>
+            <span className="dashboard-context-pill">Finance Decisions</span>
+            <span className="dashboard-context-pill subtle">Cutoff Comparison</span>
+          </div>
+        </div>
+        <div className="dashboard-hero-visual" aria-hidden="true">
+          <div className="dashboard-hero-orbit main">OI</div>
+          <div className="dashboard-hero-orbit finance">FC</div>
+          <div className="dashboard-hero-orbit dealer">DP</div>
         </div>
       </div>
 

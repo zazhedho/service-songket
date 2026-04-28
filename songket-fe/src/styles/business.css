@@ -393,6 +393,206 @@
     background: #fee2e2;
   }
 
+  .finance-migration-donut-grid {
+    margin-top: 12px;
+  }
+
+  .finance-migration-donut-card {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.08), transparent 32%),
+      #ffffff;
+  }
+
+  .finance-migration-donut-title {
+    margin-bottom: 10px;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 850;
+  }
+
+  .finance-migration-donut-empty {
+    display: flex;
+    align-items: center;
+    min-height: 92px;
+    padding: 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .finance-migration-donut-layout {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+
+  .finance-migration-donut-visual {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    min-width: 0;
+  }
+
+  .finance-migration-donut-ring {
+    position: relative;
+    width: 132px;
+    height: 132px;
+  }
+
+  .finance-migration-donut-ring.single::after {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+
+  .finance-migration-donut-svg {
+    display: block;
+  }
+
+  .finance-migration-donut-slice {
+    cursor: pointer;
+    opacity: 0.58;
+    transition: opacity 0.16s ease;
+  }
+
+  .finance-migration-donut-slice.active {
+    opacity: 1;
+  }
+
+  .finance-migration-donut-center {
+    position: absolute;
+    inset: 18px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  }
+
+  .finance-migration-donut-center-content {
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    max-width: 78px;
+    text-align: center;
+  }
+
+  .finance-migration-donut-center-label {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .finance-migration-donut-center-value {
+    color: #0f172a;
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.05;
+  }
+
+  .finance-migration-donut-center-note {
+    max-width: 70px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-migration-donut-active-label {
+    max-width: 150px;
+    margin-top: 8px;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.3;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-migration-donut-legend {
+    display: grid;
+    gap: 6px;
+    max-height: 190px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .finance-migration-donut-legend-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+    padding: 6px 7px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease;
+  }
+
+  .finance-migration-donut-legend-row:hover,
+  .finance-migration-donut-legend-row.active {
+    border-color: #bfdbfe;
+    background: #eef6ff;
+  }
+
+  .finance-migration-donut-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(148, 163, 184, 0.24);
+  }
+
+  .finance-migration-donut-legend-name {
+    min-width: 0;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .finance-migration-donut-legend-percent {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .finance-migration-donut-legend-total {
+    min-width: 34px;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 900;
+    text-align: right;
+  }
+
   .business-top-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.85fr) minmax(340px, 1fr);
@@ -1081,6 +1281,14 @@
 
   .finance-report-summary-split-grid {
     grid-template-columns: 1fr;
+  }
+
+  .finance-migration-donut-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-migration-donut-legend {
+    max-height: none;
   }
 
   .finance-report-dealer-kpi-grid {

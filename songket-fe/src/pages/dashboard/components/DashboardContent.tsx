@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import { formatRupiah } from '../../../utils/currency'
-import { BarLineChart, DashboardEmptyState, DonutCard, KpiCard, colorBySign, formatFixed, formatGrowthPercent, formatInteger, formatPercent } from './dashboardHelpers'
+import { BarLineChart, DashboardEmptyState, DonutCard, KpiCard, PriceTrendChart, colorBySign, formatFixed, formatGrowthPercent, formatInteger, formatPercent } from './dashboardHelpers'
 
 type DashboardContentProps = {
   activeNewsIndex: number
@@ -16,7 +16,7 @@ type DashboardContentProps = {
   latestNews: any[]
   latestPriceTableRows: any[]
   loading: boolean
-  priceTrend: { labels: string[]; values: number[] }
+  priceTrend: { labels: string[]; values: number[]; dates?: string[] }
   resolveSnapshotPeriodLabel: (analysisRaw: string, rowType: 'value' | 'growth', index: number) => string
   selectedTrendCommodity: string
   setActiveNewsIndex: React.Dispatch<React.SetStateAction<number>>
@@ -80,27 +80,29 @@ export default function DashboardContent({
       {error && <div className="alert">{error}</div>}
 
       <div className="dashboard-kpi-grid">
-        <KpiCard label="Total Order In" value={formatInteger(summary.total_orders)} note="Filtered data" />
-        <KpiCard label="Lead Time" value={`${summary.lead_time_avg_hours.toFixed(2)} hours`} note={`${summary.lead_time_avg_seconds.toFixed(0)} seconds`} />
-        <KpiCard label="Approval Rate" value={`${(summary.approval_rate * 100).toFixed(2)}%`} note={`${formatInteger(summary.approved_orders)} approved`} />
+        <KpiCard label="Total Order In" value={formatInteger(summary.total_orders)} note="Orders in the active filter" tone="blue" icon="OI" />
+        <KpiCard label="Lead Time" value={`${summary.lead_time_avg_hours.toFixed(2)} hours`} note={`${summary.lead_time_avg_seconds.toFixed(0)} seconds average`} tone="cyan" icon="LT" />
+        <KpiCard label="Approval Rate" value={`${(summary.approval_rate * 100).toFixed(2)}%`} note={`${formatInteger(summary.approved_orders)} approved orders`} tone="green" icon="AR" />
         <KpiCard
           label="Growth"
           value={`${summary.growth_percent >= 0 ? '+' : ''}${summary.growth_percent.toFixed(2)}%`}
           note={growthNote}
+          tone={summary.growth_percent >= 0 ? 'emerald' : 'red'}
+          icon="GR"
           valueColor={summary.growth_percent >= 0 ? '#166534' : '#b91c1c'}
         />
       </div>
 
       <div className="dashboard-panel-grid">
-        <div className="card">
+        <div className="card dashboard-chart-card">
           <div className="dashboard-card-head">
             <div>
               <h3>Daily Order In Trend</h3>
-              <div className="dashboard-card-note">Daily order-in trend based on pooling date.</div>
+              <div className="dashboard-card-note">Order-in movement by pooling date.</div>
             </div>
             <span className="dashboard-card-tag">Trend</span>
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div className="dashboard-chart-shell">
             <BarLineChart
               labels={dailyDistributionTrend.labels}
               barValues={dailyDistributionTrend.values}
@@ -113,17 +115,15 @@ export default function DashboardContent({
           </div>
         </div>
 
-        <div className="card">
+        <div className="card dashboard-chart-card">
           <div className="dashboard-card-head">
             <div>
               <h3>Daily Finance Approve</h3>
-              <div className="dashboard-card-note">
-                Daily approve/reject data from the order finance attempts table, based on the current dashboard filter.
-              </div>
+              <div className="dashboard-card-note">Approved and rejected finance outcomes by day.</div>
             </div>
             <span className="dashboard-card-tag">Finance</span>
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div className="dashboard-chart-shell">
             <BarLineChart
               labels={dailyFinanceDecisionTrend.labels}
               barValues={dailyFinanceDecisionTrend.approveValues}
@@ -142,7 +142,7 @@ export default function DashboardContent({
         </div>
       </div>
 
-      <div className="card">
+      <div className="card dashboard-summary-card">
         <div className="dashboard-card-head">
           <div>
             <h3>Order In Approve/Reject Summary</h3>
@@ -151,7 +151,7 @@ export default function DashboardContent({
           <span className="dashboard-card-tag">{growthNote}</span>
         </div>
         <div className="dashboard-table-shell">
-          <table className="table responsive-stack">
+          <table className="table responsive-stack dashboard-summary-table">
             <thead>
               <tr>
                 <th>Period</th>
@@ -209,45 +209,46 @@ export default function DashboardContent({
         <DonutCard title="Finance Company Proportion" subtitle="Order-in distribution by finance company" items={summary.finance_company_proportion} />
       </div>
 
-      <div className="card">
+      <div className="card dashboard-range-card">
         <div className="dashboard-card-head">
           <div>
-            <h3>Range DP</h3>
-            <div className="dashboard-card-note">DP range distribution from &lt;10% to &gt;=40%.</div>
+            <h3>DP Range</h3>
+            <div className="dashboard-card-note">Down payment distribution across the active filter.</div>
           </div>
           <span className="dashboard-card-tag">DP Mix</span>
         </div>
-        <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-          {summary.dp_range.map((item: any) => (
-            <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr) 64px 64px', gap: 8, alignItems: 'center' }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{item.label}</div>
-              <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${Math.min(100, Math.max(0, Number(item.percent || 0)))}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #22d3ee, #2563eb)',
-                  }}
-                />
+        <div className="dashboard-range-list">
+          {summary.dp_range.map((item: any) => {
+            const percent = Math.min(100, Math.max(0, Number(item.percent || 0)))
+            return (
+              <div
+                key={item.label}
+                className="dashboard-range-row"
+                style={{ '--range-percent': `${percent}%` } as React.CSSProperties}
+              >
+                <div className="dashboard-range-label">{item.label}</div>
+                <div className="dashboard-range-track" aria-hidden="true">
+                  <div className="dashboard-range-fill" />
+                </div>
+                <div className="dashboard-range-value">{formatInteger(item.total)}</div>
+                <div className="dashboard-range-percent">{Number(item.percent || 0).toFixed(1)}%</div>
               </div>
-              <div style={{ textAlign: 'right', fontWeight: 700 }}>{formatInteger(item.total)}</div>
-              <div style={{ textAlign: 'right', color: '#64748b', fontSize: 12 }}>{Number(item.percent || 0).toFixed(1)}%</div>
-            </div>
-          ))}
+            )
+          })}
           {summary.dp_range.length === 0 && <DashboardEmptyState title="No DP range data" note="DP distribution will appear when finance data is available." compact />}
         </div>
       </div>
 
       <div className="dashboard-panel-grid dashboard-panel-grid-secondary">
-        <div className="card">
+        <div className="card dashboard-news-panel">
           <div className="dashboard-card-head">
             <div>
               <h3>Latest News</h3>
-              <div className="dashboard-card-note">Latest news summary slideshow.</div>
+              <div className="dashboard-card-note">Recent headlines related to the monitored market.</div>
             </div>
             <span className="dashboard-card-tag">News</span>
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div className="dashboard-news-body">
             {latestCardsLoading && <div className="dashboard-inline-state">Loading news...</div>}
             {!latestCardsLoading && latestNews.length === 0 && (
               <div className="dashboard-empty-state">
@@ -261,40 +262,32 @@ export default function DashboardContent({
                   href={activeNewsItem.url || '#'}
                   target="_blank"
                   rel="noreferrer"
-                  style={{
-                    border: '1px solid #dbe3ef',
-                    borderRadius: 12,
-                    color: '#0f172a',
-                    textDecoration: 'none',
-                    background: '#fff',
-                    overflow: 'hidden',
-                    display: 'block',
-                  }}
+                  className="dashboard-news-feature"
                 >
                   {activeNewsThumb && (
-                    <img src={activeNewsThumb} alt={activeNewsItem.title || 'News thumbnail'} style={{ width: '100%', height: 190, objectFit: 'cover', display: 'block' }} />
+                    <img src={activeNewsThumb} alt={activeNewsItem.title || 'News thumbnail'} className="dashboard-news-image" />
                   )}
-                  <div style={{ padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.4 }}>{activeNewsItem.title || '-'}</div>
-                    <div style={{ color: '#64748b', fontSize: 11, marginTop: 5 }}>
+                  <div className="dashboard-news-feature-content">
+                    <div className="dashboard-news-title">{activeNewsItem.title || '-'}</div>
+                    <div className="dashboard-news-meta">
                       {activeNewsItem.source_name || '-'} • {activeNewsItem.published_at ? dayjs(activeNewsItem.published_at).format('DD MMM YYYY HH:mm') : '-'}
                     </div>
                   </div>
                 </a>
 
                 {latestNews.length > 1 && (
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div className="dashboard-news-controls">
                     <button className="btn-ghost" onClick={() => setActiveNewsIndex((prev) => (prev - 1 + latestNews.length) % latestNews.length)}>
                       Prev
                     </button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className="dashboard-news-dots">
                       {latestNews.map((_: any, idx: number) => (
                         <button
                           key={`news-dot-${idx}`}
                           type="button"
                           onClick={() => setActiveNewsIndex(idx)}
                           aria-label={`Slide ${idx + 1}`}
-                          style={{ width: 8, height: 8, borderRadius: 999, border: '0', cursor: 'pointer', background: idx === activeNewsIndex ? '#2563eb' : '#cbd5e1' }}
+                          className={`dashboard-news-dot${idx === activeNewsIndex ? ' active' : ''}`}
                         />
                       ))}
                     </div>
@@ -304,7 +297,7 @@ export default function DashboardContent({
                   </div>
                 )}
 
-                <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+                <div className="dashboard-news-list">
                   {latestNews.map((item: any, idx: number) => (
                     <a
                       key={`news-list-${item.id || idx}`}
@@ -312,17 +305,11 @@ export default function DashboardContent({
                       target="_blank"
                       rel="noreferrer"
                       onMouseEnter={() => setActiveNewsIndex(idx)}
-                      style={{
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 8,
-                        padding: '7px 9px',
-                        color: '#0f172a',
-                        textDecoration: 'none',
-                        background: idx === activeNewsIndex ? '#eff6ff' : '#fff',
-                      }}
+                      onFocus={() => setActiveNewsIndex(idx)}
+                      className={`dashboard-news-list-item${idx === activeNewsIndex ? ' active' : ''}`}
                     >
-                      <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.35 }}>{item.title || '-'}</div>
-                      <div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>
+                      <div className="dashboard-news-list-title">{item.title || '-'}</div>
+                      <div className="dashboard-news-meta">
                         {item.source_name || '-'} • {item.published_at ? dayjs(item.published_at).format('DD MMM YYYY HH:mm') : '-'}
                       </div>
                     </a>
@@ -333,16 +320,16 @@ export default function DashboardContent({
           </div>
         </div>
 
-        <div className="card">
+        <div className="card dashboard-commodity-panel">
           <div className="dashboard-card-head">
             <div>
               <h3>Latest Commodity Prices</h3>
-              <div className="dashboard-card-note">Latest commodity price updates.</div>
+              <div className="dashboard-card-note">Recent price movement for the selected commodity.</div>
             </div>
             <span className="dashboard-card-tag">Commodity</span>
           </div>
-          <div style={{ marginTop: 8 }}>
-            <label>Commodity Chart</label>
+          <div className="dashboard-commodity-filter">
+            <label className="dashboard-field-label">Price Trend</label>
             <SearchableSelect
               value={selectedTrendCommodity}
               onChange={setSelectedTrendCommodity}
@@ -352,11 +339,11 @@ export default function DashboardContent({
               disabled={trendCommodityOptions.length === 0}
             />
           </div>
-          <div style={{ marginTop: 10 }}>
-            <BarLineChart labels={priceTrend.labels} barValues={priceTrend.values} barName="Daily Commodity Prices" />
+          <div className="dashboard-chart-shell dashboard-price-chart-shell">
+            <PriceTrendChart labels={priceTrend.labels} values={priceTrend.values} dates={priceTrend.dates} />
           </div>
           <div className="dashboard-table-shell">
-            <table className="table dashboard-latest-prices-table metric-table">
+            <table className="table responsive-stack dashboard-latest-prices-table metric-table">
               <thead>
                 <tr>
                   <th>Commodity</th>
@@ -383,7 +370,7 @@ export default function DashboardContent({
                   const collectedAt = item.collected_at ? dayjs(item.collected_at) : null
                   return (
                     <tr key={item.id}>
-                      <td>
+                      <td data-label="Commodity">
                         <div className="table-stack-cell">
                           <div className="table-stack-primary" title={item.commodity?.name || '-'}>
                             {item.commodity?.name || '-'}
@@ -393,10 +380,10 @@ export default function DashboardContent({
                           </div>
                         </div>
                       </td>
-                      <td className="table-metric-cell">
+                      <td data-label="Price" className="table-metric-cell">
                         <span className="table-metric-pill total">{formatRupiah(Number(item.price || 0))}</span>
                       </td>
-                      <td>
+                      <td data-label="Collected">
                         <div className="table-stack-cell">
                           <div className="table-stack-primary">{collectedAt ? collectedAt.format('DD MMM YYYY') : '-'}</div>
                           <div className="table-stack-tertiary">{collectedAt ? collectedAt.format('HH:mm') : 'No timestamp'}</div>

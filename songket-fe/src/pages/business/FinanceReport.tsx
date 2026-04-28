@@ -16,7 +16,6 @@ import FinanceReportDetail from './components/FinanceReportDetail'
 import FinanceReportSummary from './components/FinanceReportSummary'
 import { useFinanceReportSummaryData } from './hooks/useFinanceReportSummaryData'
 import {
-  buildDonutGradient,
   buildDonutSlices,
   formatCoordinate,
   formatDateForQuery,
@@ -427,7 +426,6 @@ export default function FinanceReportPage() {
     return (
       <FinanceReportDetail
         applyDetailOrderInFilters={applyDetailOrderInFilters}
-        buildDonutGradient={buildDonutGradient}
         buildDonutSlices={buildDonutSlices}
         detailFinanceSummary={detailFinanceSummary}
         detailFinanceSummaryError={detailFinanceSummaryError}

@@ -65,8 +65,8 @@ export default function DashboardFilterPanel({
   const financeSelectOptions = [{ value: '', label: 'All Finance Companies' }, ...financeOptions]
 
   return (
-    <div className="card">
-      <div className="compact-filter-toolbar">
+    <div className="card dashboard-filter-card">
+      <div className="compact-filter-toolbar dashboard-filter-toolbar">
         <div className="compact-filter-item narrow">
           <SearchableSelect
             id="dashboard-area-filter"
@@ -236,14 +236,14 @@ export default function DashboardFilterPanel({
           />
         </div>
 
-        <div className="compact-filter-action">
+        <div className="compact-filter-action dashboard-filter-actions">
           <button className="btn" onClick={applyFilters}>Apply</button>
           <button className="btn-ghost" onClick={resetFilters}>Reset</button>
         </div>
       </div>
 
-      <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-        Monthly and yearly comparisons use the selected cutoff date for both the current period and the previous matching period.
+      <div className="dashboard-filter-helper">
+        Cutoff date keeps the current and previous matching periods aligned.
       </div>
     </div>
   )

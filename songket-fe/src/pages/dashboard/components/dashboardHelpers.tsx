@@ -75,18 +75,26 @@ export function KpiCard({
   label,
   value,
   note,
+  tone = 'blue',
+  icon,
   valueColor,
 }: {
   label: string
   value: string
   note?: string
+  tone?: 'blue' | 'cyan' | 'green' | 'emerald' | 'red' | 'slate'
+  icon?: string
   valueColor?: string
 }) {
+  const cardClassName = ['card', 'dashboard-kpi-card', `dashboard-kpi-card-${tone}`].join(' ')
   return (
-    <div className="card">
-      <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4, color: valueColor || '#0f172a' }}>{value}</div>
-      {note && <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{note}</div>}
+    <div className={cardClassName}>
+      <div className="dashboard-kpi-top">
+        <div className="dashboard-kpi-label">{label}</div>
+        {icon && <div className="dashboard-kpi-icon">{icon}</div>}
+      </div>
+      <div className="dashboard-kpi-value" style={valueColor ? { color: valueColor } : undefined}>{value}</div>
+      {note && <div className="dashboard-kpi-note">{note}</div>}
     </div>
   )
 }
@@ -169,6 +177,17 @@ export function PriceTrendChart({ labels, values, dates }: { labels: string[]; v
               fill="transparent"
               onMouseEnter={() => setHoveredIndex(idx)}
               onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
+              onClick={() => setHoveredIndex(idx)}
+              onTouchStart={() => setHoveredIndex(idx)}
+            />
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r={idx === hoveredIndex ? 4 : 3}
+              fill="#0ea5e9"
+              stroke="#ffffff"
+              strokeWidth={1.6}
+              pointerEvents="none"
             />
             {(idx % showStep === 0 || idx === points.length - 1) && (
               <text x={point.x} y={bottom + 14} textAnchor="middle" fontSize={10} fill="#334155">
@@ -327,6 +346,8 @@ export function BarLineChart({
                 fill="transparent"
                 onMouseEnter={() => setHoveredIndex(idx)}
                 onMouseLeave={() => setHoveredIndex((current) => (current === idx ? null : current))}
+                onClick={() => setHoveredIndex(idx)}
+                onTouchStart={() => setHoveredIndex(idx)}
               />
               <rect
                 x={primaryX}
@@ -416,6 +437,7 @@ export function BarLineChart({
 
 export function DonutCard({ title, subtitle, items }: { title: string; subtitle: string; items: SeriesItem[] }) {
   const [hoveredSliceIdx, setHoveredSliceIdx] = useState<number | null>(null)
+  const [selectedSliceIdx, setSelectedSliceIdx] = useState<number | null>(null)
   const slices = useMemo(() => buildDonutSlices(items), [items])
   const total = useMemo(() => slices.reduce((sum, item) => sum + item.total, 0), [slices])
   const ringSize = 120
@@ -431,17 +453,24 @@ export function DonutCard({ title, subtitle, items }: { title: string; subtitle:
       return segment
     })
   }, [ringCircumference, slices])
-  const activeSlice = hoveredSliceIdx != null ? slices[hoveredSliceIdx] : null
+  const activeSliceIdx = hoveredSliceIdx ?? selectedSliceIdx
+  const activeSlice = activeSliceIdx != null ? slices[activeSliceIdx] : null
+  const hasSingleSlice = slices.length === 1
+  const layoutClassName = slices.length > 0
+    ? 'dashboard-donut-card-layout'
+    : 'dashboard-donut-card-layout dashboard-donut-card-layout-empty'
 
   return (
-    <div className="card">
-      <h3>{title}</h3>
-      <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{subtitle}</div>
-      <div className="dashboard-donut-card-layout" style={{ marginTop: 12 }}>
+    <div className="card dashboard-donut-card">
+      <div className="dashboard-donut-card-head">
+        <h3>{title}</h3>
+        <div className="dashboard-card-note">{subtitle}</div>
+      </div>
+      <div className={layoutClassName}>
         {slices.length > 0 && (
-          <div style={{ display: 'grid', placeItems: 'center' }}>
-            <div style={{ width: ringSize, height: ringSize, position: 'relative' }}>
-              <svg viewBox={`0 0 ${ringSize} ${ringSize}`} width={ringSize} height={ringSize} style={{ display: 'block' }}>
+          <div className="dashboard-donut-visual">
+            <div className={`dashboard-donut-ring${hasSingleSlice ? ' single' : ''}`}>
+              <svg viewBox={`0 0 ${ringSize} ${ringSize}`} width={ringSize} height={ringSize} className="dashboard-donut-svg">
                 <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke="#e2e8f0" strokeWidth={ringStroke} />
                 {ringSlices.map((slice, idx) => (
                   <circle
@@ -455,24 +484,26 @@ export function DonutCard({ title, subtitle, items }: { title: string; subtitle:
                     strokeDasharray={`${slice.length} ${ringCircumference}`}
                     strokeDashoffset={-slice.offset}
                     transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
-                    style={{ cursor: 'pointer', opacity: hoveredSliceIdx == null || hoveredSliceIdx === idx ? 1 : 0.55, transition: 'opacity .18s ease' }}
+                    className={activeSliceIdx == null || activeSliceIdx === idx ? 'dashboard-donut-slice active' : 'dashboard-donut-slice'}
                     onMouseEnter={() => setHoveredSliceIdx(idx)}
                     onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+                    onClick={() => setSelectedSliceIdx((current) => (current === idx ? null : idx))}
+                    onTouchStart={() => setSelectedSliceIdx(idx)}
                   >
                     <title>{`${slice.label}: ${formatInteger(slice.total)} (${slice.percent.toFixed(1)}%)`}</title>
                   </circle>
                 ))}
               </svg>
-              <div style={{ position: 'absolute', inset: 18, borderRadius: '50%', background: '#fff', display: 'grid', placeItems: 'center', border: '1px solid #e2e8f0' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>{activeSlice ? 'Hover' : 'Total'}</div>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>{activeSlice ? `${activeSlice.percent.toFixed(1)}%` : formatInteger(total)}</div>
-                  {activeSlice && <div style={{ marginTop: 2, color: '#64748b', fontSize: 10 }}>{formatInteger(activeSlice.total)}</div>}
+              <div className="dashboard-donut-center">
+                <div className="dashboard-donut-center-content">
+                  <div className="dashboard-donut-center-label">{activeSlice ? 'Selected' : 'Total'}</div>
+                  <div className="dashboard-donut-center-value">{activeSlice ? `${activeSlice.percent.toFixed(1)}%` : formatInteger(total)}</div>
+                  <div className="dashboard-donut-center-note">{activeSlice ? formatInteger(activeSlice.total) : 'orders'}</div>
                 </div>
               </div>
             </div>
             {activeSlice && (
-              <div style={{ marginTop: 6, fontSize: 11, color: '#334155', fontWeight: 600, maxWidth: 124, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={activeSlice.label}>
+              <div className="dashboard-donut-active-label" title={activeSlice.label}>
                 {activeSlice.label}
               </div>
             )}
@@ -482,14 +513,15 @@ export function DonutCard({ title, subtitle, items }: { title: string; subtitle:
           {slices.map((slice, idx) => (
             <div
               key={slice.label}
-              style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center', background: hoveredSliceIdx === idx ? '#eef6ff' : 'transparent', borderRadius: 8, padding: '2px 4px' }}
+              className={activeSliceIdx === idx ? 'dashboard-donut-legend-row active' : 'dashboard-donut-legend-row'}
               onMouseEnter={() => setHoveredSliceIdx(idx)}
               onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+              onClick={() => setSelectedSliceIdx((current) => (current === idx ? null : idx))}
             >
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
-              <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{slice.label}</div>
-              <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
-              <div style={{ fontWeight: 700 }}>{formatInteger(slice.total)}</div>
+              <span className="dashboard-donut-legend-dot" style={{ background: slice.color }} />
+              <div className="dashboard-donut-legend-name" title={slice.label}>{slice.label}</div>
+              <div className="dashboard-donut-legend-percent">{slice.percent.toFixed(1)}%</div>
+              <div className="dashboard-donut-legend-total">{formatInteger(slice.total)}</div>
             </div>
           ))}
           {slices.length === 0 && <DashboardEmptyState title="No breakdown data" note="Segment details will appear when the selected period has data." compact />}

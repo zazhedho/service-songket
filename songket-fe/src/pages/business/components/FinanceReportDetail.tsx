@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import Pagination from '../../../components/common/Pagination'
 import Table from '../../../components/common/Table'
 import { formatRupiah } from '../../../utils/currency'
@@ -6,7 +6,6 @@ import { summarizeLocation } from './financeReportHelpers'
 
 type FinanceReportDetailProps = {
   applyDetailOrderInFilters: () => void
-  buildDonutGradient: (rows: any[]) => string
   buildDonutSlices: (rows: any[], maxSlices?: number) => any[]
   detailFinanceSummary: any
   detailFinanceSummaryError: string
@@ -33,6 +32,13 @@ type FinanceReportDetailProps = {
   setSelectedOrderInRow: React.Dispatch<React.SetStateAction<any>>
   statusBadge: (status: string) => React.ReactNode
   truncateTableText: (value: unknown, max?: number) => string
+}
+
+type FinanceMigrationDonutSlice = {
+  label: string
+  total: number
+  percent: number
+  color: string
 }
 
 function ModalDetailSection({
@@ -67,9 +73,115 @@ function ModalDetailField({
   )
 }
 
+function formatCount(value: unknown) {
+  return Number(value || 0).toLocaleString('id-ID')
+}
+
+function FinanceMigrationDonutCard({
+  centerLabel,
+  emptyMessage,
+  slices,
+  title,
+  total,
+  truncateTableText,
+}: {
+  centerLabel: string
+  emptyMessage: string
+  slices: FinanceMigrationDonutSlice[]
+  title: string
+  total: number
+  truncateTableText: (value: unknown, max?: number) => string
+}) {
+  const [hoveredSliceIdx, setHoveredSliceIdx] = useState<number | null>(null)
+  const [selectedSliceIdx, setSelectedSliceIdx] = useState<number | null>(null)
+  const ringSize = 132
+  const ringStroke = 24
+  const ringRadius = (ringSize - ringStroke) / 2
+  const ringCircumference = 2 * Math.PI * ringRadius
+  const activeSliceIdx = hoveredSliceIdx ?? selectedSliceIdx
+  const activeSlice = activeSliceIdx != null ? slices[activeSliceIdx] : null
+  const hasSingleSlice = slices.length === 1
+
+  let consumed = 0
+  const ringSlices = slices.map((slice) => {
+    const length = (slice.percent / 100) * ringCircumference
+    const item = { ...slice, length, offset: consumed }
+    consumed += length
+    return item
+  })
+
+  return (
+    <div className="finance-migration-donut-card">
+      <div className="finance-migration-donut-title">{title}</div>
+      {slices.length === 0 ? (
+        <div className="finance-migration-donut-empty">{emptyMessage}</div>
+      ) : (
+        <div className="finance-migration-donut-layout">
+          <div className="finance-migration-donut-visual">
+            <div className={`finance-migration-donut-ring${hasSingleSlice ? ' single' : ''}`}>
+              <svg viewBox={`0 0 ${ringSize} ${ringSize}`} width={ringSize} height={ringSize} className="finance-migration-donut-svg">
+                <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke="#e2e8f0" strokeWidth={ringStroke} />
+                {ringSlices.map((slice, idx) => (
+                  <circle
+                    key={`${title}-${slice.label}-${idx}`}
+                    cx={ringSize / 2}
+                    cy={ringSize / 2}
+                    r={ringRadius}
+                    fill="none"
+                    stroke={slice.color}
+                    strokeWidth={ringStroke}
+                    strokeDasharray={`${slice.length} ${ringCircumference}`}
+                    strokeDashoffset={-slice.offset}
+                    transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                    className={activeSliceIdx == null || activeSliceIdx === idx ? 'finance-migration-donut-slice active' : 'finance-migration-donut-slice'}
+                    onMouseEnter={() => setHoveredSliceIdx(idx)}
+                    onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+                    onClick={() => setSelectedSliceIdx((current) => (current === idx ? null : idx))}
+                    onTouchStart={() => setSelectedSliceIdx(idx)}
+                  >
+                    <title>{`${slice.label}: ${formatCount(slice.total)} (${slice.percent.toFixed(1)}%)`}</title>
+                  </circle>
+                ))}
+              </svg>
+              <div className="finance-migration-donut-center">
+                <div className="finance-migration-donut-center-content">
+                  <div className="finance-migration-donut-center-label">{activeSlice ? 'Selected' : centerLabel}</div>
+                  <div className="finance-migration-donut-center-value">{activeSlice ? `${activeSlice.percent.toFixed(1)}%` : formatCount(total)}</div>
+                  <div className="finance-migration-donut-center-note">{activeSlice ? formatCount(activeSlice.total) : 'orders'}</div>
+                </div>
+              </div>
+            </div>
+            {activeSlice && (
+              <div className="finance-migration-donut-active-label" title={activeSlice.label}>
+                {truncateTableText(activeSlice.label, 34)}
+              </div>
+            )}
+          </div>
+          <div className="finance-migration-donut-legend">
+            {slices.map((slice, idx) => (
+              <button
+                key={`${title}-legend-${slice.label}-${idx}`}
+                type="button"
+                className={activeSliceIdx === idx ? 'finance-migration-donut-legend-row active' : 'finance-migration-donut-legend-row'}
+                onMouseEnter={() => setHoveredSliceIdx(idx)}
+                onMouseLeave={() => setHoveredSliceIdx((current) => (current === idx ? null : current))}
+                onClick={() => setSelectedSliceIdx((current) => (current === idx ? null : idx))}
+              >
+                <span className="finance-migration-donut-legend-dot" style={{ background: slice.color }} />
+                <span className="finance-migration-donut-legend-name" title={slice.label}>{truncateTableText(slice.label, 70)}</span>
+                <span className="finance-migration-donut-legend-percent">{slice.percent.toFixed(1)}%</span>
+                <span className="finance-migration-donut-legend-total">{formatCount(slice.total)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function FinanceReportDetail({
   applyDetailOrderInFilters,
-  buildDonutGradient,
   buildDonutSlices,
   detailFinanceSummary,
   detailFinanceSummaryError,
@@ -126,8 +238,6 @@ export default function FinanceReportDetail({
   }
   const dealerDonutSlices = buildDonutSlices(computedDetailSummary?.dealerTotals || [], 6)
   const motorTypeDonutSlices = buildDonutSlices(computedDetailSummary?.motorTypeTotals || [], 6)
-  const dealerDonutGradient = buildDonutGradient(dealerDonutSlices)
-  const motorTypeDonutGradient = buildDonutGradient(motorTypeDonutSlices)
   const renderDetailOrderCell = (row: any) => (
     <div className="finance-detail-order-cell">
       <div className="finance-detail-primary" title={row.pooling_number || '-'}>
@@ -420,86 +530,23 @@ export default function FinanceReportDetail({
                     </div>
                   </div>
 
-                  <div className="finance-report-summary-split-grid" style={{ marginTop: 12 }}>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Dealer Summary</div>
-                      <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
-                        {dealerDonutSlices.length === 0 && <div className="muted">No dealer summary.</div>}
-                        {dealerDonutSlices.length > 0 && (
-                          <>
-                            <div style={{ display: 'grid', placeItems: 'center' }}>
-                              <div style={{ width: 132, height: 132, borderRadius: '50%', background: dealerDonutGradient, position: 'relative' }}>
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    inset: 18,
-                                    borderRadius: '50%',
-                                    background: '#fff',
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    textAlign: 'center',
-                                    border: '1px solid #e2e8f0',
-                                  }}
-                                >
-                                  <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Dealer</div>
-                                  <div style={{ fontSize: 16, fontWeight: 700 }}>{computedDetailSummary.totalOrders}</div>
-                                </div>
-                              </div>
-                            </div>
-                            <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                              {dealerDonutSlices.map((slice) => (
-                                <div key={`dealer-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
-                                  <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
-                                  <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
-                                  <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
-                                  <div style={{ fontWeight: 700 }}>{slice.total}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Motor Type Summary</div>
-                      <div className="mobile-filter-grid" style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
-                        {motorTypeDonutSlices.length === 0 && <div className="muted">No motor type summary.</div>}
-                        {motorTypeDonutSlices.length > 0 && (
-                          <>
-                            <div style={{ display: 'grid', placeItems: 'center' }}>
-                              <div style={{ width: 132, height: 132, borderRadius: '50%', background: motorTypeDonutGradient, position: 'relative' }}>
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    inset: 18,
-                                    borderRadius: '50%',
-                                    background: '#fff',
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    textAlign: 'center',
-                                    border: '1px solid #e2e8f0',
-                                  }}
-                                >
-                                  <div className="muted" style={{ fontSize: 11, lineHeight: 1.1 }}>Motor Type</div>
-                                  <div style={{ fontSize: 16, fontWeight: 700 }}>{computedDetailSummary.totalOrders}</div>
-                                </div>
-                              </div>
-                            </div>
-                            <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                              {motorTypeDonutSlices.map((slice) => (
-                                <div key={`motor-${slice.label}`} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center' }}>
-                                  <span style={{ width: 10, height: 10, borderRadius: 999, background: slice.color, display: 'inline-block' }} />
-                                  <div title={slice.label} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateTableText(slice.label, 70)}</div>
-                                  <div style={{ color: '#64748b', fontSize: 12 }}>{slice.percent.toFixed(1)}%</div>
-                                  <div style={{ fontWeight: 700 }}>{slice.total}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                  <div className="finance-report-summary-split-grid finance-migration-donut-grid">
+                    <FinanceMigrationDonutCard
+                      centerLabel="Dealer"
+                      emptyMessage="No dealer summary."
+                      slices={dealerDonutSlices}
+                      title="Dealer Summary"
+                      total={computedDetailSummary.totalOrders}
+                      truncateTableText={truncateTableText}
+                    />
+                    <FinanceMigrationDonutCard
+                      centerLabel="Motor Type"
+                      emptyMessage="No motor type summary."
+                      slices={motorTypeDonutSlices}
+                      title="Motor Type Summary"
+                      total={computedDetailSummary.totalOrders}
+                      truncateTableText={truncateTableText}
+                    />
                   </div>
                 </>
               )}

@@ -10,6 +10,7 @@ import './styles/filters.css'
 import './styles/quadrants.css'
 import './styles/business.css'
 import './styles/tables.css'
+import './styles/dashboard.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
