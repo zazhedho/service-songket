@@ -28,20 +28,30 @@ export default function PriceForm({
   formatRupiahInput,
 }: PriceFormProps) {
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Create Manual Commodity Price</div>
-          <div style={{ color: '#64748b' }}>Form page is separated from the price table</div>
+    <div className="price-shell">
+      <div className="header price-header">
+        <div className="price-heading">
+          <div className="price-eyebrow">Manual Entry</div>
+          <div className="price-title">Create Manual Commodity Price</div>
+          <div className="price-subtitle">Add a commodity price row with source reference.</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/prices')}>Back to Table</button>
+        <div className="price-actions">
+          <button className="btn-ghost" onClick={() => navigate('/prices')}>Back to Table</button>
+        </div>
       </div>
 
-      <div className="page">
+      <div className="page price-page">
         {!canImport && <div className="alert">No permission to create manual prices.</div>}
 
-        <div className="card" style={{ width: '100%' }}>
-          <div className="grid" style={{ gap: 10 }}>
+        <div className="card form-section price-form-card">
+          <div className="form-section-head">
+            <div>
+              <h3>Price Information</h3>
+              <div className="form-section-note">Use clear commodity names and include the source URL when available.</div>
+            </div>
+          </div>
+
+          <div className="form-section-grid">
             <div>
               <label>Commodity Name</label>
               <input value={manual.name} onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))} placeholder="Example: Medium Rice" />
@@ -64,11 +74,11 @@ export default function PriceForm({
               <label>Source URL</label>
               <input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={manual.source_url} onChange={(e) => setManual((m) => ({ ...m, source_url: e.target.value }))} placeholder="https://..." />
             </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-            <button className="btn" onClick={() => void submitManual()}>Save</button>
-            <button className="btn-ghost" onClick={() => navigate('/prices')}>Cancel</button>
+            <div className="form-actions-row price-form-actions">
+              <button className="btn" type="button" onClick={() => void submitManual()}>Save</button>
+              <button className="btn-ghost" type="button" onClick={() => navigate('/prices')}>Cancel</button>
+            </div>
           </div>
         </div>
       </div>

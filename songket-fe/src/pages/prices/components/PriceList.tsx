@@ -66,16 +66,15 @@ export default function PriceList({
   ).size
 
   return (
-    <>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Prices</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Review collected commodity prices and their source links.
-          </div>
+    <div className="price-list-shell">
+      <div className="header price-header">
+        <div className="price-heading">
+          <div className="price-eyebrow">Commodity Intelligence</div>
+          <div className="price-title">Commodity Prices</div>
+          <div className="price-subtitle">Review collected commodity prices and their source links.</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="price-actions">
           {canScrape && (
             <button className="btn" onClick={() => setShowModal(true)}>
               Run Scrape
@@ -92,48 +91,56 @@ export default function PriceList({
       {!canList && <div className="page"><div className="alert">You do not have permission to view prices.</div></div>}
 
       {canList && (
-        <div className="page">
-          <div className="card">
+        <div className="page price-page">
+          <div className="card price-card">
             <div className="entity-list-summary">
-              <div className="entity-summary-card">
+              <div className="entity-summary-card price-summary-card tone-blue">
                 <div className="entity-summary-label">Total Prices</div>
                 <div className="entity-summary-value">{priceTotalData || prices.length}</div>
                 <div className="entity-summary-note">Current result count for collected price data.</div>
               </div>
-              <div className="entity-summary-card">
+              <div className="entity-summary-card price-summary-card tone-emerald">
                 <div className="entity-summary-label">Commodities</div>
                 <div className="entity-summary-value">{commodityCount}</div>
                 <div className="entity-summary-note">Distinct commodities in the current result set.</div>
               </div>
-              <div className="entity-summary-card">
+              <div className="entity-summary-card price-summary-card tone-cyan">
                 <div className="entity-summary-label">Sources</div>
                 <div className="entity-summary-value">{sourceCount}</div>
                 <div className="entity-summary-note">Distinct source domains in the current result set.</div>
               </div>
             </div>
 
-            <div className="compact-filter-toolbar">
+            <div className="compact-filter-toolbar price-filter-toolbar">
               <div className="compact-filter-item grow-2">
                 <input value={priceSearch} onChange={(e) => setPriceSearch(e.target.value)} placeholder="Search commodity or source" aria-label="Search prices" />
               </div>
               <div className="compact-filter-action">
                 <button
-                  className="btn-ghost"
+                  className="btn-ghost price-clear-btn"
                   onClick={() => setPriceSearch('')}
                   disabled={!priceSearch.trim()}
                   title="Clear all filters"
                   aria-label="Clear all filters"
-                  style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
                 >
                   ×
                 </button>
               </div>
             </div>
 
-            <h3>Price List</h3>
+            <div className="price-section-head">
+              <h3>Price List</h3>
+              <span>{priceSearch.trim() ? 'Filtered' : 'All Prices'}</span>
+            </div>
 
             {loadingPrices ? (
-              <div>Loading...</div>
+              <div className="table-state-panel loading">
+                <div className="table-state-icon">...</div>
+                <div>
+                  <div className="table-state-title">Loading prices</div>
+                  <div className="table-state-note">Fetching latest commodity price rows.</div>
+                </div>
+              </div>
             ) : (
               <>
                 <Table
@@ -261,6 +268,6 @@ export default function PriceList({
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

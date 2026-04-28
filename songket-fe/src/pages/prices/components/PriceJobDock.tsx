@@ -46,41 +46,35 @@ export default function PriceJobDock({
   ]
 
   return (
-    <div
-      style={{
-        width: '100%',
-        background: '#ffffff',
-        border: '1px solid #dbe3ef',
-        borderRadius: 12,
-        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
-      }}
-    >
-      <div style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 700 }}>Scrape Jobs</div>
+    <div className="price-job-dock">
+      <div className="price-job-dock-head">
+        <div>
+          <div className="price-job-dock-title">Scrape Jobs</div>
+          <div className="price-job-dock-note">{jobsTotalData} jobs tracked</div>
+        </div>
         <button className="btn-ghost" onClick={onToggle}>{jobsOpen ? 'Close' : 'Open'}</button>
       </div>
 
       {jobsOpen && (
-        <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="compact-filter-toolbar" style={{ marginBottom: 4 }}>
+        <div className="price-job-dock-body">
+          <div className="compact-filter-toolbar price-job-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={jobsSearch} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search status or message" aria-label="Search scrape jobs" />
             </div>
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost price-clear-btn"
                 onClick={() => onSearchChange('')}
                 disabled={!jobsSearch.trim()}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <div style={{ maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="price-job-list">
             {jobs.length === 0 && (
               <div className="table-state-panel">
                 <div className="table-state-icon">i</div>
@@ -93,23 +87,19 @@ export default function PriceJobDock({
             {jobs.map((job) => (
               <button
                 key={job.id}
-                className="btn-ghost"
-                style={{ justifyContent: 'space-between', borderRadius: 10, padding: 10 }}
+                className="price-job-row"
                 onClick={() => onSelect(job.id)}
               >
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>{job.id.slice(0, 8)}</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>{new Date(job.created_at).toLocaleTimeString('en-GB')}</div>
+                <div className="price-job-row-main">
+                  <div>{job.id.slice(0, 8)}</div>
+                  <span>{new Date(job.created_at).toLocaleTimeString('en-GB')}</span>
                 </div>
                 <span
+                  className="price-job-status"
                   style={{
-                    padding: '4px 8px',
-                    borderRadius: 999,
-                    background: `${statusColor[job.status] || '#334155'}22`,
-                    color: statusColor[job.status] || '#334155',
-                    fontSize: 12,
-                    textTransform: 'capitalize',
-                  }}
+                    '--price-job-status-bg': `${statusColor[job.status] || '#334155'}22`,
+                    '--price-job-status-color': statusColor[job.status] || '#334155',
+                  } as React.CSSProperties}
                 >
                   {job.status}
                 </span>
@@ -117,13 +107,13 @@ export default function PriceJobDock({
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ color: '#64748b', fontSize: 12 }}>
+          <div className="price-job-pagination-row">
+            <div className="price-job-pagination-meta">
               Total {jobsTotalData} • Page {jobsPage} / {safeTotalPages}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ width: 110 }}>
+            <div className="price-job-pagination-actions">
+              <div className="price-job-page-size">
                 <SearchableSelect
                   value={String(jobsLimit)}
                   onChange={(value) => {

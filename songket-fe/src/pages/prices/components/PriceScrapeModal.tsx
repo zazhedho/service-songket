@@ -19,14 +19,19 @@ export default function PriceScrapeModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal">
-        <h3>Enter URLs to Scrape</h3>
-        <div className="muted" style={{ marginBottom: 8 }}>Add one or more URLs. You can insert additional rows.</div>
-        <div className="grid" style={{ gap: 10 }}>
+      <div className="modal price-scrape-modal">
+        <div className="price-modal-head">
+          <div>
+            <div className="price-modal-kicker">Scrape Source</div>
+            <h3>Enter URLs to Scrape</h3>
+            <div className="price-modal-note">Add one or more URLs, or leave empty to use active defaults.</div>
+          </div>
+        </div>
+        <div className="price-url-list">
           {urls.map((url, idx) => (
             <div key={idx} className="modal-inline-field-row">
               <input
-                style={{ flex: 1 }}
+                className="price-url-input"
                 value={url}
                 placeholder="https://..."
                 onChange={(e) => {
@@ -45,7 +50,7 @@ export default function PriceScrapeModal({
           <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Add Row</button>
         </div>
 
-        <div className="modal-action-row" style={{ marginTop: 16 }}>
+        <div className="modal-action-row price-modal-actions">
           <button className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
           <button className="btn" onClick={() => void startJob()} disabled={startingJob}>
             {startingJob ? 'Starting...' : 'Run'}

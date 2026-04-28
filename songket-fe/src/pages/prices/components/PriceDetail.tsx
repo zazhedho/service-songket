@@ -20,55 +20,59 @@ export default function PriceDetail({
   })()
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Price Details</div>
-          <div style={{ color: '#64748b' }}>Complete commodity price information</div>
+    <div className="price-shell">
+      <div className="header price-header">
+        <div className="price-heading">
+          <div className="price-eyebrow">Price Profile</div>
+          <div className="price-title">Commodity Price Details</div>
+          <div className="price-subtitle">Review commodity, price, source, and collection time.</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/prices')}>Back</button>
+        <div className="price-actions">
+          <button className="btn-ghost" onClick={() => navigate('/prices')}>Back</button>
+        </div>
       </div>
 
-      <div className="page">
+      <div className="page price-page">
         {!selectedPrice && <div className="alert">Price data not found.</div>}
         {selectedPrice && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>Price Information</h3>
-            <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
-              <tbody>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Commodity</th>
-                  <td><span className="detail-value-strong">{selectedPrice.commodity?.name || '-'}</span></td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Price</th>
-                  <td><span className="table-metric-pill total">{formatRupiah(selectedPrice.price)}</span></td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Unit</th>
-                  <td><span className="detail-value-strong">{selectedPrice.commodity?.unit || '-'}</span></td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Source URL</th>
-                  <td>
-                    {sourceUrl ? (
-                      <div className="table-stack-cell">
-                        <a className="detail-link table-url-link" href={sourceUrl} target="_blank" rel="noreferrer">
-                          {sourceHost}
-                        </a>
-                        <div className="table-stack-secondary table-url-wrap" title={sourceUrl}>
-                          {sourceUrl}
-                        </div>
+          <div className="card price-detail-card">
+            <div className="price-detail-hero">
+              <div>
+                <div className="price-detail-kicker">Commodity</div>
+                <div className="price-detail-name">{selectedPrice.commodity?.name || '-'}</div>
+                <div className="price-detail-note">{selectedPrice.commodity?.unit || 'Unit not available'}</div>
+              </div>
+              <div className="price-detail-value-card">
+                <span>Price</span>
+                <strong>{formatRupiah(selectedPrice.price)}</strong>
+              </div>
+            </div>
+
+            <div className="price-detail-grid">
+              <div className="price-detail-item">
+                <div className="price-detail-label">Unit</div>
+                <div className="price-detail-value">{selectedPrice.commodity?.unit || '-'}</div>
+              </div>
+              <div className="price-detail-item">
+                <div className="price-detail-label">Collected At</div>
+                <div className="price-detail-value">{selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('en-US') : '-'}</div>
+              </div>
+              <div className="price-detail-item wide">
+                <div className="price-detail-label">Source URL</div>
+                <div className="price-detail-value">
+                  {sourceUrl ? (
+                    <div className="table-stack-cell">
+                      <a className="detail-link table-url-link" href={sourceUrl} target="_blank" rel="noreferrer">
+                        {sourceHost}
+                      </a>
+                      <div className="table-stack-secondary table-url-wrap" title={sourceUrl}>
+                        {sourceUrl}
                       </div>
-                    ) : '-'}
-                  </td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Collected At</th>
-                  <td><span className="detail-value-strong">{selectedPrice.collected_at ? new Date(selectedPrice.collected_at).toLocaleString('en-US') : '-'}</span></td>
-                </tr>
-              </tbody>
-            </table>
+                    </div>
+                  ) : '-'}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

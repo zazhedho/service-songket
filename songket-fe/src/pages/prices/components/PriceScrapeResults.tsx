@@ -64,9 +64,12 @@ export default function PriceScrapeResults({
   }
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3>Scrape Results (Job {selectedJob.slice(0, 6)})</h3>
+    <div className="card price-results-card">
+      <div className="price-section-head">
+        <div>
+          <h3>Scrape Results</h3>
+          <div className="price-section-note">Job {selectedJob.slice(0, 6)}</div>
+        </div>
         {canImport && (
           <button className="btn" onClick={() => void importSelected()} disabled={selectedResultIds.length === 0}>
             Import Selected ({selectedResultIds.length})
@@ -74,18 +77,17 @@ export default function PriceScrapeResults({
         )}
       </div>
 
-      <div className="compact-filter-toolbar" style={{ marginTop: 10 }}>
+      <div className="compact-filter-toolbar price-filter-toolbar">
         <div className="compact-filter-item grow-2">
           <input value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} placeholder="Search commodity or source" aria-label="Search scrape results" />
         </div>
         <div className="compact-filter-action">
           <button
-            className="btn-ghost"
+            className="btn-ghost price-clear-btn"
             onClick={() => setResultSearch('')}
             disabled={!resultSearch.trim()}
             title="Clear all filters"
             aria-label="Clear all filters"
-            style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
           >
             ×
           </button>
@@ -93,7 +95,7 @@ export default function PriceScrapeResults({
       </div>
 
       {loadingResults ? (
-        <div className="table-state-panel loading" style={{ marginTop: 12 }}>
+        <div className="table-state-panel loading price-results-state">
           <div className="table-state-icon">...</div>
           <div>
             <div className="table-state-title">Loading scrape results</div>
@@ -101,7 +103,7 @@ export default function PriceScrapeResults({
           </div>
         </div>
       ) : results.length === 0 ? (
-        <div className="table-state-panel" style={{ marginTop: 12 }}>
+        <div className="table-state-panel price-results-state">
           <div className="table-state-icon">i</div>
           <div>
             <div className="table-state-title">No results found</div>
@@ -114,8 +116,7 @@ export default function PriceScrapeResults({
             <Table
               data={results}
               keyField="id"
-              className="metric-table"
-              style={{ minWidth: 760 }}
+              className="metric-table price-results-table"
               onRowClick={(result) => toggleResult(result.id)}
               columns={[
                 {

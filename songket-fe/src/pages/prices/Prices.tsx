@@ -298,28 +298,9 @@ export default function PricesPage() {
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Commodity Prices</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {canScrape && (
-            <button className="btn" onClick={() => setShowModal(true)}>
-              Run Scrape
-            </button>
-          )}
-          {canImport && (
-            <button className="btn-ghost" onClick={() => navigate('/prices/create')}>
-              Manual Entry
-            </button>
-          )}
-        </div>
-      </div>
-
+    <div className="price-shell">
       {canScrape && (
-        <div className="page" style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <div className="page price-dock-page">
           <PriceJobDock
             jobs={jobs}
             jobsLimit={jobsLimit}
@@ -362,7 +343,7 @@ export default function PricesPage() {
       />
 
       {canList && selectedJob && (
-        <div className="page">
+        <div className="page price-results-page">
           <PriceScrapeResults
             canImport={canImport}
             formatRupiah={formatRupiah}
