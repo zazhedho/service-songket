@@ -89,17 +89,10 @@ export default function CreditSummary({
 }: CreditSummaryProps) {
   return (
     <div className="credit-summary-grid">
-      <div
-        style={{
-          border: '1px solid #e2e8f0',
-          borderRadius: 12,
-          padding: 12,
-          background: '#fff',
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Installment Range</div>
-        <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
-          Highlighted bars represent product installment ranges.
+      <div className="credit-summary-panel">
+        <div className="credit-summary-panel-head">
+          <h3>Installment Range</h3>
+          <span>Product ranges are highlighted.</span>
         </div>
         <div className="credit-range-list">
           {installmentRanges.map((item: any) => {
@@ -124,17 +117,10 @@ export default function CreditSummary({
         </div>
       </div>
 
-      <div
-        style={{
-          border: '1px solid #e2e8f0',
-          borderRadius: 12,
-          padding: 12,
-          background: '#fff',
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>DP Range</div>
-        <div style={{ color: '#475569', fontSize: 12, marginBottom: 10 }}>
-          Approval rate by DP percentage range.
+      <div className="credit-summary-panel">
+        <div className="credit-summary-panel-head">
+          <h3>DP Range</h3>
+          <span>Approval rate by DP percentage range.</span>
         </div>
         <div className="credit-range-list">
           {dpRanges.map((item: any) => {

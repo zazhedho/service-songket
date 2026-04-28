@@ -2239,82 +2239,6 @@ h4 {
     color: #64748b;
   }
 
-  .credit-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .credit-summary-panel-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr);
-    gap: 10px;
-  }
-
-  .credit-summary-table-shell {
-    overflow-x: auto;
-    width: 100%;
-  }
-
-  .credit-empty-state {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px;
-    border: 1px solid #dbe3ef;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%);
-    color: #475569;
-  }
-
-  .credit-empty-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 32px;
-    height: 32px;
-    border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid #dbe3ef;
-    color: #0f766e;
-    font-size: 14px;
-    font-weight: 800;
-    box-shadow: 0 8px 20px rgba(15, 118, 110, 0.08);
-  }
-
-  .credit-empty-title {
-    color: #0f172a;
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1.25;
-  }
-
-  .credit-empty-note {
-    margin-top: 3px;
-    color: #64748b;
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .credit-table-empty {
-    padding: 16px;
-    border-radius: 14px;
-    border: 1px dashed #cbd5e1;
-    background: #f8fafc;
-    text-align: center;
-  }
-
-  .credit-matrix-table {
-    overflow-x: auto;
-    width: 100%;
-  }
-
-  .credit-matrix-area {
-    min-width: 180px;
-  }
-
   .entity-list-cell {
     display: grid;
     gap: 4px;
@@ -3232,18 +3156,6 @@ h4 {
 
   .table td {
     max-width: none;
-  }
-
-  .credit-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .credit-summary-panel-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .credit-matrix-area {
-    min-width: 0;
   }
 
   .table.responsive-stack {

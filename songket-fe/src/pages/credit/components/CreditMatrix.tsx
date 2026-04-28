@@ -91,7 +91,7 @@ export default function CreditMatrix({
         </table>
       </div>
 
-      <div style={{ marginTop: 8 }}>
+      <div className="credit-pagination-row">
         <Pagination
           page={matrixPagination.safePage}
           totalPages={matrixPagination.totalPages}

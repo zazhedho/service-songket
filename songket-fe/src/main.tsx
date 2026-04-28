@@ -18,6 +18,7 @@ import './styles/news.css'
 import './styles/menus.css'
 import './styles/master-settings.css'
 import './styles/orders.css'
+import './styles/credit.css'
 import './styles/dashboard.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

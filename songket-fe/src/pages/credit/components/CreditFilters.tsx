@@ -53,42 +53,42 @@ export default function CreditFilters({
   return (
     <div className="credit-filter-toolbar">
       <div className="credit-filter-item">
-          <SearchableSelect
-            id="credit-job-select"
-            value={selectedJobId}
-            options={jobSelectOptions}
-            onChange={setSelectedJobId}
-            placeholder="All Jobs"
-            searchPlaceholder="Search job..."
-            emptyMessage="Job not found."
-          />
+        <SearchableSelect
+          id="credit-job-select"
+          value={selectedJobId}
+          options={jobSelectOptions}
+          onChange={setSelectedJobId}
+          placeholder="All Jobs"
+          searchPlaceholder="Search job..."
+          emptyMessage="Job not found."
+        />
       </div>
 
       <div className="credit-filter-item">
-          <SearchableSelect
-            id="credit-area-select"
-            value={selectedAreaKey}
-            options={areaSelectOptions}
-            onChange={setSelectedAreaKey}
-            placeholder="All Areas"
-            searchPlaceholder="Search area..."
-            emptyMessage="Area not found."
-          />
+        <SearchableSelect
+          id="credit-area-select"
+          value={selectedAreaKey}
+          options={areaSelectOptions}
+          onChange={setSelectedAreaKey}
+          placeholder="All Areas"
+          searchPlaceholder="Search area..."
+          emptyMessage="Area not found."
+        />
       </div>
 
       <div className="credit-filter-item">
-          <SearchableSelect
-            id="credit-motor-select"
-            value={selectedMotorTypeId}
-            options={motorSelectOptions}
-            onChange={setSelectedMotorTypeId}
-            placeholder="All Motor Types"
-            searchPlaceholder="Search motor type..."
-            emptyMessage="Motor type not found."
-          />
+        <SearchableSelect
+          id="credit-motor-select"
+          value={selectedMotorTypeId}
+          options={motorSelectOptions}
+          onChange={setSelectedMotorTypeId}
+          placeholder="All Motor Types"
+          searchPlaceholder="Search motor type..."
+          emptyMessage="Motor type not found."
+        />
       </div>
 
-      <div className="credit-filter-item">
+      <div className="credit-filter-item credit-date-range">
         <div className="credit-date-field">
           <span className="credit-date-label">From</span>
           <input
@@ -100,9 +100,9 @@ export default function CreditFilters({
             title="Filter by start date"
           />
         </div>
-      </div>
 
-      <div className="credit-filter-item">
+        <div className="credit-date-separator">-</div>
+
         <div className="credit-date-field">
           <span className="credit-date-label">To</span>
           <input
@@ -118,12 +118,11 @@ export default function CreditFilters({
 
       <div className="credit-filter-item credit-filter-action">
         <button
-          className="btn-ghost"
+          className="btn-ghost credit-clear-btn"
           onClick={onReset}
           disabled={!hasActiveFilters}
           title="Clear all filters"
           aria-label="Clear all filters"
-          style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
         >
           ×
         </button>

@@ -349,15 +349,17 @@ export default function CreditPage() {
   const maxDPRangeTotal = useMemo(() => Math.max(1, ...dpRanges.map((item) => Number(item.total || 0))), [dpRanges])
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Credit Capability</div>
+    <div className="credit-shell">
+      <div className="header credit-header">
+        <div className="credit-heading">
+          <div className="credit-eyebrow">Credit Analysis</div>
+          <div className="credit-title">Credit Capability</div>
+          <div className="credit-subtitle">Compare area, job, motor type, installment range, and DP approval patterns.</div>
         </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page credit-page">
+        <div className="card credit-card">
           {!canList && <div className="alert">No permission to view data.</div>}
 
           {canList && (

@@ -129,14 +129,17 @@ export default function QuadrantContent({
   ]
 
   return (
-    <div className="page">
-      <div className="card">
-        <h3>Performance Map</h3>
-        <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-          Compare Order In Growth against Credit Capability for the selected period: {referencePeriod}.
+    <div className="page quadrant-page">
+      <div className="card quadrant-card quadrant-map-card">
+        <div className="quadrant-page-head">
+          <div>
+            <div className="quadrant-eyebrow">Performance Map</div>
+            <h3>Order Growth vs Credit Capability</h3>
+            <span>Selected period: {referencePeriod}</span>
+          </div>
         </div>
 
-        <div className="compact-filter-toolbar quadrant-filter-toolbar" style={{ marginTop: 12 }}>
+        <div className="compact-filter-toolbar quadrant-filter-toolbar">
           <div className="compact-filter-item narrow quadrant-filter-province">
             <SearchableSelect
               id="quadrant-province-filter"
@@ -202,7 +205,7 @@ export default function QuadrantContent({
 
           <div className="compact-filter-action quadrant-filter-reset">
             <button
-              className="btn-ghost"
+              className="btn-ghost quadrant-clear-btn"
               onClick={() => {
                 setFilter({ province: '', regency: '', search: '' })
                 setSelectedMonth('')
@@ -211,7 +214,6 @@ export default function QuadrantContent({
               disabled={!filter.province && !filter.regency && !filter.search.trim() && !selectedMonth && !selectedYear}
               title="Clear all filters"
               aria-label="Clear all filters"
-              style={{ minWidth: 42, paddingInline: 0, justifyContent: 'center' }}
             >
               ×
             </button>
@@ -445,11 +447,11 @@ export default function QuadrantContent({
                   />
                 )}
                 <circle
+                  className="quadrant-hit-area"
                   cx={point.x}
                   cy={point.y}
                   r={isMobile ? 15 : 11}
                   fill="transparent"
-                  style={{ cursor: 'pointer' }}
                   onClick={(event) => {
                     event.stopPropagation()
                     setActivePointId(point.id)
@@ -468,7 +470,6 @@ export default function QuadrantContent({
                   role="button"
                   tabIndex={0}
                   aria-label={`Inspect ${point.jobName} in ${point.areaLabel || 'selected area'}`}
-                  style={{ cursor: 'pointer' }}
                   onMouseEnter={() => setActivePointId(point.id)}
                   onMouseLeave={() => {
                     if (!isMobile) setActivePointId('')
@@ -521,10 +522,16 @@ export default function QuadrantContent({
         </div>
       </div>
 
-      <div className="card">
-        <h3>Point Details</h3>
+      <div className="card quadrant-card">
+        <div className="quadrant-page-head">
+          <div>
+            <div className="quadrant-eyebrow">Point Details</div>
+            <h3>Area and Job Positions</h3>
+            <span>Sorted by growth and credit capability.</span>
+          </div>
+        </div>
         <div className="table-responsive">
-          <table className="table quadrant-job-points-table" style={{ marginTop: 10, minWidth: 980 }}>
+          <table className="table quadrant-job-points-table">
             <thead>
               <tr>
                 <th>Job</th>
