@@ -268,6 +268,15 @@
     overflow: hidden;
   }
 
+.searchable-select-popover-portal {
+    right: auto;
+    z-index: 3000;
+  }
+
+.searchable-select-popover-portal .searchable-select-options {
+    max-height: var(--searchable-options-max-height, 260px);
+  }
+
 .searchable-select-search {
     padding: 10px;
     border-bottom: 1px solid #e2e8f0;
