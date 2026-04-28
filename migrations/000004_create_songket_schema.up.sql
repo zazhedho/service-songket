@@ -112,6 +112,9 @@ CREATE TABLE IF NOT EXISTS orders (
         FOREIGN KEY (motor_type_id) REFERENCES motor_types(id)
 );
 
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS installment NUMERIC(18,2) NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS order_finance_attempts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL,
