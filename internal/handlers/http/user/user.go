@@ -39,6 +39,7 @@ func NewUserHandler(s interfaceuser.ServiceUserInterface, limiter security.Login
 	}
 }
 
+// Register is kept for future self-registration, but it is not mounted in router while public registration is disabled.
 func (h *HandlerUser) Register(ctx *gin.Context) {
 	var req dto.UserRegister
 	logId := utils.GenerateLogId(ctx)

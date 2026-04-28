@@ -133,22 +133,25 @@ func (r *Routes) UserRoutes() {
 	h := userHandler.NewUserHandler(uc, loginLimiter)
 	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
 
-	// Setup register rate limiter
-	registerLimit := utils.GetEnv("REGISTER_RATE_LIMIT", 5).(int)
-	registerWindowSeconds := utils.GetEnv("REGISTER_RATE_WINDOW_SECONDS", 60).(int)
-	if registerWindowSeconds <= 0 {
-		registerWindowSeconds = 60
-	}
-	registerLimiter := middlewares.IPRateLimitMiddleware(
-		redisClient,
-		"user_register",
-		registerLimit,
-		time.Duration(registerWindowSeconds)*time.Second,
-	)
+	// Disabled public registration. Keep this block as reference if client wants
+	// self-registration again later.
+	//
+	// registerLimit := utils.GetEnv("REGISTER_RATE_LIMIT", 5).(int)
+	// registerWindowSeconds := utils.GetEnv("REGISTER_RATE_WINDOW_SECONDS", 60).(int)
+	// if registerWindowSeconds <= 0 {
+	// 	registerWindowSeconds = 60
+	// }
+	// registerLimiter := middlewares.IPRateLimitMiddleware(
+	// 	redisClient,
+	// 	"user_register",
+	// 	registerLimit,
+	// 	time.Duration(registerWindowSeconds)*time.Second,
+	// )
 
 	user := r.App.Group("/api/user")
 	{
-		user.POST("/register", registerLimiter, h.Register)
+		// Disabled public registration. Users must be created by admin.
+		// user.POST("/register", registerLimiter, h.Register)
 		user.POST("/login", h.Login)
 		user.POST("/forgot-password", h.ForgotPassword)
 		user.POST("/reset-password", h.ResetPassword)

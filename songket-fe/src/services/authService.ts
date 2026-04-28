@@ -10,7 +10,8 @@ const meCache = createRequestCacheStore<any>()
 export const login = (email: string, password: string) =>
   api.post('/api/user/login', { email, password })
 
-export const register = (body: Record<string, unknown>) => api.post('/api/user/register', body)
+// Disabled public registration. Users must be created by admin.
+// export const register = (body: Record<string, unknown>) => api.post('/api/user/register', body)
 
 export const getMe = () =>
   withAuthScopedRequestCache(
@@ -26,7 +27,7 @@ export const logout = () => api.post('/api/user/logout')
 
 const authService = {
   login,
-  register,
+  // register,
   getMe,
   updateMe,
   changeMyPassword,

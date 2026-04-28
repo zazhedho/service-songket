@@ -22,6 +22,7 @@ import './styles/credit.css'
 import './styles/dashboard.css'
 import './styles/roles.css'
 import './styles/users.css'
+import './styles/profile.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

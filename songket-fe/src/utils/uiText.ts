@@ -31,7 +31,6 @@ const DIRECT_TRANSLATIONS: Record<string, string> = {
   'Hasil': 'Result',
   'Status Order': 'Order Status',
   'Update Terakhir': 'Last Updated',
-  'Belum punya akun? Register': "Don't have an account? Register",
   'Menu tidak ditemukan': 'Menu not found',
   'Permission tidak ditemukan': 'Permission not found',
   'Roles & Access': 'Roles & Access',

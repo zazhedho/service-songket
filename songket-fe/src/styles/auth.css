@@ -144,9 +144,16 @@
 
 .auth-brand {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.auth-brand-row {
+  display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 22px;
 }
 
 .auth-logo {
@@ -164,6 +171,14 @@
   font-weight: 850;
   letter-spacing: 0.08em;
   line-height: 1;
+}
+
+.auth-brand-fullname {
+  width: 100%;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.45;
 }
 
 .auth-brand-subtitle {
@@ -230,11 +245,13 @@
   text-align: left;
 }
 
+/* Disabled public registration reference:
 .auth-register-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
+*/
 
 .auth-input,
 .auth-password-input {
@@ -434,6 +451,10 @@
     font-size: 18px;
   }
 
+  .auth-brand-fullname {
+    font-size: 11px;
+  }
+
   .auth-heading {
     margin-bottom: 14px;
   }
@@ -442,9 +463,11 @@
     font-size: 22px;
   }
 
+  /* Disabled public registration reference:
   .auth-register-grid {
     grid-template-columns: 1fr;
   }
+  */
 
   .auth-mode-button {
     padding: 8px 10px;
