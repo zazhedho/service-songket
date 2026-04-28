@@ -16,6 +16,7 @@ import RoleForm from './components/RoleForm'
 import RoleList from './components/RoleList'
 
 const empty = { name: '', display_name: '', description: '' }
+const emptyFormErrors = { name: '', display_name: '', description: '' }
 
 type NamedItem = {
   id: string
@@ -69,6 +70,7 @@ export default function RolesPage() {
   const [permDraft, setPermDraft] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [formErrors, setFormErrors] = useState(emptyFormErrors)
   const [roleDetail, setRoleDetail] = useState<any>(null)
 
   const stateRole = (location.state as any)?.role || null
@@ -157,6 +159,8 @@ export default function RolesPage() {
   useEffect(() => {
     if (isCreate) {
       setForm(empty)
+      setFormErrors(emptyFormErrors)
+      setError('')
       setRoleDetail(null)
       setPermDraft([])
       return
@@ -213,8 +217,32 @@ export default function RolesPage() {
     if (isCreate && !canCreate) return
     if (isEdit && !canUpdate) return
 
+    const trimmedForm = {
+      name: String(form.name || '').trim(),
+      display_name: String(form.display_name || '').trim(),
+      description: String(form.description || '').trim(),
+    }
+    const nextErrors = { ...emptyFormErrors }
+
+    if (isCreate && trimmedForm.name.length < 3) {
+      nextErrors.name = 'Name is required and must be at least 3 characters.'
+    }
+    if (trimmedForm.display_name.length < 3) {
+      nextErrors.display_name = 'Display Name is required and must be at least 3 characters.'
+    }
+    if (trimmedForm.description.length > 500) {
+      nextErrors.description = 'Description must be 500 characters or less.'
+    }
+
+    if (nextErrors.name || nextErrors.display_name || nextErrors.description) {
+      setFormErrors(nextErrors)
+      setError('Please complete the required role information before saving.')
+      return
+    }
+
     setLoading(true)
     setError('')
+    setFormErrors(emptyFormErrors)
 
     const permissionPayload = sanitizeIdList(permDraft)
 
@@ -225,16 +253,16 @@ export default function RolesPage() {
       if (isEdit && selectedId) {
         if (!isSystemRole) {
           await updateRole(selectedId, {
-            display_name: form.display_name,
-            description: form.description,
+            display_name: trimmedForm.display_name,
+            description: trimmedForm.description,
           })
         }
         roleId = selectedId
       } else {
         const created = await createRole({
-          name: form.name,
-          display_name: form.display_name,
-          description: form.description,
+          name: trimmedForm.name,
+          display_name: trimmedForm.display_name,
+          description: trimmedForm.description,
         })
         roleId = String(created?.data?.data?.id || created?.data?.id || '')
         newlyCreated = true
@@ -296,21 +324,24 @@ export default function RolesPage() {
     return (
       <div className="role-permission-groups">
         {resources.map((resource) => (
-          <div key={resource} className="role-permission-group">
-            <div className="perm-resource">{resource.replace(/_/g, ' ')}</div>
-            <div className="perm-table">
-              <div className="perm-row perm-head">
-                <div>Permission</div>
-                <div>Action</div>
-                <div className="perm-cell">Allow</div>
+          <section key={resource} className="role-permission-group">
+            <div className="role-permission-group-head">
+              <div>
+                <div className="role-permission-group-kicker">Resource</div>
+                <div className="perm-resource">{resource.replace(/_/g, ' ')}</div>
               </div>
+              <span className="role-permission-group-count">{groupedPerms[resource].length} rules</span>
+            </div>
+            <div className="role-permission-option-list">
               {groupedPerms[resource].map((permission) => {
                 const checked = permDraft.includes(permission.id)
                 return (
-                  <div key={permission.id} className="perm-row">
-                    <div className="perm-title">{permission.display_name || permission.name}</div>
-                    <div className="perm-meta">{permission.action || '-'}</div>
-                    <div className="perm-cell">
+                  <label key={permission.id} className={`role-permission-option ${checked ? 'selected' : ''}`}>
+                    <div className="role-permission-option-copy">
+                      <div className="perm-title">{permission.display_name || permission.name}</div>
+                      <div className="perm-meta">{permission.action || '-'}</div>
+                    </div>
+                    <div className="role-permission-option-control">
                       <input
                         type="checkbox"
                         className="perm-checkbox"
@@ -320,11 +351,11 @@ export default function RolesPage() {
                         title={permission.display_name || permission.name}
                       />
                     </div>
-                  </div>
+                  </label>
                 )
               })}
             </div>
-          </div>
+          </section>
         ))}
       </div>
     )
@@ -344,7 +375,13 @@ export default function RolesPage() {
     await load()
   }
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: string, v: string) => {
+    setForm((f) => ({ ...f, [k]: v }))
+    setFormErrors((prev) => ({ ...prev, [k]: '' }))
+    if (error === 'Please complete the required role information before saving.') {
+      setError('')
+    }
+  }
 
   if (isDetail) {
     return (
@@ -369,6 +406,7 @@ export default function RolesPage() {
         canUpdate={canUpdate}
         error={error}
         form={form}
+        formErrors={formErrors}
         groupedPerms={groupedPerms}
         isCreate={isCreate}
         isEdit={isEdit}
