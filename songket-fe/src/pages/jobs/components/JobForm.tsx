@@ -47,20 +47,31 @@ export default function JobForm({
   ]
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Job & Net Income' : 'Create Job & Net Income'}</div>
+    <div className="job-net-shell">
+      <div className="header job-net-header">
+        <div className="job-net-heading">
+          <div className="job-net-eyebrow">Income Setup</div>
+          <div className="job-net-title">{isEdit ? 'Edit Job & Net Income' : 'Create Job & Net Income'}</div>
+          <div className="job-net-subtitle">Set the job profile, income value, and coverage area.</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/jobs')}>Back to Table</button>
+        <div className="job-net-actions">
+          <button className="btn-ghost" onClick={() => navigate('/jobs')}>Back to Table</button>
+        </div>
       </div>
 
-      <div className="page">
-        <div className="card" style={{ width: '100%' }}>
+      <div className="page job-net-page">
+        <div className="card form-section job-net-form-card">
           {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
-          <div className="grid" style={{ gap: 10 }}>
+          <div className="form-section-head">
+            <div>
+              <h3>Job & Income</h3>
+              <div className="form-section-note">Job name and net income are stored with one or more coverage areas.</div>
+            </div>
+          </div>
+
+          <div className="form-section-grid">
             <div>
               <label>Job Name</label>
               <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter job name" />
@@ -78,9 +89,15 @@ export default function JobForm({
               />
             </div>
 
-            <div style={{ border: '1px solid #dde4ee', borderRadius: 10, padding: 12, background: '#f8fafc' }}>
-              <div style={{ fontWeight: 700, marginBottom: 10 }}>Coverage Area</div>
-              <div className="grid" style={{ gap: 10 }}>
+            <div className="job-net-area-panel form-field-span-full">
+              <div className="job-net-area-head">
+                <div>
+                  <div className="job-net-area-title">Coverage Area</div>
+                  <div className="job-net-area-note">Add at least one regency or city for this net income rule.</div>
+                </div>
+                <span>{form.selected_areas.length} selected</span>
+              </div>
+              <div className="job-net-area-picker">
                 <div>
                   <label>Province</label>
                   <SearchableSelect
@@ -109,16 +126,21 @@ export default function JobForm({
                 </div>
               </div>
 
-              <div style={{ marginTop: 10 }}>
-                {form.selected_areas.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No area selected.</div>}
+              <div className="job-net-selected-area-list">
+                {form.selected_areas.length === 0 && (
+                  <div className="job-net-area-empty">No area selected.</div>
+                )}
                 {form.selected_areas.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="job-net-area-stack">
                     {form.selected_areas.map((area: any, idx: number) => (
                       <div
                         key={`${area.province_code}-${area.regency_code}-${idx}`}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, border: '1px solid #dde4ee', borderRadius: 8, padding: '8px 10px', background: '#fff' }}
+                        className="job-net-area-row"
                       >
-                        <div style={{ fontWeight: 600 }}>{areaLabel(area)}</div>
+                        <div className="job-net-area-row-main">
+                          <div>{area.regency_name || areaLabel(area)}</div>
+                          <span>{area.province_name || '-'}</span>
+                        </div>
                         <button className="btn-ghost" type="button" onClick={() => removeArea(idx)}>Remove</button>
                       </div>
                     ))}
@@ -127,13 +149,13 @@ export default function JobForm({
               </div>
             </div>
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
+            {error && <div className="job-net-form-error">{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn" onClick={() => void save()} disabled={loading}>
+            <div className="form-actions-row job-net-form-actions">
+              <button className="btn" type="button" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
               </button>
-              <button className="btn-ghost" onClick={() => navigate('/jobs')}>Cancel</button>
+              <button className="btn-ghost" type="button" onClick={() => navigate('/jobs')}>Cancel</button>
             </div>
           </div>
         </div>

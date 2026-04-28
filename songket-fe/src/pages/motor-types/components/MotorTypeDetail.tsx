@@ -16,13 +16,14 @@ export default function MotorTypeDetail({
   selectedItem,
 }: MotorTypeDetailProps) {
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Type Details</div>
-          <div style={{ color: '#64748b' }}>Motor type data by area</div>
+    <div className="motor-installment-shell">
+      <div className="header motor-installment-header">
+        <div className="motor-installment-heading">
+          <div className="motor-installment-eyebrow">Product Profile</div>
+          <div className="motor-installment-title">Motor Type Details</div>
+          <div className="motor-installment-subtitle">Review product identity, OTR value, and area coverage.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="motor-installment-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`/motor-types/${selectedId}/edit`, { state: { motorType: selectedItem } })}>
               Edit
@@ -32,52 +33,49 @@ export default function MotorTypeDetail({
         </div>
       </div>
 
-      <div className="page">
+      <div className="page motor-installment-page">
         {!selectedItem && <div className="alert">Motor type data not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>Motor Type Information</h3>
-            <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
-              <table className="table responsive-detail polished-detail-table">
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th>
-                    <td><span className="detail-value-strong">{selectedItem.name || '-'}</span></td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th>
-                    <td><span className="detail-value-strong">{selectedItem.brand || '-'}</span></td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th>
-                    <td><span className="detail-value-strong">{selectedItem.model || '-'}</span></td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th>
-                    <td><span className="detail-value-strong">{selectedItem.type || '-'}</span></td>
-                  </tr>
-                </tbody>
-              </table>
-              <table className="table responsive-detail polished-detail-table">
-                <tbody>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th>
-                    <td><span className="table-metric-pill total">{formatRupiah(selectedItem.otr || 0)}</span></td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Province</th>
-                    <td><span className="detail-value-strong">{selectedItem.province_name || '-'}</span></td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Regency / City</th>
-                    <td><span className="detail-value-strong">{selectedItem.regency_name || '-'}</span></td>
-                  </tr>
-                  <tr>
-                    <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
-                    <td><span className="detail-value-strong">{formatDate(selectedItem.updated_at)}</span></td>
-                  </tr>
-                </tbody>
-              </table>
+          <div className="card motor-installment-detail-card">
+            <div className="motor-installment-detail-hero">
+              <div>
+                <div className="motor-installment-detail-kicker">Motor Type</div>
+                <div className="motor-installment-detail-name">{selectedItem.name || '-'}</div>
+                <div className="motor-installment-detail-note">
+                  {[selectedItem.brand, selectedItem.model, selectedItem.type].filter(Boolean).join(' / ') || '-'}
+                </div>
+              </div>
+              <div className="motor-installment-detail-price">
+                <span>OTR</span>
+                <strong>{formatRupiah(selectedItem.otr || 0)}</strong>
+              </div>
+            </div>
+
+            <div className="motor-installment-detail-grid">
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Brand</div>
+                <div className="motor-installment-detail-value">{selectedItem.brand || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Model</div>
+                <div className="motor-installment-detail-value">{selectedItem.model || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Variant</div>
+                <div className="motor-installment-detail-value">{selectedItem.type || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Regency / City</div>
+                <div className="motor-installment-detail-value">{selectedItem.regency_name || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Province</div>
+                <div className="motor-installment-detail-value">{selectedItem.province_name || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Updated At</div>
+                <div className="motor-installment-detail-value">{formatDate(selectedItem.updated_at)}</div>
+              </div>
             </div>
           </div>
         )}

@@ -20,13 +20,14 @@ export default function InstallmentDetail({
   const motor = selectedItem?.motor_type
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Type & Installment Details</div>
-          <div style={{ color: '#64748b' }}>Combined motor and installment configuration</div>
+    <div className="motor-installment-shell">
+      <div className="header motor-installment-header">
+        <div className="motor-installment-heading">
+          <div className="motor-installment-eyebrow">Installment Profile</div>
+          <div className="motor-installment-title">Motor Type & Installment Details</div>
+          <div className="motor-installment-subtitle">Review product identity, OTR, installment amount, and area coverage.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="motor-installment-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`/installments/${selectedId}/edit`, { state: { item: selectedItem } })}>
               Edit
@@ -36,28 +37,49 @@ export default function InstallmentDetail({
         </div>
       </div>
 
-      <div className="page">
+      <div className="page motor-installment-page">
         {!selectedItem && <div className="alert">Data not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>Motor Type & Installment Information</h3>
-            <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
-              <table className="table responsive-detail polished-detail-table">
-                <tbody>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Motor Type</th><td><span className="detail-value-strong">{motor?.name || '-'}</span></td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Brand</th><td><span className="detail-value-strong">{motor?.brand || '-'}</span></td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Model</th><td><span className="detail-value-strong">{motor?.model || '-'}</span></td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Variant</th><td><span className="detail-value-strong">{motor?.type || '-'}</span></td></tr>
-                </tbody>
-              </table>
-              <table className="table responsive-detail polished-detail-table">
-                <tbody>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>OTR</th><td><span className="table-metric-pill total">{formatRupiah(Number(motor?.otr || 0))}</span></td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Installment Amount</th><td><span className="table-metric-pill warning">{formatRupiah(Number(selectedItem.amount || 0))}</span></td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Area</th><td><span className="detail-value-strong">{areaLabel(motor)}</span></td></tr>
-                  <tr><th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th><td><span className="detail-value-strong">{formatDate(selectedItem.updated_at)}</span></td></tr>
-                </tbody>
-              </table>
+          <div className="card motor-installment-detail-card">
+            <div className="motor-installment-detail-hero">
+              <div>
+                <div className="motor-installment-detail-kicker">Installment</div>
+                <div className="motor-installment-detail-name">{motor?.name || '-'}</div>
+                <div className="motor-installment-detail-note">
+                  {[motor?.brand, motor?.model, motor?.type].filter(Boolean).join(' / ') || '-'}
+                </div>
+              </div>
+              <div className="motor-installment-detail-price">
+                <span>Installment</span>
+                <strong>{formatRupiah(Number(selectedItem.amount || 0))}</strong>
+              </div>
+            </div>
+
+            <div className="motor-installment-detail-grid">
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">OTR</div>
+                <div className="motor-installment-detail-value">{formatRupiah(Number(motor?.otr || 0))}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Brand</div>
+                <div className="motor-installment-detail-value">{motor?.brand || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Model</div>
+                <div className="motor-installment-detail-value">{motor?.model || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Variant</div>
+                <div className="motor-installment-detail-value">{motor?.type || '-'}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Area</div>
+                <div className="motor-installment-detail-value">{areaLabel(motor)}</div>
+              </div>
+              <div className="motor-installment-detail-item">
+                <div className="motor-installment-detail-label">Updated At</div>
+                <div className="motor-installment-detail-value">{formatDate(selectedItem.updated_at)}</div>
+              </div>
             </div>
           </div>
         )}

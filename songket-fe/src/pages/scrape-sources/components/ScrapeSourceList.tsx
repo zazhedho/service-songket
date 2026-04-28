@@ -61,40 +61,39 @@ export default function ScrapeSourceList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape URLs</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Manage source endpoints used for scraping prices and news.
-          </div>
+    <div className="scrape-source-shell">
+      <div className="header scrape-source-header">
+        <div className="scrape-source-heading">
+          <div className="scrape-source-eyebrow">Source Registry</div>
+          <div className="scrape-source-title">Scrape URLs</div>
+          <div className="scrape-source-subtitle">Manage scraping endpoints for commodity prices and news feeds.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="scrape-source-actions">
           {canCreate && <button className="btn" onClick={() => navigate('/scrape-sources/create')}>Create Source</button>}
         </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page scrape-source-page">
+        <div className="card scrape-source-card">
           <div className="entity-list-summary">
-            <div className="entity-summary-card">
+            <div className="entity-summary-card scrape-summary-card tone-blue">
               <div className="entity-summary-label">Total Sources</div>
               <div className="entity-summary-value">{totalData || sources.length}</div>
               <div className="entity-summary-note">Current result count for scrape source data.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card scrape-summary-card tone-emerald">
               <div className="entity-summary-label">Active Sources</div>
               <div className="entity-summary-value">{activeCount}</div>
               <div className="entity-summary-note">Sources currently enabled for use.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card scrape-summary-card tone-cyan">
               <div className="entity-summary-label">Type Groups</div>
               <div className="entity-summary-value">{typeCount}</div>
               <div className="entity-summary-note">Distinct source types in the current result set.</div>
             </div>
           </div>
 
-          <div className="compact-filter-toolbar">
+          <div className="compact-filter-toolbar scrape-source-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, URL, or category" aria-label="Search scrape source" />
             </div>
@@ -111,7 +110,7 @@ export default function ScrapeSourceList({
 
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost scrape-source-clear-btn"
                 onClick={() => {
                   setSearch('')
                   setTypeFilter('')
@@ -119,14 +118,16 @@ export default function ScrapeSourceList({
                 disabled={!search.trim() && !typeFilter}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <h3>Source List</h3>
+          <div className="scrape-source-section-head">
+            <h3>Source List</h3>
+            <span>{sourceTypeLabel(typeFilter) || 'All Types'}</span>
+          </div>
           {!canList && <div className="alert">No permission to view scrape sources.</div>}
           {canList && (
             <>

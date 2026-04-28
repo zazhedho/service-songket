@@ -89,38 +89,39 @@ export default function InstallmentList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Types & Installments</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Review installment references for each motor type and area.
-          </div>
+    <div className="motor-installment-shell">
+      <div className="header motor-installment-header">
+        <div className="motor-installment-heading">
+          <div className="motor-installment-eyebrow">Installment Reference</div>
+          <div className="motor-installment-title">Motor Types & Installments</div>
+          <div className="motor-installment-subtitle">Review installment references for motor types and area coverage.</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/installments/create')}>Create Motor & Installment</button>}
+        <div className="motor-installment-actions">
+          {canCreate && <button className="btn" onClick={() => navigate('/installments/create')}>Create Motor & Installment</button>}
+        </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page motor-installment-page">
+        <div className="card motor-installment-card">
           <div className="entity-list-summary">
-            <div className="entity-summary-card">
+            <div className="entity-summary-card motor-installment-summary-card tone-blue">
               <div className="entity-summary-label">Total Installments</div>
               <div className="entity-summary-value">{totalData || items.length}</div>
               <div className="entity-summary-note">Current result count for installment data.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card motor-installment-summary-card tone-emerald">
               <div className="entity-summary-label">Brands</div>
               <div className="entity-summary-value">{uniqueBrands}</div>
               <div className="entity-summary-note">Distinct motor brands in the current result set.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card motor-installment-summary-card tone-amber">
               <div className="entity-summary-label">Areas</div>
               <div className="entity-summary-value">{uniqueAreas}</div>
               <div className="entity-summary-note">Distinct regency and province combinations.</div>
             </div>
           </div>
 
-          <div className="compact-filter-toolbar">
+          <div className="compact-filter-toolbar motor-installment-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search motor type" aria-label="Search installment motor type" />
             </div>
@@ -148,7 +149,7 @@ export default function InstallmentList({
 
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost motor-installment-clear-btn"
                 onClick={() => {
                   setSearch('')
                   setProvinceFilter('')
@@ -157,7 +158,6 @@ export default function InstallmentList({
                 disabled={!search.trim() && !provinceFilter && !regencyFilter}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
@@ -165,8 +165,11 @@ export default function InstallmentList({
           </div>
         </div>
 
-        <div className="card">
-          <h3>Data List</h3>
+        <div className="card motor-installment-card">
+          <div className="motor-installment-section-head">
+            <h3>Data List</h3>
+            <span>{provinceFilter || regencyFilter || search.trim() ? 'Filtered' : 'All Installments'}</span>
+          </div>
           {(!canList || !canView) && <div className="alert">No permission to view data.</div>}
           {canList && canView && (
             <>

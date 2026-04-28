@@ -22,13 +22,14 @@ export default function ScrapeSourceDetail({
   })()
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape Source Details</div>
-          <div style={{ color: '#64748b' }}>Scraping URL configuration</div>
+    <div className="scrape-source-shell">
+      <div className="header scrape-source-header">
+        <div className="scrape-source-heading">
+          <div className="scrape-source-eyebrow">Source Profile</div>
+          <div className="scrape-source-title">Scrape Source Details</div>
+          <div className="scrape-source-subtitle">Review source identity, target URL, and current availability.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="scrape-source-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`/scrape-sources/${selectedId}/edit`, { state: { source: selectedSource } })}>
               Edit Source
@@ -38,50 +39,52 @@ export default function ScrapeSourceDetail({
         </div>
       </div>
 
-      <div className="page">
+      <div className="page scrape-source-page">
         {!selectedSource && <div className="alert">Source data not found.</div>}
         {selectedSource && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>Source Information</h3>
-            <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
-              <tbody>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
-                  <td><span className="detail-value-strong">{selectedSource.name || '-'}</span></td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>URL</th>
-                  <td>
-                    {sourceUrl ? (
-                      <div className="table-stack-cell">
-                        <a className="detail-link table-url-link" href={sourceUrl} target="_blank" rel="noreferrer">
-                          {sourceHost}
-                        </a>
-                        <div className="table-stack-secondary table-url-wrap" title={sourceUrl}>
-                          {sourceUrl}
-                        </div>
+          <div className="card scrape-source-detail-card">
+            <div className="scrape-source-detail-hero">
+              <div>
+                <div className="scrape-source-detail-kicker">Source</div>
+                <div className="scrape-source-detail-name">{selectedSource.name || '-'}</div>
+                <div className="scrape-source-detail-url" title={sourceUrl || '-'}>
+                  {sourceHost}
+                </div>
+              </div>
+              <span className={`badge ${selectedSource.is_active ? 'success' : 'reject'}`}>
+                {selectedSource.is_active ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+
+            <div className="scrape-source-detail-grid">
+              <div className="scrape-source-detail-item">
+                <div className="scrape-source-detail-label">Name</div>
+                <div className="scrape-source-detail-value">{selectedSource.name || '-'}</div>
+              </div>
+              <div className="scrape-source-detail-item">
+                <div className="scrape-source-detail-label">Type</div>
+                <div className="scrape-source-detail-value">{selectedSource.type || '-'}</div>
+              </div>
+              <div className="scrape-source-detail-item">
+                <div className="scrape-source-detail-label">Category</div>
+                <div className="scrape-source-detail-value">{selectedSource.category || '-'}</div>
+              </div>
+              <div className="scrape-source-detail-item">
+                <div className="scrape-source-detail-label">URL</div>
+                <div className="scrape-source-detail-value">
+                  {sourceUrl ? (
+                    <div className="table-stack-cell">
+                      <a className="detail-link table-url-link" href={sourceUrl} target="_blank" rel="noreferrer">
+                        {sourceHost}
+                      </a>
+                      <div className="table-stack-secondary table-url-wrap" title={sourceUrl}>
+                        {sourceUrl}
                       </div>
-                    ) : '-'}
-                  </td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Type</th>
-                  <td><span className="table-metric-pill total">{selectedSource.type || '-'}</span></td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Category</th>
-                  <td><span className="detail-value-strong">{selectedSource.category || '-'}</span></td>
-                </tr>
-                <tr>
-                  <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Status</th>
-                  <td>
-                    <span className={`badge ${selectedSource.is_active ? 'success' : 'reject'}`}>
-                      {selectedSource.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </div>
+                  ) : '-'}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

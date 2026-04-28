@@ -49,20 +49,31 @@ export default function InstallmentForm({
   ]
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Motor Type & Installment' : 'Create Motor Type & Installment'}</div>
+    <div className="motor-installment-shell">
+      <div className="header motor-installment-header">
+        <div className="motor-installment-heading">
+          <div className="motor-installment-eyebrow">Installment Setup</div>
+          <div className="motor-installment-title">{isEdit ? 'Edit Motor Type & Installment' : 'Create Motor Type & Installment'}</div>
+          <div className="motor-installment-subtitle">Define product identity, OTR, installment amount, and area coverage.</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/installments')}>Back to Table</button>
+        <div className="motor-installment-actions">
+          <button className="btn-ghost" onClick={() => navigate('/installments')}>Back to Table</button>
+        </div>
       </div>
 
-      <div className="page">
-        <div className="card" style={{ width: '100%' }}>
+      <div className="page motor-installment-page">
+        <div className="card form-section motor-installment-form-card">
           {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
-          <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+          <div className="form-section-head">
+            <div>
+              <h3>Motor & Installment</h3>
+              <div className="form-section-note">Keep OTR and installment values aligned with the selected area.</div>
+            </div>
+          </div>
+
+          <div className="form-section-grid">
             <div><label>Motor Type</label><input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" /></div>
             <div><label>Brand</label><input value={form.brand} onChange={(e) => setForm((prev: any) => ({ ...prev, brand: e.target.value }))} placeholder="Enter brand" /></div>
             <div><label>Model</label><input value={form.model} onChange={(e) => setForm((prev: any) => ({ ...prev, model: e.target.value }))} placeholder="Enter model" /></div>
@@ -101,13 +112,13 @@ export default function InstallmentForm({
               <input type="text" value={formatRupiah(form.amount)} onChange={(e) => setForm((prev: any) => ({ ...prev, amount: parseRupiahInput(e.target.value) }))} inputMode="numeric" maxLength={MAX_CURRENCY_INPUT_LENGTH + 3} placeholder="Enter installment amount" />
             </div>
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
+            {error && <div className="motor-installment-form-error">{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', gridColumn: '1 / -1' }}>
-              <button className="btn" onClick={() => void save()} disabled={loading}>
+            <div className="form-actions-row motor-installment-form-actions">
+              <button className="btn" type="button" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update Installment' : 'Create Installment'}
               </button>
-              <button className="btn-ghost" onClick={() => navigate('/installments')}>Cancel</button>
+              <button className="btn-ghost" type="button" onClick={() => navigate('/installments')}>Cancel</button>
             </div>
           </div>
         </div>

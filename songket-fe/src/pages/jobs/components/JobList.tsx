@@ -93,56 +93,59 @@ export default function JobList({
   ).size
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Jobs & Net Income</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Manage job profiles and their net income area coverage.
-          </div>
+    <div className="job-net-shell">
+      <div className="header job-net-header">
+        <div className="job-net-heading">
+          <div className="job-net-eyebrow">Income Configuration</div>
+          <div className="job-net-title">Jobs & Net Income</div>
+          <div className="job-net-subtitle">Manage job profiles, net income values, and area coverage.</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/jobs/create')}>Create Job & Net Income</button>}
+        <div className="job-net-actions">
+          {canCreate && <button className="btn" onClick={() => navigate('/jobs/create')}>Create Job & Net Income</button>}
+        </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page job-net-page">
+        <div className="card job-net-card">
           <div className="entity-list-summary">
-            <div className="entity-summary-card">
+            <div className="entity-summary-card job-net-summary-card tone-blue">
               <div className="entity-summary-label">Total Jobs</div>
               <div className="entity-summary-value">{totalData || items.length}</div>
               <div className="entity-summary-note">Current result count for job data.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card job-net-summary-card tone-emerald">
               <div className="entity-summary-label">Area Coverage</div>
               <div className="entity-summary-value">{itemsWithArea}</div>
               <div className="entity-summary-note">Jobs with at least one configured area.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card job-net-summary-card tone-amber">
               <div className="entity-summary-label">Unique Areas</div>
               <div className="entity-summary-value">{uniqueAreas}</div>
               <div className="entity-summary-note">Distinct area labels in the current result set.</div>
             </div>
           </div>
 
-          <div className="compact-filter-toolbar">
+          <div className="compact-filter-toolbar job-net-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search job name" aria-label="Search job name" />
             </div>
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost job-net-clear-btn"
                 onClick={() => setSearch('')}
                 disabled={!search.trim()}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <h3>Data List</h3>
+          <div className="job-net-section-head">
+            <h3>Data List</h3>
+            <span>{search.trim() ? 'Filtered' : 'All Jobs'}</span>
+          </div>
           {!canList && <div className="alert">No permission to view data.</div>}
           {canList && (
             <>

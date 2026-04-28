@@ -1,20 +1,3 @@
-function DetailTable({ rows }: { rows: Array<{ label: string; value: any }> }) {
-  return (
-    <table className="table responsive-detail polished-detail-table" style={{ marginTop: 10 }}>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th style={{ width: '36%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ wordBreak: 'break-word' }}>
-              <span className="detail-value-strong">{row.value ?? '-'}</span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
 type JobDetailProps = {
   canUpdate: boolean
   detailAreaRows: any[]
@@ -43,13 +26,14 @@ export default function JobDetail({
   selectedItem,
 }: JobDetailProps) {
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Job & Net Income Details</div>
-          <div style={{ color: '#64748b' }}>Combined job and net income configuration</div>
+    <div className="job-net-shell">
+      <div className="header job-net-header">
+        <div className="job-net-heading">
+          <div className="job-net-eyebrow">Income Profile</div>
+          <div className="job-net-title">Job & Net Income Details</div>
+          <div className="job-net-subtitle">Review job identity, income value, and area coverage.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="job-net-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`/jobs/${selectedId}/edit`, { state: { item: selectedItem } })}>
               Edit
@@ -59,28 +43,52 @@ export default function JobDetail({
         </div>
       </div>
 
-      <div className="page">
+      <div className="page job-net-page">
         {!selectedItem && <div className="alert">Data not found.</div>}
         {selectedItem && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>Job & Net Income Information</h3>
-            {detailLoading && <div style={{ color: '#64748b', marginBottom: 10 }}>Loading latest relation data...</div>}
-            <DetailTable
-              rows={[
-                { label: 'Job Name', value: detailJobName },
-                { label: 'Net Income', value: formatRupiah(detailNetIncomeValue) },
-                { label: 'Coverage Area Count', value: detailAreaRows.length },
-                { label: 'Created At', value: detailCreatedAt },
-                { label: 'Updated At', value: detailUpdatedAt },
-              ]}
-            />
+          <div className="card job-net-detail-card">
+            <div className="job-net-detail-hero">
+              <div>
+                <div className="job-net-detail-kicker">Job</div>
+                <div className="job-net-detail-name">{detailJobName}</div>
+                <div className="job-net-detail-note">{detailAreaRows.length} coverage area{detailAreaRows.length === 1 ? '' : 's'}</div>
+              </div>
+              <div className="job-net-detail-income">
+                <span>Net Income</span>
+                <strong>{formatRupiah(detailNetIncomeValue)}</strong>
+              </div>
+            </div>
 
-            <h3 style={{ marginTop: 14 }}>Coverage Areas</h3>
-            <div className="table-responsive">
-              <table className="table metric-table" style={{ marginTop: 10, minWidth: 520 }}>
+            {detailLoading && <div className="job-net-inline-state">Loading latest relation data...</div>}
+
+            <div className="job-net-detail-grid">
+              <div className="job-net-detail-item">
+                <div className="job-net-detail-label">Job Name</div>
+                <div className="job-net-detail-value">{detailJobName}</div>
+              </div>
+              <div className="job-net-detail-item">
+                <div className="job-net-detail-label">Coverage Area Count</div>
+                <div className="job-net-detail-value">{detailAreaRows.length}</div>
+              </div>
+              <div className="job-net-detail-item">
+                <div className="job-net-detail-label">Created At</div>
+                <div className="job-net-detail-value">{detailCreatedAt}</div>
+              </div>
+              <div className="job-net-detail-item">
+                <div className="job-net-detail-label">Updated At</div>
+                <div className="job-net-detail-value">{detailUpdatedAt}</div>
+              </div>
+            </div>
+
+            <div className="job-net-section-head">
+              <h3>Coverage Areas</h3>
+              <span>{detailAreaRows.length} areas</span>
+            </div>
+            <div className="table-responsive job-net-detail-table-wrap">
+              <table className="table metric-table job-net-area-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 64 }}>No</th>
+                    <th className="job-net-area-number-col">No</th>
                     <th>Area</th>
                   </tr>
                 </thead>

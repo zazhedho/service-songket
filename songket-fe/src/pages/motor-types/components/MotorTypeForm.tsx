@@ -49,20 +49,31 @@ export default function MotorTypeForm({
   ]
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{isEdit ? 'Edit Motor Type' : 'Create Motor Type'}</div>
+    <div className="motor-installment-shell">
+      <div className="header motor-installment-header">
+        <div className="motor-installment-heading">
+          <div className="motor-installment-eyebrow">Product Setup</div>
+          <div className="motor-installment-title">{isEdit ? 'Edit Motor Type' : 'Create Motor Type'}</div>
+          <div className="motor-installment-subtitle">Define product identity, OTR price, and area coverage.</div>
         </div>
-        <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Back to Table</button>
+        <div className="motor-installment-actions">
+          <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Back to Table</button>
+        </div>
       </div>
 
-      <div className="page">
-        <div className="card" style={{ width: '100%' }}>
+      <div className="page motor-installment-page">
+        <div className="card form-section motor-installment-form-card">
           {!canCreate && isCreate && <div className="alert">No permission to create data.</div>}
           {!canUpdate && isEdit && <div className="alert">No permission to update data.</div>}
 
-          <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+          <div className="form-section-head">
+            <div>
+              <h3>Motor Information</h3>
+              <div className="form-section-note">Keep model and variant readable for order and installment references.</div>
+            </div>
+          </div>
+
+          <div className="form-section-grid">
             <div>
               <label>Motor Type</label>
               <input value={form.name} onChange={(e) => setForm((prev: any) => ({ ...prev, name: e.target.value }))} placeholder="Enter motor type name" />
@@ -118,13 +129,13 @@ export default function MotorTypeForm({
               />
             </div>
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13, gridColumn: '1 / -1' }}>{error}</div>}
+            {error && <div className="motor-installment-form-error">{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', gridColumn: '1 / -1' }}>
-              <button className="btn" onClick={() => void save()} disabled={loading}>
+            <div className="form-actions-row motor-installment-form-actions">
+              <button className="btn" type="button" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
               </button>
-              <button className="btn-ghost" onClick={() => navigate('/motor-types')}>Cancel</button>
+              <button className="btn-ghost" type="button" onClick={() => navigate('/motor-types')}>Cancel</button>
             </div>
           </div>
         </div>

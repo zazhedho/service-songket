@@ -85,38 +85,39 @@ export default function MotorTypeList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Motor Types</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Manage motor type references and their area coverage.
-          </div>
+    <div className="motor-installment-shell">
+      <div className="header motor-installment-header">
+        <div className="motor-installment-heading">
+          <div className="motor-installment-eyebrow">Product Reference</div>
+          <div className="motor-installment-title">Motor Types</div>
+          <div className="motor-installment-subtitle">Manage motor type references, pricing, and area coverage.</div>
         </div>
-        {canCreate && <button className="btn" onClick={() => navigate('/motor-types/create')}>Create Motor Type</button>}
+        <div className="motor-installment-actions">
+          {canCreate && <button className="btn" onClick={() => navigate('/motor-types/create')}>Create Motor Type</button>}
+        </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page motor-installment-page">
+        <div className="card motor-installment-card">
           <div className="entity-list-summary">
-            <div className="entity-summary-card">
+            <div className="entity-summary-card motor-installment-summary-card tone-blue">
               <div className="entity-summary-label">Total Motor Types</div>
               <div className="entity-summary-value">{totalData || items.length}</div>
               <div className="entity-summary-note">Current result count for motor type data.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card motor-installment-summary-card tone-emerald">
               <div className="entity-summary-label">Brands</div>
               <div className="entity-summary-value">{uniqueBrands}</div>
               <div className="entity-summary-note">Distinct brands in the current result set.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card motor-installment-summary-card tone-amber">
               <div className="entity-summary-label">Areas</div>
               <div className="entity-summary-value">{uniqueAreas}</div>
               <div className="entity-summary-note">Distinct regency and province combinations.</div>
             </div>
           </div>
 
-          <div className="compact-filter-toolbar">
+          <div className="compact-filter-toolbar motor-installment-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search type, brand, or model" aria-label="Search motor type" />
             </div>
@@ -144,7 +145,7 @@ export default function MotorTypeList({
 
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost motor-installment-clear-btn"
                 onClick={() => {
                   setSearch('')
                   setProvinceFilter('')
@@ -153,7 +154,6 @@ export default function MotorTypeList({
                 disabled={!search.trim() && !provinceFilter && !regencyFilter}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
@@ -161,8 +161,11 @@ export default function MotorTypeList({
           </div>
         </div>
 
-        <div className="card">
-          <h3>Motor Type List</h3>
+        <div className="card motor-installment-card">
+          <div className="motor-installment-section-head">
+            <h3>Motor Type List</h3>
+            <span>{provinceFilter || regencyFilter || search.trim() ? 'Filtered' : 'All Products'}</span>
+          </div>
           {(!canList || !canView) && <div className="alert">No permission to view motor type data.</div>}
           {canList && canView && (
             <>
