@@ -51,8 +51,8 @@ export default function MasterSettingHistory({
 
   return (
     <>
-      <div className="card">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="card master-settings-tab-card">
+        <div className="master-settings-tabs">
           <button
             className={activeTab === 'settings' ? 'btn' : 'btn-ghost'}
             onClick={() => setActiveTab('settings')}
@@ -70,11 +70,14 @@ export default function MasterSettingHistory({
         </div>
       </div>
 
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Master Settings History</h3>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {historyLoading && <div style={{ color: '#64748b', fontSize: 12 }}>Loading...</div>}
+      <div className="card master-settings-card">
+        <div className="master-settings-section-head">
+          <div>
+            <h3>Change History</h3>
+            <span>Track scheduler status and interval changes.</span>
+          </div>
+          <div className="master-settings-actions">
+            {historyLoading && <div className="master-settings-loading">Loading...</div>}
             <button className="btn-ghost" onClick={() => void onRefresh()} disabled={historyLoading || loading}>
               Refresh History
             </button>
@@ -82,7 +85,7 @@ export default function MasterSettingHistory({
         </div>
 
         <div className="table-responsive">
-          <table className="table metric-table" style={{ marginTop: 10, minWidth: 760 }}>
+          <table className="table metric-table master-settings-history-table">
             <thead>
               <tr>
                 <th>Setting</th>

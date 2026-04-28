@@ -55,38 +55,56 @@ export default function NewsScrape({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Scrape News Portal</div>
-          <div style={{ color: '#64748b' }}>Dedicated page for news source URL scraping</div>
+    <div className="news-shell">
+      <div className="header news-header">
+        <div className="news-heading">
+          <div className="news-eyebrow">News Intake</div>
+          <div className="news-title">Scrape News Portal</div>
+          <div className="news-subtitle">Collect articles from registered sources or add specific URLs for one-time scraping.</div>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/news')}>Back to Table</button>
       </div>
 
-      <div className="page">
+      <div className="page news-page">
         {!canScrape && <div className="alert">No permission to scrape news.</div>}
 
         {canScrape && (
-          <div className="card">
-            <div className="muted">Enter one or more news portal URLs and add rows if needed.</div>
+          <div className="card news-scrape-card">
+            <div className="news-scrape-head">
+              <div>
+                <h3>Scrape Sources</h3>
+                <span>Add URLs only when you need to target a specific news page.</span>
+              </div>
+              <button className="btn" onClick={onStartScrape} disabled={scraping}>
+                {scraping ? 'Processing...' : 'Run Scrape'}
+              </button>
+            </div>
+
             {sourceOptions.length > 0 && (
-              <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
-                Registered sources: {sourceOptions.map((item) => `${item.name || 'source'} (${item.url})`).join(', ')}
+              <div className="news-source-strip">
+                <div className="news-source-strip-label">Registered sources</div>
+                <div className="news-source-list">
+                  {sourceOptions.map((item) => (
+                    <span key={`${item.name}-${item.url}`} title={item.url}>
+                      {item.name || sourceHost(item.url)}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="grid" style={{ gap: 10, marginTop: 10 }}>
+
+            <div className="news-url-list">
               {urls.map((url, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div key={idx} className="news-url-row">
                   <input
                     value={url}
-                    placeholder="https://"
+                    placeholder="https://example.com/article"
                     onChange={(e) => {
                       const next = [...urls]
                       next[idx] = e.target.value
                       setUrls(next)
                     }}
-                    style={{ flex: 1 }}
+                    className="news-url-input"
                   />
                   {urls.length > 1 && (
                     <button className="btn-ghost" onClick={() => setUrls((prev) => prev.filter((_, i) => i !== idx))}>Remove</button>
@@ -95,18 +113,17 @@ export default function NewsScrape({
               ))}
               <button className="btn-ghost" onClick={() => setUrls((prev) => [...prev, ''])}>+ Add row</button>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-              <button className="btn" onClick={onStartScrape} disabled={scraping}>
-                {scraping ? 'Processing...' : 'Run Scrape'}
-              </button>
-            </div>
           </div>
         )}
 
         {canScrape && scrapedRows.length > 0 && (
-          <div className="card">
-            <h3>Scrape Results Preview</h3>
+          <div className="card news-results-card">
+            <div className="news-section-head">
+              <div>
+                <h3>Scrape Results Preview</h3>
+                <span>{scrapedRows.length} article{scrapedRows.length === 1 ? '' : 's'} ready for review.</span>
+              </div>
+            </div>
             <Table
               className="news-scrape-preview-table metric-table"
               data={pagedScrapedRows}
@@ -188,6 +205,7 @@ export default function NewsScrape({
                     />
                   ),
                   className: 'action-cell',
+                  headerClassName: 'news-scrape-col-action',
                   ignoreRowClick: true,
                 },
               ]}

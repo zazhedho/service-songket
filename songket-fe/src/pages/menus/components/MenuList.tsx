@@ -43,55 +43,58 @@ export default function MenuList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Menus</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            Manage navigation structure, routes, and menu visibility.
-          </div>
+    <div className="menu-shell">
+      <div className="header menu-header">
+        <div className="menu-heading">
+          <div className="menu-eyebrow">Navigation Control</div>
+          <div className="menu-title">Menus</div>
+          <div className="menu-subtitle">Manage navigation structure, route paths, ordering, and menu visibility.</div>
         </div>
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page menu-page">
+        <div className="card menu-card">
           <div className="entity-list-summary">
-            <div className="entity-summary-card">
+            <div className="entity-summary-card menu-summary-card tone-blue">
               <div className="entity-summary-label">Total Menus</div>
               <div className="entity-summary-value">{totalData || items.length}</div>
-              <div className="entity-summary-note">Current result count for the navigation menu registry.</div>
+              <div className="entity-summary-note">Current navigation entries.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card menu-summary-card tone-emerald">
               <div className="entity-summary-label">Active Menus</div>
               <div className="entity-summary-value">{activeCount}</div>
-              <div className="entity-summary-note">Menus that are currently enabled for navigation.</div>
+              <div className="entity-summary-note">Visible in navigation.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card menu-summary-card tone-amber">
               <div className="entity-summary-label">Root Menus</div>
               <div className="entity-summary-value">{rootCount}</div>
-              <div className="entity-summary-note">Top-level entries without a parent menu.</div>
+              <div className="entity-summary-note">Top-level menu entries.</div>
             </div>
           </div>
 
-          <div className="compact-filter-toolbar">
+          <div className="compact-filter-toolbar menu-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or path" aria-label="Search menu" />
             </div>
             <div className="compact-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost menu-clear-btn"
                 onClick={() => setSearch('')}
                 disabled={!search.trim()}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
             </div>
           </div>
 
-          <h3>Menu List</h3>
+          <div className="menu-section-head">
+            <div>
+              <h3>Menu List</h3>
+              <span>Click a row to inspect route and hierarchy details.</span>
+            </div>
+          </div>
           {!canList && <div className="alert">No permission to view menu.</div>}
           {canList && (
             <>
@@ -200,7 +203,6 @@ export default function MenuList({
                     className: 'action-cell',
                     headerClassName: 'menu-list-col-action',
                     ignoreRowClick: true,
-                    style: { width: '1%' },
                   },
                 ]}
                 emptyState={

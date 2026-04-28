@@ -271,9 +271,9 @@ export default function NewsPage() {
         setConfirmDeleteId={requestDeleteNews}
         setLimit={setLimit}
         setPage={setPage}
-      totalData={totalData}
-      totalPages={totalPages}
-    />
+        totalData={totalData}
+        totalPages={totalPages}
+      />
     </div>
   )
 }

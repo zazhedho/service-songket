@@ -448,8 +448,8 @@ export default function MasterSettingsPage() {
 
   if (!canView) {
     return (
-      <div className="page">
-        <div className="card">
+      <div className="page master-settings-page">
+        <div className="card master-settings-card">
           <div className="alert">You do not have permission to access master settings.</div>
         </div>
       </div>
@@ -457,43 +457,34 @@ export default function MasterSettingsPage() {
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Master Settings</div>
-          <div style={{ color: '#64748b' }}>Scheduler control and change history</div>
+    <div className="master-settings-shell">
+      <div className="header master-settings-header">
+        <div className="master-settings-heading">
+          <div className="master-settings-eyebrow">Automation Control</div>
+          <div className="master-settings-title">Master Settings</div>
+          <div className="master-settings-subtitle">Control scheduler intervals, status, and audit history for scraping jobs.</div>
         </div>
         {isFormMode ? (
-          <button className="btn-ghost" onClick={() => navigate('/master-settings')}>Back</button>
+          <button className="btn-ghost" onClick={() => navigate('/master-settings')}>Back to Settings</button>
         ) : (
           (canCreate || canUpdate) && (
-          <button className="btn" onClick={() => navigate('/master-settings/form?action=create')}>Setting</button>
+            <button className="btn" onClick={() => navigate('/master-settings/form?action=create')}>Create Setting</button>
           )
         )}
       </div>
 
-      <div className="page">
-        {loading && <div className="card"><div style={{ color: '#64748b' }}>Loading settings...</div></div>}
-        {error && <div className="card"><div className="alert">{error}</div></div>}
+      <div className="page master-settings-page">
+        {loading && <div className="card master-settings-card"><div className="master-settings-muted">Loading settings...</div></div>}
+        {error && <div className="card master-settings-card"><div className="alert">{error}</div></div>}
         {success && (
-          <div className="card">
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: '1px solid #86efac',
-                background: '#f0fdf4',
-                color: '#166534',
-              }}
-            >
-              {success}
-            </div>
+          <div className="card master-settings-card">
+            <div className="master-settings-success">{success}</div>
           </div>
         )}
 
         {isFormMode ? (
-      <MasterSettingForm
-        currentExists={currentExists}
+          <MasterSettingForm
+            currentExists={currentExists}
             currentInterval={currentInterval}
             currentStatus={currentStatus}
             currentUpdatedAt={formatDate(currentUpdatedAt)}
@@ -513,9 +504,9 @@ export default function MasterSettingsPage() {
         ) : (
           <>
             {activeTab === 'settings' && (
-      <MasterSettingList
-        activeTab={activeTab}
-        loading={loading}
+              <MasterSettingList
+                activeTab={activeTab}
+                loading={loading}
                 navigate={navigate}
                 onRefresh={load}
                 paginatedSettings={paginatedSettings}

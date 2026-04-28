@@ -64,38 +64,39 @@ export default function NewsList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>News Portal</div>
-          <div style={{ color: '#64748b' }}>This page shows news entries stored in the database</div>
+    <div className="news-shell">
+      <div className="header news-header">
+        <div className="news-heading">
+          <div className="news-eyebrow">News Library</div>
+          <div className="news-title">News Portal</div>
+          <div className="news-subtitle">Review saved articles, source coverage, and category scope from one compact workspace.</div>
         </div>
       </div>
 
       {!canView && <div className="page"><div className="alert">No permission to view news.</div></div>}
 
       {canView && (
-        <div className="page">
-          <div className="card">
+        <div className="page news-page">
+          <div className="card news-card">
             <div className="entity-list-summary">
-              <div className="entity-summary-card">
+              <div className="entity-summary-card news-summary-card tone-blue">
                 <div className="entity-summary-label">Total Articles</div>
                 <div className="entity-summary-value">{totalData || items.length}</div>
-                <div className="entity-summary-note">Saved news entries in the current result set.</div>
+                <div className="entity-summary-note">Saved entries in the current result.</div>
               </div>
-              <div className="entity-summary-card">
+              <div className="entity-summary-card news-summary-card tone-emerald">
                 <div className="entity-summary-label">Sources</div>
                 <div className="entity-summary-value">{sourceCount}</div>
-                <div className="entity-summary-note">Distinct news sources represented in this list.</div>
+                <div className="entity-summary-note">Distinct publishers in this list.</div>
               </div>
-              <div className="entity-summary-card">
+              <div className="entity-summary-card news-summary-card tone-amber">
                 <div className="entity-summary-label">Category Scope</div>
-                <div className="entity-summary-value" style={{ fontSize: 22 }}>{selectedCategoryLabel}</div>
-                <div className="entity-summary-note">Current category filter applied to the news list.</div>
+                <div className="entity-summary-value news-summary-text">{selectedCategoryLabel}</div>
+                <div className="entity-summary-note">Active category filter.</div>
               </div>
             </div>
 
-            <div className="compact-filter-toolbar">
+            <div className="compact-filter-toolbar news-filter-toolbar">
               <div className="compact-filter-item narrow">
                 <SearchableSelect
                   value={category}
@@ -107,19 +108,23 @@ export default function NewsList({
               </div>
               <div className="compact-filter-action">
                 <button
-                  className="btn-ghost"
+                  className="btn-ghost news-clear-btn"
                   onClick={() => setCategory('')}
                   disabled={!category}
                   title="Clear all filters"
                   aria-label="Clear all filters"
-                  style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
                 >
                   ×
                 </button>
                 {canScrape && <button className="btn" onClick={() => navigate('/news/scrape')}>Scrape News</button>}
               </div>
             </div>
-            <h3>News List</h3>
+            <div className="news-section-head">
+              <div>
+                <h3>News List</h3>
+                <span>Click a row to open the article detail.</span>
+              </div>
+            </div>
             <Table
               className="news-list-table metric-table"
               data={items}
@@ -217,7 +222,6 @@ export default function NewsList({
                   className: 'action-cell',
                   headerClassName: 'news-list-col-action',
                   ignoreRowClick: true,
-                  style: { width: '1%' },
                 },
               ]}
               emptyState={

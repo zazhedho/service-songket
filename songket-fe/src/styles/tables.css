@@ -15,15 +15,11 @@
 .common-table-scroll > .finance-company-table,
 .common-table-scroll > .finance-dealer-table,
 .common-table-scroll > .installment-list-table,
-.common-table-scroll > .menu-list-table,
-.common-table-scroll > .motor-type-list-table,
-.common-table-scroll > .news-list-table,
-.common-table-scroll > .order-list-table {
+.common-table-scroll > .motor-type-list-table {
   min-width: 880px;
 }
 
-.common-table-scroll > .installment-list-table,
-.common-table-scroll > .order-list-table {
+.common-table-scroll > .installment-list-table {
   min-width: 960px;
 }
 
@@ -530,60 +526,6 @@
 .price-list-table .table-metric-pill,
 .dashboard-latest-prices-table .table-metric-pill {
   max-width: 100%;
-}
-
-.news-scrape-preview-table {
-  table-layout: fixed;
-}
-
-.news-scrape-col-article {
-  width: 26%;
-}
-
-.news-scrape-col-preview {
-  width: 30%;
-}
-
-.news-scrape-col-source {
-  width: 22%;
-}
-
-.news-scrape-col-created {
-  width: 14%;
-}
-
-.news-scrape-preview-table .action-cell {
-  width: 8%;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.news-list-table .table-url-link {
-  display: inline-block;
-}
-
-.news-list-col-article {
-  width: 24%;
-}
-
-.news-list-col-preview {
-  width: 30%;
-}
-
-.news-list-col-created {
-  width: 16%;
-}
-
-.news-list-col-source {
-  width: 22%;
-}
-
-.news-list-col-action {
-  width: 8%;
-}
-
-.menu-list-table .table-code-pill {
-  width: fit-content;
 }
 
 .scrape-source-list-table th.scrape-source-col-type,

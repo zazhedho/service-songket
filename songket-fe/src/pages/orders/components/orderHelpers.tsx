@@ -63,8 +63,8 @@ export function DetailTable({ rows }: { rows: Array<{ label: string; value: Reac
       <tbody>
         {rows.map((row) => (
           <tr key={row.label}>
-            <th style={{ width: '44%', textTransform: 'none', letterSpacing: 'normal' }}>{row.label}</th>
-            <td style={{ wordBreak: 'break-word' }}>
+            <th className="order-detail-label">{row.label}</th>
+            <td className="order-detail-value-cell">
               <span className="detail-value-strong">{row.value ?? '-'}</span>
             </td>
           </tr>

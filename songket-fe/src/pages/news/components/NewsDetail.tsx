@@ -20,71 +20,71 @@ export default function NewsDetail({
   onAddToNews,
   selectedDetail,
 }: NewsDetailProps) {
+  const hostLabel = (value: string) => {
+    const text = String(value || '').trim()
+    if (!text) return '-'
+    try {
+      return new URL(text).hostname.replace(/^www\./, '') || text
+    } catch {
+      return text
+    }
+  }
+
   return (
-    <div>
-          <div className="header">
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 700 }}>News Details</div>
-          <div style={{ color: '#64748b' }}>Source, images, and article content.</div>
-            </div>
-        <button className="btn-ghost" onClick={() => navigate('/news')}>Back</button>
+    <div className="news-shell">
+      <div className="header news-header">
+        <div className="news-heading">
+          <div className="news-eyebrow">Article Detail</div>
+          <div className="news-title">News Details</div>
+          <div className="news-subtitle">Source identity, article images, and readable content preview.</div>
+        </div>
+        <button className="btn-ghost" onClick={() => navigate('/news')}>Back to News</button>
       </div>
 
-      <div className="page">
+      <div className="page news-page">
         {!selectedDetail && <div className="alert">News details not found.</div>}
         {selectedDetail && (
-          <div className="card" style={{ width: '100%' }}>
-            <h3 style={{ marginTop: 0, lineHeight: 1.3 }}>{selectedDetail.judul || '-'}</h3>
-            <div style={{ color: '#64748b', marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span>{selectedDetail.created_at ? dayjs(selectedDetail.created_at).format('DD MMM YYYY HH:mm') : '-'}</span>
-              <span>{selectedDetail.sumber || '-'}</span>
+          <div className="card news-detail-card">
+            <div className="news-detail-hero">
+              <div>
+                <div className="news-detail-kicker">{selectedDetail.sumber || 'Source not available'}</div>
+                <div className="news-detail-title">{selectedDetail.judul || '-'}</div>
+                <div className="news-detail-meta">
+                  <span>{selectedDetail.created_at ? dayjs(selectedDetail.created_at).format('DD MMM YYYY HH:mm') : '-'}</span>
+                  <span>{hostLabel(selectedDetail.url)}</span>
+                </div>
+              </div>
+              {selectedDetail.url && (
+                <a className="btn-ghost news-detail-open-link" href={selectedDetail.url} target="_blank" rel="noreferrer">
+                  Open Source
+                </a>
+              )}
             </div>
 
-            <div style={{ marginTop: 10 }}>
-              <a className="detail-link" href={selectedDetail.url} target="_blank" rel="noreferrer">{selectedDetail.url}</a>
-            </div>
+            {selectedDetail.url && (
+              <div className="news-detail-url-card">
+                <div>Original URL</div>
+                <a className="detail-link" href={selectedDetail.url} target="_blank" rel="noreferrer">{selectedDetail.url}</a>
+              </div>
+            )}
 
             {detailImages.length > 0 && (
-              <div
-                className="grid"
-                style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginTop: 12, marginBottom: 12 }}
-              >
+              <div className="news-image-grid">
                 {detailImages.map((img) => (
                   <a key={img} href={img} target="_blank" rel="noreferrer">
-                    <img
-                      src={img}
-                      alt={selectedDetail.judul}
-                      style={{
-                        width: '100%',
-                        height: 120,
-                        objectFit: 'cover',
-                        borderRadius: 8,
-                        border: '1px solid #dbe3ef',
-                      }}
-                    />
+                    <img src={img} alt={selectedDetail.judul} />
                   </a>
                 ))}
               </div>
             )}
 
-            <div
-              style={{
-                maxHeight: '50vh',
-                overflowY: 'auto',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.45,
-                overflowWrap: 'anywhere',
-                border: '1px solid #dbe3ef',
-                borderRadius: 10,
-                padding: 12,
-                background: '#f8fafc',
-              }}
-            >
-              {selectedDetail.isi || '-'}
+            <div className="news-content-panel">
+              <div className="news-content-title">Article Content</div>
+              <div className="news-content-body">{selectedDetail.isi || '-'}</div>
             </div>
 
             {canScrape && !selectedDetail.from_db && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <div className="news-detail-actions">
                 <button className="btn" onClick={() => void onAddToNews(selectedDetail)} disabled={!!adding[selectedDetail.url] || !!added[selectedDetail.url]}>
                   {added[selectedDetail.url] ? 'Added' : adding[selectedDetail.url] ? 'Adding...' : 'Add to News'}
                 </button>

@@ -44,19 +44,21 @@ export default function MenuForm({
   ]
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Edit Menu</div>
+    <div className="menu-shell">
+      <div className="header menu-header">
+        <div className="menu-heading">
+          <div className="menu-eyebrow">Menu Setup</div>
+          <div className="menu-title">Edit Menu</div>
+          <div className="menu-subtitle">Update route identity, parent hierarchy, sort order, and menu icon.</div>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/menus')}>Back to Table</button>
       </div>
 
-      <div className="page">
-        <div className="card" style={{ width: '100%' }}>
+      <div className="page menu-page">
+        <div className="card menu-form-card">
           {!canUpdate && <div className="alert">No permission to update menu.</div>}
 
-          <div className="grid" style={{ gap: 10 }}>
+          <div className="grid menu-form-grid">
             <div><label>Name</label><input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Enter menu name" /></div>
             <div><label>Display Name</label><input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} placeholder="Enter display name" /></div>
             <div><label>Path</label><input value={form.path} onChange={(e) => set('path', e.target.value)} placeholder="/example-path" /></div>
@@ -90,7 +92,7 @@ export default function MenuForm({
                 searchPlaceholder="Search status..."
               />
             </div>
-            <div style={{ gridColumn: '1 / -1' }}>
+            <div className="menu-icon-field">
               <label>Icon</label>
               <div className="icon-picker-grid">
                 {MENU_ICON_OPTIONS.map((iconName) => (
@@ -109,9 +111,9 @@ export default function MenuForm({
               </div>
             </div>
 
-            {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
+            {error && <div className="menu-form-error">{error}</div>}
 
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div className="menu-form-actions">
               <button className="btn" onClick={() => void save()} disabled={loading}>
                 {loading ? 'Saving...' : 'Update Menu'}
               </button>

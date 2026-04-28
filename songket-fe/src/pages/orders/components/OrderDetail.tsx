@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { DetailTable, formatDate, getAttempt, lookupDisplayName, lookupName, lookupOptionName } from './orderHelpers'
+import { DetailTable, formatDate, lookupDisplayName, lookupName, lookupOptionName } from './orderHelpers'
 import { formatRupiah } from '../../../utils/currency'
 
 type OrderDetailViewProps = {
@@ -71,13 +71,14 @@ export default function OrderDetailView({
     )
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Order Details</div>
-          <div style={{ color: '#64748b' }}>View complete order information</div>
+    <div className="order-shell">
+      <div className="header order-header">
+        <div className="order-heading">
+          <div className="order-eyebrow">Order Detail</div>
+          <div className="order-title">Order Details</div>
+          <div className="order-subtitle">Review consumer, dealer, credit, motor, and finance result information.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="order-actions">
           {canUpdate && selectedId && (
             <button
               className="btn"
@@ -86,96 +87,115 @@ export default function OrderDetailView({
               Edit Order
             </button>
           )}
-          <button className="btn-ghost" onClick={() => navigate(backTo)}>Back</button>
+          <button className="btn-ghost" onClick={() => navigate(backTo)}>Back to Orders</button>
         </div>
       </div>
 
-      <div className="page">
+      <div className="page order-page">
         {!selectedOrder && <div className="alert">Order not found.</div>}
         {selectedOrder && (
-          <div className="card">
-            <div style={{ display: 'grid', gap: 12 }}>
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,340px),1fr))', gap: 12 }}>
-                <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Primary Information</h4>
-                  <DetailTable
-                    rows={[
-                      { label: 'Pooling Number', value: selectedOrder.pooling_number || '-' },
-                      { label: 'Pooling Time', value: formatDate(selectedOrder.pooling_at) },
-                      { label: 'Result Time', value: formatDate(selectedOrder.result_at) },
-                      { label: 'Dealer', value: lookupName(lookups?.dealers, selectedOrder.dealer_id) },
-                      {
-                        label: 'Status Order',
-                        value: <span className={`badge ${selectedOrder.result_status || 'pending'}`}>{selectedOrder.result_status || '-'}</span>,
-                      },
-                      { label: 'Order Notes', value: selectedOrder.result_notes || '-' },
-                      { label: 'Created At', value: formatDate(selectedOrder.created_at) },
-                      { label: 'Last Updated', value: formatDate(selectedOrder.updated_at) },
-                    ]}
-                  />
-                </div>
+          <div className="order-detail-layout">
+            <div className="card order-detail-hero">
+              <div className="order-detail-hero-main">
+                <div className="order-detail-kicker">Pooling Number</div>
+                <div className="order-detail-name">{selectedOrder.pooling_number || '-'}</div>
+                <div className="order-detail-note">{selectedOrder.consumer_name || 'Consumer not available'}</div>
+              </div>
+              <div className="order-detail-badges">
+                <span className={`order-detail-badge ${selectedOrder.result_status || 'pending'}`}>
+                  {selectedOrder.result_status || 'Pending'}
+                </span>
+                <span className="order-detail-badge muted">
+                  {detailAttempts.length} finance attempt{detailAttempts.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            </div>
 
-                <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Consumer Information</h4>
-                  <DetailTable
-                    rows={[
-                      { label: 'Name', value: selectedOrder.consumer_name || '-' },
-                      { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
-                      { label: 'Province', value: detailProvinceName },
-                      { label: 'Regency / City', value: detailRegencyName },
-                      { label: 'District', value: detailDistrictName },
-                      { label: 'Village', value: detailVillageName },
-                      { label: 'Address', value: selectedOrder.address || '-' },
-                      { label: 'Job', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
-                    ]}
-                  />
-                </div>
-
-                <div className="card" style={{ background: '#f8fafc' }}>
-                  <h4 style={{ marginTop: 0 }}>Credit & Motor</h4>
-                  <DetailTable
-                    rows={[
-                      { label: 'Motor Type', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
-                      { label: 'Brand/Model', value: [detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-' },
-                      { label: 'OTR', value: formatRupiah(selectedOrder.otr || 0) },
-                      { label: 'Installment', value: formatRupiah(selectedOrder.installment || 0) },
-                      { label: 'DP Gross', value: formatRupiah(selectedOrder.dp_gross || 0) },
-                      { label: 'DP Paid', value: formatRupiah(selectedOrder.dp_paid || 0) },
-                      { label: '%DP', value: `${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%` },
-                      { label: 'Tenor', value: `${selectedOrder.tenor || 0} months` },
-                    ]}
-                  />
-                </div>
+            <div className="order-detail-grid">
+              <div className="card order-detail-panel">
+                <h4>Primary Information</h4>
+                <DetailTable
+                  rows={[
+                    { label: 'Pooling Number', value: selectedOrder.pooling_number || '-' },
+                    { label: 'Pooling Time', value: formatDate(selectedOrder.pooling_at) },
+                    { label: 'Result Time', value: formatDate(selectedOrder.result_at) },
+                    { label: 'Dealer', value: lookupName(lookups?.dealers, selectedOrder.dealer_id) },
+                    {
+                      label: 'Status Order',
+                      value: <span className={`badge ${selectedOrder.result_status || 'pending'}`}>{selectedOrder.result_status || '-'}</span>,
+                    },
+                    { label: 'Order Notes', value: selectedOrder.result_notes || '-' },
+                    { label: 'Created At', value: formatDate(selectedOrder.created_at) },
+                    { label: 'Last Updated', value: formatDate(selectedOrder.updated_at) },
+                  ]}
+                />
               </div>
 
-              <div className="card" style={{ background: '#f8fafc' }}>
-                <h4 style={{ marginTop: 0 }}>Finance Results</h4>
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))', gap: 12 }}>
-                  {detailAttempts.map((attempt: any) => (
-                    <div
-                      key={`attempt-${attempt.attempt_no}`}
-                      style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#fff', minWidth: 0 }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <strong>Finance Attempt {attempt.attempt_no}</strong>
-                        <span className={`badge ${attempt?.status || 'pending'}`}>{attempt?.status || '-'}</span>
-                      </div>
-                      <DetailTable
-                        rows={[
-                          {
-                            label: 'Finance Company',
-                            value: financeName(attempt),
-                          },
-                          { label: 'Notes', value: attempt?.notes || '-' },
-                          { label: 'Attempt Time', value: formatDate(attempt?.created_at) },
-                        ]}
-                      />
-                    </div>
-                  ))}
-                  {detailAttempts.length === 0 && (
-                    <div style={{ color: '#64748b', fontSize: 13 }}>No finance attempt data yet.</div>
-                  )}
+              <div className="card order-detail-panel">
+                <h4>Consumer Information</h4>
+                <DetailTable
+                  rows={[
+                    { label: 'Name', value: selectedOrder.consumer_name || '-' },
+                    { label: 'Phone', value: selectedOrder.consumer_phone || '-' },
+                    { label: 'Province', value: detailProvinceName },
+                    { label: 'Regency / City', value: detailRegencyName },
+                    { label: 'District', value: detailDistrictName },
+                    { label: 'Village', value: detailVillageName },
+                    { label: 'Address', value: selectedOrder.address || '-' },
+                    { label: 'Job', value: lookupName(lookups?.jobs, selectedOrder.job_id) },
+                  ]}
+                />
+              </div>
+
+              <div className="card order-detail-panel">
+                <h4>Credit & Motor</h4>
+                <DetailTable
+                  rows={[
+                    { label: 'Motor Type', value: lookupName(lookups?.motor_types, selectedOrder.motor_type_id) },
+                    { label: 'Brand/Model', value: [detailMotor?.brand, detailMotor?.model].filter(Boolean).join(' / ') || '-' },
+                    { label: 'OTR', value: formatRupiah(selectedOrder.otr || 0) },
+                    { label: 'Installment', value: formatRupiah(selectedOrder.installment || 0) },
+                    { label: 'DP Gross', value: formatRupiah(selectedOrder.dp_gross || 0) },
+                    { label: 'DP Paid', value: formatRupiah(selectedOrder.dp_paid || 0) },
+                    { label: '%DP', value: `${Number.isFinite(detailDpPct) ? detailDpPct.toFixed(1) : '0.0'}%` },
+                    { label: 'Tenor', value: `${selectedOrder.tenor || 0} months` },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div className="card order-detail-panel order-finance-results-card">
+              <div className="order-section-head">
+                <div>
+                  <h4>Finance Results</h4>
+                  <span>Finance attempts shown in submission order.</span>
                 </div>
+              </div>
+              <div className="order-attempt-grid">
+                {detailAttempts.map((attempt: any) => (
+                  <div
+                    key={`attempt-${attempt.attempt_no}`}
+                    className="order-attempt-card"
+                  >
+                    <div className="order-attempt-head">
+                      <strong>Finance Attempt {attempt.attempt_no}</strong>
+                      <span className={`badge ${attempt?.status || 'pending'}`}>{attempt?.status || '-'}</span>
+                    </div>
+                    <DetailTable
+                      rows={[
+                        {
+                          label: 'Finance Company',
+                          value: financeName(attempt),
+                        },
+                        { label: 'Notes', value: attempt?.notes || '-' },
+                        { label: 'Attempt Time', value: formatDate(attempt?.created_at) },
+                      ]}
+                    />
+                  </div>
+                ))}
+                {detailAttempts.length === 0 && (
+                  <div className="order-attempt-empty">No finance attempt data yet.</div>
+                )}
               </div>
             </div>
           </div>

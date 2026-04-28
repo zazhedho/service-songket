@@ -46,8 +46,8 @@ export default function MasterSettingList({
 
   return (
     <>
-      <div className="card">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="card master-settings-tab-card">
+        <div className="master-settings-tabs">
           <button
             className={activeTab === 'settings' ? 'btn' : 'btn-ghost'}
             onClick={() => setActiveTab('settings')}
@@ -65,32 +65,34 @@ export default function MasterSettingList({
         </div>
       </div>
 
-      <div className="card">
+      <div className="card master-settings-card">
         <div className="entity-list-summary">
-          <div className="entity-summary-card">
+          <div className="entity-summary-card master-settings-summary-card tone-blue">
             <div className="entity-summary-label">Schedulers</div>
             <div className="entity-summary-value">{totalData}</div>
-            <div className="entity-summary-note">Available scheduler configurations in this module.</div>
+            <div className="entity-summary-note">Available configurations.</div>
           </div>
-          <div className="entity-summary-card">
+          <div className="entity-summary-card master-settings-summary-card tone-emerald">
             <div className="entity-summary-label">Configured</div>
             <div className="entity-summary-value">{configuredCount}</div>
-            <div className="entity-summary-note">Scheduler entries that already have saved configuration.</div>
+            <div className="entity-summary-note">Already saved.</div>
           </div>
-          <div className="entity-summary-card">
+          <div className="entity-summary-card master-settings-summary-card tone-amber">
             <div className="entity-summary-label">Active</div>
             <div className="entity-summary-value">{activeCount}</div>
-            <div className="entity-summary-note">Schedulers currently running with an active status.</div>
+            <div className="entity-summary-note">Currently running.</div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Master Settings Table</h3>
+        <div className="master-settings-section-head">
+          <div>
+            <h3>Scheduler Settings</h3>
+            <span>Manage saved scheduler configuration.</span>
+          </div>
           <button className="btn-ghost" onClick={() => void onRefresh()} disabled={loading}>Refresh</button>
         </div>
         <Table
           className="table-list settings-list-table metric-table"
-          style={{ marginTop: 10 }}
           data={paginatedSettings}
           keyField="key"
           columns={[
@@ -179,7 +181,6 @@ export default function MasterSettingList({
               className: 'action-cell',
               headerClassName: 'settings-list-col-action',
               ignoreRowClick: true,
-              style: { width: '1%' },
             },
           ]}
           emptyState={

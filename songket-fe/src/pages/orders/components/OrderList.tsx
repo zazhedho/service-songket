@@ -121,6 +121,7 @@ export default function OrderListView({
     { value: 'pending', label: 'Pending' },
     { value: 'reject', label: 'Reject' },
   ]
+  const exportProgress = Math.max(0, Math.min(100, Number(exportJob?.progress || 0)))
 
   const rows = useMemo<OrderListRow[]>(
     () =>
@@ -153,31 +154,33 @@ export default function OrderListView({
   )
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Orders</div>
+    <div className="order-shell">
+      <div className="header order-header">
+        <div className="order-heading">
+          <div className="order-eyebrow">Order Pipeline</div>
+          <div className="order-title">Orders</div>
+          <div className="order-subtitle">Track pooled credit orders, finance attempts, and export-ready date ranges.</div>
         </div>
         {canCreate && <button className="btn" onClick={() => navigate('/orders/create')}>Create Order</button>}
       </div>
 
-      <div className="page">
-        <div className="card">
+      <div className="page order-page">
+        <div className="card order-list-card">
           <div className="entity-list-summary">
-            <div className="entity-summary-card">
+            <div className="entity-summary-card order-summary-card tone-blue">
               <div className="entity-summary-label">Total Orders</div>
               <div className="entity-summary-value">{totalData || list.length}</div>
-              <div className="entity-summary-note">Current result count for pooled credit orders.</div>
+              <div className="entity-summary-note">Current result count.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card order-summary-card tone-emerald">
               <div className="entity-summary-label">Approved / Pending</div>
               <div className="entity-summary-value">{statusCounts.approve} / {statusCounts.pending}</div>
-              <div className="entity-summary-note">Approved and pending orders in the current result set.</div>
+              <div className="entity-summary-note">Current page status mix.</div>
             </div>
-            <div className="entity-summary-card">
+            <div className="entity-summary-card order-summary-card tone-red">
               <div className="entity-summary-label">Rejected</div>
               <div className="entity-summary-value">{statusCounts.reject}</div>
-              <div className="entity-summary-note">Orders currently marked as rejected.</div>
+              <div className="entity-summary-note">Rejected in this result.</div>
             </div>
           </div>
 
@@ -222,13 +225,12 @@ export default function OrderListView({
             </div>
             <div className="compact-filter-action order-filter-action">
               <button
-                className="btn-ghost"
+                className="btn-ghost order-clear-btn"
                 type="button"
                 onClick={() => onFilterChange({ search: '', status: '', export_from: '', export_to: '' })}
                 disabled={!filters.search.trim() && !filters.status && !filters.export_from && !filters.export_to}
                 title="Clear all filters"
                 aria-label="Clear all filters"
-                style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
               >
                 ×
               </button>
@@ -239,8 +241,13 @@ export default function OrderListView({
           </div>
         </div>
 
-        <div className="card">
-          <h3>Order List</h3>
+        <div className="card order-list-card">
+          <div className="order-section-head">
+            <div>
+              <h3>Order List</h3>
+              <span>Click a row to open complete order details.</span>
+            </div>
+          </div>
           {!showTable && <div className="alert">You do not have permission to view orders.</div>}
           {showTable && (
             <>
@@ -380,7 +387,6 @@ export default function OrderListView({
                     className: 'action-cell',
                     headerClassName: 'order-list-col-action',
                     ignoreRowClick: true,
-                    style: { width: '1%' },
                   },
                 ]}
                 emptyState={
@@ -416,26 +422,21 @@ export default function OrderListView({
 
       {exportJob && (
         <div className="toast-stack">
-          <div className={`toast-card ${exportJobTone}`} role="status" aria-live="polite" style={{ display: 'grid', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <div className={`toast-card order-export-toast ${exportJobTone}`} role="status" aria-live="polite">
+            <div className="order-export-toast-head">
               <div className="toast-message">{exportJob.message || 'Export in progress'}</div>
               {(exportJob.status === 'failed' || exportJob.status === 'downloaded') && (
                 <button className="toast-close" onClick={onClearExportJob} aria-label="Close export toast">x</button>
               )}
             </div>
-            <div style={{ height: 8, borderRadius: 999, background: 'rgba(15, 23, 42, 0.12)', overflow: 'hidden' }}>
+            <div className="order-export-progress-track">
               <div
-                style={{
-                  width: `${Math.max(0, Math.min(100, Number(exportJob.progress || 0)))}%`,
-                  height: '100%',
-                  borderRadius: 999,
-                  background: exportJob.status === 'failed' ? '#ef4444' : '#2563eb',
-                  transition: 'width 220ms ease',
-                }}
+                className={`order-export-progress-fill ${exportJob.status === 'failed' ? 'failed' : ''}`}
+                style={{ width: `${exportProgress}%` }}
               />
             </div>
-            <div style={{ fontSize: 12, color: '#334155' }}>
-              {Math.max(0, Math.min(100, Number(exportJob.progress || 0)))}%
+            <div className="order-export-toast-meta">
+              {exportProgress}%
               {exportJob.error ? ` · ${exportJob.error}` : ''}
               {exportDownloading ? ' · downloading' : ''}
             </div>

@@ -20,59 +20,65 @@ export default function MenuDetail({
   const menuTitle = selectedItem?.display_name || selectedItem?.name || '-'
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Menu Details</div>
-          <div style={{ color: '#64748b' }}>Route and menu configuration details</div>
+    <div className="menu-shell">
+      <div className="header menu-header">
+        <div className="menu-heading">
+          <div className="menu-eyebrow">Menu Detail</div>
+          <div className="menu-title">Menu Details</div>
+          <div className="menu-subtitle">Route, hierarchy, icon, and navigation visibility configuration.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="menu-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`/menus/${selectedId}/edit`, { state: { menu: selectedItem } })}>
               Edit Menu
             </button>
           )}
-          <button className="btn-ghost" onClick={() => navigate('/menus')}>Back</button>
+          <button className="btn-ghost" onClick={() => navigate('/menus')}>Back to Menus</button>
         </div>
       </div>
 
-      <div className="page">
+      <div className="page menu-page">
         {!selectedItem && <div className="alert">Menu not found.</div>}
         {selectedItem && (
           <>
-            <div className="card business-dealer-detail-hero">
-              <div className="business-dealer-detail-hero-main">
-                <div className="business-dealer-detail-kicker">Menu</div>
-                <div className="business-dealer-detail-name">{menuTitle}</div>
-                <div className="business-dealer-detail-note">{selectedItem.path || 'No route path set.'}</div>
+            <div className="card menu-detail-hero">
+              <div className="menu-detail-hero-main">
+                <div className="menu-detail-kicker">Menu</div>
+                <div className="menu-detail-name">{menuTitle}</div>
+                <div className="menu-detail-note">{selectedItem.path || 'No route path set.'}</div>
               </div>
-              <div className="business-dealer-detail-badges">
-                <span className={`business-dealer-detail-badge ${selectedItem.is_active ? 'success' : 'muted'}`}>
+              <div className="menu-detail-badges">
+                <span className={`menu-detail-badge ${selectedItem.is_active ? 'success' : 'muted'}`}>
                   {selectedItem.is_active ? 'Active' : 'Inactive'}
                 </span>
-                <span className="business-dealer-detail-badge muted">{childMenuCount} child menus</span>
+                <span className="menu-detail-badge muted">{childMenuCount} child menus</span>
               </div>
             </div>
 
-            <div className="card" style={{ width: '100%' }}>
-              <h3 style={{ marginTop: 0 }}>Menu Information</h3>
-              <div className="business-dealer-grid" style={{ padding: 0, marginTop: 10 }}>
+            <div className="card menu-detail-card">
+              <div className="menu-section-head">
+                <div>
+                  <h3>Menu Information</h3>
+                  <span>Configuration values used by the navigation renderer.</span>
+                </div>
+              </div>
+              <div className="menu-detail-grid">
                 <table className="table responsive-detail polished-detail-table">
                   <tbody>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Name</th>
+                      <th className="menu-detail-label">Name</th>
                       <td><span className="detail-value-strong">{selectedItem.name || '-'}</span></td>
                     </tr>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Display Name</th>
+                      <th className="menu-detail-label">Display Name</th>
                       <td><span className="detail-value-strong">{selectedItem.display_name || '-'}</span></td>
                     </tr>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Path</th>
+                      <th className="menu-detail-label">Path</th>
                       <td><span className="table-code-pill">{selectedItem.path || '-'}</span></td>
                     </tr>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Icon</th>
+                      <th className="menu-detail-label">Icon</th>
                       <td><span className="detail-value-strong">{selectedItem.icon || '-'}</span></td>
                     </tr>
                   </tbody>
@@ -80,21 +86,21 @@ export default function MenuDetail({
                 <table className="table responsive-detail polished-detail-table">
                   <tbody>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Parent Menu</th>
+                      <th className="menu-detail-label">Parent Menu</th>
                       <td>
                         <span className="detail-value-strong">{parentMenu?.display_name || parentMenu?.name || parentMenu?.path || 'Root Menu'}</span>
                       </td>
                     </tr>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Order Index</th>
+                      <th className="menu-detail-label">Order Index</th>
                       <td><span className="table-metric-pill warning">{String(selectedItem.order_index ?? 0)}</span></td>
                     </tr>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Created At</th>
+                      <th className="menu-detail-label">Created At</th>
                       <td><span className="detail-value-strong">{formatDateTime(selectedItem.created_at)}</span></td>
                     </tr>
                     <tr>
-                      <th style={{ width: '34%', textTransform: 'none', letterSpacing: 'normal' }}>Updated At</th>
+                      <th className="menu-detail-label">Updated At</th>
                       <td><span className="detail-value-strong">{formatDateTime(selectedItem.updated_at)}</span></td>
                     </tr>
                   </tbody>

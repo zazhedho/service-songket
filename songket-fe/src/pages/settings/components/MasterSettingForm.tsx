@@ -53,62 +53,67 @@ export default function MasterSettingForm({
   ]
 
   return (
-    <div className="card" style={{ width: '100%' }}>
-      <h3 style={{ marginBottom: 10 }}>
-        {formAction === 'create' ? 'Create Scheduler Setting' : 'Edit Scheduler Setting'}
-      </h3>
-
-      <div style={{ marginBottom: 10 }}>
-        <label>Setting Option</label>
-        <SearchableSelect
-          value={selectedOption}
-          onChange={(value) => setSelectedOption(value as 'news' | 'prices')}
-          options={settingOptions}
-          placeholder="Select setting option"
-          searchPlaceholder="Search setting option..."
-          disabled={loading || saving}
-        />
+    <div className="card master-settings-form-card">
+      <div className="master-settings-section-head">
+        <div>
+          <h3>{formAction === 'create' ? 'Create Scheduler Setting' : 'Edit Scheduler Setting'}</h3>
+          <span>Choose scheduler type, active state, and interval.</span>
+        </div>
       </div>
 
-      <div style={{ marginBottom: 10 }}>
-        <label>Scheduler Status</label>
-        <SearchableSelect
-          value={currentStatus ? 'on' : 'off'}
-          onChange={(value) => onStatusChange(value === 'on')}
-          options={statusOptions}
-          placeholder="Select scheduler status"
-          searchPlaceholder="Search scheduler status..."
-          disabled={loading || saving}
-        />
+      <div className="master-settings-form-grid">
+        <div>
+          <label>Setting Option</label>
+          <SearchableSelect
+            value={selectedOption}
+            onChange={(value) => setSelectedOption(value as 'news' | 'prices')}
+            options={settingOptions}
+            placeholder="Select setting option"
+            searchPlaceholder="Search setting option..."
+            disabled={loading || saving}
+          />
+        </div>
+
+        <div>
+          <label>Scheduler Status</label>
+          <SearchableSelect
+            value={currentStatus ? 'on' : 'off'}
+            onChange={(value) => onStatusChange(value === 'on')}
+            options={statusOptions}
+            placeholder="Select scheduler status"
+            searchPlaceholder="Search scheduler status..."
+            disabled={loading || saving}
+          />
+        </div>
+
+        <div>
+          <label>{intervalLabel}</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={currentInterval}
+            onChange={(e) => {
+              const next = Math.min(intervalMax, Number(sanitizeDigits(e.target.value) || '0'))
+              onIntervalChange(Number.isFinite(next) ? next : 0)
+            }}
+            disabled={loading || saving}
+            maxLength={String(intervalMax).length}
+            placeholder={`Enter ${intervalLabel.toLowerCase()}`}
+          />
+        </div>
       </div>
 
-      <div style={{ marginBottom: 10 }}>
-        <label>{intervalLabel}</label>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={currentInterval}
-          onChange={(e) => {
-            const next = Math.min(intervalMax, Number(sanitizeDigits(e.target.value) || '0'))
-            onIntervalChange(Number.isFinite(next) ? next : 0)
-          }}
-          disabled={loading || saving}
-          maxLength={String(intervalMax).length}
-          placeholder={`Enter ${intervalLabel.toLowerCase()}`}
-        />
-      </div>
-
-      <div style={{ color: '#64748b', fontSize: 13, marginBottom: 8 }}>
+      <div className="master-settings-help">
         {isNews
           ? 'Valid range: 1 - 43200 minutes (1 month). Input 0 will automatically switch scheduler status to OFF.'
           : 'Valid range: 1 - 31 days. Input 0 will automatically switch scheduler status to OFF.'}
       </div>
 
-      <div style={{ color: '#64748b', fontSize: 13, marginBottom: 10 }}>
+      <div className="master-settings-current-state">
         Current state: {currentExists ? 'Exists' : 'Not created yet'} | Last updated: {currentUpdatedAt}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="master-settings-form-actions">
         <button className="btn" onClick={() => void onSave()} disabled={!canSave || loading || saving}>
           {saving ? 'Saving...' : formAction === 'create' ? 'Create Setting' : 'Save Setting'}
         </button>

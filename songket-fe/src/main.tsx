@@ -14,6 +14,10 @@ import './styles/scrape-sources.css'
 import './styles/motor-installments.css'
 import './styles/prices.css'
 import './styles/tables.css'
+import './styles/news.css'
+import './styles/menus.css'
+import './styles/master-settings.css'
+import './styles/orders.css'
 import './styles/dashboard.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
