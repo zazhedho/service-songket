@@ -340,47 +340,48 @@ export default function FinanceReportDetail({
   )
 
   return (
-    <div style={{ overflowX: 'hidden' }}>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Finance Migration Detail</div>
-          <div style={{ color: '#64748b' }}>Detailed migration data: {financePairText}</div>
+    <div className="finance-migration-detail-shell">
+      <div className="header finance-migration-detail-header">
+        <div className="finance-migration-detail-heading">
+          <div className="finance-migration-detail-eyebrow">Finance Migration</div>
+          <div className="finance-migration-detail-title">Finance Migration Detail</div>
+          <div className="finance-migration-detail-subtitle">{financePairText}</div>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/business')}>
           Back
         </button>
       </div>
 
-      <div className="page" style={{ overflowX: 'hidden' }}>
+      <div className="page finance-migration-detail-page">
         {error && <div className="alert">{error}</div>}
         {loading && !item && <div className="card"><div className="muted">Loading detail...</div></div>}
         {!loading && !item && <div className="card"><div className="alert">Finance migration detail not found.</div></div>}
 
         {item && (
           <>
-            <div className="card">
-              <h3>Finance Detail Identity</h3>
-              <div
-                className="mobile-filter-grid"
-                style={{
-                  marginTop: 10,
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: 10,
-                  alignItems: 'center',
-                }}
-              >
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                  <div className="muted" style={{ fontSize: 12 }}>Finance Pair</div>
-                  <div style={{ marginTop: 4, fontWeight: 700 }}>{financePairText}</div>
+            <div className="card finance-migration-identity-card">
+              <div className="finance-migration-section-head">
+                <div>
+                  <h3>Finance Detail Identity</h3>
+                  <div className="finance-migration-section-note">Current finance pair and decision status.</div>
                 </div>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                  <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Status Finance 1</div>
-                  {statusBadge(item.finance_1_status || '')}
+              </div>
+              <div className="finance-migration-identity-grid">
+                <div className="finance-migration-identity-item finance-migration-identity-item-wide">
+                  <div className="finance-migration-identity-label">Finance Pair</div>
+                  <div className="finance-migration-pair-line">
+                    <span title={item.finance_1_name || '-'}>{item.finance_1_name || '-'}</span>
+                    <b>to</b>
+                    <span title={item.finance_2_name || '-'}>{item.finance_2_name || '-'}</span>
+                  </div>
                 </div>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                  <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Status Finance 2</div>
-                  {statusBadge(item.finance_2_status || '')}
+                <div className="finance-migration-identity-item">
+                  <div className="finance-migration-identity-label">Finance 1 Status</div>
+                  <div className="finance-migration-identity-value">{statusBadge(item.finance_1_status || '')}</div>
+                </div>
+                <div className="finance-migration-identity-item">
+                  <div className="finance-migration-identity-label">Finance 2 Status</div>
+                  <div className="finance-migration-identity-value">{statusBadge(item.finance_2_status || '')}</div>
                 </div>
               </div>
             </div>
@@ -460,33 +461,46 @@ export default function FinanceReportDetail({
               />
             </div>
 
-            <div className="card">
-              <h3>Finance Result Summary</h3>
+            <div className="card finance-migration-result-card">
+              <div className="finance-migration-section-head">
+                <div>
+                  <h3>Finance Result Summary</h3>
+                  <div className="finance-migration-section-note">Order result, dealer coverage, and finance decision performance.</div>
+                </div>
+              </div>
               {detailFinanceSummaryError && <div className="alert" style={{ marginTop: 10 }}>{detailFinanceSummaryError}</div>}
               {detailFinanceSummaryLoading && <div className="muted" style={{ marginTop: 10 }}>Loading summary...</div>}
 
               {!detailFinanceSummaryLoading && computedDetailSummary && (
                 <>
-                  <div className="finance-report-summary-kpi-grid" style={{ marginTop: 10 }}>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                      <div className="muted" style={{ fontSize: 12 }}>Total Order Data</div>
-                      <div style={{ fontSize: 20, fontWeight: 700 }}>{computedDetailSummary.totalOrders}</div>
+                  <div className="finance-report-summary-kpi-grid finance-migration-summary-kpi-grid">
+                    <div className="finance-migration-summary-kpi-card tone-blue">
+                      <div className="finance-migration-summary-kpi-label">Total Order Data</div>
+                      <div className="finance-migration-summary-kpi-value">{computedDetailSummary.totalOrders}</div>
+                      <div className="finance-migration-summary-kpi-note">Orders in this migration group</div>
                     </div>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                      <div className="muted" style={{ fontSize: 12 }}>Total Dealer</div>
-                      <div style={{ fontSize: 20, fontWeight: 700 }}>{computedDetailSummary.totalDealers}</div>
+                    <div className="finance-migration-summary-kpi-card tone-cyan">
+                      <div className="finance-migration-summary-kpi-label">Total Dealer</div>
+                      <div className="finance-migration-summary-kpi-value">{computedDetailSummary.totalDealers}</div>
+                      <div className="finance-migration-summary-kpi-note">Unique dealer count</div>
                     </div>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
-                      <div className="muted" style={{ fontSize: 12 }}>Dealer Coverage</div>
-                      <div style={{ fontSize: 20, fontWeight: 700 }}>{computedDetailSummary.dealerCoveragePercent.toFixed(1)}%</div>
-                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Unique dealer / total order data</div>
+                    <div className="finance-migration-summary-kpi-card tone-emerald">
+                      <div className="finance-migration-summary-kpi-label">Dealer Coverage</div>
+                      <div className="finance-migration-summary-kpi-value">{computedDetailSummary.dealerCoveragePercent.toFixed(1)}%</div>
+                      <div className="finance-migration-summary-kpi-note">Unique dealer / total order data</div>
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Finance Performance</div>
+                  <div className="finance-migration-performance-panel">
+                    <div className="finance-migration-performance-head">
+                      <div>
+                        <div className="finance-migration-performance-title">Finance Performance</div>
+                        <div className="finance-migration-performance-note">Approval, rejection, lead time, and rescue outcome.</div>
+                      </div>
+                      <span className="finance-migration-performance-pill">{(computedDetailSummary.approvalRate * 100).toFixed(1)}% approve</span>
+                    </div>
                     <div className="finance-report-wide-table">
-                      <table className="table metric-table finance-performance-mini-table" style={{ minWidth: 760 }}>
+                      <table className="table metric-table finance-performance-mini-table finance-migration-performance-table">
                         <thead>
                           <tr>
                             <th>Total</th>
