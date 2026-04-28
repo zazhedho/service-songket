@@ -200,11 +200,12 @@ export default function FinanceReportSummary({
   }
 
   return (
-    <div style={{ overflowX: 'hidden' }}>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Business</div>
-          <div style={{ color: '#64748b' }}>Dealer Performance and Finance Company Migration (Finance 1 to Finance 2)</div>
+    <div className="business-summary-shell">
+      <div className="header business-summary-header">
+        <div className="business-summary-heading">
+          <div className="business-summary-eyebrow">Business Intelligence</div>
+          <div className="business-summary-title">Business Summary</div>
+          <div className="business-summary-subtitle">Dealer performance and finance migration in one focused workspace.</div>
         </div>
       </div>
 
@@ -220,22 +221,22 @@ export default function FinanceReportSummary({
         </button>
       </div>
 
-      <div className="page" style={{ overflowX: 'hidden' }}>
+      <div className="page business-summary-page">
         <div className="business-top-grid">
           <div className="card business-map-card">
             <div className="business-map-head">
               <h3>Dealer Map</h3>
               <div className="business-map-meta">
-                <span className="muted">Focused Dealer</span>
-                <span style={{ fontWeight: 700 }}>{activeDealerName}</span>
+                <span>Focused Dealer</span>
+                <strong>{activeDealerName}</strong>
               </div>
             </div>
             <div className="business-map-shell">
               <DeferredMount
                 minHeight={320}
-                fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+                fallback={<div className="business-map-loading">Preparing dealer map...</div>}
               >
-                <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                <Suspense fallback={<div className="business-map-loading">Loading dealer map...</div>}>
                   <FinanceReportDealerMap
                     dealerMapCenter={dealerMapCenter}
                     dealerMapZoom={dealerMapZoom}
@@ -266,8 +267,8 @@ export default function FinanceReportSummary({
             <div className="business-map-head">
               <h3>Dealer Details</h3>
               <div className="business-map-meta">
-                <span className="muted">Selection</span>
-                <span style={{ fontWeight: 700 }}>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</span>
+                <span>Selection</span>
+                <strong>{activeDealerPoint ? 'Map Selection' : 'No Selection'}</strong>
               </div>
             </div>
 
@@ -322,8 +323,8 @@ export default function FinanceReportSummary({
         {masterError && <div className="alert">{masterError}</div>}
         {masterLoading && <div className="muted">Loading dealer and finance data...</div>}
 
-        <div className="card business-filter-card">
-          <div className="compact-filter-toolbar">
+        <div className="card business-filter-card business-summary-filter-card">
+          <div className="compact-filter-toolbar business-summary-filter-toolbar">
             <div className="compact-filter-item grow-2">
               <SearchableSelect
                 id="business-summary-dealer-filter"
@@ -373,7 +374,7 @@ export default function FinanceReportSummary({
             <div className="business-section-side">{activeDealerName}</div>
           </div>
 
-          <div style={{ padding: 12 }}>
+          <div className="finance-report-dealer-performance-body">
             {!selectedDealerId && !dealerInput && (
               <div className="finance-report-empty-focus">
                 <div className="finance-report-empty-icon">⌖</div>
@@ -394,22 +395,26 @@ export default function FinanceReportSummary({
             )}
 
             {dealerMetrics && (
-              <div className="finance-report-dealer-kpi-grid" style={{ marginTop: 12 }}>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Total Order</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.total_orders)}</div>
+              <div className="finance-report-dealer-kpi-grid finance-report-dealer-performance-kpis">
+                <div className="finance-report-dealer-kpi-card tone-blue">
+                  <div className="finance-report-dealer-kpi-label">Total Order</div>
+                  <div className="finance-report-dealer-kpi-value">{toSafeNumber(dealerMetrics.total_orders)}</div>
+                  <div className="finance-report-dealer-kpi-note">Orders in the active period</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Approval Rate</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{`${(toSafeNumber(dealerMetrics.approval_rate) * 100).toFixed(1)}%`}</div>
+                <div className="finance-report-dealer-kpi-card tone-emerald">
+                  <div className="finance-report-dealer-kpi-label">Approval Rate</div>
+                  <div className="finance-report-dealer-kpi-value">{`${(toSafeNumber(dealerMetrics.approval_rate) * 100).toFixed(1)}%`}</div>
+                  <div className="finance-report-dealer-kpi-note">Approved order ratio</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Lead Time Avg (h)</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{formatLeadTimeHours(dealerMetrics.lead_time_seconds_avg)}</div>
+                <div className="finance-report-dealer-kpi-card tone-cyan">
+                  <div className="finance-report-dealer-kpi-label">Lead Time Avg</div>
+                  <div className="finance-report-dealer-kpi-value">{formatLeadTimeHours(dealerMetrics.lead_time_seconds_avg)}</div>
+                  <div className="finance-report-dealer-kpi-note">Average finance decision time</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #dbe3ef' }}>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>Rescue FC2</div>
-                  <div style={{ fontWeight: 700, fontSize: 19 }}>{toSafeNumber(dealerMetrics.rescue_approved_fc2)}</div>
+                <div className="finance-report-dealer-kpi-card tone-amber">
+                  <div className="finance-report-dealer-kpi-label">Rescue FC2</div>
+                  <div className="finance-report-dealer-kpi-value">{toSafeNumber(dealerMetrics.rescue_approved_fc2)}</div>
+                  <div className="finance-report-dealer-kpi-note">Approved by Finance 2</div>
                 </div>
               </div>
             )}
@@ -472,8 +477,13 @@ export default function FinanceReportSummary({
                 </table>
               </div>
 
-              <div className="business-summary-chart">
-                <div style={{ fontWeight: 700, marginBottom: 10 }}>Summary Chart</div>
+              <div className="business-summary-chart finance-performance-chart-card">
+                <div className="finance-performance-chart-head">
+                  <div>
+                    <div className="finance-performance-chart-title">Summary Chart</div>
+                    <div className="finance-performance-chart-note">Finance company order volume for the selected dealer.</div>
+                  </div>
+                </div>
                 {dealerMetricRows.length === 0 && (
                   <div className="business-empty-focus compact">
                     <div className="business-empty-icon">≋</div>
@@ -487,19 +497,16 @@ export default function FinanceReportSummary({
                   const total = toSafeNumber(item.total_orders)
                   const width = Math.max(8, (total / dealerMetricMaxTotal) * 100)
                   return (
-                    <div key={`dealer-summary-${item.finance_company_id}`} style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-                        <span style={{ fontWeight: 600 }}>{truncateTableText(item.finance_company_name, 48)}</span>
-                        <span>{total}</span>
+                    <div key={`dealer-summary-${item.finance_company_id}`} className="finance-performance-chart-row">
+                      <div className="finance-performance-chart-row-head">
+                        <span title={item.finance_company_name}>{truncateTableText(item.finance_company_name, 48)}</span>
+                        <strong>{total}</strong>
                       </div>
-                      <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
+                      <div className="finance-performance-chart-track">
                         <div
+                          className="finance-performance-chart-fill"
                           style={{
                             width: `${Math.min(100, width)}%`,
-                            height: '100%',
-                            borderRadius: 999,
-                            background: '#2563eb',
-                            transition: 'width .25s ease',
                           }}
                         />
                       </div>
@@ -518,7 +525,7 @@ export default function FinanceReportSummary({
               <div className="finance-migration-subtitle">Grouped by Finance 2 migration outcome.</div>
             </div>
             <div className="finance-report-filter-field">
-              <label style={{ marginBottom: 4 }}>Finance Company 1</label>
+              <label className="business-filter-label">Finance Company 1</label>
               <SearchableSelect
                 id="business-summary-finance1-filter"
                 value={finance1Input}
@@ -535,33 +542,33 @@ export default function FinanceReportSummary({
             </div>
           </div>
 
-          <div style={{ padding: '12px 12px 14px' }}>
-            <div className="business-summary-row" style={{ padding: 0 }}>
+          <div className="finance-migration-summary-body">
+            <div className="business-summary-row finance-migration-summary-row">
               <div className="business-summary-item">
-                <div className="muted" style={{ fontSize: 12 }}>Total Groups</div>
-                <div style={{ fontWeight: 700 }}>{migrationSummary.totalRows}</div>
+                <div className="finance-migration-summary-label">Total Groups</div>
+                <div className="finance-migration-summary-value">{migrationSummary.totalRows}</div>
               </div>
               <div className="business-summary-item">
-                <div className="muted" style={{ fontSize: 12 }}>Total Order-Ins</div>
-                <div style={{ fontWeight: 700 }}>{migrationSummary.totalDataSum}</div>
+                <div className="finance-migration-summary-label">Total Order-Ins</div>
+                <div className="finance-migration-summary-value">{migrationSummary.totalDataSum}</div>
               </div>
               <div className="business-summary-item">
-                <div className="muted" style={{ fontSize: 12 }}>Approved</div>
-                <div style={{ fontWeight: 700 }}>{migrationSummary.totalApproveSum}</div>
+                <div className="finance-migration-summary-label">Approved</div>
+                <div className="finance-migration-summary-value">{migrationSummary.totalApproveSum}</div>
               </div>
               <div className="business-summary-item">
-                <div className="muted" style={{ fontSize: 12 }}>Rejected</div>
-                <div style={{ fontWeight: 700 }}>{migrationSummary.totalRejectSum}</div>
+                <div className="finance-migration-summary-label">Rejected</div>
+                <div className="finance-migration-summary-value">{migrationSummary.totalRejectSum}</div>
               </div>
               <div className="business-summary-item">
-                <div className="muted" style={{ fontSize: 12 }}>Approval Rate</div>
-                <div style={{ fontWeight: 700 }}>{migrationSummary.approvalRate.toFixed(2)}%</div>
+                <div className="finance-migration-summary-label">Approval Rate</div>
+                <div className="finance-migration-summary-value">{migrationSummary.approvalRate.toFixed(2)}%</div>
               </div>
             </div>
 
             {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
-            <div className="finance-report-wide-table" style={{ marginTop: 12 }}>
+            <div className="finance-report-wide-table finance-migration-table-wrap">
               <Table
                 data={rows}
                 keyField={(item, idx) => `${item.order_id}-${idx}`}
@@ -633,7 +640,7 @@ export default function FinanceReportSummary({
               />
             </div>
 
-            <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>
+            <div className="finance-migration-active-filter">
               Active Finance 1 filter: {activeFinance1Name}
             </div>
 

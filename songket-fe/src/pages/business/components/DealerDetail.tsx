@@ -40,13 +40,14 @@ export default function DealerDetail({
   })
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Dealer Details</div>
-          <div style={{ color: '#64748b' }}>Dealer profile, location summary, and map view.</div>
+    <div className="business-detail-shell">
+      <div className="header business-detail-header">
+        <div className="business-detail-heading">
+          <div className="business-detail-eyebrow">Dealer Profile</div>
+          <div className="business-detail-title">Dealer Details</div>
+          <div className="business-detail-subtitle">Dealer identity, area, and map position in one page.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="business-detail-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/${selectedId}/edit`, { state: { dealer: selectedDealer } })}>
               Edit Dealer
@@ -56,7 +57,7 @@ export default function DealerDetail({
         </div>
       </div>
 
-      <div className="page">
+      <div className="page business-detail-page">
         {!selectedDealer && <div className="alert">Dealer not found.</div>}
         {selectedDealer && (
           <>
@@ -164,9 +165,9 @@ export default function DealerDetail({
                 <div className="business-map-shell">
                   <DeferredMount
                     minHeight={320}
-                    fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+                    fallback={<div className="business-map-loading">Preparing dealer map...</div>}
                   >
-                    <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                    <Suspense fallback={<div className="business-map-loading">Loading dealer map...</div>}>
                       <DealerLocationMap
                         lat={hasCoordinates ? lat : -8.58}
                         lng={hasCoordinates ? lng : 116.12}

@@ -69,13 +69,14 @@ export default function CompanyDetail({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Finance Company Details</div>
-          <div style={{ color: '#64748b' }}>Company profile and performance summary.</div>
+    <div className="business-detail-shell">
+      <div className="header business-detail-header">
+        <div className="business-detail-heading">
+          <div className="business-detail-eyebrow">Finance Profile</div>
+          <div className="business-detail-title">Finance Company Details</div>
+          <div className="business-detail-subtitle">Company identity, coverage area, and dealer performance summary.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="business-detail-actions">
           {canUpdate && selectedId && (
             <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/${selectedId}/edit`, { state: { company: selectedCompany } })}>
               Edit Finance Company
@@ -85,7 +86,7 @@ export default function CompanyDetail({
         </div>
       </div>
 
-      <div className="page">
+      <div className="page business-detail-page">
         {!selectedCompany && <div className="alert">Finance company not found.</div>}
         {selectedCompany && (
           <>
@@ -190,32 +191,32 @@ export default function CompanyDetail({
 
                 {!companySummaryLoading && companySummary && (
                   <>
-                    <div className="business-summary-row business-dealer-detail-summary-row" style={{ padding: 0, marginBottom: 12 }}>
-                      <div className="business-summary-item">
+                    <div className="business-summary-row business-dealer-detail-summary-row business-detail-kpi-grid">
+                      <div className="business-summary-item business-detail-kpi-card">
                         <div className="business-dealer-detail-stat-label">Total Orders</div>
                         <div className="business-dealer-detail-stat-value">{companySummary.total_orders}</div>
                       </div>
-                      <div className="business-summary-item">
+                      <div className="business-summary-item business-detail-kpi-card">
                         <div className="business-dealer-detail-stat-label">Approval Rate</div>
                         <div className="business-dealer-detail-stat-value">{`${(companySummary.approval_rate * 100).toFixed(1)}%`}</div>
                       </div>
-                      <div className="business-summary-item">
+                      <div className="business-summary-item business-detail-kpi-card">
                         <div className="business-dealer-detail-stat-label">Lead Avg (s)</div>
                         <div className="business-dealer-detail-stat-value">
                           {companySummary.lead_time_seconds_avg != null ? companySummary.lead_time_seconds_avg.toFixed(1) : '-'}
                         </div>
                       </div>
-                      <div className="business-summary-item">
+                      <div className="business-summary-item business-detail-kpi-card">
                         <div className="business-dealer-detail-stat-label">Rescue FC2</div>
                         <div className="business-dealer-detail-stat-value">{companySummary.rescue_approved_fc2}</div>
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 12, color: '#64748b', fontSize: 12 }}>
+                    <div className="business-detail-active-pill">
                       Active dealers: {companySummary.active_dealers} of {dealers.length}
                     </div>
 
-                    <div className="table-responsive">
+                    <div className="table-responsive business-detail-table-wrap">
                       <table className="table metric-table" style={{ minWidth: 720 }}>
                         <thead>
                           <tr>

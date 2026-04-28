@@ -171,11 +171,12 @@ export default function FinanceList({
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{listSection === 'dealer' ? 'Dealer Management' : 'Finance Management'}</div>
-          <div style={{ color: '#64748b' }}>
+    <div className="business-management-shell">
+      <div className="header business-management-header">
+        <div className="business-management-heading">
+          <div className="business-management-eyebrow">Business Directory</div>
+          <div className="business-management-title">{listSection === 'dealer' ? 'Dealer Management' : 'Finance Management'}</div>
+          <div className="business-management-subtitle">
             {listSection === 'dealer'
               ? 'Dealer list, map, and dealer performance.'
               : 'Finance company list and finance performance.'}
@@ -205,10 +206,10 @@ export default function FinanceList({
         </div>
       )}
 
-      <div className="page" style={{ display: 'grid', gap: 14 }}>
+      <div className="page business-management-page">
         {listSection === 'dealer' && (
           <>
-            <div className="card">
+            <div className="card business-list-card">
               <div className="dealer-list-summary">
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Total Dealers</div>
@@ -229,7 +230,7 @@ export default function FinanceList({
                 </div>
               </div>
 
-              <div className="compact-filter-toolbar">
+              <div className="compact-filter-toolbar business-list-filter-toolbar">
                 <div className="compact-filter-item grow-2">
                   <input value={dealerSearch} onChange={(e) => setDealerSearch(e.target.value)} placeholder="Search dealer name, regency, or phone" aria-label="Search dealer" />
                 </div>
@@ -260,7 +261,7 @@ export default function FinanceList({
 
                 <div className="compact-filter-action">
                   <button
-                    className="btn-ghost"
+                    className="btn-ghost business-clear-filter-btn"
                     onClick={() => {
                       setDealerSearch('')
                       setDealerProvinceFilter('')
@@ -268,14 +269,13 @@ export default function FinanceList({
                     disabled={!dealerSearch.trim() && !dealerProvinceFilter}
                     title="Clear all filters"
                     aria-label="Clear all filters"
-                    style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
                   >
                     ×
                   </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="business-list-section-head">
                 <h3>Dealers</h3>
                 {canCreate && <button className="btn" onClick={() => navigate(`${dealerBasePath}/dealers/create`)}>Create Dealer</button>}
               </div>
@@ -440,18 +440,18 @@ export default function FinanceList({
               />
             </div>
 
-            <div className="card" style={{ minHeight: 430 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card business-list-map-card">
+              <div className="business-list-card-head">
                 <h3>Dealer Map</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName} • {dealerPoints.length} points</div>
+                <div className="business-list-context-pill">{selectedDealerName} • {dealerPoints.length} points</div>
               </div>
 
-              <div style={{ marginTop: 10 }}>
+              <div className="business-list-map-body">
                 <DeferredMount
                   minHeight={360}
-                  fallback={<div className="muted" style={{ padding: '24px 0' }}>Preparing dealer map...</div>}
+                  fallback={<div className="business-map-loading">Preparing dealer map...</div>}
                 >
-                  <Suspense fallback={<div className="muted" style={{ padding: '24px 0' }}>Loading dealer map...</div>}>
+                  <Suspense fallback={<div className="business-map-loading">Loading dealer map...</div>}>
                     <FinanceDealerMap
                       center={center}
                       dealerLocationNameMap={dealerLocationNameMap}
@@ -467,7 +467,7 @@ export default function FinanceList({
 
         {listSection === 'finance' && (
           <>
-            <div className="card">
+            <div className="card business-list-card">
               <div className="dealer-list-summary finance-list-summary">
                 <div className="dealer-summary-card">
                   <div className="dealer-summary-label">Total Finance Companies</div>
@@ -486,7 +486,7 @@ export default function FinanceList({
                 </div>
               </div>
 
-              <div className="compact-filter-toolbar">
+              <div className="compact-filter-toolbar business-list-filter-toolbar">
                 <div className="compact-filter-item grow-2">
                   <input value={financeSearch} onChange={(e) => setFinanceSearch(e.target.value)} placeholder="Search finance name, regency, or phone" aria-label="Search finance company" />
                 </div>
@@ -505,7 +505,7 @@ export default function FinanceList({
 
                 <div className="compact-filter-action">
                   <button
-                    className="btn-ghost"
+                    className="btn-ghost business-clear-filter-btn"
                     onClick={() => {
                       setFinanceSearch('')
                       setFinanceProvinceFilter('')
@@ -513,14 +513,13 @@ export default function FinanceList({
                     disabled={!financeSearch.trim() && !financeProvinceFilter}
                     title="Clear all filters"
                     aria-label="Clear all filters"
-                    style={{ minWidth: 44, paddingInline: 0, justifyContent: 'center' }}
                   >
                     ×
                   </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="business-list-section-head">
                 <h3>Finance Company</h3>
                 {canCreate && <button className="btn" onClick={() => navigate(`${financeBasePath}/companies/create`)}>Create Finance</button>}
               </div>
@@ -662,14 +661,14 @@ export default function FinanceList({
               />
             </div>
 
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card business-finance-performance-card">
+              <div className="business-list-card-head">
                 <h3>Finance Performance</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{selectedDealerName}</div>
+                <div className="business-list-context-pill">{selectedDealerName}</div>
               </div>
 
-              <div style={{ marginTop: 12, maxWidth: 360 }}>
-                <label>Select Dealer</label>
+              <div className="business-finance-performance-filter">
+                <label className="business-filter-label">Select Dealer</label>
                 <SearchableSelect
                   id="business-finance-dealer-select"
                   value={selectedDealerId}
@@ -701,7 +700,7 @@ export default function FinanceList({
               )}
 
               {metrics && (
-                <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 12, marginTop: 12 }}>
+                <div className="business-finance-performance-grid">
                   <div>
                     <div className="finance-report-wide-table">
                       <table className="table metric-table" style={{ minWidth: 860 }}>
@@ -757,8 +756,13 @@ export default function FinanceList({
                     />
                   </div>
 
-                  <div style={{ border: '1px solid #dde4ee', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Summary Chart</div>
+                  <div className="finance-performance-chart-card">
+                    <div className="finance-performance-chart-head">
+                      <div>
+                        <div className="finance-performance-chart-title">Summary Chart</div>
+                        <div className="finance-performance-chart-note">Finance company order volume for the selected dealer.</div>
+                      </div>
+                    </div>
                     {financeMetricRows.length === 0 && (
                       <div className="business-empty-focus compact">
                         <div className="business-empty-icon">≋</div>
@@ -774,23 +778,20 @@ export default function FinanceList({
                       const rejected = Number(fc?.rejected_count || 0)
                       const width = Math.max(8, (total / financeMetricMaxTotal) * 100)
                       return (
-                        <div key={`chart-${fc.finance_company_id}`} style={{ marginBottom: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-                            <span style={{ fontWeight: 600 }}>{fc.finance_company_name || '-'}</span>
-                            <span>{total}</span>
+                        <div key={`chart-${fc.finance_company_id}`} className="finance-performance-chart-row">
+                          <div className="finance-performance-chart-row-head">
+                            <span title={fc.finance_company_name || '-'}>{fc.finance_company_name || '-'}</span>
+                            <strong>{total}</strong>
                           </div>
-                          <div style={{ height: 8, borderRadius: 999, background: '#dbe5f2', marginTop: 4 }}>
+                          <div className="finance-performance-chart-track">
                             <div
+                              className="finance-performance-chart-fill"
                               style={{
                                 width: `${Math.min(100, width)}%`,
-                                height: '100%',
-                                borderRadius: 999,
-                                background: '#2563eb',
-                                transition: 'width .25s ease',
                               }}
                             />
                           </div>
-                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+                          <div className="finance-performance-chart-meta">
                             Approve {approved} | Reject {rejected} | {(Number(fc?.approval_rate || 0) * 100).toFixed(1)}%
                           </div>
                         </div>
