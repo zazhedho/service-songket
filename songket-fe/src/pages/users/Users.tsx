@@ -171,6 +171,13 @@ export default function UsersPage() {
       return
     }
 
+    if (!phone) {
+      focusFirstInvalidField('phone')
+      setError('Phone number is required.')
+      await showAlert('Phone number is required.')
+      return
+    }
+
     if (phone && (phone.length < 9 || phone.length > 15)) {
       focusFirstInvalidField('phone')
       setError('Phone number must be between 9 and 15 digits.')

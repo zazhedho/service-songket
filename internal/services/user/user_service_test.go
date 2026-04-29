@@ -384,7 +384,7 @@ func TestGetUserByIDHidesSuperadminForNonSuperadmin(t *testing.T) {
 func TestUpdateRequiresAssignRolePermissionWhenChangingRole(t *testing.T) {
 	service := &ServiceUser{
 		UserRepo: &userRepoMock{
-			user: domainuser.Users{Id: "user-1", Role: utils.RoleDealer},
+			user: domainuser.Users{Id: "user-1", Phone: "628111111111", Role: utils.RoleDealer},
 		},
 		BlacklistRepo: &authRepoMock{},
 		RoleRepo: &roleRepoMock{roles: map[string]domainrole.Role{

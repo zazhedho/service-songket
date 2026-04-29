@@ -125,11 +125,12 @@ func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUs
 		return domainuser.Users{}, errors.New("email already exists")
 	}
 
-	if phone != "" {
-		phoneData, _ := s.UserRepo.GetByPhone(ctx, phone)
-		if phoneData.Id != "" {
-			return domainuser.Users{}, errors.New("phone number already exists")
-		}
+	if phone == "" {
+		return domainuser.Users{}, errors.New("phone number is required")
+	}
+	phoneData, _ := s.UserRepo.GetByPhone(ctx, phone)
+	if phoneData.Id != "" {
+		return domainuser.Users{}, errors.New("phone number already exists")
 	}
 
 	if err := ValidatePasswordStrength(req.Password); err != nil {
@@ -290,7 +291,7 @@ func (s *ServiceUser) GetUserByAuth(ctx context.Context, id string) (map[string]
 		}, nil
 	}
 
-	permissionNames := []string{}
+	var permissionNames []string
 	for _, permission := range permissions {
 		permissionNames = append(permissionNames, permission.Name)
 	}
@@ -351,11 +352,24 @@ func (s *ServiceUser) Update(ctx context.Context, id string, req dto.UserUpdate)
 
 	if req.Phone != "" {
 		phone := utils.NormalizePhoneTo62(req.Phone)
+		phoneData, _ := s.UserRepo.GetByPhone(ctx, phone)
+		if phoneData.Id != "" && phoneData.Id != data.Id {
+			return domainuser.Users{}, errors.New("phone number already exists")
+		}
 		data.Phone = phone
 	}
 
+	if strings.TrimSpace(data.Phone) == "" {
+		return domainuser.Users{}, errors.New("phone number is required")
+	}
+
 	if req.Email != "" {
-		data.Email = utils.SanitizeEmail(req.Email)
+		email := utils.SanitizeEmail(req.Email)
+		emailData, _ := s.UserRepo.GetByEmail(ctx, email)
+		if emailData.Id != "" && emailData.Id != data.Id {
+			return domainuser.Users{}, errors.New("email already exists")
+		}
+		data.Email = email
 	}
 
 	if req.Password != "" {
