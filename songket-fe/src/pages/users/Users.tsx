@@ -6,6 +6,7 @@ import {
   listUsers,
   updateUserById,
 } from '../../services/userService'
+import { fetchDealers } from '../../services/businessService'
 import { listRoles } from '../../services/roleService'
 import { useAlert, useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
@@ -18,9 +19,10 @@ import {
   validatePasswordByBackendRule,
 } from './components/userHelpers'
 
-const emptyForm = { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'dealer' }
+const emptyForm = { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'dealer', dealer_ids: [] as string[] }
 const userRequiredMessage = 'Please complete the required user information before saving.'
 type RoleItem = { id: string; name?: string; display_name?: string }
+type DealerItem = { id: string; name?: string; regency?: string; province?: string }
 
 function resolveArrayResponse(value: any) {
   if (Array.isArray(value?.data?.data)) return value.data.data
@@ -50,7 +52,8 @@ export default function UsersPage() {
 
   const canList = hasPermission('users', 'list')
   const canCreate = hasPermission('users', 'create')
-  const canUpdate = hasPermission('users', 'assign_role')
+  const canUpdate = hasPermission('users', 'update')
+  const canAssignRole = hasPermission('users', 'assign_role')
   const canDelete = hasPermission('users', 'delete')
   const confirm = useConfirm()
 
@@ -67,6 +70,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [roleOptions, setRoleOptions] = useState<RoleItem[]>([])
+  const [dealerOptions, setDealerOptions] = useState<DealerItem[]>([])
 
   const stateUser = (location.state as any)?.user || null
 
@@ -88,6 +92,12 @@ export default function UsersPage() {
     listRoles({ page: 1, limit: 500 })
       .then((res: any) => setRoleOptions(resolveArrayResponse(res)))
       .catch(() => setRoleOptions([]))
+  }, [])
+
+  useEffect(() => {
+    fetchDealers({ page: 1, limit: 1000, orderBy: 'name', orderDirection: 'asc' })
+      .then((res: any) => setDealerOptions(resolveArrayResponse(res)))
+      .catch(() => setDealerOptions([]))
   }, [])
 
   useEffect(() => {
@@ -127,6 +137,7 @@ export default function UsersPage() {
           password: '',
           confirmPassword: '',
           role: target.role || 'dealer',
+          dealer_ids: Array.isArray(target.dealer_ids) ? target.dealer_ids : [],
         })
         setShowPassword(false)
         setShowConfirmPassword(false)
@@ -216,7 +227,10 @@ export default function UsersPage() {
         name,
         email,
         phone,
-        role,
+        dealer_ids: Array.isArray(form.dealer_ids) ? form.dealer_ids : [],
+      }
+      if (canAssignRole) {
+        body.role = role
       }
       if (trimmedPassword) {
         body.password = trimmedPassword
@@ -258,7 +272,7 @@ export default function UsersPage() {
     await loadUsers()
   }
 
-  const set = (key: keyof typeof emptyForm, value: string) => {
+  const set = (key: keyof typeof emptyForm, value: string | string[]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
     if (error === userRequiredMessage || error.includes('required') || error.includes('valid email') || error.includes('Phone number')) {
       setError('')
@@ -270,7 +284,9 @@ export default function UsersPage() {
       <UserForm
         availableRoleNames={availableRoleNames}
         canCreate={canCreate}
+        canAssignRole={canAssignRole}
         canUpdate={canUpdate}
+        dealerOptions={dealerOptions}
         error={error}
         form={form}
         isCreate={isCreate}

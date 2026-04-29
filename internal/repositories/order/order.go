@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"service-songket/internal/authscope"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
 	interfaceorder "service-songket/internal/interfaces/order"
+	repositoryscope "service-songket/internal/repositories/scopefilters"
 	"service-songket/pkg/filter"
 
 	"gorm.io/gorm"
@@ -71,11 +71,9 @@ func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domainor
 		}).
 		Preload("Attempts.FinanceCompany")
 
-	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
-		query = query.Where("created_by = ?", ownerID)
-	}
+	query = repositoryscope.ApplyOrderAccessScope(ctx, query, "orders", "orders", "list_all")
 	if v, ok := params.Filters["dealer_id"]; ok {
-		query = query.Where("dealer_id = ?", v)
+		query = query.Where("orders.dealer_id = ?", v)
 	}
 	if v, ok := params.Filters["finance_company_id"]; ok {
 		query = query.Joins("LEFT JOIN order_finance_attempts oa ON oa.order_id = orders.id AND oa.attempt_no = 1").
@@ -147,11 +145,9 @@ func (r *repo) ListForExport(ctx context.Context, req dto.OrderExportRequest) ([
 			return db.Order("attempt_no ASC").Preload("FinanceCompany")
 		})
 
-	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
-		query = query.Where("orders.created_by = ?", ownerID)
-	}
+	query = repositoryscope.ApplyOrderAccessScope(ctx, query, "orders", "orders", "list_all")
 	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
-		query = query.Where("dealer_id = ?", dealerID)
+		query = query.Where("orders.dealer_id = ?", dealerID)
 	}
 	if financeCompanyID := strings.TrimSpace(req.FinanceCompanyID); financeCompanyID != "" {
 		query = query.Joins("LEFT JOIN order_finance_attempts oa1 ON oa1.order_id = orders.id AND oa1.attempt_no = 1").

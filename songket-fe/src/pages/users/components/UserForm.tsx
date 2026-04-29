@@ -1,12 +1,22 @@
+import { useMemo, useState } from 'react'
 import { EyeIcon, EyeOffIcon, PasswordRulesGuide, roleLabel } from './userHelpers'
 import SearchableSelect from '../../../components/common/SearchableSelect'
 import { normalizeEmailInput } from '../../../utils/email'
 import { sanitizeDigits } from '../../../utils/input'
 
+type DealerOption = {
+  id: string
+  name?: string
+  regency?: string
+  province?: string
+}
+
 type UserFormProps = {
   availableRoleNames: string[]
+  canAssignRole: boolean
   canCreate: boolean
   canUpdate: boolean
+  dealerOptions: DealerOption[]
   error: string
   form: any
   isCreate: boolean
@@ -15,7 +25,7 @@ type UserFormProps = {
   loading: boolean
   navigate: (path: string, options?: any) => void
   save: () => Promise<void>
-  set: (key: string, value: string) => void
+  set: (key: string, value: string | string[]) => void
   setEditingId: (value: string | null) => void
   setForm: React.Dispatch<React.SetStateAction<any>>
   setShowConfirmPassword: React.Dispatch<React.SetStateAction<boolean>>
@@ -26,8 +36,10 @@ type UserFormProps = {
 
 export default function UserForm({
   availableRoleNames,
+  canAssignRole,
   canCreate,
   canUpdate,
+  dealerOptions,
   error,
   form,
   isCreate,
@@ -44,10 +56,30 @@ export default function UserForm({
   showConfirmPassword,
   showPassword,
 }: UserFormProps) {
+  const [dealerSearch, setDealerSearch] = useState('')
   const roleOptions = availableRoleNames.map((roleName) => ({
     value: roleName,
     label: roleLabel(roleName),
   }))
+  const selectedDealerIDs: string[] = Array.isArray(form.dealer_ids) ? form.dealer_ids : []
+  const selectedDealerSet = useMemo(() => new Set(selectedDealerIDs), [selectedDealerIDs])
+  const filteredDealerOptions = useMemo(() => {
+    const needle = dealerSearch.trim().toLowerCase()
+    if (!needle) return dealerOptions
+    return dealerOptions.filter((dealer) => {
+      const label = [dealer.name, dealer.regency, dealer.province].filter(Boolean).join(' ').toLowerCase()
+      return label.includes(needle)
+    })
+  }, [dealerOptions, dealerSearch])
+
+  const toggleDealer = (dealerId: string) => {
+    if (!dealerId) return
+    if (selectedDealerSet.has(dealerId)) {
+      set('dealer_ids', selectedDealerIDs.filter((id) => id !== dealerId))
+      return
+    }
+    set('dealer_ids', [...selectedDealerIDs, dealerId])
+  }
 
   return (
     <div className="user-shell">
@@ -93,7 +125,11 @@ export default function UserForm({
                   options={roleOptions}
                   placeholder="Select user role"
                   searchPlaceholder="Search role..."
+                  disabled={!canAssignRole}
                 />
+                {!canAssignRole && (
+                  <div className="form-section-note user-inline-note">Role changes require assign role permission.</div>
+                )}
               </div>
             </div>
           </div>
@@ -168,6 +204,54 @@ export default function UserForm({
             </div>
           </div>
 
+          <div className="card form-section user-form-card">
+            <div className="form-section-head">
+              <div>
+                <h3>Dealer Access</h3>
+                <div className="form-section-note">Limit this user to selected dealer data when they do not have all-data permission.</div>
+              </div>
+              {selectedDealerIDs.length > 0 && (
+                <button className="btn-ghost user-clear-dealers" type="button" onClick={() => set('dealer_ids', [])}>
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            <div className="user-dealer-access">
+              <input
+                value={dealerSearch}
+                onChange={(event) => setDealerSearch(event.target.value)}
+                placeholder="Search dealer by name or location"
+              />
+              <div className="user-dealer-meta">
+                {selectedDealerIDs.length} dealer{selectedDealerIDs.length === 1 ? '' : 's'} selected
+              </div>
+              <div className="user-dealer-list">
+                {filteredDealerOptions.length === 0 && (
+                  <div className="user-dealer-empty">No dealer found.</div>
+                )}
+                {filteredDealerOptions.map((dealer) => {
+                  const checked = selectedDealerSet.has(dealer.id)
+                  const location = [dealer.regency, dealer.province].filter(Boolean).join(', ')
+                  return (
+                    <button
+                      key={dealer.id}
+                      className={`user-dealer-option${checked ? ' is-selected' : ''}`}
+                      type="button"
+                      onClick={() => toggleDealer(dealer.id)}
+                    >
+                      <span className="user-dealer-check" aria-hidden="true" />
+                      <span className="user-dealer-copy">
+                        <span>{dealer.name || dealer.id}</span>
+                        {location && <small>{location}</small>}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
           {error && <div className="alert">{error}</div>}
 
           <div className="card form-section user-form-card">
@@ -183,6 +267,7 @@ export default function UserForm({
                     password: '',
                     confirmPassword: '',
                     role: 'dealer',
+                    dealer_ids: [],
                   })
                   setShowPassword(false)
                   setShowConfirmPassword(false)

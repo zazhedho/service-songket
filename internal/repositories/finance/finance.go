@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"service-songket/internal/authscope"
 	domainfinance "service-songket/internal/domain/finance"
 	domainfinancecompany "service-songket/internal/domain/financecompany"
 	domainorder "service-songket/internal/domain/order"
 	interfacefinance "service-songket/internal/interfaces/finance"
+	repositoryscope "service-songket/internal/repositories/scopefilters"
 	"service-songket/pkg/filter"
 
 	"gorm.io/gorm"
@@ -25,14 +25,7 @@ func NewFinanceRepo(db *gorm.DB) interfacefinance.RepoFinanceInterface {
 }
 
 func applyFinanceOrderScope(ctx context.Context, query *gorm.DB, alias, allAction string) *gorm.DB {
-	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("business", allAction)); ownerID != "" {
-		prefix := strings.TrimSpace(alias)
-		if prefix == "" {
-			prefix = "orders"
-		}
-		query = query.Where(fmt.Sprintf("%s.created_by = ?", prefix), ownerID)
-	}
-	return query
+	return repositoryscope.ApplyOrderAccessScope(ctx, query, alias, "business", allAction)
 }
 
 func (r *repo) GetDealerMetricsBase(ctx context.Context, dealerID string, financeCompanyID *string, dateRange domainfinance.DateRange) (domainfinance.DealerMetricsBase, error) {

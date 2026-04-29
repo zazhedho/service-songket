@@ -17,4 +17,5 @@ DROP TABLE IF EXISTS installments;
 DROP TABLE IF EXISTS motor_types;
 DROP TABLE IF EXISTS jobs;
 DROP TABLE IF EXISTS finance_companies;
+DROP TABLE IF EXISTS user_dealer_access;
 DROP TABLE IF EXISTS dealers;

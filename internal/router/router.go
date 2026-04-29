@@ -131,7 +131,7 @@ func (r *Routes) UserRoutes() {
 	}
 
 	h := userHandler.NewUserHandler(uc, loginLimiter)
-	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
+	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo, repo)
 
 	// Disabled public registration. Keep this block as reference if client wants
 	// self-registration again later.
@@ -162,7 +162,7 @@ func (r *Routes) UserRoutes() {
 			userPriv.GET("", h.GetUserByAuth)
 			userPriv.GET("/:id", mdw.PermissionMiddleware("users", "view"), h.GetUserById)
 			userPriv.PUT("", h.Update)
-			userPriv.PUT("/:id", mdw.PermissionMiddleware("users", "assign_role"), h.UpdateUserById)
+			userPriv.PUT("/:id", mdw.PermissionMiddleware("users", "update"), h.UpdateUserById)
 			userPriv.PUT("/change/password", h.ChangePassword)
 			userPriv.DELETE("", h.Delete)
 			userPriv.DELETE("/:id", mdw.PermissionMiddleware("users", "delete"), h.DeleteUserById)
@@ -294,7 +294,8 @@ func (r *Routes) SessionRoutes() {
 func (r *Routes) newProtectedMiddleware() *middlewares.Middleware {
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
-	return middlewares.NewMiddleware(blacklistRepo, pRepo)
+	uRepo := userRepo.NewUserRepo(r.DB)
+	return middlewares.NewMiddleware(blacklistRepo, pRepo, uRepo)
 }
 
 func (r *Routes) OrderRoutes() {

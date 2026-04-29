@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"service-songket/internal/authscope"
 	domaindealer "service-songket/internal/domain/dealer"
 	interfacedealer "service-songket/internal/interfaces/dealer"
 	interfacelocation "service-songket/internal/interfaces/location"
@@ -30,6 +31,14 @@ func NewDealerRepo(db *gorm.DB) interfacedealer.RepoDealerInterface {
 
 func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domaindealer.Dealer, int64, error) {
 	query := r.DB.WithContext(ctx).Model(&domaindealer.Dealer{})
+	scope := authscope.FromContext(ctx)
+	if !scope.Has("business", "list_all") {
+		if dealerIDs := scope.ScopedDealerIDs("business", "list_all"); len(dealerIDs) > 0 {
+			query = query.Where("id IN ?", dealerIDs)
+		} else if strings.TrimSpace(scope.UserID) != "" {
+			query = query.Where("1 = 0")
+		}
+	}
 
 	if v, ok := params.Filters["province"]; ok {
 		provinces, _ := r.locationRepo.ListProvinceCache()

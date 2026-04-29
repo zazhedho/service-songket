@@ -14,6 +14,11 @@ SET display_name = EXCLUDED.display_name,
 WITH permission_data(name, display_name, resource, action) AS (
     VALUES
         ('assign_menus', 'Assign Menus', 'roles', 'assign_menus'),
+        ('manage_system_roles', 'Manage System Roles', 'roles', 'manage_system'),
+
+        ('assign_role_users', 'Assign User Role', 'users', 'assign_role'),
+        ('view_user_permissions', 'View User Permissions', 'users', 'view_permissions'),
+        ('assign_user_permissions', 'Assign User Permissions', 'users', 'assign_permissions'),
 
         ('list_orders', 'List Orders', 'orders', 'list'),
         ('list_all_orders', 'List All Orders', 'orders', 'list_all'),
@@ -101,14 +106,6 @@ SET display_name = EXCLUDED.display_name,
     action = EXCLUDED.action,
     deleted_at = NULL,
     updated_at = NOW();
-
-DELETE FROM permissions
-WHERE name IN (
-    'assign_role_users',
-    'view_user_permissions',
-    'assign_user_permissions',
-    'manage_system_roles'
-);
 
 DELETE FROM menu_items
 WHERE name IN (

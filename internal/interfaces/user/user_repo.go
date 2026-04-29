@@ -11,4 +11,7 @@ type RepoUserInterface interface {
 
 	GetByEmail(ctx context.Context, email string) (domainuser.Users, error)
 	GetByPhone(ctx context.Context, phone string) (domainuser.Users, error)
+	ListUserDealerIDs(ctx context.Context, userID string) ([]string, error)
+	ListUserDealers(ctx context.Context, userID string) ([]domainuser.UserDealerAccess, error)
+	SetUserDealerIDs(ctx context.Context, userID string, dealerIDs []string) error
 }

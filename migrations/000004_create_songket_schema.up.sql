@@ -16,6 +16,22 @@ CREATE TABLE IF NOT EXISTS dealers (
     deleted_at TIMESTAMP WITHOUT TIME ZONE
 );
 
+CREATE TABLE IF NOT EXISTS user_dealer_access (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    dealer_id UUID NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_user_dealer_access_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_dealer_access_dealer
+        FOREIGN KEY (dealer_id) REFERENCES dealers(id) ON DELETE CASCADE,
+    CONSTRAINT uq_user_dealer_access UNIQUE (user_id, dealer_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_dealer_access_user_id ON user_dealer_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_dealer_access_dealer_id ON user_dealer_access(dealer_id);
+
 CREATE TABLE IF NOT EXISTS finance_companies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,

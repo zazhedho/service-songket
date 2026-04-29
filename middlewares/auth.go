@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 type Middleware struct {
 	BlacklistRepo  interfaceauth.RepoAuthInterface
 	PermissionRepo interfacepermission.RepoPermissionInterface
+	DealerAccess   DealerAccessProvider
 }
 
 type PermissionCheck struct {
@@ -27,11 +29,30 @@ type PermissionCheck struct {
 	Action   string
 }
 
-func NewMiddleware(blacklistRepo interfaceauth.RepoAuthInterface, permissionRepo interfacepermission.RepoPermissionInterface) *Middleware {
-	return &Middleware{
+type DealerAccessProvider interface {
+	ListUserDealerIDs(ctx context.Context, userID string) ([]string, error)
+}
+
+func NewMiddleware(blacklistRepo interfaceauth.RepoAuthInterface, permissionRepo interfacepermission.RepoPermissionInterface, dealerAccess ...DealerAccessProvider) *Middleware {
+	middleware := &Middleware{
 		BlacklistRepo:  blacklistRepo,
 		PermissionRepo: permissionRepo,
 	}
+	if len(dealerAccess) > 0 {
+		middleware.DealerAccess = dealerAccess[0]
+	}
+	return middleware
+}
+
+func (m *Middleware) userDealerIDs(ctx context.Context, userID string) []string {
+	if m.DealerAccess == nil {
+		return nil
+	}
+	dealerIDs, err := m.DealerAccess.ListUserDealerIDs(ctx, userID)
+	if err != nil {
+		return nil
+	}
+	return dealerIDs
 }
 
 func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
@@ -74,11 +95,15 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 
 		ctx.Set(utils.CtxKeyAuthData, dataJWT)
 		ctx.Set("token", tokenString)
-		ctx.Set("userId", utils.InterfaceString(dataJWT["user_id"]))
+		userID := utils.InterfaceString(dataJWT["user_id"])
+		dealerIDs := m.userDealerIDs(ctx.Request.Context(), userID)
+		ctx.Set("userId", userID)
+		ctx.Set("dealer_ids", dealerIDs)
 		ctx.Request = ctx.Request.WithContext(authscope.WithContext(ctx.Request.Context(), authscope.New(
-			utils.InterfaceString(dataJWT["user_id"]),
+			userID,
 			utils.InterfaceString(dataJWT["role"]),
 			nil,
+			dealerIDs,
 		)))
 
 		ctx.Next()
@@ -142,10 +167,13 @@ func (m *Middleware) PermissionMiddleware(resource, action string) gin.HandlerFu
 		dataJWT["permissions"] = permissionKeys
 		ctx.Set(utils.CtxKeyAuthData, dataJWT)
 		ctx.Set("permissions", permissionKeys)
+		dealerIDs := m.userDealerIDs(ctx.Request.Context(), userId)
+		ctx.Set("dealer_ids", dealerIDs)
 		ctx.Request = ctx.Request.WithContext(authscope.WithContext(ctx.Request.Context(), authscope.New(
 			utils.InterfaceString(dataJWT["user_id"]),
 			utils.InterfaceString(dataJWT["role"]),
 			permissionKeys,
+			dealerIDs,
 		)))
 
 		if !hasPermission {
