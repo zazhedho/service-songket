@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { getMe } from '../../services/authService'
 import { listMyMenus } from '../../services/menuService'
 import { AppIcon, inferIconName, menuPathWithoutQuery } from './AppIcon'
 import { useConfirm } from './ConfirmDialog'
@@ -14,6 +15,12 @@ type MenuItem = {
   icon?: string
   parent_id?: string | null
   order_index?: number
+}
+
+type AccountProfile = {
+  name: string
+  email: string
+  role: string
 }
 
 const FORCE_TOP_LEVEL_PATHS = new Set(['/business'])
@@ -40,6 +47,21 @@ function getMenuLabel(menu?: Partial<MenuItem> | null): string {
   return 'Dashboard'
 }
 
+function formatRole(value?: string | null): string {
+  return String(value || '-').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function getInitials(value?: string | null): string {
+  const chunks = String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+
+  if (chunks.length === 0) return 'U'
+  return chunks.map((chunk) => chunk.charAt(0).toUpperCase()).join('')
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -54,6 +76,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [openGroupKeys, setOpenGroupKeys] = useState<Record<string, boolean>>({})
+  const [accountProfile, setAccountProfile] = useState<AccountProfile>({ name: '', email: '', role: '' })
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
 
   const fetchMenus = useCallback(async () => {
@@ -75,6 +98,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void fetchMenus()
   }, [fetchMenus])
+
+  useEffect(() => {
+    let mounted = true
+
+    if (!token) {
+      setAccountProfile({ name: '', email: '', role: '' })
+      return () => {
+        mounted = false
+      }
+    }
+
+    getMe()
+      .then((res) => {
+        if (!mounted) return
+        const data = res.data?.data || res.data || {}
+        setAccountProfile({
+          name: String(data.name || ''),
+          email: String(data.email || ''),
+          role: String(data.role || ''),
+        })
+      })
+      .catch(() => {
+        if (!mounted) return
+        setAccountProfile({ name: '', email: '', role: '' })
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [token])
 
   useEffect(() => {
     setMobileOpen(false)
@@ -357,6 +410,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     })
   }, [groupedMenus, location.pathname])
 
+  const accountName = accountProfile.name || 'User'
+  const accountEmail = accountProfile.email || '-'
+  const accountRole = formatRole(accountProfile.role || role)
+  const accountInitials = getInitials(accountProfile.name || accountProfile.email)
+  const accountFullName = String(accountProfile.name || accountProfile.email || 'Account').trim()
+
   return (
     <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
@@ -365,8 +424,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <img src="/songket-logo.jpeg" alt="SONGKET Logo" className="brand-mark-img" />
           </div>
           <div className="brand-copy">
-            <div className="brand">Songket Panel</div>
-            <div className="brand-role">Role: {role || '-'}</div>
+            <div className="brand">S.O.N.G.K.E.T</div>
+            <div className="brand-fullname">System for Order-In Gathering and Kontrol for Enhanced Tracking</div>
           </div>
         </div>
 
@@ -455,17 +514,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
             <div>
               <div className="topbar-title">{getMenuLabel(activeMenu)}</div>
-              <div className="topbar-subtitle">Workspace for Songket operational flow</div>
+              <div className="topbar-subtitle">Workspace for SONGKET operational flow</div>
             </div>
           </div>
           <div className="topbar-actions" ref={profileMenuRef}>
             <button className="btn-ghost topbar-profile-btn" onClick={() => setProfileMenuOpen((open) => !open)}>
-              <AppIcon name="users" className="topbar-icon" />
-              <span className="topbar-profile-label">Account</span>
+              <span className="topbar-profile-avatar" aria-hidden="true">{accountInitials}</span>
+              <span className="topbar-profile-identity">
+                <span className="topbar-profile-label">{accountFullName}</span>
+                <span className="topbar-profile-role-inline">{accountRole}</span>
+              </span>
             </button>
 
             {profileMenuOpen && (
               <div className="topbar-profile-menu">
+                <div className="topbar-profile-summary">
+                  <span className="topbar-profile-avatar large" aria-hidden="true">{accountInitials}</span>
+                  <div className="topbar-profile-meta">
+                    <div className="topbar-profile-kicker">Signed in as</div>
+                    <div className="topbar-profile-name" title={accountName}>{accountName}</div>
+                    <div className="topbar-profile-email">{accountEmail}</div>
+                  </div>
+                </div>
+                <div className="topbar-profile-detail-row">
+                  <span className="topbar-profile-detail-label">Role</span>
+                  <span className="topbar-profile-role">{accountRole}</span>
+                </div>
+                <div className="topbar-profile-divider" />
                 <button
                   className="topbar-profile-item"
                   onClick={() => {

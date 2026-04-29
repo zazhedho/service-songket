@@ -110,8 +110,7 @@ func (s *Service) StartExport(ctx context.Context, req dto.OrderExportRequest) (
 	}
 	scope := authscope.FromContext(ctx)
 	userID := strings.TrimSpace(scope.UserID)
-	scopeUserID := strings.TrimSpace(scope.ScopedUserID("orders", "list_all"))
-	exportCtx := authscope.WithContext(context.Background(), authscope.New(scopeUserID, scope.Role, nil))
+	exportCtx := authscope.WithContext(context.Background(), scope)
 
 	now := time.Now()
 	jobID := utils.CreateUUID()

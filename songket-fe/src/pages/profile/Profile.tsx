@@ -192,69 +192,90 @@ export default function ProfilePage() {
   }
 
   return (
-    <div>
-      <div className="header">
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>My Profile</div>
-          <div style={{ color: '#64748b' }}>Manage your account information and password.</div>
+    <div className="profile-shell">
+      <div className="header profile-header">
+        <div className="profile-heading">
+          <div className="profile-eyebrow">Account Center</div>
+          <div className="profile-title">My Profile</div>
+          <div className="profile-subtitle">Manage your account information, contact details, and password.</div>
+        </div>
+        <div className="profile-header-side">
+          <div className="profile-header-label">Signed in as</div>
+          <div className="profile-header-role">{displayRole}</div>
         </div>
       </div>
 
       <div className="page profile-page">
         {error && <div className="alert">{error}</div>}
 
-        <div className="card profile-hero-card">
-          <div className="profile-hero-banner">
-            <div className="profile-avatar profile-avatar-lg">{profileInitials}</div>
-            <div className="profile-hero-body">
-              <div className="profile-summary-title">{profile.name || 'User'}</div>
-              <div className="profile-summary-subtitle">{profile.email || '-'}</div>
-              <div className="profile-hero-meta">
-                {profile.phone && (
+        <div className="profile-overview-grid">
+          <div className="card profile-hero-card">
+            <div className="profile-hero-kicker">Account Snapshot</div>
+            <div className="profile-hero-banner">
+              <div className="profile-avatar profile-avatar-lg">{profileInitials}</div>
+              <div className="profile-hero-body">
+                <div className="profile-summary-title">{profile.name || 'User'}</div>
+                <div className="profile-summary-subtitle">{profile.email || '-'}</div>
+                <div className="profile-hero-meta">
+                  <div className="profile-hero-meta-item">
+                    <i className="bi bi-shield-check"></i>
+                    <span>{displayRole}</span>
+                  </div>
                   <div className="profile-hero-meta-item">
                     <i className="bi bi-telephone"></i>
-                    <span>{profile.phone}</span>
+                    <span>{profile.phone || 'Phone not set'}</span>
                   </div>
-                )}
-                <div className="profile-hero-meta-item">
-                  <span className="profile-role-badge">{displayRole}</span>
                 </div>
               </div>
             </div>
+            <div className="profile-hero-footer">
+              <div>
+                <span className="profile-hero-footer-label">Access</span>
+                <span className="profile-hero-footer-value">Active</span>
+              </div>
+              <div>
+                <span className="profile-hero-footer-label">Updated</span>
+                <span className="profile-hero-footer-value">{formatDate(profileMeta.updated_at)}</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="card profile-account-card">
-          <div className="profile-section-head">
-            <div>
-              <h3>Account Information</h3>
-              <div className="profile-help">Review your current account details.</div>
+          <div className="card profile-account-card profile-account-card-compact">
+            <div className="profile-section-head">
+              <div>
+                <h3>Account Details</h3>
+                <div className="profile-help">Current identity and account activity.</div>
+              </div>
             </div>
-          </div>
-          <div className="profile-account-grid">
-            <div className="profile-info-item">
-              <div className="profile-info-label">Name</div>
-              <div className="profile-info-value">{profile.name || '-'}</div>
-            </div>
-            <div className="profile-info-item">
-              <div className="profile-info-label">Email</div>
-              <div className="profile-info-value">{profile.email || '-'}</div>
-            </div>
-            <div className="profile-info-item">
-              <div className="profile-info-label">Phone</div>
-              <div className="profile-info-value">{profile.phone || '-'}</div>
-            </div>
-            <div className="profile-info-item">
-              <div className="profile-info-label">Role</div>
-              <div className="profile-info-value">{displayRole}</div>
-            </div>
-            <div className="profile-info-item">
-              <div className="profile-info-label">Created At</div>
-              <div className="profile-info-value">{formatDate(profileMeta.created_at)}</div>
-            </div>
-            <div className="profile-info-item">
-              <div className="profile-info-label">Updated At</div>
-              <div className="profile-info-value">{formatDate(profileMeta.updated_at)}</div>
+            <div className="profile-account-grid">
+              <div className="profile-info-item">
+                <span className="profile-info-icon"><i className="bi bi-person"></i></span>
+                <div className="profile-info-content">
+                  <div className="profile-info-label">Name</div>
+                  <div className="profile-info-value">{profile.name || '-'}</div>
+                </div>
+              </div>
+              <div className="profile-info-item">
+                <span className="profile-info-icon"><i className="bi bi-envelope"></i></span>
+                <div className="profile-info-content">
+                  <div className="profile-info-label">Email</div>
+                  <div className="profile-info-value">{profile.email || '-'}</div>
+                </div>
+              </div>
+              <div className="profile-info-item">
+                <span className="profile-info-icon"><i className="bi bi-telephone"></i></span>
+                <div className="profile-info-content">
+                  <div className="profile-info-label">Phone</div>
+                  <div className="profile-info-value">{profile.phone || '-'}</div>
+                </div>
+              </div>
+              <div className="profile-info-item">
+                <span className="profile-info-icon"><i className="bi bi-clock-history"></i></span>
+                <div className="profile-info-content">
+                  <div className="profile-info-label">Created At</div>
+                  <div className="profile-info-value">{formatDate(profileMeta.created_at)}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

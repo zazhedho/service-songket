@@ -41,7 +41,7 @@ export default function DashboardPage() {
       <div className="header dashboard-hero-panel">
         <div className="dashboard-hero-copy">
           <div className="dashboard-hero-eyebrow">Operations Overview</div>
-          <div className="dashboard-hero-title">Songket Dashboard</div>
+          <div className="dashboard-hero-title">SONGKET Dashboard</div>
           <div className="dashboard-hero-subtitle">
             Track order inflow, finance outcomes, dealer movement, and commodity updates from one focused view.
           </div>
@@ -52,9 +52,9 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="dashboard-hero-visual" aria-hidden="true">
-          <div className="dashboard-hero-orbit main">OI</div>
-          <div className="dashboard-hero-orbit finance">FC</div>
-          <div className="dashboard-hero-orbit dealer">DP</div>
+          <div className="dashboard-hero-orbit main">Order In</div>
+          <div className="dashboard-hero-orbit finance">Finance</div>
+          <div className="dashboard-hero-orbit dealer">Dealer</div>
         </div>
       </div>
 

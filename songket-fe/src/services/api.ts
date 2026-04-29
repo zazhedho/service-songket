@@ -38,7 +38,9 @@ const INTERNAL_ERROR_PATTERNS = [
 ]
 
 function isAuthRequest(url?: string) {
-  return Boolean(url && ['/api/user/login', '/api/user/register'].some((path) => url.includes(path)))
+  // Public register is disabled. Keep path reference if self-registration returns.
+  // return Boolean(url && ['/api/user/login', '/api/user/register'].some((path) => url.includes(path)))
+  return Boolean(url && url.includes('/api/user/login'))
 }
 
 function redirectToLogin() {

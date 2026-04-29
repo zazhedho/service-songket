@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"service-songket/internal/authscope"
 	domaincredit "service-songket/internal/domain/credit"
 	domainorder "service-songket/internal/domain/order"
 	interfacecredit "service-songket/internal/interfaces/credit"
 	repositorygeneric "service-songket/internal/repositories/generic"
+	repositoryscope "service-songket/internal/repositories/scopefilters"
 	"service-songket/pkg/filter"
 
 	"gorm.io/gorm"
@@ -88,16 +88,7 @@ func (r *repo) GetAll(ctx context.Context, params filter.BaseParams) ([]domaincr
 }
 
 func applyCreditOrderScope(ctx context.Context, query *gorm.DB, alias string) *gorm.DB {
-	scopedUserID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("credit", "list_all"))
-	if scopedUserID == "" {
-		return query
-	}
-
-	column := "created_by"
-	if strings.TrimSpace(alias) != "" {
-		column = strings.TrimSpace(alias) + ".created_by"
-	}
-	return query.Where(column+" = ?", scopedUserID)
+	return repositoryscope.ApplyOrderAccessScope(ctx, query, alias, "credit", "list_all")
 }
 
 func (r *repo) ListSummaryRows(ctx context.Context) ([]interfacecredit.CreditSummaryRow, error) {

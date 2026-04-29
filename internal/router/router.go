@@ -131,24 +131,27 @@ func (r *Routes) UserRoutes() {
 	}
 
 	h := userHandler.NewUserHandler(uc, loginLimiter)
-	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo)
+	mdw := middlewares.NewMiddleware(blacklistRepo, pRepo, repo)
 
-	// Setup register rate limiter
-	registerLimit := utils.GetEnv("REGISTER_RATE_LIMIT", 5).(int)
-	registerWindowSeconds := utils.GetEnv("REGISTER_RATE_WINDOW_SECONDS", 60).(int)
-	if registerWindowSeconds <= 0 {
-		registerWindowSeconds = 60
-	}
-	registerLimiter := middlewares.IPRateLimitMiddleware(
-		redisClient,
-		"user_register",
-		registerLimit,
-		time.Duration(registerWindowSeconds)*time.Second,
-	)
+	// Disabled public registration. Keep this block as reference if client wants
+	// self-registration again later.
+	//
+	// registerLimit := utils.GetEnv("REGISTER_RATE_LIMIT", 5).(int)
+	// registerWindowSeconds := utils.GetEnv("REGISTER_RATE_WINDOW_SECONDS", 60).(int)
+	// if registerWindowSeconds <= 0 {
+	// 	registerWindowSeconds = 60
+	// }
+	// registerLimiter := middlewares.IPRateLimitMiddleware(
+	// 	redisClient,
+	// 	"user_register",
+	// 	registerLimit,
+	// 	time.Duration(registerWindowSeconds)*time.Second,
+	// )
 
 	user := r.App.Group("/api/user")
 	{
-		user.POST("/register", registerLimiter, h.Register)
+		// Disabled public registration. Users must be created by admin.
+		// user.POST("/register", registerLimiter, h.Register)
 		user.POST("/login", h.Login)
 		user.POST("/forgot-password", h.ForgotPassword)
 		user.POST("/reset-password", h.ResetPassword)
@@ -159,7 +162,7 @@ func (r *Routes) UserRoutes() {
 			userPriv.GET("", h.GetUserByAuth)
 			userPriv.GET("/:id", mdw.PermissionMiddleware("users", "view"), h.GetUserById)
 			userPriv.PUT("", h.Update)
-			userPriv.PUT("/:id", mdw.PermissionMiddleware("users", "assign_role"), h.UpdateUserById)
+			userPriv.PUT("/:id", mdw.PermissionMiddleware("users", "update"), h.UpdateUserById)
 			userPriv.PUT("/change/password", h.ChangePassword)
 			userPriv.DELETE("", h.Delete)
 			userPriv.DELETE("/:id", mdw.PermissionMiddleware("users", "delete"), h.DeleteUserById)
@@ -291,7 +294,8 @@ func (r *Routes) SessionRoutes() {
 func (r *Routes) newProtectedMiddleware() *middlewares.Middleware {
 	blacklistRepo := authRepo.NewBlacklistRepo(r.DB)
 	pRepo := permissionRepo.NewPermissionRepo(r.DB)
-	return middlewares.NewMiddleware(blacklistRepo, pRepo)
+	uRepo := userRepo.NewUserRepo(r.DB)
+	return middlewares.NewMiddleware(blacklistRepo, pRepo, uRepo)
 }
 
 func (r *Routes) OrderRoutes() {

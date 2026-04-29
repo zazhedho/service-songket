@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"service-songket/internal/authscope"
 	domainauth "service-songket/internal/domain/auth"
+	domaindealer "service-songket/internal/domain/dealer"
 	domainpermission "service-songket/internal/domain/permission"
 	domainuser "service-songket/internal/domain/user"
 	"service-songket/internal/dto"
@@ -183,6 +184,13 @@ func (s *ServiceUser) AdminCreateUser(ctx context.Context, req dto.AdminCreateUs
 		}
 	}
 
+	if len(req.DealerIDs) > 0 {
+		if err := s.UserRepo.SetUserDealerIDs(ctx, data.Id, req.DealerIDs); err != nil {
+			return domainuser.Users{}, err
+		}
+	}
+	data, _ = s.hydrateUserDealerAccess(ctx, data)
+
 	return data, nil
 }
 
@@ -252,7 +260,7 @@ func (s *ServiceUser) GetUserById(ctx context.Context, id string) (domainuser.Us
 	if user.Role == utils.RoleSuperAdmin && authscope.FromContext(ctx).Role != utils.RoleSuperAdmin {
 		return domainuser.Users{}, gorm.ErrRecordNotFound
 	}
-	return user, nil
+	return s.hydrateUserDealerAccess(ctx, user)
 }
 
 func (s *ServiceUser) GetUserByEmail(ctx context.Context, email string) (domainuser.Users, error) {
@@ -264,6 +272,7 @@ func (s *ServiceUser) GetUserByAuth(ctx context.Context, id string) (map[string]
 	if err != nil {
 		return nil, err
 	}
+	user, _ = s.hydrateUserDealerAccess(ctx, user)
 
 	permissions, err := s.PermissionRepo.GetUserPermissions(ctx, user.Id)
 	if err != nil {
@@ -273,6 +282,8 @@ func (s *ServiceUser) GetUserByAuth(ctx context.Context, id string) (map[string]
 			"email":       user.Email,
 			"phone":       user.Phone,
 			"role":        user.Role,
+			"dealer_ids":  user.DealerIDs,
+			"dealers":     user.Dealers,
 			"permissions": []string{},
 			"created_at":  user.CreatedAt,
 			"updated_at":  user.UpdatedAt,
@@ -290,6 +301,8 @@ func (s *ServiceUser) GetUserByAuth(ctx context.Context, id string) (map[string]
 		"email":       user.Email,
 		"phone":       user.Phone,
 		"role":        user.Role,
+		"dealer_ids":  user.DealerIDs,
+		"dealers":     user.Dealers,
 		"permissions": permissionNames,
 		"created_at":  user.CreatedAt,
 		"updated_at":  user.UpdatedAt,
@@ -307,6 +320,7 @@ func (s *ServiceUser) GetAllUsers(ctx context.Context, params filter.BaseParams)
 		filteredUsers := make([]domainuser.Users, 0)
 		for _, user := range users {
 			if user.Role != utils.RoleSuperAdmin {
+				user, _ = s.hydrateUserDealerAccess(ctx, user)
 				filteredUsers = append(filteredUsers, user)
 			}
 		}
@@ -314,6 +328,9 @@ func (s *ServiceUser) GetAllUsers(ctx context.Context, params filter.BaseParams)
 		return filteredUsers, total - superadminCount, nil
 	}
 
+	for i := range users {
+		users[i], _ = s.hydrateUserDealerAccess(ctx, users[i])
+	}
 	return users, total, nil
 }
 
@@ -354,29 +371,37 @@ func (s *ServiceUser) Update(ctx context.Context, id string, req dto.UserUpdate)
 	}
 
 	if strings.TrimSpace(req.Role) != "" {
-		if !scope.Has("users", "assign_role") {
-			return domainuser.Users{}, errors.New("access denied: missing permission users:assign_role")
-		}
-
 		newRoleName := normalizeRoleName(req.Role)
-		if newRoleName == utils.RoleSuperAdmin && scope.Role != utils.RoleSuperAdmin {
-			return domainuser.Users{}, errors.New("cannot assign superadmin role")
-		}
+		if newRoleName != strings.TrimSpace(data.Role) {
+			if !scope.Has("users", "assign_role") {
+				return domainuser.Users{}, errors.New("access denied: missing permission users:assign_role")
+			}
 
-		roleEntity, err := s.RoleRepo.GetByName(ctx, newRoleName)
-		if err != nil || roleEntity.Id == "" {
-			return domainuser.Users{}, errors.New("invalid role: " + newRoleName)
-		}
+			if newRoleName == utils.RoleSuperAdmin && scope.Role != utils.RoleSuperAdmin {
+				return domainuser.Users{}, errors.New("cannot assign superadmin role")
+			}
 
-		data.Role = newRoleName
-		data.RoleId = &roleEntity.Id
+			roleEntity, err := s.RoleRepo.GetByName(ctx, newRoleName)
+			if err != nil || roleEntity.Id == "" {
+				return domainuser.Users{}, errors.New("invalid role: " + newRoleName)
+			}
+
+			data.Role = newRoleName
+			data.RoleId = &roleEntity.Id
+		}
 	}
 
 	if err = s.UserRepo.Update(ctx, data); err != nil {
 		return domainuser.Users{}, err
 	}
 
-	return data, nil
+	if req.DealerIDs != nil {
+		if err := s.UserRepo.SetUserDealerIDs(ctx, data.Id, req.DealerIDs); err != nil {
+			return domainuser.Users{}, err
+		}
+	}
+
+	return s.hydrateUserDealerAccess(ctx, data)
 }
 
 func (s *ServiceUser) ChangePassword(ctx context.Context, id string, req dto.ChangePassword) (domainuser.Users, error) {
@@ -463,3 +488,24 @@ func (s *ServiceUser) Delete(ctx context.Context, id string) error {
 }
 
 var _ interfaceuser.ServiceUserInterface = (*ServiceUser)(nil)
+
+func (s *ServiceUser) hydrateUserDealerAccess(ctx context.Context, user domainuser.Users) (domainuser.Users, error) {
+	accessRows, err := s.UserRepo.ListUserDealers(ctx, user.Id)
+	if err != nil {
+		return user, err
+	}
+
+	user.DealerIDs = make([]string, 0, len(accessRows))
+	user.Dealers = make([]domaindealer.Dealer, 0, len(accessRows))
+	for _, row := range accessRows {
+		dealerID := strings.TrimSpace(row.DealerID)
+		if dealerID == "" {
+			continue
+		}
+		user.DealerIDs = append(user.DealerIDs, dealerID)
+		if row.Dealer != nil {
+			user.Dealers = append(user.Dealers, *row.Dealer)
+		}
+	}
+	return user, nil
+}

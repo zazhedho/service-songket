@@ -1,32 +1,36 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getMe, login, register } from '../../services/authService'
+import { getMe, login } from '../../services/authService'
 import { getMyPermissions } from '../../services/permissionService'
 import { useAuth } from '../../store'
 import { normalizeEmailInput } from '../../utils/email'
 import { focusFirstInvalidField } from '../../utils/formFocus'
-import { sanitizeDigits } from '../../utils/input'
+// Disabled public registration reference:
+// import { sanitizeDigits } from '../../utils/input'
 
-function validatePasswordByBackendRule(password: string) {
-  if (password.length < 8) return 'Password must be at least 8 characters long.'
-  if (password.length > 64) return 'Password must be at most 64 characters long.'
-  if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
-  if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
-  if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
-  if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must include at least 1 symbol (!@#$%^&*...).'
-  return ''
-}
-
-function getPasswordRuleChecks(password: string) {
-  return [
-    { label: 'At least 8 characters', valid: password.length >= 8 },
-    { label: 'Maximum 64 characters', valid: password.length <= 64 },
-    { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
-    { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
-    { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
-    { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
-  ]
-}
+// Disabled public registration reference. Re-enable only if client allows
+// self-registration again.
+//
+// function validatePasswordByBackendRule(password: string) {
+//   if (password.length < 8) return 'Password must be at least 8 characters long.'
+//   if (password.length > 64) return 'Password must be at most 64 characters long.'
+//   if (!/[a-z]/.test(password)) return 'Password must include at least 1 lowercase letter (a-z).'
+//   if (!/[A-Z]/.test(password)) return 'Password must include at least 1 uppercase letter (A-Z).'
+//   if (!/[0-9]/.test(password)) return 'Password must include at least 1 number (0-9).'
+//   if (!/[^a-zA-Z0-9]/.test(password)) return 'Password must include at least 1 symbol (!@#$%^&*...).'
+//   return ''
+// }
+//
+// function getPasswordRuleChecks(password: string) {
+//   return [
+//     { label: 'At least 8 characters', valid: password.length >= 8 },
+//     { label: 'Maximum 64 characters', valid: password.length <= 64 },
+//     { label: 'At least 1 lowercase letter (a-z)', valid: /[a-z]/.test(password) },
+//     { label: 'At least 1 uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
+//     { label: 'At least 1 number (0-9)', valid: /[0-9]/.test(password) },
+//     { label: 'At least 1 symbol (!@#$%^&*...)', valid: /[^a-zA-Z0-9]/.test(password) },
+//   ]
+// }
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
@@ -35,12 +39,13 @@ function isValidEmail(value: string) {
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  // Disabled public registration reference:
+  // const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [isRegister, setIsRegister] = useState(false)
+  // const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  // const [name, setName] = useState('')
+  // const [phone, setPhone] = useState('')
+  // const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -48,36 +53,38 @@ export default function LoginPage() {
   const setToken = useAuth((s) => s.setToken)
   const setRoleStore = useAuth((s) => s.setRole)
   const setPermissions = useAuth((s) => s.setPermissions)
-  const isRegisterPasswordMismatch = isRegister && confirmPassword.length > 0 && password !== confirmPassword
+  // const isRegisterPasswordMismatch = isRegister && confirmPassword.length > 0 && password !== confirmPassword
 
-  const switchMode = (nextRegisterMode: boolean) => {
-    setIsRegister(nextRegisterMode)
-    setError('')
-    setPassword('')
-    setConfirmPassword('')
-    setShowPassword(false)
-    setShowConfirmPassword(false)
-  }
+  // Disabled public registration reference:
+  // const switchMode = (nextRegisterMode: boolean) => {
+  //   setIsRegister(nextRegisterMode)
+  //   setError('')
+  //   setPassword('')
+  //   setConfirmPassword('')
+  //   setShowPassword(false)
+  //   setShowConfirmPassword(false)
+  // }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
 
-    const trimmedName = name.trim()
     const trimmedEmail = email.trim()
-    const trimmedPhone = phone.trim()
-
-    if (isRegister && !trimmedName) {
-      setError('Name is required.')
-      focusFirstInvalidField('name')
-      return
-    }
-
-    if (isRegister && !trimmedPhone) {
-      setError('Phone number is required.')
-      focusFirstInvalidField('phone')
-      return
-    }
+    // Disabled public registration reference:
+    // const trimmedName = name.trim()
+    // const trimmedPhone = phone.trim()
+    //
+    // if (isRegister && !trimmedName) {
+    //   setError('Name is required.')
+    //   focusFirstInvalidField('name')
+    //   return
+    // }
+    //
+    // if (isRegister && !trimmedPhone) {
+    //   setError('Phone number is required.')
+    //   focusFirstInvalidField('phone')
+    //   return
+    // }
 
     if (!trimmedEmail || !isValidEmail(trimmedEmail)) {
       setError('A valid email address is required.')
@@ -93,60 +100,62 @@ export default function LoginPage() {
 
     try {
       setLoading(true)
-      if (isRegister) {
-        const passwordRuleError = validatePasswordByBackendRule(password)
-        if (passwordRuleError) {
-          setError(passwordRuleError)
-          focusFirstInvalidField('password')
-          return
-        }
+      // Disabled public registration reference:
+      // if (isRegister) {
+      //   const passwordRuleError = validatePasswordByBackendRule(password)
+      //   if (passwordRuleError) {
+      //     setError(passwordRuleError)
+      //     focusFirstInvalidField('password')
+      //     return
+      //   }
+      //
+      //   if (!confirmPassword) {
+      //     setError('Password confirmation is required.')
+      //     focusFirstInvalidField('confirm_password')
+      //     return
+      //   }
+      //
+      //   if (password !== confirmPassword) {
+      //     setError('Passwords do not match.')
+      //     focusFirstInvalidField('confirm_password')
+      //     return
+      //   }
+      //
+      //   await register({ name: trimmedName, email: trimmedEmail, phone: trimmedPhone, password })
+      //   setIsRegister(false)
+      //   setPassword('')
+      //   setConfirmPassword('')
+      //   setShowPassword(false)
+      //   setShowConfirmPassword(false)
+      //   return
+      // }
 
-        if (!confirmPassword) {
-          setError('Password confirmation is required.')
-          focusFirstInvalidField('confirm_password')
-          return
-        }
+      const { data } = await login(trimmedEmail, password)
+      const token = data?.data?.token || data?.token || data?.data
+      setToken(token)
 
-        if (password !== confirmPassword) {
-          setError('Passwords do not match.')
-          focusFirstInvalidField('confirm_password')
-          return
-        }
+      try {
+        const [me, permissionsRes] = await Promise.all([getMe(), getMyPermissions()])
+        const backendRole = me.data?.data?.role || me.data?.role
+        if (backendRole) setRoleStore(backendRole)
 
-        await register({ name: trimmedName, email: trimmedEmail, phone: trimmedPhone, password })
-        setIsRegister(false)
-        setPassword('')
-        setConfirmPassword('')
-        setShowPassword(false)
-        setShowConfirmPassword(false)
-      } else {
-        const { data } = await login(trimmedEmail, password)
-        const token = data?.data?.token || data?.token || data?.data
-        setToken(token)
-
-        try {
-          const [me, permissionsRes] = await Promise.all([getMe(), getMyPermissions()])
-          const backendRole = me.data?.data?.role || me.data?.role
-          if (backendRole) setRoleStore(backendRole)
-
-          const nextPermissions = (permissionsRes.data?.data || permissionsRes.data || [])
-            .map((permission: any) => String(permission?.name || '').trim())
-            .filter(Boolean)
-          setPermissions(nextPermissions)
-        } catch {
-          setRoleStore('')
-          setPermissions([])
-        }
-
-        navigate('/dashboard')
+        const nextPermissions = (permissionsRes.data?.data || permissionsRes.data || [])
+          .map((permission: any) => String(permission?.name || '').trim())
+          .filter(Boolean)
+        setPermissions(nextPermissions)
+      } catch {
+        setRoleStore('')
+        setPermissions([])
       }
+
+      navigate('/dashboard')
     } catch (err: any) {
       const rawError = err?.response?.data?.error
       const message =
         (typeof rawError === 'string' && rawError.trim()) ||
         (rawError && typeof rawError === 'object' && typeof rawError.message === 'string' && rawError.message.trim()) ||
         (typeof err?.response?.data?.message === 'string' && err.response.data.message.trim()) ||
-        'Failed to process authentication'
+        'Unable to sign in. Please check your credentials and try again.'
       setError(message)
     } finally {
       setLoading(false)
@@ -154,101 +163,84 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`auth-shell${isRegister ? ' auth-shell-register' : ''}`}>
-      <section className="auth-hero" aria-label="Songket overview">
+    <div className="auth-shell">
+      <section className="auth-hero" aria-label="SONGKET overview">
         <div className="auth-hero-inner">
           <div className="auth-eyebrow">Operational Intelligence</div>
-          <h1 className="auth-hero-title">Songket Business Console</h1>
+          <h1 className="auth-hero-title">SONGKET Business Console</h1>
           <div className="auth-hero-copy">
-            Monitor order-in movement, finance decisions, and dealer performance from one focused workspace.
+            Monitor order movement, finance decisions, and dealer performance from one focused workspace.
           </div>
 
           <div className="auth-feature-grid">
             <div className="auth-feature-card">
               <div className="auth-feature-kicker">Dashboard</div>
-              <div className="auth-feature-title">Daily Order In Trend</div>
-              <div className="auth-feature-copy">Track daily order movement across dealer coverage and active periods.</div>
+              <div className="auth-feature-title">Performance Overview</div>
+              <div className="auth-feature-copy">Monitor order movement, finance outcomes, and dealer activity from one workspace.</div>
             </div>
             <div className="auth-feature-card">
               <div className="auth-feature-kicker">Finance</div>
-              <div className="auth-feature-title">Approve vs Reject</div>
-              <div className="auth-feature-copy">Review finance outcomes with company, dealer, and status context.</div>
+              <div className="auth-feature-title">Finance Decisions</div>
+              <div className="auth-feature-copy">Review approval, rejection, and company migration signals with clearer context.</div>
             </div>
             <div className="auth-feature-card">
               <div className="auth-feature-kicker">Analysis</div>
-              <div className="auth-feature-title">YTD Summary</div>
-              <div className="auth-feature-copy">Compare current performance against previous matching periods.</div>
+              <div className="auth-feature-title">Dealer & Area Insights</div>
+              <div className="auth-feature-copy">Compare performance by dealer, location, and period to support daily decisions.</div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="auth-form-panel" aria-label={isRegister ? 'Register form' : 'Login form'}>
+      <section className="auth-form-panel" aria-label="Login form">
         <div className="auth-card">
           <div className="auth-brand">
-            <img src="/songket-logo.jpeg" alt="SONGKET Logo" className="auth-logo" />
-            <div>
-              <div className="auth-brand-name">S.O.N.G.K.E.T</div>
-              <div className="auth-brand-subtitle">Business access portal</div>
+            <div className="auth-brand-row">
+              <img src="/songket-logo.jpeg" alt="SONGKET Logo" className="auth-logo" />
+              <div>
+                <div className="auth-brand-name">S.O.N.G.K.E.T</div>
+                <div className="auth-brand-subtitle">Authorized access only</div>
+              </div>
             </div>
-          </div>
-
-          <div className="auth-mode-switch" role="tablist" aria-label="Authentication mode">
-            <button
-              type="button"
-              className={`auth-mode-button${!isRegister ? ' active' : ''}`}
-              onClick={() => switchMode(false)}
-              aria-pressed={!isRegister}
-            >
-              Log in
-            </button>
-            <button
-              type="button"
-              className={`auth-mode-button${isRegister ? ' active' : ''}`}
-              onClick={() => switchMode(true)}
-              aria-pressed={isRegister}
-            >
-              Register
-            </button>
+            <div className="auth-brand-fullname">System for Order-In Gathering and Kontrol for Enhanced Tracking</div>
           </div>
 
           <div className="auth-heading">
-            <h2>{isRegister ? 'Create your account' : 'Welcome back'}</h2>
-            <p>
-              {isRegister
-                ? 'Set up your access using a secure password.'
-                : 'Sign in to continue managing Songket operations.'}
-            </p>
+            <h2>Welcome back</h2>
+            <p>Access your assigned workspace and continue monitoring operations.</p>
           </div>
 
+          {/* Disabled public registration reference:
+          <div className="auth-mode-switch" role="tablist" aria-label="Authentication mode">
+            <button type="button" className={`auth-mode-button${!isRegister ? ' active' : ''}`} onClick={() => switchMode(false)} aria-pressed={!isRegister}>
+              Log in
+            </button>
+            <button type="button" className={`auth-mode-button${isRegister ? ' active' : ''}`} onClick={() => switchMode(true)} aria-pressed={isRegister}>
+              Register
+            </button>
+          </div>
+          */}
+
           <form onSubmit={handleSubmit} className="auth-form" noValidate>
+            {/* Disabled public registration reference:
             {isRegister && (
               <div className="auth-register-grid">
                 <div data-field="name">
                   <input className="auth-input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
                 <div data-field="phone">
-                  <input
-                    className="auth-input"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    maxLength={20}
-                    placeholder="Phone"
-                    value={phone}
-                    onChange={(e) => setPhone(sanitizeDigits(e.target.value))}
-                    required
-                  />
+                  <input className="auth-input" type="tel" inputMode="numeric" autoComplete="tel" maxLength={20} placeholder="Phone" value={phone} onChange={(e) => setPhone(sanitizeDigits(e.target.value))} required />
                 </div>
               </div>
             )}
+            */}
 
             <div data-field="email">
               <input
                 className="auth-input"
                 placeholder="Email"
                 type="email"
-                autoComplete={isRegister ? 'email' : 'username'}
+                autoComplete="username"
                 autoCapitalize="none"
                 autoCorrect="off"
                 value={email}
@@ -264,7 +256,7 @@ export default function LoginPage() {
                 value={password}
                 placeholder="Password"
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                autoComplete="current-password"
                 required
               />
               <button
@@ -277,43 +269,30 @@ export default function LoginPage() {
               </button>
             </div>
 
+            {/* Disabled public registration reference:
             {isRegister && <PasswordRulesGuide password={password} />}
 
             {isRegister && (
               <div className="auth-password-wrap" data-field="confirm_password">
-                <input
-                  className="auth-password-input"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  placeholder="Password confirmation"
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-                <button
-                  type="button"
-                  className="auth-password-toggle"
-                  onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}
-                >
+                <input className="auth-password-input" type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} placeholder="Password confirmation" onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" required />
+                <button type="button" className="auth-password-toggle" onClick={() => setShowConfirmPassword((prev) => !prev)} aria-label={showConfirmPassword ? 'Hide password confirmation' : 'Show password confirmation'}>
                   {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             )}
 
             {isRegisterPasswordMismatch && <div className="auth-inline-error">Passwords do not match.</div>}
+            */}
 
             {error && <div className="auth-alert">{error}</div>}
 
             <button type="submit" disabled={loading} className="auth-submit-button">
-              {loading ? 'Loading...' : isRegister ? 'Create Account' : 'Log In'}
+              {loading ? 'Loading...' : 'Log In'}
             </button>
           </form>
 
           <div className="auth-helper">
-            {isRegister
-              ? 'Already have access? Switch to Log in above.'
-              : 'Need a new account? Switch to Register above.'}
+            Need access? Ask your administrator to create an account for you.
           </div>
         </div>
       </section>
@@ -339,20 +318,22 @@ function EyeOffIcon() {
   )
 }
 
-function PasswordRulesGuide({ password }: { password: string }) {
-  if (!password) return null
-  const checks = getPasswordRuleChecks(password)
-  return (
-    <div className="profile-password-rules">
-      <div className="profile-password-rules-title">Password Requirements:</div>
-      {checks.map((rule) => (
-        <div key={rule.label} className={`profile-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
-          <span className="profile-password-rule-icon" aria-hidden="true">
-            {rule.valid ? '✓' : '×'}
-          </span>
-          <span>{rule.label}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
+// Disabled public registration reference:
+//
+// function PasswordRulesGuide({ password }: { password: string }) {
+//   if (!password) return null
+//   const checks = getPasswordRuleChecks(password)
+//   return (
+//     <div className="profile-password-rules">
+//       <div className="profile-password-rules-title">Password Requirements:</div>
+//       {checks.map((rule) => (
+//         <div key={rule.label} className={`profile-password-rule ${rule.valid ? 'valid' : 'invalid'}`}>
+//           <span className="profile-password-rule-icon" aria-hidden="true">
+//             {rule.valid ? '✓' : '×'}
+//           </span>
+//           <span>{rule.label}</span>
+//         </div>
+//       ))}
+//     </div>
+//   )
+// }

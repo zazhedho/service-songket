@@ -26,6 +26,7 @@ type userRepoMock struct {
 	emailErr  error
 	phoneUser domainuser.Users
 	phoneErr  error
+	dealerIDs []string
 }
 
 func (m *userRepoMock) Store(ctx context.Context, data domainuser.Users) error {
@@ -69,6 +70,23 @@ func (m *userRepoMock) Update(ctx context.Context, data domainuser.Users) error 
 }
 
 func (m *userRepoMock) Delete(ctx context.Context, id string) error { return nil }
+
+func (m *userRepoMock) ListUserDealerIDs(ctx context.Context, userID string) ([]string, error) {
+	return append([]string{}, m.dealerIDs...), nil
+}
+
+func (m *userRepoMock) ListUserDealers(ctx context.Context, userID string) ([]domainuser.UserDealerAccess, error) {
+	rows := make([]domainuser.UserDealerAccess, 0, len(m.dealerIDs))
+	for _, dealerID := range m.dealerIDs {
+		rows = append(rows, domainuser.UserDealerAccess{UserID: userID, DealerID: dealerID})
+	}
+	return rows, nil
+}
+
+func (m *userRepoMock) SetUserDealerIDs(ctx context.Context, userID string, dealerIDs []string) error {
+	m.dealerIDs = append([]string{}, dealerIDs...)
+	return nil
+}
 
 type authRepoMock struct{}
 

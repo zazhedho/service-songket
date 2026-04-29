@@ -221,8 +221,7 @@ func (s *Service) Update(ctx context.Context, id string, req dto.UpdateOrderRequ
 		return domainorder.Order{}, err
 	}
 	scope := authscope.FromContext(ctx)
-	scopedUserID := scope.ScopedUserID("orders", "update_all")
-	if strings.TrimSpace(scopedUserID) != "" && !scope.CanAccessOwner(order.CreatedBy) {
+	if !scope.Has("orders", "update_all") && !scope.CanAccessOwner(order.CreatedBy) && !scope.CanAccessDealer(order.DealerID) {
 		return domainorder.Order{}, fmt.Errorf("you are not allowed to update this order")
 	}
 	previousPrimaryStatus := strings.ToLower(strings.TrimSpace(order.ResultStatus))
@@ -463,8 +462,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	scope := authscope.FromContext(ctx)
-	scopedUserID := scope.ScopedUserID("orders", "delete_all")
-	if strings.TrimSpace(scopedUserID) != "" && !scope.CanAccessOwner(order.CreatedBy) {
+	if !scope.Has("orders", "delete_all") && !scope.CanAccessOwner(order.CreatedBy) && !scope.CanAccessDealer(order.DealerID) {
 		return fmt.Errorf("you are not allowed to delete this order")
 	}
 

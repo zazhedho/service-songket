@@ -5,17 +5,15 @@ import (
 	"fmt"
 	"strings"
 
-	"service-songket/internal/authscope"
 	domainorder "service-songket/internal/domain/order"
 	"service-songket/internal/dto"
+	repositoryscope "service-songket/internal/repositories/scopefilters"
 
 	"gorm.io/gorm"
 )
 
 func applyDashboardScopeFilters(ctx context.Context, query *gorm.DB, req dto.DashboardSummaryQuery, financeCompanyColumn string) *gorm.DB {
-	if ownerID := strings.TrimSpace(authscope.FromContext(ctx).ScopedUserID("orders", "list_all")); ownerID != "" {
-		query = query.Where("o.created_by = ?", ownerID)
-	}
+	query = repositoryscope.ApplyOrderAccessScope(ctx, query, "o", "orders", "list_all")
 	if dealerID := strings.TrimSpace(req.DealerID); dealerID != "" {
 		query = query.Where("o.dealer_id = ?", dealerID)
 	}

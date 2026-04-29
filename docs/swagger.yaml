@@ -27,22 +27,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
-  /api/user/register:
-    post:
-      summary: Register user (role default dealer)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: Registered
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
+  # Disabled public registration. Users must be created by admin.
+  # /api/user/register:
+  #   post:
+  #     summary: Register user (role default dealer)
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         application/json:
+  #           schema:
+  #             $ref: '#/components/schemas/RegisterRequest'
+  #     responses:
+  #       '201':
+  #         description: Registered
+  #         content:
+  #           application/json:
+  #             schema:
+  #               $ref: '#/components/schemas/User'
   /api/order:
     post:
       summary: Buat Order In
@@ -806,17 +807,18 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
-    RegisterRequest:
-      type: object
-      required: [name, email, phone, password, role]
-      properties:
-        name: {type: string}
-        email: {type: string}
-        phone: {type: string}
-        password: {type: string, format: password}
-        role:
-          type: string
-          description: role user (dealer, main_dealer, superadmin hanya oleh superadmin)
+    # Disabled public registration schema reference.
+    # RegisterRequest:
+    #   type: object
+    #   required: [name, email, phone, password, role]
+    #   properties:
+    #     name: {type: string}
+    #     email: {type: string}
+    #     phone: {type: string}
+    #     password: {type: string, format: password}
+    #     role:
+    #       type: string
+    #       description: role user (dealer, main_dealer, superadmin hanya oleh superadmin)
     User:
       type: object
       properties:
