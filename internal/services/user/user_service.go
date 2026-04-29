@@ -291,7 +291,7 @@ func (s *ServiceUser) GetUserByAuth(ctx context.Context, id string) (map[string]
 		}, nil
 	}
 
-	permissionNames := []string{}
+	var permissionNames []string
 	for _, permission := range permissions {
 		permissionNames = append(permissionNames, permission.Name)
 	}
