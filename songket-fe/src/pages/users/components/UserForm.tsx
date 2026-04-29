@@ -115,7 +115,7 @@ export default function UserForm({
               </div>
               <div data-field="phone">
                 <label>Phone</label>
-                <input type="tel" inputMode="numeric" autoComplete="tel" minLength={9} maxLength={15} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" />
+                <input type="tel" inputMode="numeric" autoComplete="tel" minLength={9} maxLength={15} value={form.phone} onChange={(e) => set('phone', sanitizeDigits(e.target.value))} placeholder="Enter phone number" required />
               </div>
               <div data-field="role">
                 <label>Role</label>
