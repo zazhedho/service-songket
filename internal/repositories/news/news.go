@@ -3,6 +3,7 @@ package repositorynews
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	domainnews "service-songket/internal/domain/news"
 	domainscrapesource "service-songket/internal/domain/scrapesource"
@@ -122,6 +123,13 @@ func (r *repo) GetAllItems(category string, params filter.BaseParams) ([]domainn
 
 func (r *repo) DeleteItem(id string) error {
 	return r.db.Delete(&domainnews.NewsItem{}, "id = ?", id).Error
+}
+
+func (r *repo) HardDeleteItemsPublishedBefore(cutoff time.Time) error {
+	return r.db.Unscoped().
+		Where("published_at < ?", cutoff).
+		Delete(&domainnews.NewsItem{}).
+		Error
 }
 
 func (r *repo) GetSourceByURLCandidates(urls []string) (domainnews.NewsSource, error) {

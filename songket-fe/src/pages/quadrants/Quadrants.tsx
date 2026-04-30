@@ -4,7 +4,7 @@ import { useLocationNameResolver } from '../../hooks/useLocationNameResolver'
 import { resolveErrorMessage } from '../../utils/errorMessage'
 import { buildFilterYearOptions } from '../../utils/yearOptions'
 import QuadrantContent from './components/QuadrantContent'
-import { clampPercent, getOrderInGrowth, normalizeToken } from './components/quadrantHelpers'
+import { getOrderInGrowth, normalizeToken } from './components/quadrantHelpers'
 
 type QuadrantItem = {
   job_id?: string
@@ -215,29 +215,42 @@ export default function QuadrantsPage() {
     const axisGap = 8
     const splitXPercent = 35
     const splitYGrowthPercent = 0
+    const creditTickStep = 10
     const growthTickStep = 20
     const growthGridStep = 10
-    const borderTicks = Array.from({ length: 11 }, (_, index) => index * 10) // 0..100
 
     const crisp = (value: number) => Math.round(value) + 0.5
     const left = crisp(padding.left)
     const top = crisp(padding.top)
     const right = crisp(width - padding.right)
     const bottom = crisp(height - padding.bottom)
-    const toX = (percent: number) => left + (clampPercent(percent) / 100) * (right - left)
+
+    const creditValues = filtered.map((item) => Math.max(0, Number(item.credit_capability || 0))).filter((value) => Number.isFinite(value))
+    const observedCreditMax = creditValues.length ? Math.max(...creditValues) : 100
+    const creditPadding = observedCreditMax > 100 ? Math.max(observedCreditMax * 0.08, 5) : 0
+    const baseCreditMax = Math.max(100, Math.ceil((observedCreditMax + creditPadding) / creditTickStep) * creditTickStep)
+    const xTickStep = baseCreditMax <= 120 ? 10 : baseCreditMax <= 240 ? 20 : 50
+    const creditMax = Math.ceil(baseCreditMax / xTickStep) * xTickStep
+    const borderTicks = Array.from(
+      { length: Math.floor(creditMax / xTickStep) + 1 },
+      (_item, index) => index * xTickStep,
+    )
+    const toX = (percent: number) => {
+      const clamped = Math.min(Math.max(Number(percent || 0), 0), creditMax)
+      return left + (clamped / creditMax) * (right - left)
+    }
 
     const growthValues = filtered.map((item) => getOrderInGrowth(item)).filter((value) => Number.isFinite(value))
     const observedMin = growthValues.length ? Math.min(...growthValues) : -10
     const observedMax = growthValues.length ? Math.max(...growthValues) : 10
-    const observedGrowthExtent = Math.max(
-      Math.abs(observedMin - splitYGrowthPercent),
-      Math.abs(observedMax - splitYGrowthPercent),
-      50,
-    )
-    const growthPadding = Math.max(observedGrowthExtent * 0.12, 5)
-    const growthExtent = Math.ceil((observedGrowthExtent + growthPadding) / growthTickStep) * growthTickStep
-    const growthMin = splitYGrowthPercent - growthExtent
-    const growthMax = splitYGrowthPercent + growthExtent
+    const observedNegativeExtent = Math.max(splitYGrowthPercent - observedMin, 20)
+    const observedPositiveExtent = Math.max(observedMax - splitYGrowthPercent, 50)
+    const negativePadding = Math.max(observedNegativeExtent * 0.12, 5)
+    const positivePadding = Math.max(observedPositiveExtent * 0.12, 5)
+    const negativeExtent = Math.ceil((observedNegativeExtent + negativePadding) / growthTickStep) * growthTickStep
+    const positiveExtent = Math.ceil((observedPositiveExtent + positivePadding) / growthTickStep) * growthTickStep
+    const growthMin = splitYGrowthPercent - negativeExtent
+    const growthMax = splitYGrowthPercent + positiveExtent
 
     const toY = (growthPercent: number) => {
       const clamped = Math.min(Math.max(growthPercent, growthMin), growthMax)
@@ -261,9 +274,9 @@ export default function QuadrantsPage() {
     const ySplit = crisp(toY(splitYGrowthPercent))
 
     const points = filtered.map((item) => {
-      const xRaw = clampPercent(item.credit_capability)
+      const xRaw = Math.max(0, Number(item.credit_capability || 0))
       const yRaw = Number(item.order_in_growth_percent || 0)
-      const isCreditBoundary = xRaw <= 0 || xRaw >= 100
+      const isCreditBoundary = xRaw <= 0 || xRaw >= creditMax
 
       let x = toX(xRaw)
       let y = toY(yRaw)
