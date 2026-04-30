@@ -74,6 +74,10 @@ func (s *Service) ListSources(params filter.BaseParams) ([]domainnews.NewsSource
 }
 
 func (s *Service) Latest(category string) (map[string]domainnews.NewsItem, error) {
+	if err := s.deleteExpiredNewsItems(); err != nil {
+		return nil, err
+	}
+
 	sources, err := s.repo.GetSources(category)
 	if err != nil {
 		return nil, err
@@ -95,6 +99,10 @@ func (s *Service) Latest(category string) (map[string]domainnews.NewsItem, error
 }
 
 func (s *Service) ListItems(category string, params filter.BaseParams) ([]domainnews.NewsItem, int64, error) {
+	if err := s.deleteExpiredNewsItems(); err != nil {
+		return nil, 0, err
+	}
+
 	rows, total, err := s.repo.GetAllItems(category, params)
 	if err != nil {
 		return nil, 0, err
@@ -114,6 +122,13 @@ func (s *Service) ListItems(category string, params filter.BaseParams) ([]domain
 
 func (s *Service) DeleteItem(id string) error {
 	return s.repo.DeleteItem(id)
+}
+
+func (s *Service) deleteExpiredNewsItems() error {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	cutoff := today.AddDate(0, 0, -7)
+	return s.repo.HardDeleteItemsPublishedBefore(cutoff)
 }
 
 func (s *Service) Scrape(ctx context.Context, urls []string) ([]domainnews.NewsScrapedArticle, error) {

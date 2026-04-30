@@ -20,6 +20,7 @@ type newsRepoMock struct {
 	updateSourceFieldsCalls    []map[string]interface{}
 	storedItems                []domainnews.NewsItem
 	listActiveScrapeSourceURLs []string
+	expiredCutoffs             []time.Time
 }
 
 func (m *newsRepoMock) StoreSource(data domainnews.NewsSource) error {
@@ -48,6 +49,10 @@ func (m *newsRepoMock) GetAllItems(category string, params filter.BaseParams) ([
 	return nil, 0, nil
 }
 func (m *newsRepoMock) DeleteItem(id string) error { return nil }
+func (m *newsRepoMock) HardDeleteItemsPublishedBefore(cutoff time.Time) error {
+	m.expiredCutoffs = append(m.expiredCutoffs, cutoff)
+	return nil
+}
 func (m *newsRepoMock) GetSourceByURLCandidates(urls []string) (domainnews.NewsSource, error) {
 	for _, u := range urls {
 		if row, ok := m.sourceByURL[u]; ok {
@@ -76,6 +81,30 @@ func (m *newsRepoMock) GetItemByURLCandidates(urls []string) (domainnews.NewsIte
 }
 func (m *newsRepoMock) ListActiveScrapeSourceURLs(sourceType string) ([]string, error) {
 	return append([]string{}, m.listActiveScrapeSourceURLs...), nil
+}
+
+func TestListItemsHardDeletesExpiredNewsBeforeQuery(t *testing.T) {
+	repo := &newsRepoMock{
+		sourceByName: map[string]domainnews.NewsSource{},
+		sourceByURL:  map[string]domainnews.NewsSource{},
+	}
+	service := NewNewsService(repo)
+
+	_, _, err := service.ListItems("news", filter.BaseParams{Limit: 10})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if len(repo.expiredCutoffs) != 1 {
+		t.Fatalf("expected one expired cleanup call, got %d", len(repo.expiredCutoffs))
+	}
+	cutoff := repo.expiredCutoffs[0]
+	if cutoff.Hour() != 0 || cutoff.Minute() != 0 || cutoff.Second() != 0 || cutoff.Nanosecond() != 0 {
+		t.Fatalf("expected cutoff at start of day, got %s", cutoff)
+	}
+	expected := time.Now().AddDate(0, 0, -7)
+	if cutoff.Year() != expected.Year() || cutoff.YearDay() != expected.YearDay() {
+		t.Fatalf("expected cutoff date seven days ago, got %s", cutoff)
+	}
 }
 
 func TestUpsertSourceCreatesWhenNotFound(t *testing.T) {

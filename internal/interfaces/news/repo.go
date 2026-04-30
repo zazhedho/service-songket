@@ -1,6 +1,8 @@
 package interfacenews
 
 import (
+	"time"
+
 	domainnews "service-songket/internal/domain/news"
 	"service-songket/pkg/filter"
 )
@@ -14,6 +16,7 @@ type RepoNewsInterface interface {
 	GetLatestItemBySource(sourceID string) (domainnews.NewsItem, error)
 	GetAllItems(category string, params filter.BaseParams) ([]domainnews.NewsItem, int64, error)
 	DeleteItem(id string) error
+	HardDeleteItemsPublishedBefore(cutoff time.Time) error
 	GetSourceByURLCandidates(urls []string) (domainnews.NewsSource, error)
 	UpdateSourceFields(id string, updates map[string]interface{}) error
 	StoreItem(data domainnews.NewsItem) error
